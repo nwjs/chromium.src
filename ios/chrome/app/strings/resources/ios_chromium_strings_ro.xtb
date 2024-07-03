@@ -75,6 +75,7 @@ Pentru mai multe setări care folosesc date pentru a-ți îmbunătăți experien
 <translation id="2942241131342758843">Folosește Chromium în mod prestabilit ca să deschizi linkuri, să cauți din widgeturi și să completezi automat parolele în alte aplicații</translation>
 <translation id="2977470724722393594">Chromium este actualizat</translation>
 <translation id="3044857325852340337">Datele Chromium au fost șterse</translation>
+<translation id="3049211156275642309">Finalizează configurarea Chromium</translation>
 <translation id="3078941082359356771">{COUNT,plural, =1{Chromium te poate ajuta să urmărești acest pachet în pagina Filă nouă.}few{Chromium te poate ajuta să urmărești aceste pachete în pagina Filă nouă.}other{Chromium te poate ajuta să urmărești aceste pachete în pagina Filă nouă.}}</translation>
 <translation id="3102849287235003384">Pentru a te deconecta de la Contul Google pe toate site-urile, <ph name="BEGIN_LINK" />deconectează-te de la Chromium<ph name="END_LINK" />.</translation>
 <translation id="3219277919172823720">Căutarea vocală în Chromium</translation>
@@ -201,7 +202,6 @@ De reținut:
 <translation id="6433172051771630690">Sfaturi pentru a profita din plin de Chromium.</translation>
 <translation id="6502321914804101924">Te-ai deconectat de la Chromium</translation>
 <translation id="6563921047760808519">Află mai multe despre <ph name="BEGIN_LINK" />cum îți păstrează Chromium datele private<ph name="END_LINK" /></translation>
-<translation id="6625409903340039086">Chromium acceptă acum politicile privind utilizatorii pentru contul tău gestionat</translation>
 <translation id="6728350288669261079">Deschide Setările în Chromium.</translation>
 <translation id="6752854822223394465">Organizația ta configurează Chromium...</translation>
 <translation id="6794054469102824109">Deschide jocul Chromium Dino.</translation>
@@ -232,7 +232,6 @@ Numai un utilizator care deține expresia ta de acces îți poate citi datele cr
 <translation id="7395825497086981028">Parola se va salva în Managerul de parole pentru <ph name="EMAIL" />.</translation>
 <translation id="7400689562045506105">Folosește Chromium pretutindeni</translation>
 <translation id="7523464085759699266">Activează Blochează filele incognito când închizi Chromium.</translation>
-<translation id="7601597633134889942">Accesează un site și dă clic pe Urmărește în meniul Chromium</translation>
 <translation id="7674213385180944843">Deschide Setări &gt; Confidențialitate &gt; Cameră foto &gt; Chromium și activează camera foto.</translation>
 <translation id="7710137812207066069">Deschide o filă nouă în Chromium.</translation>
 <translation id="7747820849741499258">Caută în Chromium</translation>
@@ -264,6 +263,7 @@ Numai un utilizator care deține expresia ta de acces îți poate citi datele cr
 <translation id="8386869251364507178">Acțiuni în Chromium</translation>
 <translation id="8409374867500149834">Ai cea mai puternică securitate Chromium împotriva site-urilor dăunătoare</translation>
 <translation id="8458950033462118672">Poți deschide automat linkuri în Chromium, setând-o ca aplicație browser prestabilită.</translation>
+<translation id="8543509361021925846">{THRESHOLD,plural, =1{Acest lucru se întâmplă când Chromium nu este folosit timp de {THRESHOLD} minut. Datele salvate numai pe acest dispozitiv în timp ce erai conectat(ă) se vor șterge. Aici pot fi incluse istoricul și parolele.}few{Acest lucru se întâmplă când Chromium nu este folosit timp de {THRESHOLD} minute. Datele salvate numai pe acest dispozitiv în timp ce erai conectat(ă) se vor șterge. Aceasta ar putea include istoricul și parolele.}other{Acest lucru se întâmplă când Chromium nu este folosit timp de {THRESHOLD} de minute. Datele salvate numai pe acest dispozitiv în timp ce erai conectat(ă) se vor șterge. Aici pot fi incluse istoricul și parolele.}}</translation>
 <translation id="858114650497379505">Poți folosi parolele salvate în Managerul de parole în alte aplicații de pe iPhone.</translation>
 <translation id="8586442755830160949">Copyright <ph name="YEAR" /> The Chromium Authors. Toate drepturile rezervate.</translation>
 <translation id="865600487977764604">Te protejează în Chromium și poate fi folosit pentru a spori securitatea în alte aplicații Google dacă te-ai conectat.</translation>
@@ -274,6 +274,7 @@ Numai un utilizator care deține expresia ta de acces îți poate citi datele cr
 <translation id="8754966941001340678">Chromium recomandă protecția îmbunătățită</translation>
 <translation id="8759037115129007407">Momentan, membrul familiei nu poate primi parole. Solicită-i să actualizeze Chromium și să-și sincronizeze parolele. <ph name="BEGIN_LINK" />Află mai multe<ph name="END_LINK" /></translation>
 <translation id="8776843108004031667">Acest cont și toate datele nesalvate vor fi eliminate din Chromium.</translation>
+<translation id="8826789549860004832">Profită din plin de Chromium continuând configurarea browserului.</translation>
 <translation id="88376265765385899">Deschide marcajele Chromium.</translation>
 <translation id="8860548555286245440">Deschide adrese URL în Chromium în modul incognito</translation>
 <translation id="8866191443434488382">Chromium va detecta numerele de urmărire pe site-urile pe care le accesezi și va afișa noutăți despre colete în pagina Filă nouă. Numărul de urmărire a coletului și numele site-ului se vor trimite la Chromium pentru a oferi această funcție și a îmbunătăți funcțiile pentru cumpărături pentru toată lumea. Poți actualiza oricând opțiunea în <ph name="BEGIN_LINK" />Setările pentru urmărirea coletelor<ph name="END_LINK" />.</translation>

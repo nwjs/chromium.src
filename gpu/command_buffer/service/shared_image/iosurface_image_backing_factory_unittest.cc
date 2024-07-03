@@ -123,14 +123,15 @@ class IOSurfaceImageBackingFactoryTest : public SharedImageTestBase {
 // representation.
 TEST_F(IOSurfaceImageBackingFactoryTest, GL_SkiaGL) {
   // Create a backing using mailbox.
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto format = viz::SinglePlaneFormat::kRGBA_8888;
   gfx::Size size(1, 1);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
-  uint32_t usage = SHARED_IMAGE_USAGE_GLES2_WRITE | SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage =
+      SHARED_IMAGE_USAGE_GLES2_WRITE | SHARED_IMAGE_USAGE_SCANOUT;
   auto backing = backing_factory_->CreateSharedImage(
       mailbox, format, surface_handle, size, color_space, surface_origin,
       alpha_type, usage, "TestLabel", /*is_thread_safe=*/false);
@@ -247,9 +248,9 @@ class IOSurfaceImageBackingFactoryDawnTest
 
   std::unique_ptr<SharedImageRepresentationFactoryRef> CreateSharedImage(
       const gfx::Size& size,
-      uint32_t usage) {
+      SharedImageUsageSet usage) {
     // Create a backing using mailbox.
-    auto mailbox = Mailbox::GenerateForSharedImage();
+    auto mailbox = Mailbox::Generate();
     auto format = viz::SinglePlaneFormat::kRGBA_8888;
     auto color_space = gfx::ColorSpace::CreateSRGB();
     GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
@@ -351,8 +352,9 @@ TEST_P(IOSurfaceImageBackingFactoryDawnTest,
   wgpu::Device device = CreateDevice();
 
   gfx::Size size(1, 1);
-  uint32_t usage = SHARED_IMAGE_USAGE_WEBGPU_WRITE |
-                   SHARED_IMAGE_USAGE_DISPLAY_READ | SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_WEBGPU_WRITE |
+                                   SHARED_IMAGE_USAGE_DISPLAY_READ |
+                                   SHARED_IMAGE_USAGE_SCANOUT;
   auto factory_ref = CreateSharedImage(size, usage);
 
   auto rep_0 = shared_image_representation_factory_.ProduceDawn(
@@ -373,6 +375,38 @@ TEST_P(IOSurfaceImageBackingFactoryDawnTest,
   EXPECT_NE(texture_0.Get(), texture_1.Get());
 }
 
+// Test to verify handling of failure to begin access.
+TEST_P(IOSurfaceImageBackingFactoryDawnTest, Dawn_FailureToBeginAccess) {
+  wgpu::Device device = CreateDevice();
+
+  gfx::Size size(1, 1);
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_WEBGPU_WRITE |
+                                   SHARED_IMAGE_USAGE_DISPLAY_READ |
+                                   SHARED_IMAGE_USAGE_SCANOUT;
+  auto factory_ref = CreateSharedImage(size, usage);
+
+  auto rep = shared_image_representation_factory_.ProduceDawn(
+      factory_ref->mailbox(), device, backend_type(), {}, context_state_);
+
+  device.Destroy();
+
+  auto scoped_access = rep->BeginScopedAccess(
+      wgpu::TextureUsage::CopySrc,
+      SharedImageRepresentation::AllowUnclearedAccess::kYes);
+
+  if (backend_type() == wgpu::BackendType::Metal) {
+    // The BeginAccess() call should have returned an empty texture, in which
+    // case SharedImageRepresentation will return null for the scoped access.
+    EXPECT_FALSE(scoped_access);
+  } else {
+    // The BeginAccess() call should have created an error texture.
+    EXPECT_TRUE(scoped_access);
+    EXPECT_TRUE(scoped_access->texture());
+    EXPECT_TRUE(
+        dawn::native::CheckIsErrorForTesting(scoped_access->texture().Get()));
+  }
+}
+
 // Test to check interaction between Dawn and skia GL representations.
 TEST_P(IOSurfaceImageBackingFactoryDawnTest, Dawn_SkiaGL) {
   // Create a Dawn device
@@ -380,8 +414,9 @@ TEST_P(IOSurfaceImageBackingFactoryDawnTest, Dawn_SkiaGL) {
   ASSERT_NE(device, nullptr);
 
   gfx::Size size(1, 1);
-  uint32_t usage = SHARED_IMAGE_USAGE_WEBGPU_WRITE |
-                   SHARED_IMAGE_USAGE_DISPLAY_READ | SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_WEBGPU_WRITE |
+                                   SHARED_IMAGE_USAGE_DISPLAY_READ |
+                                   SHARED_IMAGE_USAGE_SCANOUT;
   auto factory_ref = CreateSharedImage(size, usage);
 
   // Clear the shared image to green using Dawn.
@@ -408,8 +443,9 @@ TEST_P(IOSurfaceImageBackingFactoryDawnTest, Dawn_WriteReadReadOnThreeDevices) {
   ASSERT_NE(device_2, nullptr);
 
   gfx::Size size(256, 256);
-  uint32_t usage = SHARED_IMAGE_USAGE_WEBGPU_READ |
-                   SHARED_IMAGE_USAGE_WEBGPU_WRITE | SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_WEBGPU_READ |
+                                   SHARED_IMAGE_USAGE_WEBGPU_WRITE |
+                                   SHARED_IMAGE_USAGE_SCANOUT;
   auto factory_ref_0 = CreateSharedImage(size, usage);
   auto factory_ref_1 = CreateSharedImage(size, usage);
   auto factory_ref_2 = CreateSharedImage(size, usage);
@@ -437,7 +473,7 @@ TEST_P(IOSurfaceImageBackingFactoryDawnTest, Dawn_WriteReadReadOnThreeDevices) {
 // 4. Verify through CheckSkiaPixel that GL drawn color not seen
 TEST_P(IOSurfaceImageBackingFactoryDawnTest, GL_Dawn_Skia_UnclearTexture) {
   gfx::Size size(1, 1);
-  const uint32_t usage =
+  gpu::SharedImageUsageSet usage =
       SHARED_IMAGE_USAGE_GLES2_WRITE | SHARED_IMAGE_USAGE_SCANOUT |
       SHARED_IMAGE_USAGE_WEBGPU_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
   auto factory_ref = CreateSharedImage(size, usage);
@@ -535,8 +571,8 @@ TEST_P(IOSurfaceImageBackingFactoryDawnTest, GL_Dawn_Skia_UnclearTexture) {
 // initialized
 TEST_P(IOSurfaceImageBackingFactoryDawnTest, UnclearDawn_SkiaFails) {
   gfx::Size size(1, 1);
-  const uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT |
-                         SHARED_IMAGE_USAGE_WEBGPU_WRITE;
+  gpu::SharedImageUsageSet usage =
+      SHARED_IMAGE_USAGE_SCANOUT | SHARED_IMAGE_USAGE_WEBGPU_WRITE;
   auto factory_ref = CreateSharedImage(size, usage);
 
   // Create dawn device
@@ -614,12 +650,12 @@ TEST_P(IOSurfaceImageBackingFactoryDawnTest, Dawn_SamplingVideoTexture) {
   }
 
   // Create a backing using mailbox.
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   const auto format = viz::MultiPlaneFormat::kNV12;
   const auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
-  const uint32_t usage =
+  const gpu::SharedImageUsageSet usage =
       SHARED_IMAGE_USAGE_SCANOUT | SHARED_IMAGE_USAGE_WEBGPU_READ;
   const gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
   auto backing = backing_factory_->CreateSharedImage(
@@ -670,13 +706,13 @@ TEST_P(IOSurfaceImageBackingFactoryDawnTest, Dawn_SamplingVideoTexture) {
 // Test that Skia trying to access uninitialized SharedImage will fail
 TEST_F(IOSurfaceImageBackingFactoryTest, SkiaAccessFirstFails) {
   // Create a mailbox.
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   const auto format = viz::SinglePlaneFormat::kRGBA_8888;
   const gfx::Size size(1, 1);
   const auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
-  const uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   const gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
   auto backing = backing_factory_->CreateSharedImage(
       mailbox, format, surface_handle, size, color_space, surface_origin,
@@ -778,7 +814,7 @@ class IOSurfaceImageBackingFactoryParameterizedTestBase
   }
 #else
   wgpu::BackendType GetDawnBackendType() const {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return wgpu::BackendType::Undefined;
   }
 #endif  // BUILDFLAG(SKIA_USE_DAWN)
@@ -815,13 +851,13 @@ TEST_P(IOSurfaceImageBackingFactoryScanoutTest, Basic) {
   if (should_succeed) {
     EXPECT_CALL(progress_reporter_, ReportProgress).Times(AtLeast(1));
   }
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto format = get_format();
   gfx::Size size(256, 256);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
   auto backing = backing_factory_->CreateSharedImage(
       mailbox, format, surface_handle, size, color_space, surface_origin,
@@ -970,12 +1006,12 @@ TEST_P(IOSurfaceImageBackingFactoryScanoutTest, InitialData) {
     EXPECT_CALL(progress_reporter_, ReportProgress).Times(AtLeast(1));
   }
 
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   gfx::Size size(256, 256);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   std::vector<uint8_t> initial_data(
       viz::ResourceSizes::CheckedSizeInBytes<unsigned int>(size, format));
 
@@ -1049,13 +1085,13 @@ TEST_P(IOSurfaceImageBackingFactoryScanoutTest, InitialDataImage) {
   if (should_succeed) {
     EXPECT_CALL(progress_reporter_, ReportProgress).Times(AtLeast(1));
   }
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto format = get_format();
   gfx::Size size(256, 256);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   std::vector<uint8_t> initial_data(256 * 256 * 4);
   auto backing = backing_factory_->CreateSharedImage(
       mailbox, format, size, color_space, surface_origin, alpha_type, usage,
@@ -1112,13 +1148,13 @@ TEST_P(IOSurfaceImageBackingFactoryScanoutTest, InitialDataImage) {
 }
 
 TEST_P(IOSurfaceImageBackingFactoryScanoutTest, InitialDataWrongSize) {
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto format = get_format();
   gfx::Size size(256, 256);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   std::vector<uint8_t> initial_data_small(256 * 128 * 4);
   std::vector<uint8_t> initial_data_large(256 * 512 * 4);
   auto backing = backing_factory_->CreateSharedImage(
@@ -1133,14 +1169,14 @@ TEST_P(IOSurfaceImageBackingFactoryScanoutTest, InitialDataWrongSize) {
 
 TEST_P(IOSurfaceImageBackingFactoryScanoutTest,
        InvalidFormatForCreationWithSurfaceHandle) {
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto format = viz::LegacyMultiPlaneFormat::kNV12;
   gfx::Size size(256, 256);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   auto backing = backing_factory_->CreateSharedImage(
       mailbox, format, surface_handle, size, color_space, surface_origin,
       alpha_type, usage, "TestLabel", /*is_thread_safe=*/false);
@@ -1151,13 +1187,13 @@ TEST_P(IOSurfaceImageBackingFactoryScanoutTest,
 // empty pixel data but should fail with non-empty pixel data.
 TEST_P(IOSurfaceImageBackingFactoryScanoutTest,
        InvalidFormatForCreationWithPixelData) {
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto format = viz::MultiPlaneFormat::kNV12;
   gfx::Size size(256, 256);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   std::vector<uint8_t> initial_data(256 * 256 * 4);
   auto backing = backing_factory_->CreateSharedImage(
       mailbox, format, size, color_space, surface_origin, alpha_type, usage,
@@ -1166,14 +1202,14 @@ TEST_P(IOSurfaceImageBackingFactoryScanoutTest,
 }
 
 TEST_P(IOSurfaceImageBackingFactoryScanoutTest, InvalidSize) {
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto format = get_format();
   gfx::Size size(0, 0);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   auto backing = backing_factory_->CreateSharedImage(
       mailbox, format, surface_handle, size, color_space, surface_origin,
       alpha_type, usage, "TestLabel", /*is_thread_safe=*/false);
@@ -1191,14 +1227,14 @@ TEST_P(IOSurfaceImageBackingFactoryScanoutTest, EstimatedSize) {
   if (should_succeed) {
     EXPECT_CALL(progress_reporter_, ReportProgress).Times(AtLeast(1));
   }
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto format = get_format();
   gfx::Size size(256, 256);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   auto backing = backing_factory_->CreateSharedImage(
       mailbox, format, surface_handle, size, color_space, surface_origin,
       alpha_type, usage, "TestLabel", /*is_thread_safe=*/false);
@@ -1291,10 +1327,10 @@ class IOSurfaceImageBackingFactoryGMBTest
   std::unique_ptr<SharedImageRepresentationFactoryRef> CreateSharedImage(
       gfx::Size size,
       viz::SharedImageFormat format,
-      uint32_t usage,
+      SharedImageUsageSet usage,
       gfx::ColorSpace color_space) {
     const bool should_succeed = can_create_gmb_shared_image(get_format());
-    auto mailbox = Mailbox::GenerateForSharedImage();
+    auto mailbox = Mailbox::Generate();
     GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
     SkAlphaType alpha_type = kPremul_SkAlphaType;
     bool override_rgba_to_bgra = get_gr_context_type() == GrContextType::kGL;
@@ -1330,7 +1366,7 @@ class IOSurfaceImageBackingFactoryGMBTest
 TEST_P(IOSurfaceImageBackingFactoryGMBTest, Basic) {
   auto format = get_format();
   gfx::Size size(256, 256);
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   auto color_space = gfx::ColorSpace::CreateSRGB();
 
   const bool should_succeed = can_create_gmb_shared_image(get_format());
@@ -1468,7 +1504,7 @@ TEST_P(IOSurfaceImageBackingFactoryGMBTest,
 
   auto format = get_format();
   gfx::Size size(256, 256);
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   auto color_space = gfx::ColorSpace::CreateSRGB();
 
   const bool should_succeed = can_create_gmb_shared_image(get_format());
@@ -1514,7 +1550,7 @@ TEST_P(IOSurfaceImageBackingFactoryGMBTest,
 
   auto format = get_format();
   gfx::Size size(256, 256);
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   auto color_space = gfx::ColorSpace::CreateSRGB();
 
   const bool should_succeed = can_create_gmb_shared_image(get_format());
@@ -1560,7 +1596,7 @@ TEST_P(IOSurfaceImageBackingFactoryGMBTest,
 
   auto format = get_format();
   gfx::Size size(256, 256);
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   auto color_space = gfx::ColorSpace::CreateSRGB();
 
   const bool should_succeed = can_create_gmb_shared_image(get_format());
@@ -1612,7 +1648,7 @@ TEST_P(IOSurfaceImageBackingFactoryGMBTest,
 
   auto format = get_format();
   gfx::Size size(256, 256);
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   auto color_space = gfx::ColorSpace::CreateSRGB();
 
   const bool should_succeed = can_create_gmb_shared_image(get_format());
@@ -1677,7 +1713,7 @@ TEST_P(IOSurfaceImageBackingFactoryGMBTest,
   }
 
   gfx::Size size(256, 256);
-  uint32_t usage = SHARED_IMAGE_USAGE_SCANOUT;
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_SCANOUT;
   auto color_space = gfx::ColorSpace::CreateSRGB();
 
   const bool should_succeed = can_create_gmb_shared_image(get_format());

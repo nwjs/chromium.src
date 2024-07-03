@@ -24,14 +24,6 @@
 namespace cc {
 namespace {
 
-PlaybackParams MakeParams(const SkCanvas* canvas) {
-  // We don't use an ImageProvider here since the ops are played onto a no-draw
-  // canvas for state tracking and don't need decoded images.
-  PlaybackParams params(nullptr, canvas->getLocalToDevice());
-  params.is_analyzing = true;
-  return params;
-}
-
 std::unique_ptr<SkCanvas> MakeAnalysisCanvas(
     const PaintOp::SerializeOptions& options) {
   // Use half of the max int as the extent for the SkNoDrawCanvas. The correct
@@ -61,6 +53,17 @@ PaintOpBufferSerializer::PaintOpBufferSerializer(
 }
 
 PaintOpBufferSerializer::~PaintOpBufferSerializer() = default;
+
+PlaybackParams PaintOpBufferSerializer::MakeParams(
+    const SkCanvas* canvas) const {
+  // We don't use an ImageProvider here since the ops are played onto a no-draw
+  // canvas for state tracking and don't need decoded images.
+  PlaybackParams params(nullptr, canvas->getLocalToDevice());
+  params.raster_inducing_scroll_offsets =
+      options_.raster_inducing_scroll_offsets;
+  params.is_analyzing = true;
+  return params;
+}
 
 void PaintOpBufferSerializer::Serialize(const PaintOpBuffer& buffer,
                                         const std::vector<size_t>* offsets,
@@ -280,6 +283,8 @@ bool PaintOpBufferSerializer::WillSerializeNextOp<float>(
 
   if (op.GetType() == PaintOpType::kDrawImageRect &&
       static_cast<const DrawImageRectOp&>(op).image.IsPaintWorklet()) {
+    // Note: This check must be kept in sync with the check in
+    // DrawImageRectOp::RasterWithFlags.
     DCHECK(options_.image_provider);
     const DrawImageRectOp& draw_op = static_cast<const DrawImageRectOp&>(op);
     ImageProvider::ScopedResult result =
@@ -304,13 +309,18 @@ bool PaintOpBufferSerializer::WillSerializeNextOp<float>(
     if (!success)
       return false;
 
-    // In DrawImageRectOp::RasterWithFlags, the save layer uses the
-    // flags_to_serialize or default (PaintFlags()) flags. At this point in the
-    // serialization, flags_to_serialize is always null as well.
-    SaveLayerOp save_layer_op(draw_op.src, PaintFlags());
-    success = SerializeOpWithFlags(canvas, save_layer_op, params, 1.0f);
-    if (!success)
-      return false;
+    if (static_cast<const DrawImageRectOp&>(op).image.NeedsLayer()) {
+      // In DrawImageRectOp::RasterWithFlags, the save layer uses the
+      // flags_to_serialize or default (PaintFlags()) flags. At this point in
+      // the serialization, flags_to_serialize is always null as well.
+      // TODO(crbug.com/343439032): See if we can be less aggressive about use
+      // of a save layer operation for CSS paint worklets since expensive.
+      SaveLayerOp save_layer_op(draw_op.src, PaintFlags());
+      success = SerializeOpWithFlags(canvas, save_layer_op, params, 1.0f);
+      if (!success) {
+        return false;
+      }
+    }
 
     SerializeBuffer(canvas, result.ReleaseAsRecord().buffer(), nullptr);
     RestoreToCount(canvas, save_count, params);

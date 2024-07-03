@@ -151,26 +151,20 @@ translate::TranslateDriver* AndroidAutofillClient::GetTranslateDriver() {
 }
 
 void AndroidAutofillClient::ShowAutofillSettings(
-    autofill::FillingProduct main_filling_product) {
+    autofill::SuggestionType suggestion_type) {
   NOTIMPLEMENTED();
 }
 
 void AndroidAutofillClient::ShowEditAddressProfileDialog(
     const autofill::AutofillProfile& profile,
     AddressProfileSavePromptCallback on_user_decision_callback) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void AndroidAutofillClient::ShowDeleteAddressProfileDialog(
     const autofill::AutofillProfile& profile,
     AddressProfileDeleteDialogCallback delete_dialog_callback) {
-  NOTREACHED();
-}
-
-void AndroidAutofillClient::ConfirmCreditCardFillAssist(
-    const autofill::CreditCard& card,
-    base::OnceClosure callback) {
-  NOTIMPLEMENTED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void AndroidAutofillClient::ConfirmSaveAddressProfile(
@@ -191,7 +185,8 @@ void AndroidAutofillClient::ScanCreditCard(CreditCardScanCallback callback) {
 
 bool AndroidAutofillClient::ShowTouchToFillCreditCard(
     base::WeakPtr<autofill::TouchToFillDelegate> delegate,
-    base::span<const autofill::CreditCard> cards_to_suggest) {
+    base::span<const autofill::CreditCard> cards_to_suggest,
+    const std::vector<bool>& card_acceptabilities) {
   return false;
 }
 

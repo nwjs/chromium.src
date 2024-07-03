@@ -20,6 +20,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
+#include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/safe_ref.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/observer_list.h"
@@ -518,14 +519,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // by shutting down the spare process to conserve resources, or alternatively
   // by making sure that the spare process belongs to the same BrowserContext as
   // the most recent navigation).
-  //
-  // If `ignore_delay` is false, delays new spare renderer creation as per
-  // embedder's setting. Otherwise, the spare renderer creation might have been
-  // deferred previously, and this is a signal that it should now be started
-  // immediately.
   static void NotifySpareManagerAboutRecentlyUsedSiteInstance(
-      SiteInstance* site_instance,
-      bool ignore_delay = false);
+      SiteInstance* site_instance);
 
   // This enum backs a histogram, so do not change the order of entries or
   // remove entries and update enums.xml if adding new entries.
@@ -703,6 +698,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // `bucket_locator`.
   void GetSandboxedFileSystemForBucket(
       const storage::BucketLocator& bucket_locator,
+      const std::vector<std::string>& directory_path_components,
       blink::mojom::FileSystemAccessManager::GetSandboxedFileSystemCallback
           callback) override;
 
@@ -865,6 +861,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
   static void SetStableVideoDecoderEventCBForTesting(
       StableVideoDecoderEventCB cb);
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+
+  void GetBoundInterfacesForTesting(std::vector<std::string>& out);
+
  protected:
   // A proxy for our IPC::Channel that lives on the IO thread.
   std::unique_ptr<IPC::ChannelProxy> channel_;
@@ -916,6 +915,12 @@ class CONTENT_EXPORT RenderProcessHostImpl
     // Indicates whether this RenderProcessHost is exclusively hosting PDF
     // contents.
     kPdf = 1 << 2,
+
+#if BUILDFLAG(IS_WIN)
+    // Indicates whether this RenderProcessHost should use SkiaFontManager as
+    // the default font manager.
+    kSkiaFontManager = 1 << 3,
+#endif
   };
 
   // Use CreateRenderProcessHost() instead of calling this constructor
@@ -927,6 +932,11 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // Initializes a new IPC::ChannelProxy in |channel_|, which will be
   // connected to the next child process launched for this host, if any.
   void InitializeChannelProxy();
+
+  // Initializes shared memory regions between this host and its renderer.
+  // Called at the end of each call to InitializeChannelProxy() so the shared
+  // memory regions can be sent to the (new) renderer.
+  void InitializeSharedMemoryRegionsOnceChannelIsUp();
 
   // Resets |channel_|, removing it from the attachment broker if necessary.
   // Always call this in lieu of directly resetting |channel_|.
@@ -1396,6 +1406,12 @@ class CONTENT_EXPORT RenderProcessHostImpl
   mojo::AssociatedReceiver<mojom::RendererHost> renderer_host_receiver_{this};
   mojo::Receiver<memory_instrumentation::mojom::CoordinatorConnector>
       coordinator_connector_receiver_{this};
+
+  // A shared memory version mapping of a std::atomic<TimeTicks> used to
+  // atomically communicate the last time the hosted renderer was foregrounded.
+  // This is preferable to IPC as it ensures the timing is visible immediately
+  // after recovering from a jank (e.g. important for metrics).
+  base::MappedReadOnlyRegion last_foreground_time_region_;
 
   // Tracks active audio and video streams within the render process; used to
   // determine if if a process should be backgrounded.

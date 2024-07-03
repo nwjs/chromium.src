@@ -19,7 +19,7 @@
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_forward.h"
 
-#if BUILDFLAG(IS_APPLE) && defined(ARCH_CPU_64_BITS)
+#if PA_BUILDFLAG(IS_APPLE) && PA_BUILDFLAG(PA_ARCH_CPU_64_BITS)
 #include <mach/vm_page_size.h>
 #endif
 
@@ -100,17 +100,17 @@ constexpr size_t kPartitionCachelineSize = 64;
 // other constant values, we pack _all_ `PartitionRoot::Alloc` sizes perfectly
 // up against the end of a system page.
 
-#if defined(_MIPS_ARCH_LOONGSON) || defined(ARCH_CPU_LOONGARCH64)
+#if defined(_MIPS_ARCH_LOONGSON) || PA_BUILDFLAG(PA_ARCH_CPU_LOONGARCH64)
 PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
 PartitionPageShift() {
   return 16;  // 64 KiB
 }
-#elif defined(ARCH_CPU_PPC64)
+#elif PA_BUILDFLAG(PA_ARCH_CPU_PPC64)
 PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
 PartitionPageShift() {
   return 18;  // 256 KiB
 }
-#elif (BUILDFLAG(IS_APPLE) && defined(ARCH_CPU_64_BITS)) || \
+#elif (PA_BUILDFLAG(IS_APPLE) && PA_BUILDFLAG(PA_ARCH_CPU_64_BITS)) || \
     defined(PARTITION_ALLOCATOR_CONSTANTS_POSIX_NONCONST_PAGE_SIZE)
 PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
 PartitionPageShift() {
@@ -303,6 +303,19 @@ enum pool_handle : unsigned {
 // kNullPoolHandle doesn't have metadata, hence - 1
 constexpr size_t kNumPools = kMaxPoolHandle - 1;
 
+enum class PoolHandleMask {
+  kNone = 0u,
+  kRegular = 1u << (kRegularPoolHandle - 1),
+  kBRP = 1u << (kBRPPoolHandle - 1),
+#if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
+  kConfigurable = 1u << (kConfigurablePoolHandle - 1),
+  kMaxValue = kConfigurable
+#else
+  kMaxValue = kBRP
+#endif
+};
+PA_DEFINE_OPERATORS_FOR_FLAGS(PoolHandleMask);
+
 // Maximum pool size. With exception of Configurable Pool, it is also
 // the actual size, unless PA_DYNAMICALLY_SELECT_POOL_SIZE is set, which
 // allows to choose a different size at initialization time for certain
@@ -315,7 +328,7 @@ constexpr size_t kNumPools = kMaxPoolHandle - 1;
 // When pointer compression is enabled, we cannot use large pools (at most
 // 8GB for each of the glued pools).
 #if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS) || \
+#if PA_BUILDFLAG(IS_ANDROID) || PA_BUILDFLAG(IS_IOS) || \
     PA_BUILDFLAG(ENABLE_POINTER_COMPRESSION)
 constexpr size_t kPoolMaxSize = 8 * kGiB;
 #else
@@ -512,6 +525,17 @@ constexpr size_t kMac11MallocSizeHackRequestedSize = 32;
 #endif
 
 }  // namespace internal
+
+// When trying to conserve memory, set the thread cache limit to this.
+static inline constexpr size_t kThreadCacheDefaultSizeThreshold = 512;
+
+// 32kiB is chosen here as from local experiments, "zone" allocation in
+// V8 is performance-sensitive, and zones can (and do) grow up to 32kiB for
+// each individual allocation.
+static inline constexpr size_t kThreadCacheLargeSizeThreshold = 1 << 15;
+static_assert(kThreadCacheLargeSizeThreshold <=
+                  std::numeric_limits<uint16_t>::max(),
+              "");
 
 // These constants are used outside PartitionAlloc itself, so we provide
 // non-internal aliases here.

@@ -14,6 +14,7 @@
 #include "build/branding_buildflags.h"
 #include "chrome/browser/chromeos/mahi/mahi_web_contents_manager.h"
 #include "chrome/browser/ui/views/mahi/mahi_menu_constants.h"
+#include "chromeos/components/mahi/public/cpp/mahi_util.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -42,11 +43,9 @@ namespace chromeos::mahi {
 
 namespace {
 
-constexpr auto kCondensedMenuMargins = gfx::Insets::VH(8, 0);
-
 constexpr int kButtonIconSize = 16;
 constexpr int kButtonIconLabelSpacing = 8;
-constexpr auto kButtonBorderInsets = gfx::Insets::VH(4, 16);
+constexpr auto kButtonBorderInsets = gfx::Insets::VH(12, 16);
 
 // TODO(b/331127382): Finalize the Mahi condensed menu button text.
 std::u16string GetMahiCondensedMenuButtonText() {
@@ -95,8 +94,10 @@ class MahiCondensedMenuButton : public views::LabelButton {
         display::Screen::GetScreen()
             ->GetDisplayNearestWindow(GetWidget()->GetNativeWindow())
             .id(),
-        /*button_type=*/::mahi::ButtonType::kSummary,
-        /*question=*/std::u16string());
+        /*button_type=*/::chromeos::mahi::ButtonType::kSummary,
+        /*question=*/std::u16string(),
+        /*mahi_menu_bounds=*/
+        parent() ? parent()->GetBoundsInScreen() : gfx::Rect());
 
     base::UmaHistogramEnumeration(kMahiContextMenuButtonClickHistogram,
                                   MahiMenuButton::kCondensedMenuButton);
@@ -125,7 +126,6 @@ MahiCondensedMenuView::MahiCondensedMenuView()
   SetBackground(views::CreateThemedRoundedRectBackground(
       ui::kColorSysSurface, views::LayoutProvider::Get()->GetCornerRadiusMetric(
                                 views::ShapeContextTokens::kMenuRadius)));
-  SetBorder(views::CreateEmptyBorder(kCondensedMenuMargins));
 
   menu_button_ = AddChildView(std::make_unique<MahiCondensedMenuButton>());
 }

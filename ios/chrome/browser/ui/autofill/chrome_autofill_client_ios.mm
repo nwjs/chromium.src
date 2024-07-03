@@ -19,13 +19,10 @@
 #import "components/autofill/core/browser/autofill_save_update_address_profile_delegate_ios.h"
 #import "components/autofill/core/browser/form_data_importer.h"
 #import "components/autofill/core/browser/logging/log_manager.h"
-#import "components/autofill/core/browser/payments/autofill_credit_card_filling_infobar_delegate_mobile.h"
 #import "components/autofill/core/browser/payments/autofill_save_card_delegate.h"
 #import "components/autofill/core/browser/payments/autofill_save_card_infobar_delegate_mobile.h"
 #import "components/autofill/core/browser/payments/autofill_save_card_ui_info.h"
 #import "components/autofill/core/browser/payments/payments_network_interface.h"
-#import "components/autofill/core/browser/payments/virtual_card_enroll_metrics_logger.h"
-#import "components/autofill/core/browser/ui/payments/virtual_card_enroll_ui_model.h"
 #import "components/autofill/core/browser/ui/suggestion_type.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/autofill_prefs.h"
@@ -33,6 +30,8 @@
 #import "components/infobars/core/infobar.h"
 #import "components/infobars/core/infobar_manager.h"
 #import "components/keyed_service/core/service_access_type.h"
+#import "components/password_manager/core/browser/form_parsing/form_data_parser.h"
+#import "components/password_manager/core/browser/password_form.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/plus_addresses/plus_address_service.h"
 #import "components/security_state/ios/security_state_utils.h"
@@ -63,7 +62,6 @@
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
 #import "ios/chrome/browser/ui/autofill/card_expiration_date_fix_flow_view_bridge.h"
-#import "ios/chrome/browser/ui/autofill/card_name_fix_flow_view_bridge.h"
 #import "ios/chrome/browser/ui/autofill/scoped_autofill_payment_reauth_module_override.h"
 #import "ios/chrome/browser/webdata_services/model/web_data_service_factory.h"
 #import "ios/chrome/common/channel_info.h"
@@ -169,7 +167,7 @@ signin::IdentityManager* ChromeAutofillClientIOS::GetIdentityManager() {
 FormDataImporter* ChromeAutofillClientIOS::GetFormDataImporter() {
   if (!form_data_importer_) {
     form_data_importer_ = std::make_unique<FormDataImporter>(
-        this, personal_data_manager_,
+        this,
         ios::HistoryServiceFactory::GetForBrowserState(
             browser_state_, ServiceAccessType::EXPLICIT_ACCESS),
         GetApplicationContext()->GetApplicationLocale());
@@ -254,8 +252,8 @@ GeoIpCountryCode ChromeAutofillClientIOS::GetVariationConfigCountryCode()
 }
 
 void ChromeAutofillClientIOS::ShowAutofillSettings(
-    FillingProduct main_filling_product) {
-  NOTREACHED();
+    SuggestionType suggestion_type) {
+  NOTREACHED_IN_MIGRATION();
 }
 
 payments::MandatoryReauthManager*
@@ -277,22 +275,6 @@ void ChromeAutofillClientIOS::ConfirmSaveCreditCardLocally(
           AutofillSaveCardUiInfo::CreateForLocalSave(options, card),
           std::make_unique<AutofillSaveCardDelegate>(std::move(callback),
                                                      options))));
-}
-
-void ChromeAutofillClientIOS::ConfirmAccountNameFixFlow(
-    base::OnceCallback<void(const std::u16string&)> callback) {
-  std::u16string account_name = base::UTF8ToUTF16(
-      identity_manager_
-          ->FindExtendedAccountInfo(identity_manager_->GetPrimaryAccountInfo(
-              signin::ConsentLevel::kSignin))
-          .full_name);
-
-  card_name_fix_flow_controller_.Show(
-      // CardNameFixFlowViewBridge manages its own lifetime, so
-      // do not use std::unique_ptr<> here.
-      new CardNameFixFlowViewBridge(&card_name_fix_flow_controller_,
-                                    base_view_controller_),
-      account_name, std::move(callback));
 }
 
 void ChromeAutofillClientIOS::ConfirmExpirationDateFixFlow(
@@ -322,19 +304,6 @@ void ChromeAutofillClientIOS::ConfirmSaveCreditCardToCloud(
               options, card, legal_message_lines, account_info),
           std::make_unique<AutofillSaveCardDelegate>(std::move(callback),
                                                      options))));
-}
-
-void ChromeAutofillClientIOS::ConfirmCreditCardFillAssist(
-    const CreditCard& card,
-    base::OnceClosure callback) {
-  auto infobar_delegate =
-      std::make_unique<AutofillCreditCardFillingInfoBarDelegateMobile>(
-          card, std::move(callback));
-  auto* raw_delegate = infobar_delegate.get();
-  if (infobar_manager_->AddInfoBar(
-          ::CreateConfirmInfoBar(std::move(infobar_delegate)))) {
-    raw_delegate->set_was_shown();
-  }
 }
 
 void ChromeAutofillClientIOS::ConfirmSaveAddressProfile(
@@ -396,18 +365,19 @@ bool ChromeAutofillClientIOS::HasCreditCardScanFeature() const {
 }
 
 void ChromeAutofillClientIOS::ScanCreditCard(CreditCardScanCallback callback) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 bool ChromeAutofillClientIOS::ShowTouchToFillCreditCard(
     base::WeakPtr<TouchToFillDelegate> delegate,
-    base::span<const CreditCard> cards_to_suggest) {
-  NOTREACHED();
+    base::span<const CreditCard> cards_to_suggest,
+    const std::vector<bool>& card_acceptabilities) {
+  NOTREACHED_IN_MIGRATION();
   return false;
 }
 
 void ChromeAutofillClientIOS::HideTouchToFillCreditCard() {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void ChromeAutofillClientIOS::ShowAutofillSuggestions(
@@ -509,18 +479,6 @@ ChromeAutofillClientIOS::GetDeviceAuthenticator() {
   return CreateIOSDeviceAuthenticator(reauthModule, browser_state_, params);
 }
 
-void ChromeAutofillClientIOS::ShowVirtualCardEnrollDialog(
-    const VirtualCardEnrollmentFields& virtual_card_enrollment_fields,
-    base::OnceClosure accept_virtual_card_callback,
-    base::OnceClosure decline_virtual_card_callback) {
-  AutofillBottomSheetTabHelper* bottomSheetTabHelper =
-      AutofillBottomSheetTabHelper::FromWebState(web_state_);
-  bottomSheetTabHelper->ShowVirtualCardEnrollmentBottomSheet(
-      VirtualCardEnrollUiModel::Create(virtual_card_enrollment_fields),
-      VirtualCardEnrollmentCallbacks(std::move(accept_virtual_card_callback),
-                                     std::move(decline_virtual_card_callback)));
-}
-
 std::optional<std::u16string> ChromeAutofillClientIOS::GetUserEmail() {
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForBrowserState(browser_state_);
@@ -531,6 +489,34 @@ std::optional<std::u16string> ChromeAutofillClientIOS::GetUserEmail() {
     return base::SysNSStringToUTF16(identity.userEmail);
   }
   return std::nullopt;
+}
+
+AutofillClient::PasswordFormType
+ChromeAutofillClientIOS::ClassifyAsPasswordForm(AutofillManager& manager,
+                                                FormGlobalId form_id,
+                                                FieldGlobalId field_id) const {
+  FormStructure* form_structure = manager.FindCachedFormById(form_id);
+  if (!form_structure) {
+    return PasswordFormType::kNoPasswordForm;
+  }
+  // There is no form flattening on iOS (yet) - we can assume that the form here
+  // consists of a single renderer form.
+  FormDataAndServerPredictions form_and_predictions =
+      GetFormDataAndServerPredictions(*form_structure);
+  const FormData& form = form_and_predictions.form_data;
+
+  password_manager::FormDataParser parser;
+  // The driver id is irrelevant here because it would only be used by password
+  // manager logic that handles the `PasswordForm` returned by the parser.
+  parser.set_predictions(password_manager::ConvertToFormPredictions(
+      /*driver_id=*/0, form, form_and_predictions.predictions));
+  // The parser can use stored usernames to identify a filled username field by
+  // the value it contains. Here it remains empty.
+  std::unique_ptr<password_manager::PasswordForm> pw_form =
+      parser.Parse(form, password_manager::FormDataParser::Mode::kFilling,
+                   /*stored_usernames=*/{});
+  return pw_form ? pw_form->GetPasswordFormType()
+                 : PasswordFormType::kNoPasswordForm;
 }
 
 }  // namespace autofill

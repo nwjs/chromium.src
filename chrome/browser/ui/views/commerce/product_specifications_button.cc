@@ -18,6 +18,7 @@
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/layout/flex_layout.h"
 #include "ui/views/mouse_watcher_view_host.h"
 #include "ui/views/view_class_properties.h"
 
@@ -105,6 +106,8 @@ ProductSpecificationsButton::ProductSpecificationsButton(
 
   layout_manager->SetFlexForView(close_button_, 1);
 
+  SetLayoutManager(std::make_unique<views::FlexLayout>());
+
   UpdateColors();
 }
 
@@ -147,6 +150,10 @@ void ProductSpecificationsButton::AnimationProgressed(
 }
 
 void ProductSpecificationsButton::Show() {
+  // If the button is already showing, don't update locked expansion mode.
+  if (expansion_animation_.IsShowing()) {
+    return;
+  }
   if (locked_expansion_view_->IsMouseHovered()) {
     SetLockedExpansionMode(LockedExpansionMode::kWillShow);
   }
@@ -169,6 +176,10 @@ void ProductSpecificationsButton::ShowEntryPointWithTitle(
   SetText(l10n_util::GetStringFUTF16(IDS_PRODUCT_SPECIFICATIONS_ENTRY_POINT,
                                      base::UTF8ToUTF16(title)));
   Show();
+}
+
+void ProductSpecificationsButton::HideEntryPoint() {
+  Hide();
 }
 
 void ProductSpecificationsButton::SetOpacity(float factor) {

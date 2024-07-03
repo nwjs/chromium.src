@@ -176,6 +176,7 @@
 <translation id="1107538157073168076">分析情報の拡張機能を無効にする</translation>
 <translation id="1110426799149444997"><ph name="GOOGLE_LENS_PRODUCT_NAME" /> の地域検索を無効にする。</translation>
 <translation id="1111324374369583989">ログイン時にディスプレイ サイズ設定画面を表示しない</translation>
+<translation id="1111824532252882775">有効: デフォルトでスクローラーをフォーカス可能にする。</translation>
 <translation id="1117535567637097036">このポリシーで設定したプロトコル ハンドラは、Android インテントの処理には使用されません。</translation>
 <translation id="1118093128235245168">接続されている USB デバイスへのアクセスを求めるメッセージをユーザーに表示することをサイトに許可する</translation>
 <translation id="111910763555783249">通知設定</translation>
@@ -339,6 +340,7 @@
 
       警告: Wipe または MinimalMigrate に設定するとローカルデータが削除されます。</translation>
 <translation id="1248955696540150266">ピアツーピアの自動更新のダウンロードを許可する</translation>
+<translation id="1249640740800891502">SkyVault（クラウド内のすべてのデータ）の設定</translation>
 <translation id="1250597158212586309">このポリシーを有効に設定するか未設定のままにした場合、ユーザーは不正使用されたパスワードのアラートを非表示にしたり、元に戻したりできます。
 
       この設定を無効にした場合、ユーザーは不正使用されたパスワードのアラートを非表示にできません。この設定を有効にした場合、ユーザーは不正使用されたパスワードのアラートを非表示にできます。</translation>
@@ -390,6 +392,7 @@ Kyber の提供には下位互換性があります。既存の TLS サーバー
 <translation id="1305400589435476516">このポリシーを有効に設定した場合、デバイスのデータ ローミングが許可されます。
 
       このポリシーを無効に設定するか未設定のままにした場合、データ ローミングは使用できません。</translation>
+<translation id="1306041796676461437">エンタープライズ SSO 拡張機能のサポートを無効にする</translation>
 <translation id="1308526987406924874">このポリシーでは、ユーザーに対するシリアルポートへのアクセス要求を許可しないサイトの URL パターンリストを指定できます。
 
       このポリシーを未設定のままにした場合、<ph name="DEFAULT_SERIAL_GUARD_SETTING_POLICY_NAME" /> が設定されていればその設定がすべてのサイトで使用され、設定されていなければユーザーの個人設定が適用されます。
@@ -555,6 +558,7 @@ PromptInTab に設定した場合は、ユーザーの認証が期限切れに�
 
       ローカル プリンタは、ネイティブ印刷の送信先のことで、ローカルマシンや共有ネットワークのプリンタで利用できる送信先が該当します。</translation>
 <translation id="1456822151187621582">Windows（<ph name="PRODUCT_OS_NAME" /> クライアント）:</translation>
+<translation id="1459693405370120464">天気情報</translation>
 <translation id="1464848559468748897"><ph name="PRODUCT_OS_NAME" /> デバイス上のマルチプロフィール セッションでのユーザーの行動を制御します。
 
       このポリシーが「MultiProfileUserBehaviorUnrestricted」に設定されている場合、ユーザーはメイン ユーザーまたはサブ ユーザーとしてマルチプロフィール セッションに参加できます。
@@ -741,6 +745,15 @@ URL パターンは、<ph name="WEB_PRINTING_ALLOWED_FOR_URLS_POLICY_NAME" /> �
 
       注: AC 電源とバッテリー用の設定を個別に行います。</translation>
 <translation id="1608755754295374538">ユーザー確認なしで音声キャプチャ デバイスへのアクセスが許可される URL</translation>
+<translation id="1608901087213748889">パソコンがアイドル状態になってから動作をトリガーするまでの時間を設定します。
+
+このポリシーでは、ブラウザでどのくらいの時間（分）ユーザー入力がなければ、<ph name="IDLE_TIMEOUT_ACTIONS_POLICY_NAME" /> ポリシーで指定された動作を行うかを指定します。
+
+このポリシーを設定しない場合、何の動作も行われません。
+
+最小しきい値は 1 分です。
+
+「ユーザー入力」はオペレーティング システムの API によって定義され、マウスの移動やキーボード入力などが該当します。</translation>
 <translation id="1611394564825535541">ユーザーが企業プリンタ以外のプリンタにアクセスできるかどうかを制御します。
 
       このポリシーが True に設定されているか未設定の場合、ユーザーは自身のプリンタを追加、構成し、そのプリンタを使用して印刷できます。
@@ -769,6 +782,7 @@ URL パターンは、<ph name="WEB_PRINTING_ALLOWED_FOR_URLS_POLICY_NAME" /> �
 <translation id="1635748761015837179">外部ストレージ デバイスへの書き込みを許可する</translation>
 <translation id="1639468541408865385">グローバル スコープを持つ HTTP 認証キャッシュを有効にする</translation>
 <translation id="1639673466479276550">ログイン画面でスクリーンセーバーを有効にする。</translation>
+<translation id="1640447222731279244">ChromeOS の壁紙の「AI を使用して作成」機能の有効化を管理する</translation>
 <translation id="1640824698339859203">フローティング SSO を有効にして、ユーザーのウェブサービス認証を新しいデバイスに移動する</translation>
 <translation id="1641117061932613266"><ph name="PRODUCT_NAME" /> V2 サービスを有効にする</translation>
 <translation id="1641394008743444477">無効にする <ph name="PRODUCT_OS_NAME" /> の機能のリストを設定できます。
@@ -822,6 +836,12 @@ URL パターンは、<ph name="WEB_PRINTING_ALLOWED_FOR_URLS_POLICY_NAME" /> �
 
 このポリシーを False に設定するか未設定のままにした場合、イベントはキャプチャされません。</translation>
 <translation id="1692990221685273468">組み込みの証明書確認機能で、プラットフォームのトラストストアから読み込まれたトラスト アンカーに、エンコードされた制約を適用するかどうかを指定します。</translation>
+<translation id="1693528798631913178">このポリシーでは、ChromeOS のビデオ通話背景の「AI を使用して作成」を有効または無効にします。
+0 = ユーザーに対してこの機能を無効にします。
+
+1 = ユーザーに対してこの機能を有効にします。なお、AI モデルのトレーニングや改善の目的でデータが Google に送信されることはありません。
+
+このポリシーを未設定のままにした場合、ビデオ通話背景の「AI を使用して作成」機能は企業ユーザーに対して無効になります。</translation>
 <translation id="169467210981344373">グローバル スコープを持つ HTTP 認証キャッシュを無効にする</translation>
 <translation id="1696501581280568361">プロファイル分離を提案する</translation>
 <translation id="1698810555265314018"><ph name="PRODUCT_NAME" /> で PDF をラスタライズして印刷する際の、印刷画像の解像度を制御します。
@@ -1588,6 +1608,32 @@ URI テンプレートに <ph name="HTTP_VARIABLE_DNS" /> 変数が含まれて�
 <translation id="2258126710006312594">リモート アクセスのユーザーにホストとのファイルの転送を許可します</translation>
 <translation id="225830954785359083">アンロード中にページでポップアップを表示することを許可しない</translation>
 <translation id="2261648512244797294">サポートが終了している Privet 印刷を無効にする</translation>
+<translation id="2263881357524831360"><ph name="ANDROID_NAME" /> の <ph name="PRODUCT_NAME" /> でサードパーティのパスワード マネージャーの使用を許可する</translation>
+<translation id="2264286153777425328"><ph name="IDLE_TIMEOUT_POLICY_NAME" /> ポリシーで定義されるタイムアウトに達したときに行う動作のリストを指定します。
+
+警告: このポリシーを設定すると、ローカルの個人データに影響し、完全に削除される場合があります。個人データが誤って削除されないように、デプロイ前に設定をテストすることをおすすめします。
+
+<ph name="IDLE_TIMEOUT_POLICY_NAME" /> ポリシーが設定されていない場合、このポリシーは無視されます。
+
+<ph name="IDLE_TIMEOUT_POLICY_NAME" /> ポリシーで定義されるタイムアウトに達すると、ブラウザはこのポリシーで指定された動作を行います。
+
+このポリシーを空にするか未設定のままにした場合、<ph name="IDLE_TIMEOUT_POLICY_NAME" /> ポリシーは無視されます。
+
+サポートされている動作は次のとおりです。
+
+「<ph name="CLOSE_BROWSERS_ACTION" />」: このプロフィールのすべてのブラウザ ウィンドウと PWA を閉じます。Android と iOS ではサポートされていません。
+
+「<ph name="CLOSE_TABS_ACTION" />」: 開いているウィンドウで開いているタブをすべて閉じます。iOS でのみサポートされています。
+
+「<ph name="SHOW_PROFILE_PICKER_ACTION" />」: プロフィール選択ウィンドウを表示します。Android と iOS ではサポートされていません。
+
+「<ph name="SIGN_OUT_ACTION" />」: 現在ログインしているユーザーがログアウトされます。iOS でのみサポートされています。
+
+「<ph name="CLEAR_BROWSING_HISTORY_ACTION" />」、「<ph name="CLEAR_DOWNLOAD_HISTORY_ACTION" />」、「<ph name="CLEAR_COOKIES_AND_OTHER_SITE_DATA_ACTION" />」、「<ph name="CLEAR_CACHED_IMAGES_AND_FILES_ACTION" />」、「<ph name="CLEAR_PASSWORD_SIGNIN_ACTION" />」、「<ph name="CLEAR_AUTOFILL_ACTION" />」、「<ph name="CLEAR_SITE_SETTINGS_ACTION" />」、「<ph name="CLEAR_HOSTED_APP_DATA_ACTION" />」: それぞれ該当する閲覧データを消去します。詳しくは、<ph name="CLEAR_BROWSING_DATA_ON_EXIT_LIST_POLICY_NAME" /> ポリシーをご覧ください。iOS でサポートされているタイプは、「<ph name="CLEAR_BROWSING_HISTORY_ACTION" />」、「<ph name="CLEAR_COOKIES_AND_OTHER_SITE_DATA_ACTION" />」、「<ph name="CLEAR_CACHED_IMAGES_AND_FILES_ACTION" />」、「<ph name="CLEAR_PASSWORD_SIGNIN_ACTION" />」、「<ph name="CLEAR_AUTOFILL_ACTION" />」です。
+
+「<ph name="RELOAD_PAGES_ACTION" />」: すべてのウェブページを再読み込みします。ページによっては、最初に確認を求めるメッセージが表示されることがあります。iOS ではサポートされていません。
+
+「<ph name="CLEAR_BROWSING_HISTORY_ACTION" />」、「<ph name="CLEAR_PASSWORD_SIGNIN_ACTION" />」、「<ph name="CLEAR_AUTOFILL_ACTION" />」、「<ph name="CLEAR_SITE_SETTINGS_ACTION" />」を設定すると、<ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーを使用して「<ph name="CHROME_SYNC_NAME" />」を無効にしておらず、<ph name="BROWSER_SIGNIN_POLICY_NAME" /> も無効にしていない場合は、それぞれのデータタイプの同期が無効になります。</translation>
 <translation id="2266422599396179941">ユーザーにフィードバックの送信を許可する</translation>
 <translation id="2268891553068901979">このポリシーを有効に設定した場合、モバイル接続時に <ph name="PRODUCT_OS_NAME" /> ファイルアプリで <ph name="GOOGLE_DRIVE_NAME" />の同期がオフになります。この場合、データは Wi-Fi またはイーサネット接続時にのみドライブに同期されます。
 
@@ -1660,6 +1706,7 @@ URI テンプレートに <ph name="HTTP_VARIABLE_DNS" /> 変数が含まれて�
 <translation id="2326031114717677574">オーディオ データをサンプリングして収集する間隔です。指定できる最小値は 1 分です。
 
       設定しない場合は、デフォルトの 15 分が適用されます。</translation>
+<translation id="2331028134545182024">ChromeOS のビデオ通話背景の「AI を使用して作成」機能の有効化を管理する</translation>
 <translation id="2333228572393176330">このポリシーでは、ダウングレード攻撃から接続を保護する TLS 1.3 のセキュリティ機能を管理します。このポリシーには下位互換性があり、TLS 1.2 準拠のサーバーまたはプロキシへの接続には影響しません。一部の古い TLS インターセプト プロキシには実装上の問題があり、互換性がない場合があります。
 
       このポリシーを True に設定した場合や未設定の場合、<ph name="PRODUCT_NAME" /> はすべての接続で TLS 1.3 のセキュリティ保護を有効にします。
@@ -1899,6 +1946,7 @@ URI テンプレートに <ph name="HTTP_VARIABLE_DNS" /> 変数が含まれて�
 
       この機能を正常に動作させるには、Google ネットワーク環境外では使用できない追加のコンポーネントが必要となります。</translation>
 <translation id="2536525645274582300">Google 位置情報サービスを有効にするかどうかをユーザーに確認する</translation>
+<translation id="2536717624356629471">ChromeOS でフォーカス モード時のサウンド再生を有効にする</translation>
 <translation id="254653220329944566"><ph name="PRODUCT_NAME" /> のクラウド レポートを有効にする</translation>
 <translation id="2547854230073316008">このポリシーでは、個々のディスプレイの解像度と倍率を設定できます。外部ディスプレイ設定は接続されているディスプレイに適用されます（指定した解像度または倍率がサポートされていないディスプレイについては、ポリシーは適用されません）。
 
@@ -2101,15 +2149,6 @@ URI テンプレートに <ph name="HTTP_VARIABLE_DNS" /> 変数が含まれて�
 <translation id="2699836109975228367">ログイン画面でモノラル音声を有効にする</translation>
 <translation id="2702023190395322609">おすすめメディアを有効にする</translation>
 <translation id="2702682139813393777">Windows ネイティブ メッセージング ホストを cmd.exe で強制的に起動する</translation>
-<translation id="2703733412051211941">パソコンがアイドル状態になってから動作をトリガーするまでの時間を設定します。
-
-      このポリシーでは、ブラウザでどのくらいの時間（分）ユーザー入力がなければ、<ph name="IDLE_TIMEOUT_ACTIONS_POLICY_NAME" /> ポリシーで指定された動作を行うかを指定します。
-
-      このポリシーを設定しない場合、何の動作も行われません。
-
-      最小しきい値は 1 分です。
-
-      「ユーザー入力」はオペレーティング システムの API によって定義され、マウスの移動やキーボード入力などが該当します。</translation>
 <translation id="270582584528242502">ユーザーが終了しようとしたときに警告ダイアログを表示しない</translation>
 <translation id="2706708761587205154">PIN ありの印刷のみを許可します</translation>
 <translation id="2707733461906745082">プロファイル分離</translation>
@@ -2401,6 +2440,7 @@ URI テンプレートに <ph name="HTTP_VARIABLE_DNS" /> 変数が含まれて�
 <translation id="2960128438010718932">新しいアップデートの段階的な適用スケジュール</translation>
 <translation id="2960691910306063964">リモート アクセス ホストの PIN 入力なしの認証を有効または無効にする</translation>
 <translation id="2960999045613902792">企業プリンタ以外からの追加、設定、印刷をユーザーに許可する</translation>
+<translation id="296100724744272922">Chrome でのサードパーティのパスワード マネージャーの使用を許可する</translation>
 <translation id="2962972237615992440"><ph name="CLOUD_PRINT_NAME" /> プロキシを無効にする</translation>
 <translation id="2963292398266537394">音声入力を無効にする</translation>
 <translation id="2964373560810620158">ユーザーに <ph name="LACROS_NAME" /> ブラウザの使用を許可しない</translation>
@@ -2867,6 +2907,7 @@ URI テンプレートに <ph name="HTTP_VARIABLE_DNS" /> 変数が含まれて�
 <translation id="3338431256935927407">クラウド アップロード機能に関連する設定を制御します。</translation>
 <translation id="3339271789059866414">システム プロキシ サービスを利用できるようにするかどうかとシステム サービスのプロキシ認証情報を設定します。
       このポリシーが設定されていない場合、システム プロキシ サービスは利用できません。</translation>
+<translation id="3341649870321644698">フォーカス モード時にフォーカス モード用のサウンドのみ有効にする。</translation>
 <translation id="334231891933432876">アカウントの認証が無効になったら直ちにユーザーをログアウトする</translation>
 <translation id="3345323903592385588">インストーラで VM 構成が表示される順序。複数の VM 構成が指定されている場合は、display_order 値が小さいものから表示されます。デフォルトは 0 です。</translation>
 <translation id="3351661569026056296">このポリシーを True に設定した場合、キーボードの最上段のキーがファンクション キーのコマンドとして機能します。検索キーを押すと、メディアキーの動作に戻ります。
@@ -3190,6 +3231,7 @@ URI テンプレートに <ph name="HTTP_VARIABLE_DNS" /> 変数が含まれて�
 <translation id="3587482841069643663">すべて</translation>
 <translation id="3587766503874071316">ユーザー補助のショートカットを無効にする</translation>
 <translation id="3589193811812796052">WebAssembly モジュールのクロスオリジン送信を許可しない</translation>
+<translation id="3591518189681300697">ローカル ファイルのクラウドへの移行を有効にする</translation>
 <translation id="3591527072193107424">従来のブラウザのサポート機能を有効にする。</translation>
 <translation id="3591584750136265240">ログイン認証の動作を設定する</translation>
 <translation id="3593905652755912452">無効化されたフォーム コントロールでのイベントのディスパッチで従来の動作を使用する。</translation>
@@ -3208,6 +3250,15 @@ URI テンプレートに <ph name="HTTP_VARIABLE_DNS" /> 変数が含まれて�
 <translation id="3606571057705314194">起動時にプロフィール選択画面を有効にする</translation>
 <translation id="3608206578291537084">暗号化されたレポート パイプラインを有効にする</translation>
 <translation id="3608281460204780443"><ph name="PRODUCT_OS_NAME" /> ランチャーや新しいタブページに Chrome ウェブストア アイコンを表示する</translation>
+<translation id="3608411984079625468">エンタープライズ SSO 拡張機能による認証プロバイダを使用したアカウントの自動ユーザー ログインを設定します。
+
+このポリシーを 1（<ph name="POLICY_VALUE_ENABLED" />）に設定するか未設定のままにした場合、デバイスに SSO 拡張機能がある認証プロバイダは、拡張機能を使用して、ログインしようとしているユーザーを認証します。
+
+このポリシーを 0（<ph name="POLICY_VALUE_DISABLED" />）に設定した場合、上記の自動ログインが無効になります。
+
+この機能は MacOS Catalina 以降でご利用いただけます。
+
+注: このポリシーはシークレット モードとゲストモードには適用されません。</translation>
 <translation id="3612482251405108708">ロック画面でオンライン再認証を自動的に開始する</translation>
 <translation id="3616490235694929053">このポリシーでは、初回ログイン時にディスプレイ サイズ設定画面をユーザーに表示するかどうかを管理します。
       false に設定した場合、ディスプレイ サイズ設定画面は表示されません。
@@ -3603,6 +3654,15 @@ URL は「http://example.com」、「https://example.com」のような標準的
 <translation id="3956573780915784996">ユーザーにシステム全体のパフォーマンス トレースの収集を許可する</translation>
 <translation id="3956686688560604829">従来のブラウザのサポートで Internet Explorer の SiteList ポリシーを使用する。</translation>
 <translation id="3958586912393694012">Smart Lock の使用を許可する</translation>
+<translation id="3959350391319409669">このポリシーでは、<ph name="PRODUCT_NAME" /> での動的コードの設定を管理します。
+
+動的コードを無効にすると、悪意のある動的コードやサードパーティのコードによって <ph name="PRODUCT_NAME" /> に変更が加えられるのを防いで、<ph name="PRODUCT_NAME" /> のセキュリティを向上できますが、ブラウザ プロセス内で実行する必要があるサードパーティ ソフトウェアとの互換性に問題が生じる可能性があります。
+
+このポリシーを 0（デフォルト）に設定するか未設定のままにした場合は、<ph name="PRODUCT_NAME" /> でデフォルトの設定が使用されます。
+
+このポリシーを 1（DisabledForBrowser）に設定した場合は、<ph name="PRODUCT_NAME" /> のブラウザ プロセスで動的コードが作成されなくなります。
+
+注: 詳しくはプロセス対応ポリシー（https://chromium.googlesource.com/chromium/src/+/HEAD/docs/design/sandbox.md#Process-mitigation-policies）をご覧ください。</translation>
 <translation id="3960728283243442805"><ph name="PRODUCT_NAME" /> メニューに、アクセスコードを使用するか QR コードをスキャンしてキャスト デバイスを選択するオプションはユーザーに表示されません。</translation>
 <translation id="3962445567482559878">アシスタントのオンボーディング エクスペリエンスで EDU モードを使用する</translation>
 <translation id="396261881101930204">おすすめメディアをユーザーに表示しない</translation>
@@ -3627,29 +3687,6 @@ URL は「http://example.com」、「https://example.com」のような標準的
 <translation id="3982465141749620677">タブで再認証を求める</translation>
 <translation id="398294729592983401">ユーザーがデバイスで <ph name="PRIVACY_SANDBOX_NAME" /> のフィンガープリント保護設定をオンまたはオフに切り替えられるようにする。</translation>
 <translation id="3983162212222338509">システムの DNS 解決を、システム設定と機能フラグに応じて、ネットワーク プロセス内、ネットワーク プロセス外、または部分的にそのどちらかで実行できるようにする。</translation>
-<translation id="3984773186203819634"><ph name="IDLE_TIMEOUT_POLICY_NAME" /> ポリシーで定義されるタイムアウトに達したときに行う動作のリストを指定します。
-
-      <ph name="IDLE_TIMEOUT_POLICY_NAME" /> ポリシーが設定されていない場合、このポリシーは無視されます。
-
-      <ph name="IDLE_TIMEOUT_POLICY_NAME" /> ポリシーで定義されるタイムアウトに達すると、ブラウザはこのポリシーで指定された動作を行います。
-
-      このポリシーを空にするか未設定のままにした場合、<ph name="IDLE_TIMEOUT_POLICY_NAME" /> ポリシーは無視されます。
-
-      サポートされている動作は次のとおりです。
-
-      「<ph name="CLOSE_BROWSERS_ACTION" />」: このプロフィールのすべてのブラウザ ウィンドウと PWA を閉じます。Android と iOS ではサポートされていません。
-
-      「<ph name="CLOSE_TABS_ACTION" />」: 開いているウィンドウで開いているタブをすべて閉じます。iOS でのみサポートされています。
-
-      「<ph name="SHOW_PROFILE_PICKER_ACTION" />」: プロフィール選択ウィンドウを表示します。Android と iOS ではサポートされていません。
-
-      「<ph name="SIGN_OUT_ACTION" />」: 現在ログインしているユーザーがログアウトされます。iOS でのみサポートされています。
-
-      「<ph name="CLEAR_BROWSING_HISTORY_ACTION" />」、「<ph name="CLEAR_DOWNLOAD_HISTORY_ACTION" />」、「<ph name="CLEAR_COOKIES_AND_OTHER_SITE_DATA_ACTION" />」、「<ph name="CLEAR_CACHED_IMAGES_AND_FILES_ACTION" />」、「<ph name="CLEAR_PASSWORD_SIGNIN_ACTION" />」、「<ph name="CLEAR_AUTOFILL_ACTION" />」、「<ph name="CLEAR_SITE_SETTINGS_ACTION" />」、「<ph name="CLEAR_HOSTED_APP_DATA_ACTION" />」: それぞれ該当する閲覧データを消去します。詳しくは、<ph name="CLEAR_BROWSING_DATA_ON_EXIT_LIST_POLICY_NAME" /> ポリシーをご覧ください。iOS でサポートされているタイプは、「<ph name="CLEAR_BROWSING_HISTORY_ACTION" />」、「<ph name="CLEAR_COOKIES_AND_OTHER_SITE_DATA_ACTION" />」、「<ph name="CLEAR_CACHED_IMAGES_AND_FILES_ACTION" />」、「<ph name="CLEAR_PASSWORD_SIGNIN_ACTION" />」、「<ph name="CLEAR_AUTOFILL_ACTION" />」です。
-
-      「<ph name="RELOAD_PAGES_ACTION" />」: すべてのウェブページを再読み込みします。ページによっては、最初に確認を求めるメッセージが表示されることがあります。iOS ではサポートされていません。
-
-      「<ph name="CLEAR_BROWSING_HISTORY_ACTION" />」、「<ph name="CLEAR_PASSWORD_SIGNIN_ACTION" />」、「<ph name="CLEAR_AUTOFILL_ACTION" />」、「<ph name="CLEAR_SITE_SETTINGS_ACTION" />」を設定すると、<ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーを使用して「<ph name="CHROME_SYNC_NAME" />」を無効にしておらず、<ph name="BROWSER_SIGNIN_POLICY_NAME" /> も無効にしていない場合は、それぞれのデータタイプの同期が無効になります。</translation>
 <translation id="3986700049001404598">Chrome タスク マネージャーでのプロセスの終了をユーザーに許可する</translation>
 <translation id="398884292557092447">このポリシーを True に設定するか未設定のままにした場合、ユーザーは UI でクレジット カードの自動入力候補を管理できます。
 
@@ -3732,6 +3769,7 @@ DevTools の生成 AI 機能は次のとおりです。
 どちらもブラウザの動作に対して同じ影響を及ぼします。</translation>
 <translation id="4016700865356669962">このポリシーを有効に設定した場合、ユーザーはパソコン用レイアウト テンプレートを使用できます。このポリシーを無効に設定するか未設定のままにした場合、これらのテンプレートは使用できません。</translation>
 <translation id="4020682745012723568">Android アプリは、ユーザーのプロフィールに送信された Cookie にアクセスすることはできません。</translation>
+<translation id="4021684548211845008">フォーカス モードでサウンド再生を無効にする。</translation>
 <translation id="4025500273782820766">外部プロトコル ダイアログが表示されたときに、ユーザーが [常に許可] を選択して、それ以降の確認メッセージをスキップできるようにする</translation>
 <translation id="402759845255257575">すべてのサイトに対して JavaScript の実行を許可しない</translation>
 <translation id="4027608872760987929">デフォルトの検索プロバイダを有効にする</translation>
@@ -3747,11 +3785,6 @@ DevTools の生成 AI 機能は次のとおりです。
 <translation id="4051723201852944592">ウィンドウ オクルージョンを有効にします</translation>
 <translation id="4052529125939620019">起動時に CryptoToken コンポーネント拡張機能を読み込む</translation>
 <translation id="4053157306171963473">デバイスのアクティビティ時間の報告を無効にする</translation>
-<translation id="4055758693679485627">ユーザーがすべてのブラウザ ウィンドウを終了したときに削除する閲覧データの種類のリストを設定します。指定できるデータの種類は、閲覧履歴（<ph name="DATA_TYPE_BROWSING_HISTORY" />）、ダウンロード履歴（<ph name="DATA_TYPE_DOWNLOAD_HISTORY" />）、Cookie（<ph name="DATA_TYPE_COOKIES_AND_OTHER_SITE_DATA" />）、キャッシュ（<ph name="DATA_TYPE_CACHED_IMAGES_AND_FILES" />）、自動入力（<ph name="DATA_TYPE_AUTOFILL" />）、パスワード（<ph name="DATA_TYPE_PASSWORD" />）、サイトの設定（<ph name="DATA_TYPE_SITE_SETTINGS" />）、ホストされているアプリデータ（<ph name="DATA_TYPE_HOSTED_APP_DATA" />）です。ただし、このポリシーよりも <ph name="ALLOW_DELETING_BROWSER_HISTORY_POLICY_NAME" /> が優先されます。
-
-Chrome 114 までは、このポリシーを使用するには <ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーを true に設定する必要がありました。Chrome 115 以降では、このポリシーを設定すると、<ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーで「<ph name="CHROME_SYNC_NAME" />」を無効にしておらずかつ<ph name="BROWSER_SIGNIN_POLICY_NAME" /> も無効になっていない場合に、それぞれのデータタイプの同期が無効になります。
-
-　　　　　　<ph name="PRODUCT_NAME" /> が正常に終了しなかった場合（ブラウザや OS がクラッシュした場合など）は、次回プロファイルが読み込まれたときに閲覧データが削除されます。</translation>
 <translation id="4056910949759281379">SPDY プロトコルを無効にする</translation>
 <translation id="4057442294431066708">このポリシーでは、キーの割り当て変更のサブページで、イベントを F11 / F12 の割り当て変更イベント用に選択されるショートカット オプションを制御します。これらの設定は ChromeOS キーボードにのみ適用されます。このポリシーを未設定のままにした場合、設定はデフォルトで無効になります。</translation>
 <translation id="4061590579642538878">障害レポートに関する情報を報告します。</translation>
@@ -3969,6 +4002,7 @@ Manifest V2 を使用した拡張機能はサポートの終了が予定され�
 
           このポリシーを未設定のままにした場合、自動クリックが無効（初期設定）になりますが、ユーザーはいつでも有効にできます。</translation>
 <translation id="4212181786686887763">壁紙画像をダウンロードすることのできる URL です。</translation>
+<translation id="4221677608399717135">SkyVault をオンまたはオフにする</translation>
 <translation id="4224610387358583899">画面ロック遅延時間</translation>
 <translation id="42267415200641481">このポリシーを true に設定した場合は、システム設定と機能フラグに応じて、システムの DNS 解決（getaddrinfo()）をネットワーク プロセス外で実行できるようになります。
 
@@ -4128,6 +4162,15 @@ Manifest V2 を使用した拡張機能はサポートの終了が予定され�
 <translation id="439661169333921592">ログイン画面でキーボード フォーカスによるハイライト表示を無効にする</translation>
 <translation id="4397045637922200204">アカウント復元を無効にする</translation>
 <translation id="4397464099112037398">ウィンドウの配置に関する権限のデフォルトの設定</translation>
+<translation id="4398803806072237638"><ph name="FIREFOX_PRODUCT_NAME" /> と <ph name="SAFARI_PRODUCT_NAME" /> で行われた変更に対応するため、<ph name="PRODUCT_NAME" /> では CSS カスタム ステータス機能の <ph name="CUSTOM_STATE_DEPRECATED_SYNTAX" /> 構文を <ph name="CUSTOM_STATE_NEW_SYNTAX" /> に変更する作業を進めています。このポリシーでは、非推奨の古い構文を M133 まで有効にできます。
+
+サポートの終了により、非推奨の <ph name="CUSTOM_STATE_DEPRECATED_SYNTAX" /> 構文を使用している一部の <ph name="PRODUCT_NAME" /> 向けウェブサイトは機能しなくなる可能性があります。
+
+このポリシーを有効にした場合、非推奨の古い構文が有効になります。
+
+このポリシーを無効にした場合、非推奨の古い構文は無効になります。
+
+このポリシーを未設定のままにした場合、非推奨の古い構文は無効になります。</translation>
 <translation id="4401196752827224189">セキュアでないコンテキストの WebSQL は、M110 以降削除される予定です。このポリシーにより、この API は再度有効になります。
           このポリシーを true に設定すると、セキュアでないコンテキストの WebSQL が使用可能になります。
           このポリシーを false に設定するか未設定のままにすると、セキュアでないコンテキストの WebSQL は M109 まで使用可能ですが、M110 以降は使用できなくなります。
@@ -4152,15 +4195,6 @@ WebSQL は M112 で削除されました。</translation>
 <translation id="4426986640594727372">システムの位置情報へのアクセスを許可する</translation>
 <translation id="4427173305799125784">PDF ビューアで PDF に注釈を追加できない</translation>
 <translation id="4432762137771104529">セーフ ブラウジングの詳細レポートを有効にする</translation>
-<translation id="4434531680131327140"><ph name="PRODUCT_NAME" /> の閲覧データの有効期間を設定します。このポリシーでは、ブラウザでデータを削除するタイミングをデータの種類ごとに設定できます。このポリシーは、機密性の高い顧客データを取り扱う場合に役立ちます。
-
-      対象となるデータの種類は <ph name="DATA_TYPE_BROWSING_HISTORY" />、<ph name="DATA_TYPE_DOWNLOAD_HISTORY" />、<ph name="DATA_TYPE_COOKIES_AND_OTHER_SITE_DATA" />、<ph name="DATA_TYPE_CACHED_IMAGES_AND_FILES" />、<ph name="DATA_TYPE_PASSWORD" />、<ph name="DATA_TYPE_AUTOFILL" />、<ph name="DATA_TYPE_SITE_SETTINGS" />、<ph name="DATA_TYPE_HOSTED_APP_DATA" /> です。<ph name="DATA_TYPE_DOWNLOAD_HISTORY" /> と <ph name="DATA_TYPE_HOSTED_APP_DATA" /> は Android でサポートされていません。
-
-      ブラウザでは、選択した種類のデータが <ph name="TIME_TO_LIVE_IN_HOURS" /> の保存期間の経過後に自動的に削除されます。設定できる最小値は 1 時間です。
-
-      有効期限を過ぎたデータは、ブラウザを起動してから 15 秒後に削除され、ブラウザの起動中は 30 分ごとに削除されます。
-
-      Chrome 114 までは、このポリシーを使用するには <ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーを true に設定する必要がありました。Chrome 115 以降では、このポリシーを設定すると、<ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーで「<ph name="CHROME_SYNC_NAME" />」を無効にしておらずかつ <ph name="BROWSER_SIGNIN_POLICY_NAME" /> も無効になっていない場合に、それぞれのデータタイプの同期が無効になります。</translation>
 <translation id="443454694385851356">以前の暗号化タイプ（安全ではありません）</translation>
 <translation id="4435032708588431506">QUIC を許可する</translation>
 <translation id="443665821428652897">ブラウザのシャットダウンでサイトのデータを削除する（サポート終了予定）</translation>
@@ -4443,6 +4477,7 @@ Android アプリの場合はパッケージ名（「com.google.android.gm」な
 
 <ph name="CHROME_OS_RELEASE_CHANNEL_POLICY_NAME" /> の設定は、<ph name="CHROME_OS_RELEASE_CHANNEL_DELEGATED_POLICY_NAME" /> が False に設定されている場合にのみ適用されます。</translation>
 <translation id="4638906910792947645">サービス内アンケートを有効にする</translation>
+<translation id="4641557638919545432">非推奨の古い構文を有効にする。</translation>
 <translation id="4646626362889216307">このポリシーでは、選択したポリシーのソースが異なる場合に、これらのポリシーを同じスコープとレベルで統合できるようにします。この統合は各ソースの辞書の第 1 レベルのキーで行われ、優先度の最も高いソースのキーが優先されます。
 
       ワイルドカード文字「*」を使用すると、サポートされている辞書ポリシーがすべて統合されます。
@@ -4721,6 +4756,17 @@ None（なし）に設定するか未設定のままにした場合、ARC アプ
       - このポリシーが <ph name="SKIP_TOS_DIALOG" /> の場合、ブラウザの機能が制限されます。
 
       - このポリシーが <ph name="SKIP_TOS_DIALOG" /> の場合、管理者はそのことをデバイスのエンドユーザーに知らせる必要があります。</translation>
+<translation id="489760181463331251">このポリシーでは、メモリセーバーの節約設定を変更します。
+
+このポリシーは、設定または <ph name="HIGH_EFFICIENCY_MODE_ENABLED_POLICY_NAME" /> ポリシーでメモリセーバーが有効になっている場合のみ有効で、ヒューリスティックを使ったタブを破棄するタイミングの決定に影響します。たとえば、非アクティブなタブを破棄するのではなく有効期間を短くすると、メモリを節約できますが、タブが頻繁に再読み込みされるため、ユーザー エクスペリエンスの低下やネットワーク トラフィックの増加につながる可能性があります。
+
+このポリシーを 0 に設定した場合 - メモリセーバーは適度にメモリを節約します。タブは長時間経過してから非アクティブになります。
+
+このポリシーを 1 に設定した場合 - メモリセーバーはバランス重視でメモリを節約します。タブは最適な時間が経過してから非アクティブになります。
+
+このポリシーを 2 に設定した場合 - メモリセーバーは最大限にメモリを節約します。タブは短時間経過してから非アクティブになります。
+
+このポリシーを未設定のままにした場合、エンドユーザーは chrome://settings/performance でこの設定を管理できます。</translation>
 <translation id="489803897780524242">デフォルトの検索プロバイダに対する検索キーワードの置き換えを指定するパラメータ</translation>
 <translation id="4899708173828500852">セーフ ブラウジングを有効にする</translation>
 <translation id="4906194810004762807">デバイスポリシーの更新間隔</translation>
@@ -4763,6 +4809,7 @@ None（なし）に設定するか未設定のままにした場合、ARC アプ
 
           このポリシーを設定しない場合、モノラル音声は初期設定ではログイン画面で無効ですが、ユーザーはいつでも有効にできます。</translation>
 <translation id="4933301190614090397">ブラウザのシャットダウン時のキープアライブ リクエストに許可される継続時間（秒単位）を制御します。指定されている場合、ブラウザのシャットダウンを指定された秒数までの間ブロックして、キープアライブ（https://fetch.spec.whatwg.org/#request-keepalive-flag）リクエストを処理できます。デフォルト値（0）はこの機能が無効になっていることを表します。</translation>
+<translation id="4933780993367313536">企業の管理者がこのパソコンにリモート アクセス接続できるようにする</translation>
 <translation id="4937423591320233496">コンテンツの提案を無効にする</translation>
 <translation id="4942096314850617489">ユーザーのリモート認証を無効にする</translation>
 <translation id="4942681160308347946">このポリシーを True に設定した場合、ログイン画面で音声フィードバックが有効になります。このポリシーを False に設定した場合、ログイン画面で音声フィードバックが無効になります。
@@ -5038,7 +5085,14 @@ None（なし）に設定するか未設定のままにした場合、ARC アプ
       このポリシーを設定しない場合は、デフォルトの 604800000 ミリ秒（1 週間）が使用されます。</translation>
 <translation id="5212810195096589189">VM CLI に対する権限を指定する</translation>
 <translation id="5213038356678567351">ブラウザの切り替えを行わないウェブサイト。</translation>
+<translation id="5215621993623612880">このポリシーでは、ChromeOS の壁紙の「AI を使用して作成」を有効または無効にできます。
+0 = ユーザーに対してこの機能を無効にします。
+
+1 = ユーザーに対してこの機能を有効にします。なお、AI モデルのトレーニングや改善の目的でデータが Google に送信されることはありません。
+
+このポリシーを未設定のままにした場合、壁紙の「AI を使用して作成」機能は企業ユーザーに対して無効になります。</translation>
 <translation id="5216815237712190041">どのユーザーもデバイスにログインしていない場合にログイン画面に表示するデバイスレベルの壁紙画像を設定します。このポリシーを設定するには、Chrome OS デバイスにダウンロードできる壁紙画像の URL と、ダウンロードの整合性の確認に使用する暗号ハッシュを指定します。画像の形式は JPEG、サイズは 16 MB 以下とし、URL には認証なしでアクセスできる必要があります。壁紙画像は、ダウンロードされた後でキャッシュされます。壁紙画像の URL またはハッシュに変更があったときは、再度ダウンロードされます。デバイスの壁紙ポリシーを設定した場合、Chrome OS デバイスは、どのユーザーもデバイスにログインしていないときは壁紙画像をダウンロードしてログイン画面に使用します。ユーザーがログインすると、そのユーザーの壁紙ポリシーが適用されます。デバイスの壁紙ポリシーを未設定のままにした場合は、ユーザーの壁紙ポリシーが設定されていれば、ユーザーの壁紙ポリシーによって表示される壁紙が決まります。</translation>
+<translation id="5217106427763720473">エンタープライズ SSO 拡張機能のサポートを有効にする</translation>
 <translation id="5219844027738217407">Android アプリに対しては、このポリシーはマイクにのみ適用されます。このポリシーを true に設定した場合、すべての Android アプリでは例外なくマイクがミュートされます。</translation>
 <translation id="5222325605346216869">バックグラウンドの JavaScript タイマーのスロットリングを強制的に適用する</translation>
 <translation id="5223606242837275233">サイトに URL を介した特定のテキスト フラグメントまでのスクロールを許可しない</translation>
@@ -5089,6 +5143,7 @@ None（なし）に設定するか未設定のままにした場合、ARC アプ
       「バージョン」には、正確なバージョン（61.0.3163.120 など）かバージョンのプレフィックス（61.0 など）を指定できます。  </translation>
 <translation id="5247584184349816217">ロック画面でスクリーンセーバーを有効にする。</translation>
 <translation id="5247973380763021389">ユーザーのクラウド ポリシーがマシンのクラウド ポリシーを上書きしないようにする</translation>
+<translation id="5249006530384016395">CSS カスタム ステータスの非推奨の <ph name="CUSTOM_STATE_DEPRECATED_SYNTAX" /> 構文を有効にするかどうかを制御します</translation>
 <translation id="5249453807420671499">ユーザーに Kerberos アカウントの追加を許可する</translation>
 <translation id="5249555581286638799">高効率モードを有効にする</translation>
 <translation id="5252210248395576403">このポリシーでは、クイック アンサーで翻訳の結果を取得する際に、選択したコンテンツへのアクセスとサーバーへの情報送信を許可します。
@@ -5745,6 +5800,15 @@ https://wiki.samba.org/index.php/Samba_4.6_Features_added/changed#Kerberos_clien
 <translation id="5775235485119094648">残量が一定の範囲内の場合にバッテリーを充電する。</translation>
 <translation id="5776485039795852974">サイトでデスクトップ通知が表示される前に毎回確認する</translation>
 <translation id="5783009211970309878">ヘッダーとフッターを印刷</translation>
+<translation id="5786733040432065904">フォーカス モードは、タイマーのサイレント モードを制御する機能で、ユーザーの集中を妨げないようにします。フォーカス モードの機能では、集中のため、特定の音楽を聴けるよう設定できます。このポリシーでは、この機能へのアクセスを管理します。
+
+このポリシーを未設定のままにした場合、管理対象ユーザーに対してすべてのサウンド再生が無効になります。
+
+このポリシーを有効に設定した場合、フォーカス モードですべてのサウンド再生が可能になります。
+
+このポリシーを FocusSounds only に設定した場合、フォーカス モード用のサウンドのみ再生機能が有効になります。
+
+このポリシーを無効に設定した場合、フォーカス モードでサウンド再生が無効になります。</translation>
 <translation id="5790763087505467169">管理対象のゲスト セッションの自動起動通知を減らす</translation>
 <translation id="5800329278018669527">オフライン時のネットワーク設定メッセージの表示を無効にする</translation>
 <translation id="5802931736499687181">暗号化されたレポート パイプラインを無効にする</translation>
@@ -5948,6 +6012,7 @@ https://wiki.samba.org/index.php/Samba_4.6_Features_added/changed#Kerberos_clien
 <translation id="5966615072639944554">Remote Attestation API の使用が許可されている拡張機能</translation>
 <translation id="596732417280023843">証明書プロファイルの名前です。</translation>
 <translation id="5972538402066550344">詳細なレポート コントロールを許可する</translation>
+<translation id="5973437409890460481">このパソコンへの企業のリモート アクセス接続を許可する</translation>
 <translation id="5975765799383881158">このポリシーを有効に設定するか未設定のままにした場合、ユーザーは [メニュー] &gt; [ヘルプ] &gt; [問題を報告] またはキーの組み合わせを使用して、Google にフィードバックを送信できます。
 
       このポリシーを無効に設定した場合、ユーザーは Google にフィードバックを送信できません。</translation>
@@ -6039,6 +6104,19 @@ https://wiki.samba.org/index.php/Samba_4.6_Features_added/changed#Kerberos_clien
       このポリシーを未設定のままにした場合、デバイスが対応していれば標準のバッテリー充電モードが適用され、ユーザーはこの設定を変更できません。
 
       注: カスタムのバッテリー充電モードを選択した場合は、<ph name="DEVICE_BATTERY_CHARGE_CUSTOM_START_CHARGING_POLICY_NAME" /> と <ph name="DEVICE_BATTERY_CHARGE_CUSTOM_STOP_CHARGING_POLICY_NAME" /> も指定してください。</translation>
+<translation id="6064418365347066084">既存のローカル ファイルのクラウドへの移行をトリガーします。
+SkyVault ユーザーのみ、つまり LocalUserFilesAllowed が false で、DownloadDirectory が Google ドライブまたは OneDrive の場合に適用され、それ以外の場合は無視されます。
+    True に設定した場合、ローカル ファイルはクラウド フォルダとローカル フォルダに移動され、ユーザーに対して非表示になります。
+    False に設定するか未設定のままにした場合、ローカル ファイルは読み取り専用モードのままになります。</translation>
+<translation id="60655674079349516">ユーザーがすべてのブラウザ ウィンドウを終了したときに削除する閲覧データの種類のリストを設定します。
+
+警告: このポリシーを設定すると、ローカルの個人データに影響し、完全に削除される場合があります。個人データが誤って削除されないように、デプロイ前に設定をテストすることをおすすめします。
+
+指定できるデータの種類は、閲覧履歴（<ph name="DATA_TYPE_BROWSING_HISTORY" />）、ダウンロード履歴（<ph name="DATA_TYPE_DOWNLOAD_HISTORY" />）、Cookie（<ph name="DATA_TYPE_COOKIES_AND_OTHER_SITE_DATA" />）、キャッシュ（<ph name="DATA_TYPE_CACHED_IMAGES_AND_FILES" />）、自動入力（<ph name="DATA_TYPE_AUTOFILL" />）、パスワード（<ph name="DATA_TYPE_PASSWORD" />）、サイトの設定（<ph name="DATA_TYPE_SITE_SETTINGS" />）、ホストされているアプリデータ（<ph name="DATA_TYPE_HOSTED_APP_DATA" />）です。ただし、このポリシーよりも <ph name="ALLOW_DELETING_BROWSER_HISTORY_POLICY_NAME" /> が優先されます。
+
+Chrome 114 までは、このポリシーを使用するには <ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーを true に設定する必要がありました。Chrome 115 以降では、このポリシーを設定すると、<ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーで「<ph name="CHROME_SYNC_NAME" />」を無効にしておらずかつ<ph name="BROWSER_SIGNIN_POLICY_NAME" /> も無効になっていない場合に、それぞれのデータタイプの同期が無効になります。
+
+<ph name="PRODUCT_NAME" /> が正常に終了しなかった場合（ブラウザや OS がクラッシュした場合など）は、次回プロファイルが読み込まれたときに閲覧データが削除されます。</translation>
 <translation id="6066761914755798079"><ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> がオンの場合に、<ph name="DEFAULT_SEARCH_PROVIDER_SUGGEST_URL_POLICY_NAME" /> では、検索候補を表示する検索エンジンの URL を指定できます。この URL には <ph name="SEARCH_TERM_MARKER" /> という文字列を含めます。この文字列は、クエリの送信時にユーザーが指定した検索キーワードに置き換えられます。
 
       Google の検索 URL は次のように指定できます。<ph name="GOOGLE_SUGGEST_SEARCH_URL" /></translation>
@@ -6325,6 +6403,11 @@ Origin-Agent-Cluster HTTP ヘッダーは、オリジンキー エージェン�
 <translation id="6282524907402492171"><ph name="CLOUD_PRINT_NAME" /> のサポート終了の警告を表示する</translation>
 <translation id="6282799760374509080">音声キャプチャを許可または拒否する</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
+<translation id="6286082501885452957">このポリシーを設定した場合、リストで指定したオリジンは Device Attributes API を使用してデバイスの属性（シリアル番号やホスト名など）を取得できます。
+
+オリジンは、<ph name="WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" /> ポリシーまたは <ph name="ISOLATED_WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" /> ポリシー（バージョン 125 以降）を使用して自動インストールされたウェブ アプリケーションか、キオスクアプリとして設定されたウェブ アプリケーションに対応している必要があります。Device Attributes API の仕様については、https://wicg.github.io/WebApiDevice/device_attributes をご覧ください。
+
+有効な <ph name="URL_LABEL" /> パターン（バージョン 127 以降）について詳しくは、https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns をご覧ください。このポリシーの値に「<ph name="WILDCARD_VALUE" />」は使用できません。</translation>
 <translation id="6287128640500683781">すべてのユーザーにログインを許可する</translation>
 <translation id="6287310684159482272">Cookie の設定</translation>
 <translation id="6287742528823584153"><ph name="PRODUCT_NAME" /> サービスを有効にして、ログイン時にリモートデスクを起動する</translation>
@@ -6484,6 +6567,7 @@ Origin-Agent-Cluster HTTP ヘッダーは、オリジンキー エージェン�
       このポリシーを false に設定した場合、この情報は報告されません。
       このポリシーを true に設定するか未設定のままにした場合、デバイスのネットワーク設定が報告されます。</translation>
 <translation id="6398489342702562818">このポリシーでは、ファスト ペアリングを強制的に有効または無効にできます。ファスト ペアリングは、ペア設定済みの周辺機器と GAIA アカウントをリンクする新しい Bluetooth ペア設定フローです。これにより、同じ GAIA アカウントでログインしている他の Chrome OS（および Android）デバイスを自動的にペア設定できるようになります。未設定のままにした場合、デフォルト値は企業ユーザーでは無効となり、管理対象外アカウントでは有効となります。</translation>
+<translation id="6400959027108936283">機能を有効にする</translation>
 <translation id="6401669939808766804">ユーザーをログアウトする</translation>
 <translation id="640244877779556713">絵文字の候補を有効にします</translation>
 <translation id="6403114173011456561">タップ仮想キーボードを制御し、<ph name="VIRTUAL_KEYBOARD_ENABLED_POLICY_NAME" /> ポリシーの補助ポリシーとして機能します。
@@ -6503,6 +6587,7 @@ Origin-Agent-Cluster HTTP ヘッダーは、オリジンキー エージェン�
 <translation id="6410847321564585975">ウェブサイトのアクティビティ レポートの許可リスト</translation>
 <translation id="6412352702230183710">システムレベルのネイティブ メッセージング ホストのみを許可</translation>
 <translation id="6416506846917150119">ユーザーの入力時に物理キーボードの予測入力を無効にする</translation>
+<translation id="6416916931494972926">Kiosk Vision のテレメトリー レポートを有効にする。</translation>
 <translation id="6417265370957905582">Google アシスタント</translation>
 <translation id="6419001911253110938">ログインフロー中にセッション内 AI 機能の紹介画面を表示する処理を有効にする</translation>
 <translation id="6421254653839955267">このポリシーを有効に設定した場合、CNAME 検索はスキップされます。Kerberos SPN の生成時には、入力されたサーバー名が使用されます。
@@ -6546,6 +6631,7 @@ Origin-Agent-Cluster HTTP ヘッダーは、オリジンキー エージェン�
 <translation id="6452882999388592166">有効に設定すると、起動時に組み込みの CryptoToken コンポーネント拡張機能が読み込まれます。無効に設定するか未設定のままにした場合、ブラウザの起動時に CryptoToken は読み込まれません。このポリシーは、M106 での CryptoToken 削除の副作用である、「chrome.runtime」が定義されていないため動作しないサイトに一時的に対応するためのものです。ウェブサイトは、「chrome.runtime」が無条件に定義されている状態を前提としないよう設定する必要があります。</translation>
 <translation id="6453641799812499182">新しい <ph name="CORS" /> の実装で <ph name="CORS" /> チェックの緩和措置を有効にする</translation>
 <translation id="645425387487868471"><ph name="PRODUCT_NAME" /> への強制ログインを有効にする</translation>
+<translation id="6454450724849956537">キーボード フォーカス可能なスクローラーを有効にする</translation>
 <translation id="645467061280066516">このポリシーを有効にすると、新しいタブページがユーザーのホームページとなり、指定されたホームページ URL の場所はいずれも無視されます。無効にすると、ホームページが新しいタブページになることはありません（ただしユーザーのホームページ URL が「chrome://newtab」に設定されている場合は除く）。
 
 このポリシーが設定されている場合、ユーザーは <ph name="PRODUCT_NAME" /> でホームページのタイプを変更できません。未設定の場合、新しいタブページをホームページにするかどうかはユーザーが選択します。
@@ -6651,6 +6737,7 @@ False に設定すると、P2P は使用されません。
 <translation id="6506486086262398387">このポリシーを有効に設定した場合、<ph name="PRODUCT_OS_NAME" /> のネットワーク ファイル共有の機能では、必要に応じて SMB 共有の認証に NTLM が使用されます。このポリシーを無効に設定した場合、SMB 共有の NTLM 認証は無効になります。
 
       このポリシーを未設定のままにした場合、デフォルトの動作は管理対象ユーザーに対して無効になり、それ以外のユーザーに対しては有効になります。</translation>
+<translation id="6508882314969525299">Kiosk Vision のテレメトリー レポートを無効にする。</translation>
 <translation id="6509376413448002446">ユーザーのロック画面のスクリーンセーバーを設定します。
 
 このポリシーを true に設定した場合、<ph name="PRODUCT_OS_NAME" /> デバイスがアイドル状態になるとロック画面にスクリーンセーバーが表示されます。
@@ -6815,6 +6902,7 @@ False に設定すると、P2P は使用されません。
 
       注: このポリシーは <ph name="REMOTE_ACCESS_HOST_TOKEN_URL_POLICY_NAME" /> と一緒に使用してください。</translation>
 <translation id="6625136649067113817">画面キーボードでスペルチェックを有効にするかどうかを示すブール値のフラグです。</translation>
+<translation id="6626319579493977784">動的コードの設定</translation>
 <translation id="66265932317331474">CPU 情報を報告する</translation>
 <translation id="6628120204569232711">ストレージの状態を報告する</translation>
 <translation id="662991036483361836">ニアバイシェアの有効化をユーザーに許可しない</translation>
@@ -6985,6 +7073,17 @@ False に設定すると、P2P は使用されません。
 <translation id="6757413365906304125">このポリシーでは、[キーの割り当て変更] サブページ内での PageUp / PageDown キーの割り当て変更の動作を指定します。[キーの割り当て変更] サブページでは、ユーザーがキーボードのキーをカスタマイズできます。このポリシーを有効にした場合、ユーザーはこれらの特定の割り当て変更をカスタマイズできなくなります。このポリシーを未設定のままにした場合、検索キーを使用したショートカットがデフォルトとして機能し、ユーザーはショートカットを設定できます。</translation>
 <translation id="6757613329154374267">バックアップと復元が有効</translation>
 <translation id="6758659208493449452">このポリシーは、高度な保護機能プログラムに登録しているユーザーが追加の保護機能を使用できるようにするかどうかを制御します。追加の機能では、Google とデータが共有されることがあります。たとえば、高度な保護機能のユーザーは、不正なソフトウェアをスキャンする目的で、ダウンロードしたファイルを Google に送信できます。True に設定するか未設定のままにした場合、登録ユーザーは追加の保護機能を使用できます。False に設定した場合、高度な保護機能のユーザーは標準的な消費者向けの機能のみを使用できます。</translation>
+<translation id="6759078816721385015"><ph name="PRODUCT_NAME" /> の閲覧データの有効期間を設定します。このポリシーでは、ブラウザでデータを削除するタイミングをデータの種類ごとに設定できます。このポリシーは、機密性の高い顧客データを取り扱う場合に役立ちます。
+
+警告: このポリシーを設定すると、ローカルの個人データに影響し、完全に削除される場合があります。個人データが誤って削除されないように、デプロイ前に設定をテストすることをおすすめします。
+
+対象となるデータの種類は <ph name="DATA_TYPE_BROWSING_HISTORY" />、<ph name="DATA_TYPE_DOWNLOAD_HISTORY" />、<ph name="DATA_TYPE_COOKIES_AND_OTHER_SITE_DATA" />、<ph name="DATA_TYPE_CACHED_IMAGES_AND_FILES" />、<ph name="DATA_TYPE_PASSWORD" />、<ph name="DATA_TYPE_AUTOFILL" />、<ph name="DATA_TYPE_SITE_SETTINGS" />、<ph name="DATA_TYPE_HOSTED_APP_DATA" /> です。<ph name="DATA_TYPE_DOWNLOAD_HISTORY" /> と <ph name="DATA_TYPE_HOSTED_APP_DATA" /> は Android でサポートされていません。
+
+ブラウザでは、選択した種類のデータが <ph name="TIME_TO_LIVE_IN_HOURS" /> の保存期間の経過後に自動的に削除されます。設定できる最小値は 1 時間です。
+
+有効期限を過ぎたデータは、ブラウザを起動してから 15 秒後に削除され、ブラウザの起動中は 30 分ごとに削除されます。
+
+Chrome 114 までは、このポリシーを使用するには <ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーを true に設定する必要がありました。Chrome 115 以降では、このポリシーを設定すると、<ph name="SYNC_DISABLED_POLICY_NAME" /> ポリシーで「<ph name="CHROME_SYNC_NAME" />」を無効にしておらずかつ <ph name="BROWSER_SIGNIN_POLICY_NAME" /> も無効になっていない場合に、それぞれのデータタイプの同期が無効になります。</translation>
 <translation id="6763023079133439068">ローカル トラスト アンカーから発行された、subjectAlternativeName 拡張がない証明書を許可する</translation>
 <translation id="6766216162565713893">サイトによる近くの Bluetooth デバイスへのアクセスをユーザーに確認する</translation>
 <translation id="6770454900105963262">有効なキオスク セッションの情報を報告する</translation>
@@ -7403,6 +7502,12 @@ false に設定するか未設定のままにした場合、このレイアウ�
 このポリシーを設定しない場合、拡大鏡は初期設定ではログイン画面で無効ですが、ユーザーはいつでも有効にできます。</translation>
 <translation id="7109384070286741861">CECPQ2 を無効にする</translation>
 <translation id="7113439794629928551">他のデバイスによって開始された <ph name="PRODUCT_NAME" /> セッションのメディア コントロールを表示する</translation>
+<translation id="7113803652772945829">このポリシーを true に設定した場合、ユーザーはサードパーティのパスワード マネージャーを使用できます。そのパスワード マネージャーが、すべてのパスワード、支払い、自動入力データの保存と入力を処理します。このポリシーを true または未設定にした場合、<ph name="PRODUCT_NAME" /> に組み込まれているパスワード マネージャーと Android の設定で設定されたパスワード マネージャーの間で切り替えることができます。
+<ph name="PRODUCT_NAME" /> は Google 自動入力と同じデータを使用するため、サードパーティのパスワード マネージャーを使用するように設定を変更できるのは、Android のシステム設定で Google 自動入力以外のマネージャーが設定されている場合のみです。
+
+このポリシーを false に設定した場合、<ph name="PRODUCT_NAME" /> では常に組み込みのパスワード マネージャーが使用されます。
+
+このポリシーは、ユーザー補助 API を使用するサードパーティのパスワード マネージャーには影響しません。</translation>
 <translation id="7114169791477667553">デフォルトの検索プロバイダを無効にする</translation>
 <translation id="7121046543122812054">このポリシーはサポートが終了しています。代わりに <ph name="BROWSER_SIGNIN_POLICY_NAME" /> を使用してください。
 
@@ -7729,6 +7834,7 @@ EphemeralNetworkPolicies 機能がデフォルトで有効になると、この�
 
       ユーザーはインポート ダイアログを表示できます。このとき、既定の検索エンジンのチェックボックスは、このポリシーの値に合わせてオンまたはオフになります。</translation>
 <translation id="7383581189726479261">このポリシーは M96 で非推奨になりました。代わりに <ph name="REPORT_DEVICE_NETWORK_CONFIGURATION" /> と <ph name="REPORT_DEVICE_NETWORK_STATUS" /> を使用してください。このポリシーを有効にするか、未設定のままにすると、登録済みデバイスはネットワーク インターフェースのリスト（タイプとハードウェア アドレスを含む）を報告します。このポリシーを無効に設定すると、登録済みデバイスはネットワーク インターフェースを報告しません。</translation>
+<translation id="7388618954884540850">ローカル ファイルのクラウドへの移行を無効にする</translation>
 <translation id="7389872682701720082">この設定が有効の場合、新しいプラグインが常に実行されます。
 
       この設定が無効または未設定の場合、承認を必要とするプラグインの実行許可を求めるメッセージがユーザーに表示されます。これらのプラグインはセキュリティを脅かす可能性があります。</translation>
@@ -7742,6 +7848,7 @@ EphemeralNetworkPolicies 機能がデフォルトで有効になると、この�
       このポリシーを無効に設定するか未設定のままにした場合、登録済みのデバイスは TPM セキュリティ ステータスの記録および報告を行いません。
       例外: M95 以前では、TPM の情報は <ph name="REPORT_DEVICE_HARDWARE_STATUS" /> によって制御されます。</translation>
 <translation id="739556497251174388"><ph name="PRODUCT_OS_NAME" /> のログイン認証情報をネットワーク認証で再利用することを許可する</translation>
+<translation id="7402257017733669351">ブラウザ プロセスで動的コードが作成されないようにする</translation>
 <translation id="7402772023599097052">このポリシーを有効に設定するか未設定のままにした場合、危険性のあるコマンドライン フラグを使用して Chrome を起動したときにセキュリティ警告が表示されます。
 
 このポリシーを無効に設定した場合、危険性のあるコマンドライン フラグ付きで Chrome が起動したときにセキュリティ警告は表示されません。
@@ -7891,6 +7998,7 @@ EphemeralNetworkPolicies 機能がデフォルトで有効になると、この�
 
       このポリシーを設定しないか True に設定した場合、パスワード入力の前に全画面表示を終了するようユーザーに警告が表示されます。このポリシーを False に設定した場合、警告は表示されません。</translation>
 <translation id="7531630046107845550">Terminal System App の SSH 発信クライアント接続を許可する</translation>
+<translation id="753332207298659209">デバイスでユーザーデータを許可するかどうか、既存データをクラウドにアップロードするかどうかを制御します。</translation>
 <translation id="7533385610709354870"><ph name="ENABLE_MEDIA_ROUTER_POLICY_NAME" /> が無効に設定されていない場合に、<ph name="MEDIA_ROUTER_CAST_ALLOW_ALL_IPS_POLICY_NAME" /> を有効に設定すると、RFC1918 と RFC4193 のプライベート アドレスだけでなくすべての IP アドレスのキャスト デバイスに <ph name="PRODUCT_NAME" /> が接続されます。
 
 このポリシーを無効に設定した場合は、RFC1918 と RFC4193 のキャスト デバイスにのみ <ph name="PRODUCT_NAME" /> が接続されます。
@@ -8384,6 +8492,7 @@ Internet Explorer の <ph name="IEEM_SITELIST_POLICY" /> ポリシーについ�
 <translation id="7962093600142350905">このポリシーでは、印刷プレビュー ダイアログでユーザーに利用可能な任意の Privet プリンタを表示するかどうかを管理します。
       このポリシーを有効に設定した場合、利用可能な Privet プリンタが表示されます。
       このポリシーを無効に設定するか未設定のままにした場合、印刷プレビューに Privet プリンタは表示されません（この印刷方法はサポートが終了しています）。</translation>
+<translation id="7969865441622729072">フォーカス モードですべてのサウンド再生を有効にする。</translation>
 <translation id="7970660709107174905">サードパーティのストレージ パーティション分割の設定</translation>
 <translation id="7972223739742725350">サードパーティの <ph name="PRODUCT_OS_NAME" /> 制御機能に対して Save and Share API を無効にする。</translation>
 <translation id="7972642710812569707">サードパーティのコンテキストでの WebSQL を強制的に再び有効にする</translation>
@@ -8496,6 +8605,13 @@ Internet Explorer の <ph name="IEEM_SITELIST_POLICY" /> ポリシーについ�
 <translation id="802776363472387903"><ph name="PLUGIN_VM_NAME" /> 画像の SHA-256 ハッシュです。</translation>
 <translation id="8028814157747157754">デフォルトの検索プロバイダを有効にし、ユーザーに検索プロバイダ リストの変更を許可</translation>
 <translation id="8029201909194194377">リモート アクセス接続で許可する最長セッション継続時間</translation>
+<translation id="8033450879690820321">このポリシーでは、キーボード フォーカス可能な新しいスクローラーの動作を一時的にオプトアウトします。
+
+このポリシーを有効に設定するか未設定のままにした場合、フォーカス可能な子のないスクローラーはデフォルトでキーボード フォーカス可能になります。さらに、スクローラーはデフォルトでクリック フォーカス可能、かつプログラマティック フォーカス可能となります。
+
+このポリシーを無効に設定した場合、スクローラーはデフォルトでフォーカス可能になりません。
+
+このポリシーは一時的な回避策で、M135 で削除される予定です。</translation>
 <translation id="8035570672225663428">アダプティブ充電モデルを有効にして、バッテリー寿命を延ばすため充電プロセスを保留する</translation>
 <translation id="8036284429246268475">このポリシーを有効に設定した場合、ユーザーは <ph name="PRODUCT_NAME" /> で入力したユーザー名とパスワードが漏洩していないかどうかを確認できます。
 
@@ -8936,13 +9052,11 @@ Internet Explorer の <ph name="IEEM_SITELIST_POLICY" /> ポリシーについ�
 
       このポリシーは、Chrome 115 以降で削除されます。</translation>
 <translation id="841395160262233331">ランチャーまたは検索キーでファンクション キーの動作を変更することはできない。ユーザーがこの設定を変更することはできない。</translation>
-<translation id="8415506434606458373">このポリシーを設定した場合、リストで指定したオリジンは Device Attributes API を使用してデバイスの属性（シリアル番号やホスト名など）を取得できます。
-
-オリジンは、<ph name="WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" /> ポリシーまたは <ph name="ISOLATED_WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" /> ポリシー（バージョン 125 以降）を使用して自動インストールされたウェブ アプリケーションか、キオスクアプリとして設定されたウェブ アプリケーションに対応している必要があります。Device Attributes API の仕様については、https://wicg.github.io/WebApiDevice/device_attributes をご覧ください。</translation>
 <translation id="8415953438346821074">この設定を有効にした場合は、<ph name="PRODUCT_NAME" /> プロフィールに保存されている設定（ブックマーク、自動入力データ、パスワードなど）が、「ローミング」ユーザー プロフィール フォルダまたは管理者が <ph name="ROAMING_PROFILE_LOCATION_POLICY_NAME" /> ポリシーで指定した場所に保存されるファイルにも書き込まれます。このポリシーを有効にすると、クラウド同期は無効になります。
 
       このポリシーを無効にするか未設定のままにした場合は、通常のローカル プロフィールのみが使用されます。</translation>
 <translation id="8417305981081876834">ロック画面の PIN の最大桁数を設定する</translation>
+<translation id="8418438383184278931">ローカル ユーザーのファイルのクラウド ストレージへの移行を有効にする</translation>
 <translation id="841977920223099909">パスワード保護について警告する場合のトリガー</translation>
 <translation id="8419965165591256432">登録デバイスで関連付けられたユーザーのデバイス アクティビティの状態を収集する間隔を指定できます。指定できる最小値は 1 分です。
 
@@ -8961,6 +9075,7 @@ Internet Explorer の <ph name="IEEM_SITELIST_POLICY" /> ポリシーについ�
 <translation id="8429593528367808164">ユーザーの入力時に物理キーボードの予測入力を有効にする</translation>
 <translation id="8433186206711564395">ネットワーク設定</translation>
 <translation id="8433769814000220721">おすすめのコンテンツを有効にする</translation>
+<translation id="8435304381855818385">デフォルトの動的コードの設定</translation>
 <translation id="843609873781525167">このポリシーを True に設定すると、<ph name="PRODUCT_NAME" /> で起動時にデフォルトのブラウザであるかが常に確認され、可能であれば自動的に登録されます。このポリシーを False に設定した場合、<ph name="PRODUCT_NAME" /> でデフォルトであるかどうかが確認されなくなり、このオプションに対するユーザー制御がオフになります。このポリシーを未設定のままにした場合は、<ph name="PRODUCT_NAME" /> でデフォルトに指定するかどうかをユーザーが制御でき、またデフォルトにしない場合はユーザー通知が表示されるかどうかを制御できます。注: <ph name="MS_WIN_NAME" /> 管理者の場合は、Windows 7 が稼働するマシンについてのみ、この設定をオンにできます。それ以後のバージョンについては、<ph name="PRODUCT_NAME" /> を <ph name="HTTPS_PROTOCOL" /> プロトコルと <ph name="HTTP_PROTOCOL" /> プロトコル（必要に応じて <ph name="FTP_PROTOCOL" /> プロトコルとその他のファイル形式）のハンドラにする、「デフォルトのアプリケーション関連付け」ファイルをデプロイする必要があります。Chrome ヘルプ（https://support.google.com/chrome?p=make_chrome_default_win）をご覧ください。</translation>
 <translation id="8441105784056442638">完全復元機能を有効にする</translation>
 <translation id="8444157920689124099">アプリケーションにバインドされた暗号化を有効にする</translation>
@@ -9020,6 +9135,7 @@ Internet Explorer の <ph name="IEEM_SITELIST_POLICY" /> ポリシーについ�
           このポリシーが未設定の場合は、「ChromeFrameRendererSettings」ポリシーで指定されているデフォルトのレンダラがすべてのサイトで使用されます。
 
           パターンの例については、https://www.chromium.org/developers/how-tos/chrome-frame-getting-started をご覧ください。</translation>
+<translation id="8489169564515126823">無効: デフォルトでスクローラーをフォーカス可能にしない。</translation>
 <translation id="8489964335640955763">PluginVm</translation>
 <translation id="8493645415242333585">ブラウザの履歴の保存を無効にする</translation>
 <translation id="8499172469244085141">デフォルト設定（ユーザーによるオーバーライド可能）</translation>
@@ -9120,6 +9236,11 @@ Internet Explorer の <ph name="IEEM_SITELIST_POLICY" /> ポリシーについ�
       このポリシーが true に設定されている場合、ユーザーがブラウザを使用するには、自分のプロフィールで <ph name="PRODUCT_NAME" /> にログインする必要があります。BrowserGuestModeEnabled のデフォルト値は false に設定されます。このポリシーを有効にした後、ログインしていない既存のポリシーはロックされ、アクセスできなくなります。詳しくはヘルプセンター記事をご覧ください。
 
       このポリシーが false に設定されているか未設定の場合、ユーザーは <ph name="PRODUCT_NAME" /> にログインしなくてもブラウザを使用できます。</translation>
+<translation id="8575422604428646609">このポリシーを無効にした場合、企業の管理者はユーザーが使用していないときに管理対象の <ph name="PRODUCT_OS_NAME" /> デバイスに接続できなくなります。
+
+このポリシーは、他のリモート アクセスのシナリオには影響しません。
+
+このポリシーを有効にするか、空白のままにするか、未設定のままにした場合、このポリシーは無効になります。</translation>
 <translation id="8575739761246140675">Symantec Corporation の Legacy PKI によって発行された証明書への信頼を有効にする</translation>
 <translation id="8575746110808109915">このポリシーを設定した場合、完全復元機能が有効になります。このポリシーが true の場合、クラッシュまたは再起動の後に、復元のアプリ設定に基づいてアプリとアプリ ウィンドウが復元されたり、復元されなかったりします。このポリシーが false の場合、ブラウザ ウィンドウのみが自動的に起動します。</translation>
 <translation id="8583509234908413302">WebRTC でレガシー TLS/DTLS へのダウングレードを許可する</translation>
@@ -9169,6 +9290,9 @@ Internet Explorer の <ph name="IEEM_SITELIST_POLICY" /> ポリシーについ�
       このポリシーを true に設定した場合、5 分以上バックグラウンドになっているタブは凍結可能になります。タブを凍結すると、CPU、バッテリー、メモリの使用量が削減されます。<ph name="PRODUCT_NAME" /> ではヒューリスティックにより、バックグラウンドで有用な処理（通知の表示、サウンドの再生、動画のストリーミングなど）を行うタブが凍結の対象から外されます。ウェブ デベロッパーが自身のサイトを凍結の対象から外すこともできます（https://chromium.googlesource.com/chromium/src/+/HEAD/chrome/browser/performance_manager/docs/freezing_opt_out_opt_in.md）。
 
       このポリシーを false に設定した場合は、どのタブも凍結されません。</translation>
+<translation id="8607613052618540095">このポリシーを有効に設定した場合、Kiosk Vision のテレメトリー レポートが有効になります。
+Kiosk Vision フレームワークが起動し、オーディエンス テレメトリーのレポートが有効になります。
+このポリシーを未設定のままにするか無効に設定した場合、Kiosk Vision のテレメトリー レポートは無効になります。</translation>
 <translation id="8610216287193516769">M122 で削除 - これは、ChromeOS ポリシー インフラストラクチャをプロパゲートに使用したことがないサーバーサイド専用のポリシーです。
 このポリシーを <ph name="POLICY_VALUE_ALL" /> に設定するか未設定のままにした場合、管理対象アカウントの使用はすべて許可されます。これにより、管理対象アカウントは予備のアカウントとなる場合もあります。その場合、ブラウザ プロファイルのメイン アカウントとしてログインしているときのみ、ポリシーが適用されます。次の場合、アカウントに設定されたポリシーは適用されません。
         -  OS レベルの予備のアカウント（アカウント設定）
@@ -9181,6 +9305,7 @@ Internet Explorer の <ph name="IEEM_SITELIST_POLICY" /> ポリシーについ�
 
 このポリシーを設定しない場合、レポートは 24 時間ごとにアップロードされます。
 このポリシーを設定した場合、レポートは指定した時間ごとにアップロードされます。</translation>
+<translation id="8613622696148230463">非推奨の古い構文を無効にする。</translation>
 <translation id="8618037841203431360">このポリシーでは、ポリシーデータとポリシーの取得日時について、レポートを作成するかどうかを管理します。
 
 ポリシー <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> が未設定のまま、または無効に設定されている場合、このポリシーは無視されます。
@@ -9426,17 +9551,6 @@ URL パターンは、<ph name="WEB_PRINTING_BLOCKED_FOR_URLS_POLICY_NAME" /> �
 <translation id="8835322836315560274">このポリシーの設定により、代替ブラウザで URL を開くときに使用するコマンドを管理できます。このポリシーは <ph name="INTERNET_EXPLORER_VALUE_PLACEHOLDER" />、<ph name="FIREFOX_VALUE_PLACEHOLDER" />、<ph name="SAFARI_VALUE_PLACEHOLDER" />、<ph name="OPERA_VALUE_PLACEHOLDER" />、<ph name="EDGE_VALUE_PLACEHOLDER" />、またはファイルパスのいずれかに設定できます。このポリシーをファイルパスに設定すると、そのファイルが実行ファイルとして使用されます。<ph name="INTERNET_EXPLORER_VALUE_PLACEHOLDER" /> は <ph name="MS_WIN_NAME" /> でのみ使用できます。<ph name="SAFARI_VALUE_PLACEHOLDER" /> と <ph name="EDGE_VALUE_PLACEHOLDER" /> は <ph name="MS_WIN_NAME" /> と <ph name="MAC_OS_NAME" /> でのみ使用できます。
 
       このポリシーを未設定のままにすると、プラットフォーム固有のデフォルトが使用されます。すなわち、<ph name="MS_WIN_NAME" /> の場合は <ph name="IE_PRODUCT_NAME" />、<ph name="MAC_OS_NAME" /> の場合は <ph name="SAFARI_PRODUCT_NAME" /> が使用されます。<ph name="LINUX_OS_NAME" /> では、代替ブラウザの起動は失敗します。</translation>
-<translation id="8836227957461360521">このポリシーでは、メモリセーバーの節約設定を変更します。
-
-このポリシーは、設定または <ph name="HIGH_EFFICIENCY_MODE_ENABLED_POLICY_NAME" /> ポリシーでメモリセーバーが有効になっている場合のみ有効で、ヒューリスティックを使ったタブを破棄するタイミングの決定に影響します。たとえば、非アクティブなタブを破棄するのではなく有効期間を短くすると、メモリを節約できますが、タブが頻繁に再読み込みされるため、ユーザー エクスペリエンスの低下やネットワーク トラフィックの増加につながる可能性があります。
-
-このポリシーを 0 に設定した場合 - メモリセーバーは適度にメモリを節約します。タブは長時間経過してから非アクティブになります。
-
-このポリシーを 1 に設定した場合 - メモリセーバーはバランス重視でメモリを節約します。タブは最適な時間が経過してから非アクティブになります。
-
-このポリシーを 2 に設定した場合 - メモリセーバーは最大限にメモリを節約します。タブは短時間経過してから非アクティブになります。
-
-このポリシーを未設定のままにした場合、エンドユーザーは chrome://settings/performance でこの設定を管理できます。</translation>
 <translation id="8836975838488342340">アクセスコードが有効な時間（秒）です。</translation>
 <translation id="883744045558067826">機能の起動プロセスで必要な場合は Chrome Root Store を使用する。</translation>
 <translation id="8837957135252624017">Chrome のタブを少なくとも 1 つは開いたままにする</translation>
@@ -9804,6 +9918,7 @@ URL パターンは、<ph name="WEB_PRINTING_BLOCKED_FOR_URLS_POLICY_NAME" /> �
 <translation id="9107635531763682565">このポリシーを 1 に設定した場合、ウェブサイトによるデスクトップ通知の表示が許可されます。このポリシーを 2 に設定した場合、デスクトップ通知は拒否されます。
 
 このポリシーを未設定のままにした場合、<ph name="ASK_NOTIFICATIONS_POLICY_NAME" /> は適用されますが、ユーザーはこの設定を変更できます。</translation>
+<translation id="9110194749335632373">企業の管理者がこのパソコンにリモート アクセス接続できないようにする</translation>
 <translation id="9110251436602897914">デバイスに接続されている周辺機器に関する情報を報告する</translation>
 <translation id="9110485853581788150"><ph name="PRODUCT_NAME" /> が信頼しないか信頼性を疑うものの、パス構築のヒントとして使用できる証明書のリストです。証明書は Base64 でエンコードする必要があります。</translation>
 <translation id="9111850884577810507">このフィールドは、<ph name="PRODUCT_NAME" /> 対応のプリンタを示す文字列のいずれかと一致する必要があります。この文字列は、プリンタに適した PPD の特定とインストールに使用されます。詳しくは、https://support.google.com/chrome?p=noncloudprint をご覧ください。</translation>
@@ -9957,6 +10072,7 @@ URL パターンは、<ph name="WEB_PRINTING_BLOCKED_FOR_URLS_POLICY_NAME" /> �
 2 = この機能を無効にします。2 は、<ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" /> で管理されている教育機関向けアカウントのデフォルト値です。
 
 生成 AI 機能のデータ処理について詳しくは、https://support.google.com/chrome/a?p=generative_ai_settings をご覧ください。</translation>
+<translation id="949192525372487705">サードパーティのパスワード マネージャーへの切り替えをブロックする</translation>
 <translation id="957322141096206402">システムの DNS 解決を、システム設定と機能フラグに応じて、ネットワーク プロセス内またはネットワーク プロセス外で実行できるようにする。</translation>
 <translation id="957778406002650056"><ph name="PLUGIN_VM_NAME" /> 画像をダウンロードすることのできる URL です。</translation>
 <translation id="957920984193041197">アンロード中にページでポップアップを表示することを許可する</translation>

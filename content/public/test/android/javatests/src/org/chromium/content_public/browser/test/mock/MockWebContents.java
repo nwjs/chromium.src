@@ -12,6 +12,7 @@ import android.os.Parcel;
 import androidx.annotation.Nullable;
 
 import org.chromium.blink_public.input.SelectionGranularity;
+import org.chromium.cc.input.BrowserControlsOffsetTagsInfo;
 import org.chromium.content_public.browser.GlobalRenderFrameHostId;
 import org.chromium.content_public.browser.ImageDownloadCallback;
 import org.chromium.content_public.browser.JavaScriptCallback;
@@ -26,6 +27,7 @@ import org.chromium.content_public.browser.ViewEventSink;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
+import org.chromium.content_public.browser.back_forward_transition.AnimationStage;
 import org.chromium.ui.OverscrollRefreshHandler;
 import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.ViewAndroidDelegate;
@@ -372,4 +374,17 @@ public class MockWebContents implements WebContents {
     public boolean needToFireBeforeUnloadOrUnloadEvents() {
         return false;
     }
+
+    @Override
+    public void onContentForNavigationEntryShown() {}
+
+    @Override
+    public int getCurrentBackForwardTransitionStage() {
+        return AnimationStage.NONE;
+    }
+
+    @Override
+    public void notifyControlsConstraintsChanged(
+            BrowserControlsOffsetTagsInfo oldOffsetTagsInfo,
+            BrowserControlsOffsetTagsInfo offsetTagsInfo) {}
 }

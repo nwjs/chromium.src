@@ -9,6 +9,7 @@
 #include <optional>
 #include <vector>
 
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "components/saved_tab_groups/saved_tab_group.h"
@@ -127,12 +128,17 @@ class SavedTabGroupModel {
                         const base::Uuid& tab_id,
                         int index);
 
-  // Attempts to merge the sync_specific with the local object that holds the
-  // same guid.
-  std::unique_ptr<sync_pb::SavedTabGroupSpecifics> MergeGroup(
-      const sync_pb::SavedTabGroupSpecifics& sync_specific);
-  std::unique_ptr<sync_pb::SavedTabGroupSpecifics> MergeTab(
-      const sync_pb::SavedTabGroupSpecifics& sync_specific);
+  // Attempts to merge the remote group metadata or tab with the local object
+  // that holds the same `guid`.
+  const SavedTabGroup* MergeRemoteGroupMetadata(
+      const base::Uuid& guid,
+      const std::u16string& title,
+      TabGroupColorId color,
+      std::optional<size_t> position,
+      std::optional<std::string> creator_cache_guid,
+      std::optional<std::string> last_updater_cache_guid,
+      base::Time update_time);
+  const SavedTabGroupTab* MergeRemoteTab(const SavedTabGroupTab& remote_tab);
 
   // Changes the index of a given tab group by id. The new index provided is the
   // expected index after the group is removed. Notify local observers if the
@@ -141,13 +147,24 @@ class SavedTabGroupModel {
   void ReorderGroupLocally(const base::Uuid& id, int new_index);
   void ReorderGroupFromSync(const base::Uuid& id, int new_index);
 
-  // Loads the entries (a sync_pb::SavedTabGroupSpecifics can be a group or a
-  // tab) saved locally in the model type store (local storage) and attempts to
-  // reconstruct the model by matching groups with their tabs using their
-  // `group_id`'s. Note: Any tabs that do not have a matching group, will be
-  // returned to the bridge to keep track of.
-  std::vector<sync_pb::SavedTabGroupSpecifics> LoadStoredEntries(
-      std::vector<sync_pb::SavedTabGroupSpecifics> entries);
+  // Update the creator cache guid for all saved groups that have
+  // `old_cache_guid`, to `new_cache_guid`.
+  std::pair<std::set<base::Uuid>, std::set<base::Uuid>> UpdateLocalCacheGuid(
+      std::optional<std::string> old_cache_guid,
+      std::optional<std::string> new_cache_guid);
+
+  // Update the last updater cache guid for a give group and optionally a tab.
+  void UpdateLastUpdaterCacheGuidForGroup(
+      const std::optional<std::string>& cache_guid,
+      const LocalTabGroupID& group_id,
+      const std::optional<LocalTabID>& tab_id);
+
+  // Loads the model from the storage. `tabs` must have a corresponding group in
+  // `groups`.
+  void LoadStoredEntries(
+      std::vector<SavedTabGroup> groups,
+      std::vector<SavedTabGroupTab> tabs,
+      base::OnceCallback<void()> on_loaded_callback = base::DoNothing());
 
   // Functions that should be called when a SavedTabGroup's corresponding
   // TabGroup is closed or opened.
@@ -174,10 +191,10 @@ class SavedTabGroupModel {
   // stored groups in `saved_tab_groups_`. It should be noted that
   // `saved_tab_groups` must already be in sorted order for this function to
   // work as intended. To do this, UpdatePositionsImpl() can be called.
-  void InsertGroupImpl(const SavedTabGroup& group);
+  void InsertGroupImpl(SavedTabGroup group);
 
   // Implementations of CRUD operations.
-  std::unique_ptr<SavedTabGroup> RemoveImpl(int index);
+  SavedTabGroup RemoveImpl(size_t index);
   void UpdateVisualDataImpl(int index,
                             const tab_groups::TabGroupVisualData* visual_data);
 

@@ -44,6 +44,7 @@
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/execution_context/security_context.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style_property_shorthand.h"
@@ -298,7 +299,7 @@ class TestCascade {
       case CascadeOrigin::kAnimation:
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -3103,6 +3104,33 @@ TEST_F(StyleCascadeTest, NonInitialWritingMode) {
 
   EXPECT_EQ("20px", cascade.ComputedValue("width"));
   EXPECT_EQ("10px", cascade.ComputedValue("height"));
+}
+
+TEST_F(StyleCascadeTest, InitialTextSizeAdjust) {
+  GetDocument().GetSettings()->SetTextAutosizingEnabled(true);
+  ScopedTextSizeAdjustImprovementsForTest scoped_feature(true);
+
+  TestCascade cascade(GetDocument());
+  cascade.Add("font-size:10px");
+  cascade.Add("line-height:20px");
+  cascade.Apply();
+
+  EXPECT_EQ("10px", cascade.ComputedValue("font-size"));
+  EXPECT_EQ("20px", cascade.ComputedValue("line-height"));
+}
+
+TEST_F(StyleCascadeTest, NonInitialTextSizeAdjust) {
+  GetDocument().GetSettings()->SetTextAutosizingEnabled(true);
+  ScopedTextSizeAdjustImprovementsForTest scoped_feature(true);
+
+  TestCascade cascade(GetDocument());
+  cascade.Add("font-size:10px");
+  cascade.Add("line-height:20px");
+  cascade.Add("text-size-adjust:200%");
+  cascade.Apply();
+
+  EXPECT_EQ("20px", cascade.ComputedValue("font-size"));
+  EXPECT_EQ("40px", cascade.ComputedValue("line-height"));
 }
 
 TEST_F(StyleCascadeTest, DoesNotDependOnCascadeAffectingProperty) {

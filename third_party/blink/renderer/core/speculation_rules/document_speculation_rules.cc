@@ -66,7 +66,7 @@ bool AcceptableReferrerPolicy(const Referrer& referrer,
       return true;
 
     case network::mojom::ReferrerPolicy::kDefault:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
   }
 }
@@ -252,10 +252,11 @@ void DocumentSpeculationRules::AddRuleSet(SpeculationRuleSet* rule_set) {
     } else if (rule_set->source()->IsFromBrowserInjected()) {
       outcome = SpeculationRulesLoadOutcome::kParseErrorBrowserInjected;
     } else {
-      NOTREACHED() << "error with unknown rule source";
+      NOTREACHED_IN_MIGRATION() << "error with unknown rule source";
     }
-  } else if (rule_set->source()->IsFromBrowserInjected()) {
-    // Don't insert browser-injected rule sets on pages that have other rules.
+  } else if (rule_set->source()->IsFromBrowserInjectedAndRespectsOptOut()) {
+    // Don't insert browser-injected rule sets that respect the opt-out on pages
+    // that have other rules.
     for (const auto& other_rule_set : rule_sets_) {
       if (!other_rule_set->source()->IsFromBrowserInjected()) {
         CountSpeculationRulesLoadOutcome(
@@ -306,10 +307,12 @@ void DocumentSpeculationRules::AddRuleSet(SpeculationRuleSet* rule_set) {
                           : WebFeature::kSpeculationRulesAuthorPrerenderRule);
   }
 
+  // If non-browser-injected speculation rules are injected, then remove all
+  // opt-out respecting browser-injected speculation rules.
   if (!rule_set->source()->IsFromBrowserInjected()) {
     HeapVector<Member<SpeculationRuleSet>> to_remove;
     for (const auto& other_rule_set : rule_sets_) {
-      if (other_rule_set->source()->IsFromBrowserInjected()) {
+      if (other_rule_set->source()->IsFromBrowserInjectedAndRespectsOptOut()) {
         to_remove.push_back(other_rule_set);
       }
     }
@@ -669,8 +672,11 @@ void DocumentSpeculationRules::UpdateSpeculationCandidates() {
         if (!referrer)
           continue;
 
+        // Ensured by `SpeculationRuleSet`.
         CHECK(!rule->target_browsing_context_name_hint() ||
               action == mojom::blink::SpeculationAction::kPrerender);
+        CHECK(!rule->requires_anonymous_client_ip_when_cross_origin() ||
+              action == mojom::blink::SpeculationAction::kPrefetch);
 
         candidates.push_back(MakeGarbageCollected<SpeculationCandidate>(
             url, action, referrer.value(),

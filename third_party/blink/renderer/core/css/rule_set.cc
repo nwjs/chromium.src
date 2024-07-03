@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html/track/text_track_cue.h"
 #include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/core/inspector/invalidation_set_to_selector_map.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -552,7 +553,7 @@ void RuleSet::FindBestRuleSetAndAdd(CSSSelector& component,
             name = shadow_element_names::kSelectFallbackDatalist;
             break;
           default:
-            NOTREACHED();
+            NOTREACHED_IN_MIGRATION();
             break;
         }
         AddToRuleSet(name, ua_shadow_pseudo_element_rules_, rule_data);
@@ -630,10 +631,14 @@ void RuleSet::AddRule(StyleRule* rule,
   RuleData rule_data(rule, selector_index, rule_count_, style_scope,
                      add_rule_flags, bloom_hash_backing_);
   ++rule_count_;
-  if (features_.CollectFeaturesFromSelector(rule_data.Selector(),
-                                            style_scope) ==
-      RuleFeatureSet::kSelectorNeverMatches) {
-    return;
+  {
+    InvalidationSetToSelectorMap::SelectorScope selector_scope(rule,
+                                                               selector_index);
+    if (features_.CollectFeaturesFromSelector(rule_data.Selector(),
+                                              style_scope) ==
+        RuleFeatureSet::kSelectorNeverMatches) {
+      return;
+    }
   }
 
   FindBestRuleSetAndAdd<BucketCoverage::kCompute>(rule_data.MutableSelector(),
@@ -1080,9 +1085,9 @@ void RuleMap::Compact() {
   // First, we make an array that contains the number of elements in each
   // bucket, indexed by the bucket number. We also find each element's
   // position within that bucket.
-  std::unique_ptr<unsigned[]> counts(
-      new unsigned[num_buckets]());  // Zero-initialized.
-  std::unique_ptr<unsigned[]> order_in_bucket(new unsigned[backing.size()]);
+  auto counts =
+      base::HeapArray<unsigned>::WithSize(num_buckets);  // Zero-initialized.
+  auto order_in_bucket = base::HeapArray<unsigned>::Uninit(backing.size());
   for (wtf_size_t i = 0; i < bucket_number_.size(); ++i) {
     order_in_bucket[i] = counts[bucket_number_[i]]++;
   }
@@ -1165,8 +1170,7 @@ void RuleMap::AddFilteredRulesFromOtherSet(
     }
   } else {
     // First make a mapping of bucket number to key.
-    std::unique_ptr<const AtomicString*[]> keys(
-        new const AtomicString*[other.num_buckets]);
+    auto keys = base::HeapArray<const AtomicString*>::Uninit(other.num_buckets);
     for (const auto& [key, src_extent] : other.buckets) {
       keys[src_extent.bucket_number] = &key;
     }

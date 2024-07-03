@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {SeaPenImageId} from './constants.js';
+import {QUERY, SeaPenImageId} from './constants.js';
 import {MantaStatusCode, SeaPenFeedbackMetadata, SeaPenProviderInterface, SeaPenQuery, SeaPenThumbnail} from './sea_pen.mojom-webui.js';
 import * as seaPenAction from './sea_pen_actions.js';
 import {logSeaPenImageSet} from './sea_pen_metrics_logger.js';
@@ -14,8 +14,8 @@ export async function selectRecentSeaPenImage(
     id: SeaPenImageId, provider: SeaPenProviderInterface,
     store: SeaPenStoreInterface): Promise<void> {
   const originalCurrentSelected = store.data.currentSelected;
-  // Returns if the selected image is the current wallpaper.
   if (id === originalCurrentSelected) {
+    // Return if the just selected image is already the current image.
     return;
   }
   // Batch these changes together to reduce polymer churn as multiple state
@@ -30,7 +30,7 @@ export async function selectRecentSeaPenImage(
   store.beginBatchUpdate();
   store.dispatch(seaPenAction.endSelectRecentSeaPenImageAction(id, success));
   if (!success) {
-    console.warn('Error setting wallpaper');
+    console.warn('Error setting image');
   }
   if (store.data.loading.setImage === 0) {
     // Mark the image as applied or revert back to the old one.
@@ -40,18 +40,20 @@ export async function selectRecentSeaPenImage(
   store.endBatchUpdate();
 
   if (success) {
-    logSeaPenImageSet(/*source=*/ 'Recent');
+    const isTextQuery =
+        !!store.data.recentImageData[id]?.imageInfo?.query?.textQuery;
+    logSeaPenImageSet(isTextQuery, /*source=*/ 'Recent');
   }
 }
 
-export async function searchSeaPenThumbnails(
+export async function getSeaPenThumbnails(
     query: SeaPenQuery, provider: SeaPenProviderInterface,
     store: SeaPenStoreInterface): Promise<void> {
   store.dispatch(seaPenAction.beginSearchSeaPenThumbnailsAction(query));
   store.dispatch(seaPenAction.setCurrentSeaPenQueryAction(query));
-  const {images, statusCode} =
-      await withMinimumDelay(provider.searchWallpaper(query));
-  if (!isNonEmptyArray(images) || statusCode !== MantaStatusCode.kOk) {
+  const {thumbnails, statusCode} =
+      await withMinimumDelay(provider.getSeaPenThumbnails(query));
+  if (!isNonEmptyArray(thumbnails) || statusCode !== MantaStatusCode.kOk) {
     console.warn('Error generating thumbnails. Status code: ', statusCode);
   }
 
@@ -66,14 +68,14 @@ export async function searchSeaPenThumbnails(
   const templateIdParam = params.get('seaPenTemplateId');
   if (!templateIdParam ||
       (templateIdParam === query.templateQuery?.id.toString()) ||
-      (templateIdParam === 'Query' && !!query.textQuery)) {
+      (templateIdParam === QUERY && !!query.textQuery)) {
     store.dispatch(
         seaPenAction.setThumbnailResponseStatusCodeAction(statusCode));
-    store.dispatch(seaPenAction.setSeaPenThumbnailsAction(query, images));
+    store.dispatch(seaPenAction.setSeaPenThumbnailsAction(query, thumbnails));
   }
 }
 
-export async function selectSeaPenWallpaper(
+export async function selectSeaPenThumbnail(
     thumbnail: SeaPenThumbnail, provider: SeaPenProviderInterface,
     store: SeaPenStoreInterface): Promise<void> {
   const originalCurrentSelected = store.data.currentSelected;
@@ -104,10 +106,11 @@ export async function selectSeaPenWallpaper(
         success ? thumbnail.id : originalCurrentSelected));
   }
   store.endBatchUpdate();
-  // Re-fetches the recent Sea Pen image if setting sea pen wallpaper
+  // Re-fetches the recent SeaPen image if setting SeaPen thumbnail
   // successfully, which means the file has been downloaded successfully.
   if (success) {
-    logSeaPenImageSet(/*source=*/ 'Create');
+    const isTextQuery = !!store.data.currentSeaPenQuery?.textQuery;
+    logSeaPenImageSet(isTextQuery, /*source=*/ 'Create');
     await fetchRecentSeaPenData(provider, store);
   }
 }
@@ -135,12 +138,12 @@ export async function deleteRecentSeaPenImage(
   }
 }
 
-export async function getRecentSeaPenImages(
+export async function getRecentSeaPenImageIds(
     provider: SeaPenProviderInterface,
     store: SeaPenStoreInterface): Promise<void> {
   store.dispatch(seaPenAction.beginLoadRecentSeaPenImagesAction());
 
-  const {ids} = await provider.getRecentSeaPenImages();
+  const {ids} = await provider.getRecentSeaPenImageIds();
   if (ids == null) {
     console.warn('Failed to fetch recent sea pen images');
   }
@@ -157,7 +160,7 @@ export async function fetchRecentSeaPenData(
     store: SeaPenStoreInterface): Promise<void> {
   // Do not restart loading local image list if a load is already in progress.
   if (!store.data.loading.recentImages) {
-    await getRecentSeaPenImages(provider, store);
+    await getRecentSeaPenImageIds(provider, store);
   }
   await getMissingRecentSeaPenImageData(provider, store);
 }

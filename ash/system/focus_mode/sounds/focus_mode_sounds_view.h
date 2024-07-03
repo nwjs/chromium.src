@@ -7,6 +7,7 @@
 
 #include "ash/ash_export.h"
 #include "ash/style/rounded_container.h"
+#include "ash/system/focus_mode/sounds/focus_mode_sounds_controller.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 
 namespace ash {
@@ -19,21 +20,33 @@ class TabSliderButton;
 // display two different types of music. Each playlist view will show a
 // thumbnail of the playlist cover, a title of the playlist and some media
 // control icons.
-class ASH_EXPORT FocusModeSoundsView : public RoundedContainer {
+class ASH_EXPORT FocusModeSoundsView
+    : public RoundedContainer,
+      public FocusModeSoundsController::Observer {
   METADATA_HEADER(FocusModeSoundsView, RoundedContainer)
 
  public:
-  FocusModeSoundsView();
+  explicit FocusModeSoundsView(bool is_network_connected);
   FocusModeSoundsView(const FocusModeSoundsView&) = delete;
   FocusModeSoundsView& operator=(const FocusModeSoundsView&) = delete;
   ~FocusModeSoundsView() override;
 
+  // FocusModeSoundsController::Observer:
+  void OnSelectedPlaylistChanged() override;
+
  private:
-  // Update this view based on `is_soundscape_type`.
+  // Updates this view based on `is_soundscape_type`.
   void UpdateSoundsView(bool is_soundscape_type);
 
   // Creates `soundscape_button_` and `youtube_music_button_`.
-  void CreateTabSliderButtons();
+  void CreateTabSliderButtons(bool is_network_connected);
+
+  // Creates `soundscape_container_` and `youtube_music_container_`.
+  void CreatesSoundSectionViews();
+
+  // Toggles YouTube Music alternate view. It's used to update the UIs for
+  // non-premium account.
+  void ToggleYouTubeMusicAlternateView(bool show);
 
   // Called to show YouTube Music soundscape playlists.
   void OnSoundscapeButtonToggled();

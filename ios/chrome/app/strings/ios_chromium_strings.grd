@@ -361,9 +361,6 @@ Things to consider:
       <message name="IDS_IOS_FIRST_RUN_WELCOME_SCREEN_SUBTITLE" desc="The subtitle of the welcome screen presented to the user on First Run [iOS only]">
         Get more done with a simple, secure, and faster-than-ever Chromium.
       </message>
-      <message name="IDS_IOS_FOLLOW_MANAGEMENT_EMPTY_TEXT" desc="The text of an empty following list.">
-        Visit a site and click Follow in the Chromium menu
-      </message>
       <message name="IDS_IOS_GOOGLE_SERVICES_SETTINGS_ALLOW_SIGNIN_DETAIL" desc="Feature detail text in the Google services Settings for the user to enable/disable Chrome express sign-in from the web [iOS only]">
         Shows prompts to sign in to Chromium.
       </message>
@@ -593,6 +590,12 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_DEFAULT_BROWSER_BODY" desc="Text for the body of a Tips notification that encourages the user to set the app as their default browser">
         Use Chromium anytime you tap links in messages or other apps.
+      </message>
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SETUPLIST_CONTINUATION_BODY" desc="Text for the body of a Tips notification that encourages the user to complete the Set Up List">
+        Get the most out of Chromium by continuing setting up your browser.
+      </message>
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SETUPLIST_CONTINUATION_TITLE" desc="Text for the title of a Tips notification that encourages the user to complete the Set Up List">
+        Finish Setting Up Chromium
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_SIGNIN_TITLE" desc="Text for the title of a Tips notification that encourages the user to sign in to their account">
         Chromium Tip: Sign in to Chromium
@@ -986,9 +989,6 @@ Your data was encrypted with your passphrase on <ph name="TIME">$2<ex>Sept 1, 20
       <message name="IDS_IOS_USER_POLICY_NOTIFICATION_NO_SIGNOUT_SUBTITLE" desc="The subtitle of the User Policy notification dialog. [iOS only] [300em]">
         Your organization, <ph name="DOMAIN">$1<ex>doe.com</ex></ph>, manages the account you're signed in to and how Chromium is used.
       </message>
-      <message name="IDS_IOS_USER_POLICY_NOTIFICATION_TITLE" desc="The title of the User Policy notification dialog. [iOS only] [300em]">
-        Chromium now supports user policies for your managed account
-      </message>
       <message name="IDS_IOS_WHATS_CHROME_TIP_CHROME_DEFAULT_TITLE" desc="Use Chrome By Default title displayed in What's New. [iOS only]">
         Use Chromium By Default
       </message>
@@ -1041,10 +1041,15 @@ Your data was encrypted with your passphrase on <ph name="TIME">$2<ex>Sept 1, 20
           =1 {This happens when Chromium isn't used for {THRESHOLD} minute}
           other {This happens when Chromium isn't used for {THRESHOLD} minutes}}
       </message>
-      <message name="IDS_IOS_IDLE_TIMEOUT_SUBTITLE_WITH_CLEAR_DATA" desc="Subtitle of the idle timeout policy dialog explaining when the idle action usually happens.">
+      <message name="IDS_IOS_IDLE_TIMEOUT_SUBTITLE_WITH_CLEAR_DATA" desc="Subtitle of the idle timeout policy dialog explaining when the idle action usually happens. It also informs the user that browsing data will be cleared.">
           {THRESHOLD, plural,
             =1 {This happens when Chromium isn't used for {THRESHOLD} minute. This could include history and autofill.}
             other {This happens when Chromium isn't used for {THRESHOLD} minutes. This could include history and autofill.}}
+      </message>
+      <message name="IDS_IOS_IDLE_TIMEOUT_SUBTITLE_WITH_CLEAR_DATA_ON_SIGNOUT" desc="Subtitle of the idle timeout policy dialog explaining when the idle action usually happens. It also informs the user that data will be cleared when they are signed out.">
+          {THRESHOLD, plural,
+            =1 {This happens when Chromium isn't used for {THRESHOLD} minute. Data saved only to this device while you were signed in will be deleted. This could include history and passwords.}
+            other {This happens when Chromium isn't used for {THRESHOLD} minutes. Data saved only to this device while you were signed in will be deleted. This could include history and passwords.}}
       </message>
       <message name="IDS_IOS_IDLE_TIMEOUT_CONTINUE_USING_CHROME" desc="Button label to indicate browser activity and stop the browser from running idle timeout actions.">
          Continue using Chromium

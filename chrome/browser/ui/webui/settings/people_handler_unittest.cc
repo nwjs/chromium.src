@@ -74,6 +74,7 @@
 namespace {
 
 using signin::ConsentLevel;
+using signin_util::SignedInState;
 using ::testing::_;
 using ::testing::ByMove;
 using ::testing::Const;
@@ -115,7 +116,6 @@ std::string GetConfiguration(SyncAllDataConfig sync_all,
              types.Has(syncer::UserSelectableType::kAutofill));
   result.Set("bookmarksSynced",
              types.Has(syncer::UserSelectableType::kBookmarks));
-  result.Set("compareSynced", types.Has(syncer::UserSelectableType::kCompare));
   result.Set("cookiesSynced", types.Has(syncer::UserSelectableType::kCookies));
   result.Set("extensionsSynced",
              types.Has(syncer::UserSelectableType::kExtensions));
@@ -125,6 +125,8 @@ std::string GetConfiguration(SyncAllDataConfig sync_all,
              types.Has(syncer::UserSelectableType::kPayments));
   result.Set("preferencesSynced",
              types.Has(syncer::UserSelectableType::kPreferences));
+  result.Set("productComparisonSynced",
+             types.Has(syncer::UserSelectableType::kProductComparison));
   result.Set("readingListSynced",
              types.Has(syncer::UserSelectableType::kReadingList));
   result.Set("savedTabGroupsSynced",
@@ -1597,11 +1599,11 @@ TEST(PeopleHandlerWebOnlySigninTest, ChromeSigninUserAvailableOnWebSignin) {
         sync_status_values.FindInt("signedInState");
     ASSERT_TRUE(signedInState.has_value());
     EXPECT_EQ(static_cast<SignedInState>(signedInState.value()),
-              SignedInState::WebOnlySignedIn);
+              SignedInState::kWebOnlySignedIn);
   }
 }
 
-TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPausedThenSignout) {
+TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPendingThenSignout) {
   identity_test_env()->MakePrimaryAccountAvailable(kTestUser,
                                                    ConsentLevel::kSignin);
   SetExplicitSignin(true);
@@ -1623,7 +1625,7 @@ TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPausedThenSignout) {
         sync_status_values.FindInt("signedInState");
     ASSERT_TRUE(signedInState.has_value());
     EXPECT_EQ(static_cast<SignedInState>(signedInState.value()),
-              SignedInState::SignedInPaused);
+              SignedInState::kSignInPending);
   }
 
   // Simulates pressing on the "Sign out" Button in the Sign in Paused state,
@@ -1643,11 +1645,11 @@ TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPausedThenSignout) {
         sync_status_values.FindInt("signedInState");
     ASSERT_TRUE(signedInState.has_value());
     EXPECT_EQ(static_cast<SignedInState>(signedInState.value()),
-              SignedInState::SignedOut);
+              SignedInState::kSignedOut);
   }
 }
 
-TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPausedThenReauth) {
+TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPendingThenReauth) {
   identity_test_env()->MakePrimaryAccountAvailable(kTestUser,
                                                    ConsentLevel::kSignin);
   SetExplicitSignin(true);
@@ -1669,7 +1671,7 @@ TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPausedThenReauth) {
         sync_status_values.FindInt("signedInState");
     ASSERT_TRUE(signedInState.has_value());
     EXPECT_EQ(static_cast<SignedInState>(signedInState.value()),
-              SignedInState::SignedInPaused);
+              SignedInState::kSignInPending);
     ;
   }
 
@@ -1689,11 +1691,11 @@ TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPausedThenReauth) {
         sync_status_values.FindInt("signedInState");
     ASSERT_TRUE(signedInState.has_value());
     EXPECT_EQ(static_cast<SignedInState>(signedInState.value()),
-              SignedInState::SignedIn);
+              SignedInState::kSignedIn);
   }
 }
 
-TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPausedValueWithSync) {
+TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPendingValueWithSync) {
   CreatePeopleHandler();
 
   ASSERT_FALSE(HasSyncStatusUpdateChangedEvent());
@@ -1714,13 +1716,13 @@ TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPausedValueWithSync) {
         sync_status_values.FindInt("signedInState");
     ASSERT_TRUE(signedInState.has_value());
     EXPECT_EQ(static_cast<SignedInState>(signedInState.value()),
-              SignedInState::Syncing);
+              SignedInState::kSyncing);
   }
 
   // Invalidate the account while it is syncing.
   TriggerPrimaryAccountInPersistentError();
 
-  // `signinPaused` is still false even when the account is in error.
+  // `SigninPending` is still false even when the account is in error.
   {
     auto values_list =
         GetAllFiredValuesForEventName(kSyncStatusChangeEventName);
@@ -1733,7 +1735,7 @@ TEST_F(PeopleHandlerWithExplicitBrowserSigninTest, SigninPausedValueWithSync) {
         sync_status_values.FindInt("signedInState");
     ASSERT_TRUE(signedInState.has_value());
     EXPECT_EQ(static_cast<SignedInState>(signedInState.value()),
-              SignedInState::Syncing);
+              SignedInState::kSyncing);
   }
 }
 
@@ -1788,19 +1790,33 @@ TEST_F(PeopleHandlerWithExplicitBrowserSigninTest,
   // Simluates settings page loading.
   SimulateHandleGetChromeSigninUserChoiceInfo();
 
+  SigninPrefs signin_prefs(*profile()->GetPrefs());
   ChromeSigninUserChoice current_choice =
-      SigninPrefs(*profile()->GetPrefs())
-          .GetChromeSigninInterceptionUserChoice(account.gaia);
+      signin_prefs.GetChromeSigninInterceptionUserChoice(account.gaia);
 
   // Simulates setting a new value through the UI.
   ChromeSigninUserChoice user_choice = ChromeSigninUserChoice::kSignin;
   ASSERT_NE(current_choice, user_choice);
   SimulateHandleSetChromeSigninUserChoiceInfo(account.email, user_choice);
 
+  // Simulate declining the bubble time stored.
+  signin_prefs.SetChromeSigninInterceptionFirstDeclinedChoiceTime(
+      account.gaia, base::Time::Now());
+  ASSERT_TRUE(
+      signin_prefs
+          .GetChromeSigninInterceptionFirstDeclinedChoiceTime(account.gaia)
+          .has_value());
+
   // Simulates a second selection within the same settings session.
   ChromeSigninUserChoice user_choice2 = ChromeSigninUserChoice::kDoNotSignin;
   ASSERT_NE(current_choice, user_choice2);
   SimulateHandleSetChromeSigninUserChoiceInfo(account.email, user_choice2);
+  // Explicitly setting the do not sign in option should clear bubble declined
+  // time.
+  EXPECT_FALSE(
+      signin_prefs
+          .GetChromeSigninInterceptionFirstDeclinedChoiceTime(account.gaia)
+          .has_value());
 
   // Enforcing changing the value to the same previous one should not record a
   // new modification.

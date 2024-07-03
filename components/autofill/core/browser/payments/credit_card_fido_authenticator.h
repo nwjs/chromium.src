@@ -150,6 +150,10 @@ class CreditCardFidoAuthenticator
   // Returns the current flow.
   Flow current_flow() { return current_flow_; }
 
+  // Returns true if `request_options` contains a challenge and has a non-empty
+  // list of keys that each have a Credential ID.
+  bool IsValidRequestOptions(const base::Value::Dict& request_options);
+
  private:
   friend class BrowserAutofillManagerTest;
   friend class CreditCardAccessManagerTest;
@@ -175,6 +179,7 @@ class CreditCardFidoAuthenticator
       blink::mojom::PublicKeyCredentialCreationOptionsPtr creation_options);
 
   // Makes a request to payments to either opt-in or opt-out the user.
+  // TODO(crbug.com/345006413): Remove logic related to the FIDO opt-out flow.
   void OptChange(
       base::Value::Dict authenticator_response = base::Value::Dict());
 
@@ -229,10 +234,6 @@ class CreditCardFidoAuthenticator
   base::Value::Dict ParseAttestationResponse(
       blink::mojom::MakeCredentialAuthenticatorResponsePtr
           attestation_response);
-
-  // Returns true if |request_options| contains a challenge and has a non-empty
-  // list of keys that each have a Credential ID.
-  bool IsValidRequestOptions(const base::Value::Dict& request_options);
 
   // Returns true if |request_options| contains a challenge.
   bool IsValidCreationOptions(const base::Value::Dict& creation_options);

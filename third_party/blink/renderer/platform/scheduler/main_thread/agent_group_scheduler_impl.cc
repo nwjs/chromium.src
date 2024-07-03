@@ -81,13 +81,7 @@ AgentGroupSchedulerImpl::DefaultTaskRunner() {
 
 scoped_refptr<base::SingleThreadTaskRunner>
 AgentGroupSchedulerImpl::CompositorTaskRunner() {
-  if (main_thread_scheduler_->scheduling_settings()
-          .mbi_compositor_task_runner_per_agent_scheduling_group) {
-    return compositor_task_runner_;
-  }
-  // We temporarily redirect the per-AGS compositor task runner to the main
-  // thread's compositor task runner.
-  return main_thread_scheduler_->CompositorTaskRunner();
+  return compositor_task_runner_;
 }
 
 scoped_refptr<MainThreadTaskQueue>
@@ -206,6 +200,19 @@ void AgentGroupSchedulerImpl::UpdatePolicy() {
   for (auto* page_scheduler : page_schedulers_) {
     page_scheduler->UpdatePolicy();
   }
+}
+
+void AgentGroupSchedulerImpl::OnUrgentMessageReceived() {
+  // TODO(crbug.com/40114705): This forwards to `main_thread_scheduler_`, which
+  // will prioritize all default task queues until the urgent messages are
+  // handled. It might be better to only prioritize `default_task_queue_`, which
+  // depends on MBIMode being non-legacy and MbiOverrideTaskRunnerHandle being
+  // enabled (because of crbug.com/40182014).
+  main_thread_scheduler_->OnUrgentMessageReceived();
+}
+
+void AgentGroupSchedulerImpl::OnUrgentMessageProcessed() {
+  main_thread_scheduler_->OnUrgentMessageProcessed();
 }
 
 }  // namespace scheduler

@@ -50,11 +50,13 @@ enum class PasswordCheckReferrer;
             (UIViewController*)baseViewController
                                     showCancelButton:(BOOL)showCancelButton;
 
-// Shows the password details page for a credential.
-// `showCancelButton` indicates whether a cancel button should be added as the
-// left navigation item of the password details view.
+// Shows the password details page for a credential. `editMode` indicates
+// whether the details page should be opened in edit mode. `showCancelButton`
+// indicates whether a cancel button should be added as the left navigation item
+// of the password details view.
 - (void)showPasswordDetailsForCredential:
             (password_manager::CredentialUIEntry)credential
+                              inEditMode:(BOOL)editMode
                         showCancelButton:(BOOL)showCancelButton;
 
 // Shows the list of profiles (addresses) in the settings.
@@ -88,6 +90,10 @@ enum class PasswordCheckReferrer;
 
 // Shows the Safe Browsing page.
 - (void)showSafeBrowsingSettings;
+
+// Navigates the user to the Safe Browsing settings menu page when the user
+// clicks the inline promo's primary button.
+- (void)showSafeBrowsingSettingsFromPromoInteraction;
 
 // Shows the Password Manager's search page.
 - (void)showPasswordSearchPage;

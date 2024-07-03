@@ -129,8 +129,8 @@ class PopOutHandlerTest : public views::ViewsTestBase {
 
     widget_ = std::make_unique<views::Widget>();
     views::Widget::InitParams params =
-        CreateParams(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-    params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+        CreateParams(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                     views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
     params.bounds = gfx::Rect(0, 0, 650, 650);
     widget_->Init(std::move(params));
     widget_->Show();
@@ -218,7 +218,8 @@ class ToolbarControllerUnitTest : public ChromeViewsTestBase {
 
   void SetUp() override {
     ChromeViewsTestBase::SetUp();
-    widget_ = CreateTestWidget();
+    widget_ =
+        CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
     widget_->Show();
 
     std::unique_ptr<views::View> toolbar_container_view =
@@ -277,8 +278,8 @@ class ToolbarControllerUnitTest : public ChromeViewsTestBase {
       auto button = std::make_unique<views::View>();
       button->SetProperty(views::kElementIdentifierKey, ids[i]);
       button->SetPreferredSize(kButtonSize);
-      button->SetAccessibleRole(ax::mojom::Role::kButton);
-      button->SetAccessibleName(
+      button->GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
+      button->GetViewAccessibility().SetName(
           base::StrCat({u"DummyButton", base::NumberToString16(i)}));
       button->SetVisible(true);
       test_buttons_.emplace_back(

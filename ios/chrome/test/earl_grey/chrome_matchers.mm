@@ -39,6 +39,12 @@ id<GREYMatcher> ButtonWithAccessibilityLabelId(int message_id) {
   return [ChromeMatchersAppInterface buttonWithAccessibilityLabelID:message_id];
 }
 
+id<GREYMatcher> ButtonWithAccessibilityLabelIdAndNumberForPlural(int message_id,
+                                                                 int number) {
+  return [ChromeMatchersAppInterface buttonWithAccessibilityLabelID:message_id
+                                                    numberForPlural:number];
+}
+
 id<GREYMatcher> ButtonWithForegroundColor(NSString* colorName) {
   return [ChromeMatchersAppInterface buttonWithForegroundColor:colorName];
 }
@@ -639,6 +645,10 @@ id<GREYMatcher> OpenInButton() {
   return [ChromeMatchersAppInterface openInButton];
 }
 
+id<GREYMatcher> OpenPDFButton() {
+  return [ChromeMatchersAppInterface openPDFButton];
+}
+
 id<GREYMatcher> TabGridCellAtIndex(unsigned int index) {
   return [ChromeMatchersAppInterface tabGridCellAtIndex:index];
 }
@@ -725,6 +735,11 @@ id<GREYMatcher> IncognitoTabGrid() {
 
 id<GREYMatcher> TabGridCloseButtonForCellAtIndex(unsigned int index) {
   return [ChromeMatchersAppInterface tabGridCloseButtonForCellAtIndex:index];
+}
+
+id<GREYMatcher> TabGridCloseButtonForGroupCellAtIndex(unsigned int index) {
+  return
+      [ChromeMatchersAppInterface tabGridCloseButtonForGroupCellAtIndex:index];
 }
 
 id<GREYMatcher> SettingsPasswordMatcher() {

@@ -8,7 +8,7 @@
 #import "base/memory/raw_ptr.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/plus_addresses/features.h"
-#import "components/plus_addresses/plus_address_metrics.h"
+#import "components/plus_addresses/metrics/plus_address_metrics.h"
 #import "components/plus_addresses/plus_address_service.h"
 #import "components/plus_addresses/plus_address_types.h"
 #import "ios/chrome/browser/plus_addresses/ui/plus_address_bottom_sheet_constants.h"
@@ -59,12 +59,12 @@
   // Create the callback needed by the C++ `_plusAddressService` object,
   // notifying the consumer once the call returns.
   auto callback = base::BindOnce(^(
-      const plus_addresses::PlusProfileOrError& maybe_plus_profile) {
-    if (maybe_plus_profile.has_value()) {
+      const plus_addresses::PlusProfileOrError& maybePlusProfile) {
+    if (maybePlusProfile.has_value()) {
       [weakSelf didReservePlusAddress:base::SysUTF8ToNSString(
-                                          maybe_plus_profile->plus_address)];
+                                          maybePlusProfile->plus_address)];
     } else {
-      [weakSelf.consumer notifyError:plus_addresses::PlusAddressMetrics::
+      [weakSelf.consumer notifyError:plus_addresses::metrics::
                                          PlusAddressModalCompletionStatus::
                                              kReservePlusAddressError];
     }
@@ -78,12 +78,12 @@
   // Create the callback needed by the C++ `_plusAddressService` object,
   // notifying the consumer once the call returns.
   auto callback = base::BindOnce(
-      ^(const plus_addresses::PlusProfileOrError& maybe_plus_profile) {
-        if (maybe_plus_profile.has_value()) {
+      ^(const plus_addresses::PlusProfileOrError& maybePlusProfile) {
+        if (maybePlusProfile.has_value()) {
           [weakSelf runAutofillCallback:base::SysUTF8ToNSString(
-                                            maybe_plus_profile->plus_address)];
+                                            maybePlusProfile->plus_address)];
         } else {
-          [weakSelf.consumer notifyError:plus_addresses::PlusAddressMetrics::
+          [weakSelf.consumer notifyError:plus_addresses::metrics::
                                              PlusAddressModalCompletionStatus::
                                                  kConfirmPlusAddressError];
         }
@@ -110,6 +110,31 @@
   params.user_initiated = NO;
   params.in_incognito = _incognito;
   _urlLoader->Load(params);
+}
+
+- (BOOL)isRefreshEnabled {
+  return base::FeatureList::IsEnabled(
+             plus_addresses::features::kPlusAddressRefreshUiInIOS) &&
+         _plusAddressService->IsRefreshingSupported(_mainFrameOrigin);
+}
+
+- (void)didTapRefreshButton {
+  __weak __typeof(self) weakSelf = self;
+  // Create the callback needed by the C++ `_plusAddressService` object,
+  // notifying the consumer once the call returns.
+  auto callback = base::BindOnce(
+      ^(const plus_addresses::PlusProfileOrError& maybePlusProfile) {
+        if (maybePlusProfile.has_value()) {
+          [weakSelf didReservePlusAddress:base::SysUTF8ToNSString(
+                                              maybePlusProfile->plus_address)];
+        } else {
+          [weakSelf.consumer notifyError:plus_addresses::metrics::
+                                             PlusAddressModalCompletionStatus::
+                                                 kReservePlusAddressError];
+        }
+      });
+  _plusAddressService->RefreshPlusAddress(_mainFrameOrigin,
+                                          std::move(callback));
 }
 
 #pragma mark - Private

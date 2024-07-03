@@ -8,11 +8,22 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
+#include "components/history_embeddings/history_embeddings_service.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ui/webui/resources/cr_components/history_embeddings/history_embeddings.mojom.h"
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class HistoryEmbeddingsUserActions {
+  kNonEmptyQueryHistorySearch = 0,
+  kEmbeddingsSearch = 1,
+  kEmbeddingsNonEmptyResultsShown = 2,
+  kEmbeddingsResultClicked = 3,
+  kMaxValue = kEmbeddingsResultClicked,
+};
 
 class HistoryEmbeddingsHandler : public history_embeddings::mojom::PageHandler {
  public:
@@ -29,6 +40,10 @@ class HistoryEmbeddingsHandler : public history_embeddings::mojom::PageHandler {
               SearchCallback callback) override;
   void RecordSearchResultsMetrics(bool non_empty_results,
                                   bool user_clicked_results) override;
+
+  // Callback for querying `HistoryEmbeddingsService::Search()`.
+  void OnReceivedSearchResult(SearchCallback callback,
+                              history_embeddings::SearchResult result);
 
  private:
   mojo::Receiver<history_embeddings::mojom::PageHandler> page_handler_;

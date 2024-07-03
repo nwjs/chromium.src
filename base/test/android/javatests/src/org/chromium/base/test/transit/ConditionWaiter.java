@@ -17,6 +17,8 @@ import org.chromium.base.test.transit.Transition.Trigger;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.CriteriaNotSatisfiedException;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
@@ -32,7 +34,7 @@ public class ConditionWaiter {
      *
      * <p>Tracks and aggregates the ConditionStatues for user-friendly printing.
      */
-    static class ConditionWait {
+    protected static class ConditionWait {
 
         private final Condition mCondition;
         private final @ConditionOrigin int mOrigin;
@@ -82,7 +84,9 @@ public class ConditionWaiter {
                     status = mCondition.check();
                 }
             } catch (Exception e) {
-                status = Condition.error(e.getMessage());
+                StringWriter sw = new StringWriter();
+                e.printStackTrace(new PrintWriter(sw));
+                status = Condition.error(sw.toString());
             }
 
             mStatusStore.report(status);
@@ -196,7 +200,10 @@ public class ConditionWaiter {
         //        E.g. when not possible to determine whether the trigger needs to be run.
         if (!anyCriteriaMissing && !options.mPossiblyAlreadyFulfilled && trigger != null) {
             throw buildWaitConditionsException(
-                    "All Conditions already fulfilled before running Trigger", conditionWaits);
+                    "All Conditions already fulfilled before running Trigger. If this is expected,"
+                        + " use a null Trigger. If this is possible but not necessarily expected,"
+                        + " use TransitionOptions.withPossiblyAlreadyFulfilled().",
+                    conditionWaits);
         }
     }
 
@@ -205,10 +212,12 @@ public class ConditionWaiter {
      * {@link ConditionWait}es.
      *
      * @param conditionWaits the {@link ConditionWait}es to process.
+     * @param transitionName String representing the Transition to print
      * @param options the {@link TransitionOptions} to configure the polling parameters.
      * @throws AssertionError if not all {@link Condition}s are fulfilled before timing out.
      */
-    static void waitFor(List<ConditionWait> conditionWaits, TransitionOptions options) {
+    static void waitFor(
+            List<ConditionWait> conditionWaits, String transitionName, TransitionOptions options) {
         Runnable checker =
                 () -> {
                     boolean anyCriteriaMissing = false;
@@ -222,7 +231,8 @@ public class ConditionWaiter {
                     } else {
                         Log.i(
                                 TAG,
-                                "Conditions fulfilled:\n%s",
+                                "%s: Conditions fulfilled:\n%s",
+                                transitionName,
                                 createWaitConditionsSummary(conditionWaits));
                     }
                 };

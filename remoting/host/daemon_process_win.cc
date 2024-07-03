@@ -7,10 +7,10 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
-#include <optional>
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
@@ -18,9 +18,12 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/process/process.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "base/win/registry.h"
@@ -31,13 +34,18 @@
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "remoting/base/auto_thread.h"
 #include "remoting/base/auto_thread_task_runner.h"
+#include "remoting/base/breakpad.h"
+#include "remoting/base/breakpad_utils.h"
 #include "remoting/base/logging.h"
 #include "remoting/base/scoped_sc_handle_win.h"
+#include "remoting/base/url_request_context_getter.h"
 #include "remoting/host/base/host_exit_codes.h"
 #include "remoting/host/base/screen_resolution.h"
 #include "remoting/host/base/switches.h"
 #include "remoting/host/branding.h"
 #include "remoting/host/chromoting_host_services_server.h"
+#include "remoting/host/crash/crash_directory_watcher.h"
+#include "remoting/host/crash/crash_file_uploader.h"
 #include "remoting/host/desktop_session_win.h"
 #include "remoting/host/host_config.h"
 #include "remoting/host/host_main.h"
@@ -45,6 +53,7 @@
 #include "remoting/host/mojom/chromoting_host_services.mojom.h"
 #include "remoting/host/mojom/remoting_host.mojom.h"
 #include "remoting/host/pairing_registry_delegate_win.h"
+#include "remoting/host/usage_stats_consent.h"
 #include "remoting/host/win/etw_trace_consumer.h"
 #include "remoting/host/win/host_event_file_logger.h"
 #include "remoting/host/win/host_event_windows_event_logger.h"
@@ -52,6 +61,8 @@
 #include "remoting/host/win/security_descriptor.h"
 #include "remoting/host/win/unprivileged_process_delegate.h"
 #include "remoting/host/win/worker_process_launcher.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "services/network/transitional_url_loader_factory_owner.h"
 
 using base::win::ScopedHandle;
 
@@ -119,6 +130,10 @@ class DaemonProcessWin : public DaemonProcess {
   // via the registry.
   void ConfigureHostLogging();
 
+  // If the user has consented to crash reporting, this method will start a
+  // BreakpadServer instance to handle crashes from the network process.
+  void ConfigureCrashReporting();
+
  protected:
   // DaemonProcess implementation.
   std::unique_ptr<DesktopSession> DoCreateDesktopSession(
@@ -162,6 +177,13 @@ class DaemonProcessWin : public DaemonProcess {
   std::unique_ptr<EtwTraceConsumer> etw_trace_consumer_;
 
   std::unique_ptr<ChromotingHostServicesServer> ipc_server_;
+
+  // Classes needed to upload crash reports.
+  scoped_refptr<net::URLRequestContextGetter> url_request_context_getter_;
+  std::unique_ptr<network::TransitionalURLLoaderFactoryOwner>
+      url_loader_factory_owner_;
+  std::unique_ptr<CrashFileUploader> crash_file_uploader_;
+  std::unique_ptr<CrashDirectoryWatcher> crash_directory_watcher_;
 
   mojo::AssociatedRemote<mojom::DesktopSessionConnectionEvents>
       desktop_session_connection_events_;
@@ -334,6 +356,10 @@ std::unique_ptr<DaemonProcess> DaemonProcess::Create(
   // Configure host logging first so we can capture subsequent events.
   daemon_process->ConfigureHostLogging();
 
+  // Initialize crash reporting before the network process is launched.
+  daemon_process->ConfigureCrashReporting();
+
+  // Finishes configuring the Daemon process and launches the network process.
   daemon_process->Initialize();
 
   return std::move(daemon_process);
@@ -500,6 +526,29 @@ void DaemonProcessWin::BindChromotingHostServices(
   }
   remoting_host_control_->BindChromotingHostServices(std::move(receiver),
                                                      peer_pid);
+}
+
+void DaemonProcessWin::ConfigureCrashReporting() {
+  if (IsUsageStatsAllowed()) {
+    InitializeOopCrashServer();
+
+    url_request_context_getter_ = base::MakeRefCounted<URLRequestContextGetter>(
+        base::ThreadPool::CreateSingleThreadTaskRunner(
+            {base::MayBlock(), base::TaskPriority::BEST_EFFORT}));
+    url_loader_factory_owner_ =
+        std::make_unique<network::TransitionalURLLoaderFactoryOwner>(
+            url_request_context_getter_);
+    crash_file_uploader_ = std::make_unique<CrashFileUploader>(
+        url_loader_factory_owner_->GetURLLoaderFactory());
+    crash_directory_watcher_ = std::make_unique<CrashDirectoryWatcher>();
+    // base::Unretained is sound as this instance controls the lifetime of both
+    // |crash_directory_watcher_| and |crash_file_uploader_| and the Upload
+    // callback runs on this sequence.
+    crash_directory_watcher_->Watch(
+        GetMinidumpDirectoryPath(),
+        base::BindRepeating(&CrashFileUploader::Upload,
+                            base::Unretained(crash_file_uploader_.get())));
+  }
 }
 
 void DaemonProcessWin::ConfigureHostLogging() {

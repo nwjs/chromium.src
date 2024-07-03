@@ -339,10 +339,6 @@ void BrowserAccessibilityManager::UpdateAttributesOnParent(ui::AXNode* parent) {
   parent_wrapper->UpdatePlatformAttributes();
 }
 
-void BrowserAccessibilityManager::CleanUp() {
-  delegate_ = nullptr;
-}
-
 BrowserAccessibility* BrowserAccessibilityManager::GetPopupRoot() const {
   DCHECK_LE(popup_root_ids_.size(), 1u);
   if (popup_root_ids_.size() == 1) {
@@ -979,7 +975,8 @@ void BrowserAccessibilityManager::Scroll(const BrowserAccessibility& node,
     case ax::mojom::Action::kScrollRight:
       break;
     default:
-      NOTREACHED() << "Cannot call Scroll with action=" << scroll_action;
+      NOTREACHED_IN_MIGRATION()
+          << "Cannot call Scroll with action=" << scroll_action;
   }
   ui::AXActionData action_data;
   action_data.action = scroll_action;
@@ -1530,7 +1527,7 @@ void BrowserAccessibilityManager::OnNodeCreated(ui::AXTree* tree,
   DCHECK(tree->GetFromId(node->id()) || node->IsGenerated())
       << "Node must be in AXTree's map, unless it's an ExtraMacNode.";
 
-  id_wrapper_map_[node->id()] = BrowserAccessibility::Create(this, node);
+  id_wrapper_map_[node->id()] = CreateBrowserAccessibility(node);
 
   if (node->HasIntAttribute(ax::mojom::IntAttribute::kPopupForId)) {
     popup_root_ids_.insert(node->id());
@@ -1895,6 +1892,15 @@ bool BrowserAccessibilityManager::ShouldFireEventForNode(
   return true;
 }
 
+std::unique_ptr<BrowserAccessibility>
+BrowserAccessibilityManager::CreateBrowserAccessibility(ui::AXNode* node) {
+#if !BUILDFLAG(IS_ANDROID)
+  return BrowserAccessibility::Create(this, node);
+#else
+  NOTREACHED_NORETURN();
+#endif
+}
+
 BrowserAccessibility*
 BrowserAccessibilityManager::RetargetBrowserAccessibilityForEvents(
     BrowserAccessibility* node,
@@ -1907,7 +1913,7 @@ BrowserAccessibilityManager::RetargetBrowserAccessibilityForEvents(
     // ClusterFuzz was able to come up with a reliably-reproducible test case
     // which can be seen in https://crbug.com/1362230. This needs to be
     // investigated further.
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
   return GetFromAXNode(RetargetForEvents(node->node(), event_type));

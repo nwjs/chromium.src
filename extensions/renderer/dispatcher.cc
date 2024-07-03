@@ -976,7 +976,7 @@ void Dispatcher::LoadExtensions(
     scoped_refptr<const Extension> extension =
         ConvertToExtension(std::move(param), kRendererProfileId, &error);
     if (!extension.get()) {
-      NOTREACHED() << error;
+      NOTREACHED_IN_MIGRATION() << error;
       // Note: in tests |param.id| has been observed to be empty (see comment
       // just below) so this isn't all that reliable.
       extension_load_errors_[id] = error;
@@ -997,7 +997,7 @@ void Dispatcher::LoadExtensions(
     if (!extension_registry->Insert(extension)) {
       // TODO(devlin): This may be fixed by crbug.com/528026. Monitor, and
       // consider making this a release CHECK.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
     }
 
     if (worker_activation_token.has_value()) {
@@ -1061,7 +1061,7 @@ void Dispatcher::UnloadExtension(const ExtensionId& extension_id) {
   // TODO(devlin): This may be fixed by crbug.com/528026. Monitor, and
   // consider making this a release CHECK.
   if (!RendererExtensionRegistry::Get()->Remove(extension_id)) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 

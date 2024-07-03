@@ -232,6 +232,7 @@ class CC_EXPORT LayerTreeImpl {
     using pointer = LayerImpl**;
     using reference = LayerImpl*&;
 
+    constexpr IteratorAdapter() = default;
     explicit IteratorAdapter(Iterator it) : it_(it) {}
     bool operator==(IteratorAdapter o) const { return it_ == o.it_; }
     bool operator!=(IteratorAdapter o) const { return !(*this == o); }
@@ -423,6 +424,14 @@ class CC_EXPORT LayerTreeImpl {
   void SetScreenshotDestinationToken(base::UnguessableToken destination_token);
   base::UnguessableToken TakeScreenshotDestinationToken();
 
+  void set_primary_main_frame_item_sequence_number(
+      int64_t item_sequence_number) {
+    primary_main_frame_item_sequence_number_ = item_sequence_number;
+  }
+  uint64_t primary_main_frame_item_sequence_number() {
+    return primary_main_frame_item_sequence_number_;
+  }
+
   void SetDeviceViewportRect(const gfx::Rect& device_viewport_rect);
 
   // TODO(fsamuel): The reason this is not a trivial accessor is because it
@@ -546,8 +555,7 @@ class CC_EXPORT LayerTreeImpl {
 
   void AddLayerShouldPushProperties(LayerImpl* layer);
   void ClearLayersThatShouldPushProperties();
-  const base::flat_set<raw_ptr<LayerImpl, CtnExperimental>>&
-  LayersThatShouldPushProperties() const {
+  const base::flat_set<LayerImpl*>& LayersThatShouldPushProperties() const {
     return layers_that_should_push_properties_;
   }
 
@@ -768,10 +776,6 @@ class CC_EXPORT LayerTreeImpl {
     return host_impl_->GetActivelyScrollingType();
   }
 
-  bool CurrentScrollCheckerboardsDueToNoRecording() {
-    return host_impl_->CurrentScrollCheckerboardsDueToNoRecording();
-  }
-
   // These functions are used for plumbing DelegatedInkMetadata from blink
   // through the compositor and into viz via a compositor frame. They should
   // only be called after the JS API |updateInkTrailStartPoint| has been
@@ -905,7 +909,8 @@ class CC_EXPORT LayerTreeImpl {
   LayerImplMap layer_id_map_;
 
   // Set of layers that need to push properties.
-  base::flat_set<raw_ptr<LayerImpl, CtnExperimental>>
+  // RAW_PTR_EXCLUSION: Performance reasons (based on analysis of MotionMark).
+  RAW_PTR_EXCLUSION base::flat_set<LayerImpl*>
       layers_that_should_push_properties_;
 
   std::unordered_map<ElementId, float, ElementIdHash>
@@ -991,6 +996,10 @@ class CC_EXPORT LayerTreeImpl {
 
   // See `CommitState::screenshot_destination_token`.
   base::UnguessableToken screenshot_destination_;
+
+  // See `CommitState::primary_main_frame_item_sequence_number`.
+  int64_t primary_main_frame_item_sequence_number_ =
+      RenderFrameMetadata::kInvalidItemSequenceNumber;
 };
 
 }  // namespace cc

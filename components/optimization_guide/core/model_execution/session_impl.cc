@@ -524,8 +524,6 @@ void SessionImpl::OnResponse(on_device_model::mojom::ResponseChunkPtr chunk) {
     // If a repeat is detected, halt the response, and cancel/finish early.
     on_device_state_->receiver.reset();
     logged_response->set_has_repeats(true);
-    LogResponseHasRepeats(feature_, true);
-
     if (features::GetOnDeviceModelRetractRepeats()) {
       logged_response->set_status(
           proto::ON_DEVICE_MODEL_SERVICE_RESPONSE_STATUS_RETRACTED);
@@ -554,6 +552,10 @@ void SessionImpl::OnComplete(
   // Stop timer, just in case we didn't already via OnResponse().
   on_device_state_->timer_for_first_response.Stop();
 
+  proto::OnDeviceModelServiceResponse* logged_response =
+      on_device_state_->MutableLoggedResponse();
+  LogResponseHasRepeats(feature_, logged_response->has_repeats());
+
   base::TimeDelta time_to_completion =
       base::TimeTicks::Now() - on_device_state_->start;
   base::UmaHistogramMediumTimes(
@@ -561,7 +563,7 @@ void SessionImpl::OnComplete(
           {"OptimizationGuide.ModelExecution.OnDeviceResponseCompleteTime.",
            GetStringNameForModelExecutionFeature(feature_)}),
       time_to_completion);
-  on_device_state_->MutableLoggedResponse()->set_time_to_completion_millis(
+  logged_response->set_time_to_completion_millis(
       time_to_completion.InMilliseconds());
   on_device_state_->opts.model_client->OnResponseCompleted();
 
@@ -663,7 +665,7 @@ void SessionImpl::OnDisconnect() {
   if (on_device_state_->did_execute_and_waiting_for_on_complete() &&
       features::GetOnDeviceFallbackToServerOnDisconnect()) {
     DestroyOnDeviceStateAndFallbackToRemote(
-        ExecuteModelResult::kDisconnectAndFallbackToServer);
+        ExecuteModelResult::kDisconnectAndMaybeFallback);
     return;
   }
 
@@ -718,40 +720,36 @@ void SessionImpl::SendResponse(ResponseType response_type) {
 
   std::string safe_response = on_device_state_->current_response.substr(
       0, on_device_state_->latest_safe_raw_output.length);
-  proto::OnDeviceModelServiceResponse* logged_response =
-      on_device_state_->MutableLoggedResponse();
+  on_device_state_->MutableLoggedResponse()->set_output_string(safe_response);
+  on_device_state_->opts.adapter->ParseResponse(
+      *last_message_, safe_response,
+      base::BindOnce(&SessionImpl::OnParsedResponse,
+                     on_device_state_->session_weak_ptr_factory_.GetWeakPtr(),
+                     is_complete));
+}
 
-  logged_response->set_output_string(safe_response);
-
-  std::string redacted_response = safe_response;
-  auto redact_result =
-      on_device_state_->opts.adapter->Redact(*last_message_, redacted_response);
-  if (redact_result == RedactResult::kReject) {
-    logged_response->set_status(
-        proto::ON_DEVICE_MODEL_SERVICE_RESPONSE_STATUS_RETRACTED);
-    CancelPendingResponse(ExecuteModelResult::kContainedPII,
-                          ModelExecutionError::kFiltered);
-    return;
-  }
-
-  auto output = on_device_state_->opts.adapter->ConstructOutputMetadata(
-      redacted_response);
-  if (!output) {
-    CancelPendingResponse(
-        ExecuteModelResult::kFailedConstructingResponseMessage,
-        ModelExecutionError::kGenericFailure);
-    return;
+void SessionImpl::OnParsedResponse(
+    bool is_complete,
+    base::expected<proto::Any, ResponseParsingError> output) {
+  if (!output.has_value()) {
+    switch (output.error()) {
+      case ResponseParsingError::kRejectedPii:
+        on_device_state_->MutableLoggedResponse()->set_status(
+            proto::ON_DEVICE_MODEL_SERVICE_RESPONSE_STATUS_RETRACTED);
+        CancelPendingResponse(ExecuteModelResult::kContainedPII,
+                              ModelExecutionError::kFiltered);
+        return;
+      case ResponseParsingError::kFailed:
+        CancelPendingResponse(
+            ExecuteModelResult::kFailedConstructingResponseMessage,
+            ModelExecutionError::kGenericFailure);
+        return;
+    }
   }
 
   if (!is_complete) {
     SendPartialResponseCallback(*output);
     return;
-  }
-
-  if (!on_device_state_->MutableLoggedResponse()->has_repeats()) {
-    // Log completed responses with no repeats to calculate percentage of
-    // responses that have repeats.
-    LogResponseHasRepeats(feature_, false);
   }
 
   if (features::ShouldUseTextSafetyRemoteFallbackForEligibleFeatures()) {

@@ -146,6 +146,11 @@ chromium-metrics-reviews@google.com.
   <variant name=".InitialEnrollment" summary="Initial Enrollment Exchange"/>
 </variants>
 
+<variants name="IdentityType">
+  <variant name="Dasher-based" summary="google-backed 3P identity"/>
+  <variant name="Dasherless" summary="non-google-backed 3P identity"/>
+</variants>
+
 <variants name="PolicyLevel">
   <variant name="Mandatory" summary="Mandatory Policy"/>
   <variant name="Recommended" summary="Recommended Policy"/>
@@ -178,9 +183,9 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Enterprise.AccountStatusCheckResult"
-    enum="EnterpriseAccountStatus" expires_after="2024-06-30">
+    enum="EnterpriseAccountStatus" expires_after="2025-03-01">
   <owner>dkuzmin@google.com</owner>
-  <owner>cros-oac@google.com</owner>
+  <owner>cros-oobe@google.com</owner>
   <summary>
     Recorded when user enters their account on license packged device during
     enrollment process.
@@ -649,6 +654,16 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Enterprise.CloudUserAffiliationStatus"
+    enum="EnterpriseCloudUserAffiliationStatus" expires_after="2025-05-01">
+  <owner>igorruvinov@chromium.org</owner>
+  <owner>zmin@chromium.org</owner>
+  <summary>
+    The cloud user affiliation status. Recorded once at the end of each policy
+    fetch process where a cloud-managed user is involved.
+  </summary>
+</histogram>
+
 <histogram name="Enterprise.DataProtection.NavigationFinished.URLVerdictSource"
     enum="DataProtectionURLVerdictSource" expires_after="2025-03-18">
   <owner>alshawwa@chromium.org</owner>
@@ -690,9 +705,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram base="true"
-    name="Enterprise.DevicePolicyDeviceIdValidity2.{EnrollmentType}"
-    enum="EnterprisePolicyDeviceIdValidity" expires_after="M128">
+<histogram name="Enterprise.DevicePolicyDeviceIdValidity2.{EnrollmentType}"
+    enum="EnterprisePolicyDeviceIdValidity" expires_after="2025-05-01">
   <owner>igorcov@chromium.org</owner>
   <owner>emaxx@chromium.org</owner>
   <summary>
@@ -1384,7 +1398,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.Dlp.ConfidentialContentsCount" units="entries"
-    expires_after="2024-09-22">
+    expires_after="2024-11-24">
   <owner>aidazolic@chromium.org</owner>
   <owner>chromeos-dlp@google.com</owner>
   <summary>
@@ -2452,7 +2466,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.ManagedScreensaver.EngagementTime.Slideshow"
-    units="ms" expires_after="2024-09-15">
+    units="ms" expires_after="2024-11-17">
   <owner>mpetrisor@chromium.org</owner>
   <owner>imprivata-eng@google.com</owner>
   <summary>
@@ -2463,7 +2477,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.ManagedScreensaver.ImageCount" units="count"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>mpetrisor@chromium.org</owner>
   <owner>imprivata-eng@google.com</owner>
   <summary>
@@ -2474,7 +2488,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.ManagedScreensaver.ImageDownloadResult"
-    enum="ManagedScreensaverImageDownloadResult" expires_after="2024-09-15">
+    enum="ManagedScreensaverImageDownloadResult" expires_after="2024-11-17">
   <owner>mpetrisor@chromium.org</owner>
   <owner>imprivata-eng@google.com</owner>
   <summary>
@@ -2484,7 +2498,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.ManagedScreensaver.StartupTime.Slideshow"
-    units="ms" expires_after="2024-06-07">
+    units="ms" expires_after="2025-06-07">
   <owner>mpetrisor@chromium.org</owner>
   <owner>imprivata-eng@google.com</owner>
   <summary>
@@ -2494,6 +2508,89 @@ chromium-metrics-reviews@google.com.
     measurement does not include the lock screen inactivity timeout. The metric
     would be emitted when the first two images are loaded successfully.
   </summary>
+</histogram>
+
+<histogram name="Enterprise.OidcEnrollment.Interception.Funnel"
+    enum="OidcInterceptionFunnelStep" expires_after="2025-03-20">
+  <owner>xzonghan@chromium.org</owner>
+  <owner>zmin@chromium.org</owner>
+  <summary>
+    Records the occurrance of each crucial step of the OIDC enrollment flow
+    before profile registration.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.OidcEnrollment.Interception.Result"
+    enum="OidcInterceptionResult" expires_after="2025-03-20">
+  <owner>xzonghan@chromium.org</owner>
+  <owner>zmin@chromium.org</owner>
+  <summary>
+    Tracks the results of OIDC enrollment flow when it finishes before profile
+    registration.
+  </summary>
+</histogram>
+
+<histogram
+    name="Enterprise.OidcEnrollment.ProfileCreation.Funnel.{IdentityType}"
+    enum="OidcProfileCreationFunnelStep" expires_after="2025-03-20">
+  <owner>xzonghan@chromium.org</owner>
+  <owner>zmin@chromium.org</owner>
+  <summary>
+    Records the occurrance of each crucial step of the OIDC enrollment flow with
+    a {IdentityType} 3P identity after profile registration.
+  </summary>
+  <token key="IdentityType" variants="IdentityType"/>
+</histogram>
+
+<histogram
+    name="Enterprise.OidcEnrollment.ProfileCreation.Result.{IdentityType}"
+    enum="OidcProfileCreationResult" expires_after="2025-03-20">
+  <owner>xzonghan@chromium.org</owner>
+  <owner>zmin@chromium.org</owner>
+  <summary>
+    Tracks the results of OIDC enrollment flow with a {IdentityType} 3P identity
+    when it finishes after profile registration.
+  </summary>
+  <token key="IdentityType" variants="IdentityType"/>
+</histogram>
+
+<histogram
+    name="Enterprise.OidcEnrollment.{IdentityType}.PolicyFetchLatency.{Result}"
+    units="ms" expires_after="2025-03-20">
+  <owner>xzonghan@chromium.org</owner>
+  <owner>zmin@chromium.org</owner>
+  <summary>
+    Latency of a {Result} policy fetch operation for an OIDC profile with
+    {IdentityType} 3P identity during enrollment, recorded when the fetch
+    response is received.
+  </summary>
+  <token key="Result">
+    <variant name="Failure" summary="failed"/>
+    <variant name="Success" summary="successful"/>
+  </token>
+  <token key="IdentityType" variants="IdentityType"/>
+</histogram>
+
+<histogram
+    name="Enterprise.OidcEnrollment.{IdentityType}.RegistrationLatency.{Result}"
+    units="ms" expires_after="2025-03-20">
+  <owner>xzonghan@chromium.org</owner>
+  <owner>zmin@chromium.org</owner>
+  <summary>
+    Latency of a {IdentityType} OIDC profile registration operation when OIDC
+    profiles are first getting created. Failed attempts will always be
+    classified as undecided since we won't know whether it's dasher-based.
+    Recorded when the registration response is received.
+  </summary>
+  <token key="Result">
+    <variant name="Failure" summary="failed"/>
+    <variant name="Success" summary="successful"/>
+  </token>
+  <token key="IdentityType">
+    <variant name="" summary="undecided if 3P identity is google-backed"/>
+    <variant name="Dasher-based" summary="google-backed 3P identity"/>
+    <variant name="Dasherless" summary="non-google-backed 3P identity"/>
+  </token>
 </histogram>
 
 <histogram name="Enterprise.OnBulkDataEntry.DataSize" units="bytes"
@@ -2508,7 +2605,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.OnPrint.{ContentAnalysisType}.PrintType"
-    enum="PrintScanningContext" expires_after="2024-09-15">
+    enum="PrintScanningContext" expires_after="2024-11-17">
   <owner>domfc@chromium.org</owner>
   <owner>dpr-eng@google.com</owner>
   <summary>
@@ -2698,7 +2795,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.PolicyUpdatePeriod.MachineLevelUser" units="days"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>zmin@chromium.org</owner>
   <owner>pastarmovj@chromium.org</owner>
   <summary>
@@ -3173,7 +3270,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Enterprise.UserPolicyChromeOS.ChildUser.OAuthTokenError"
-    enum="GoogleServiceAuthError" expires_after="2024-09-22">
+    enum="GoogleServiceAuthError" expires_after="2024-11-24">
   <owner>agawronska@chromium.org</owner>
   <owner>michaelpg@chromium.org</owner>
   <summary>Failure reason for OAuth token fetch for child user.</summary>

@@ -95,16 +95,31 @@ void FakeMahiManager::OnContextMenuClicked(
     case MahiContextMenuActionType::kSummary:
     case MahiContextMenuActionType::kOutline:
       // TODO(b/318565610): Update the behaviour of kOutline.
-      ui_controller_.OpenMahiPanel(context_menu_request->display_id);
+      ui_controller_.OpenMahiPanel(
+          context_menu_request->display_id,
+          context_menu_request->mahi_menu_bounds.value_or(gfx::Rect()));
 
       return;
     case MahiContextMenuActionType::kQA:
-      ui_controller_.OpenMahiPanel(context_menu_request->display_id);
+      ui_controller_.OpenMahiPanel(
+          context_menu_request->display_id,
+          context_menu_request->mahi_menu_bounds.has_value()
+              ? context_menu_request->mahi_menu_bounds.value()
+              : gfx::Rect());
 
       // Ask question.
       if (!context_menu_request->question) {
         return;
       }
+
+      // Because we call `MahiUiController::SendQuestion` right after
+      // opening the panel here, `SendQuestion` will cancel the call to get
+      // summary due to `MahiUiController::InvalidatePendingRequests()`. Thus,
+      // we need to update the summary after answering the question to make sure
+      // that user gets summary when navigating back to the summary UI
+      // (b/345621992).
+      // TODO(b/345621992): Make this a param of `SendQuestion()` instead.
+      ui_controller_.SetUpdateSummaryAfterAnswerQuestion();
 
       ui_controller_.SendQuestion(context_menu_request->question.value(),
                                   /*current_panel_content=*/true,
@@ -124,5 +139,7 @@ void FakeMahiManager::OnContextMenuClicked(
 bool FakeMahiManager::IsEnabled() {
   return true;
 }
+
+void FakeMahiManager::SetMediaAppPDFFocused() {}
 
 }  // namespace ash

@@ -28,7 +28,8 @@ class DawnAHardwareBufferImageRepresentation : public DawnImageRepresentation {
       AHardwareBuffer* buffer);
   ~DawnAHardwareBufferImageRepresentation() override;
 
-  wgpu::Texture BeginAccess(wgpu::TextureUsage usage) override;
+  wgpu::Texture BeginAccess(wgpu::TextureUsage usage,
+                            wgpu::TextureUsage internal_usage) override;
   void EndAccess() override;
 
  private:
@@ -42,9 +43,8 @@ class DawnAHardwareBufferImageRepresentation : public DawnImageRepresentation {
   wgpu::TextureFormat format_;
   std::vector<wgpu::TextureFormat> view_formats_;
   wgpu::SharedTextureMemory shared_texture_memory_;
-  base::ScopedFD begin_access_sync_fd_;
 };
 
 }  // namespace gpu
 
-#endif  // GPU_COMMAND_BUFFER_SERVICE_SHARED_IMAGE_DAWN_EGL_IMAGE_REPRESENTATION_H_
+#endif  // GPU_COMMAND_BUFFER_SERVICE_SHARED_IMAGE_DAWN_AHARDWAREBUFFER_IMAGE_REPRESENTATION_H_

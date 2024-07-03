@@ -11,6 +11,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ash/input_method/editor_consent_enums.h"
 #include "chrome/browser/ash/input_method/editor_context.h"
+#include "chrome/browser/ash/input_method/editor_geolocation_mock_provider.h"
 #include "chrome/browser/ash/input_method/editor_metrics_enums.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -69,101 +70,396 @@ class EditorMetricsRecorderTest : public testing::Test {
   content::BrowserTaskEnvironment task_environment_;
 };
 
-struct StateCase {
-  std::string test_name;
-  EditorOpportunityMode mode;
-  EditorTone tone;
-  EditorStates state;
-  std::string histogram_name;
-};
+class EditorStateMetrics : public EditorMetricsRecorderTest,
+                           public testing::WithParamInterface<EditorStates> {};
 
-class StateRewriteMetricsTest : public EditorMetricsRecorderTest,
-                                public testing::WithParamInterface<StateCase> {
-};
+INSTANTIATE_TEST_SUITE_P(EditorMetricsRecorderTest,
+                         EditorStateMetrics,
+                         testing::ValuesIn<EditorStates>({
+                             EditorStates::kNativeUIShown,
+                             EditorStates::kPromoCardImpression,
+                             EditorStates::kNativeRequest,
+                             EditorStates::kWebUIRequest,
+                             EditorStates::kInsert,
+                             EditorStates::kNativeUIShowOpportunity,
+                             EditorStates::kDismiss,
+                             EditorStates::kRefineRequest,
+                             EditorStates::kSuccessResponse,
+                             EditorStates::kErrorResponse,
+                             EditorStates::kThumbsUp,
+                             EditorStates::kThumbsDown,
+                             EditorStates::kReturnToPreviousSuggestions,
+                             EditorStates::kClickCloseButton,
+                             EditorStates::kApproveConsent,
+                             EditorStates::kDeclineConsent,
+                             EditorStates::kBlocked,
+                             EditorStates::kBlockedByUnsupportedRegion,
+                             EditorStates::kBlockedByManagedStatus,
+                             EditorStates::kBlockedByConsent,
+                             EditorStates::kBlockedBySetting,
+                             EditorStates::kBlockedByTextLength,
+                             EditorStates::kBlockedByUrl,
+                             EditorStates::kBlockedByApp,
+                             EditorStates::kBlockedByInputMethod,
+                             EditorStates::kBlockedByInputType,
+                             EditorStates::kBlockedByAppType,
+                             EditorStates::kBlockedByInvalidFormFactor,
+                             EditorStates::kBlockedByNetworkStatus,
+                             EditorStates::kErrorUnknown,
+                             EditorStates::kErrorInvalidArgument,
+                             EditorStates::kErrorResourceExhausted,
+                             EditorStates::kErrorBackendFailure,
+                             EditorStates::kErrorNoInternetConnection,
+                             EditorStates::kErrorUnsupportedLanguage,
+                             EditorStates::kErrorBlockedOutputs,
+                             EditorStates::kErrorRestrictedRegion,
+                             EditorStates::kPromoCardExplicitDismissal,
+                             EditorStates::kConsentScreenImpression,
+                             EditorStates::kTextInsertionRequested,
+                             EditorStates::kTextQueuedForInsertion,
+                             EditorStates::kRequest,
+                             EditorStates::kBlockedByUnsupportedCapability,
+                             EditorStates::kBlockedByUnknownCapability,
+                         }));
 
-TEST_P(StateRewriteMetricsTest, RecordStateMetricPerTone) {
-  const StateCase& test_case = GetParam();
+TEST_P(EditorStateMetrics, RecordsForWrite) {
+  const EditorStates& state = GetParam();
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
-  EditorMetricsRecorder metrics_recorder(&context, test_case.mode);
-  metrics_recorder.SetTone(test_case.tone);
+  EditorGeolocationMockProvider geolocation_provider("us");
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kWrite);
 
-  metrics_recorder.LogEditorState(test_case.state);
+  metrics_recorder.LogEditorState(state);
 
-  histogram_tester_.ExpectUniqueSample("InputMethod.Manta.Orca.States.Rewrite",
-                                       test_case.state, 1);
-  histogram_tester_.ExpectUniqueSample(test_case.histogram_name,
-                                       test_case.state, 1);
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Write",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Write", 1);
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    EditorMetricsRecorderTest,
-    StateRewriteMetricsTest,
-    testing::ValuesIn<StateCase>({
-        {"OpportunityRewrite", EditorOpportunityMode::kRewrite,
-         EditorTone::kUnset, EditorStates::kNativeUIShowOpportunity,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Rewrite"},
-        {"NativeUIShownRewrite", EditorOpportunityMode::kRewrite,
-         EditorTone::kUnset, EditorStates::kNativeUIShown,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Rewrite"},
-        {"NativeRequestRephrase", EditorOpportunityMode::kRewrite,
-         EditorTone::kRephrase, EditorStates::kNativeRequest,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Rephrase"},
-        {"InsertEmojify", EditorOpportunityMode::kRewrite, EditorTone::kEmojify,
-         EditorStates::kInsert,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Emojify"},
-        {"ClickCloseButtonShorten", EditorOpportunityMode::kRewrite,
-         EditorTone::kShorten, EditorStates::kClickCloseButton,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Shorten"},
-        {"ApproveConsentElaborate", EditorOpportunityMode::kRewrite,
-         EditorTone::kElaborate, EditorStates::kApproveConsent,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Elaborate"},
-        {"DeclineConsentFormalize", EditorOpportunityMode::kRewrite,
-         EditorTone::kFormalize, EditorStates::kDeclineConsent,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Formalize"},
-        {"NativeRequestFreeformRewrite", EditorOpportunityMode::kRewrite,
-         EditorTone::kFreeformRewrite, EditorStates::kNativeRequest,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.FreeformRewrite"},
-    }),
-    [](const testing::TestParamInfo<StateCase> info) {
-      return info.param.test_name;
-    });
-
-class StateWriteMetricsTest : public EditorMetricsRecorderTest,
-                              public testing::WithParamInterface<StateCase> {};
-
-TEST_P(StateWriteMetricsTest, RecordStateMetricPerTone) {
-  const StateCase& test_case = GetParam();
+TEST_P(EditorStateMetrics, RecordsForRewrite) {
+  const EditorStates& state = GetParam();
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
-  EditorMetricsRecorder metrics_recorder(&context, test_case.mode);
-  metrics_recorder.SetTone(test_case.tone);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
 
-  metrics_recorder.LogEditorState(test_case.state);
+  metrics_recorder.LogEditorState(state);
 
-  histogram_tester_.ExpectUniqueSample(test_case.histogram_name,
-                                       test_case.state, 1);
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Rewrite",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Rewrite",
+                                     1);
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    EditorMetricsRecorderTest,
-    StateWriteMetricsTest,
-    testing::ValuesIn<StateCase>({
-        {"OpportunityWrite", EditorOpportunityMode::kWrite, EditorTone::kUnset,
-         EditorStates::kNativeUIShowOpportunity,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Write"},
-        {"NativeUIShownWrite", EditorOpportunityMode::kWrite,
-         EditorTone::kUnset, EditorStates::kNativeUIShown,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Write"},
-        {"NativeRequestWrite", EditorOpportunityMode::kWrite,
-         EditorTone::kUnset, EditorStates::kNativeRequest,
-         /*histogram_name=*/"InputMethod.Manta.Orca.States.Write"},
-    }),
-    [](const testing::TestParamInfo<StateCase> info) {
-      return info.param.test_name;
-    });
+TEST_P(EditorStateMetrics, RecordsForNotAllowed) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(
+      &context, EditorOpportunityMode::kNotAllowedForUse);
+
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount(
+      "InputMethod.Manta.Orca.States.NotAllowed", state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.NotAllowed",
+                                     1);
+}
+
+TEST_P(EditorStateMetrics, RecordsForInvalidInput) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kInvalidInput);
+
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount(
+      "InputMethod.Manta.Orca.States.InvalidInput", state, 1);
+  histogram_tester_.ExpectTotalCount(
+      "InputMethod.Manta.Orca.States.InvalidInput", 1);
+}
+
+TEST_P(EditorStateMetrics, RecordsRephraseSegmentForRewrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
+
+  metrics_recorder.SetTone(EditorTone::kRephrase);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Rephrase",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Rephrase",
+                                     1);
+}
+
+TEST_P(EditorStateMetrics, RecordsEmojifySegmentForRewrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
+
+  metrics_recorder.SetTone(EditorTone::kEmojify);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Emojify",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Emojify",
+                                     1);
+}
+
+TEST_P(EditorStateMetrics, RecordsShortenSegmentForRewrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
+
+  metrics_recorder.SetTone(EditorTone::kShorten);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Shorten",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Shorten",
+                                     1);
+}
+
+TEST_P(EditorStateMetrics, RecordsElaborateSegmentForRewrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
+
+  metrics_recorder.SetTone(EditorTone::kElaborate);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Elaborate",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Elaborate",
+                                     1);
+}
+
+TEST_P(EditorStateMetrics, RecordsFormalizeSegmentForRewrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
+
+  metrics_recorder.SetTone(EditorTone::kFormalize);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Formalize",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Formalize",
+                                     1);
+}
+
+TEST_P(EditorStateMetrics, RecordsFreeformRewriteSegmentForRewrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
+
+  metrics_recorder.SetTone(EditorTone::kFreeformRewrite);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount(
+      "InputMethod.Manta.Orca.States.FreeformRewrite", state, 1);
+  histogram_tester_.ExpectTotalCount(
+      "InputMethod.Manta.Orca.States.FreeformRewrite", 1);
+}
+
+TEST_P(EditorStateMetrics, RecordsUnsetSegmentForRewrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
+
+  metrics_recorder.SetTone(EditorTone::kUnset);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Unset",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Unset", 1);
+}
+
+TEST_P(EditorStateMetrics, RecordsUnknownSegmentForRewrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
+
+  metrics_recorder.SetTone(EditorTone::kUnknown);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Unknown",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Unknown",
+                                     1);
+}
+
+TEST_P(EditorStateMetrics, DoesNotRecordToneSegmentsForWrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kWrite);
+
+  metrics_recorder.SetTone(EditorTone::kRephrase);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kEmojify);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kShorten);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kElaborate);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kFormalize);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kFreeformRewrite);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kUnset);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kUnknown);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Rephrase",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Emojify",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Shorten",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Elaborate",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Formalize",
+                                     0);
+  histogram_tester_.ExpectTotalCount(
+      "InputMethod.Manta.Orca.States.FreeformRewrite", 0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Unset", 0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Unknown",
+                                     0);
+}
+
+TEST_P(EditorStateMetrics, DoesNotRecordToneSegmentsForNotAllowed) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(
+      &context, EditorOpportunityMode::kNotAllowedForUse);
+
+  metrics_recorder.SetTone(EditorTone::kRephrase);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kEmojify);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kShorten);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kElaborate);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kFormalize);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kFreeformRewrite);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kUnset);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kUnknown);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Rephrase",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Emojify",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Shorten",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Elaborate",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Formalize",
+                                     0);
+  histogram_tester_.ExpectTotalCount(
+      "InputMethod.Manta.Orca.States.FreeformRewrite", 0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Unset", 0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Unknown",
+                                     0);
+}
+
+TEST_P(EditorStateMetrics, DoesNotRecordToneSegmentsForInvalidInput) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kInvalidInput);
+
+  metrics_recorder.SetTone(EditorTone::kRephrase);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kEmojify);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kShorten);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kElaborate);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kFormalize);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kFreeformRewrite);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kUnset);
+  metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kUnknown);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Rephrase",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Emojify",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Shorten",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Elaborate",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Formalize",
+                                     0);
+  histogram_tester_.ExpectTotalCount(
+      "InputMethod.Manta.Orca.States.FreeformRewrite", 0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Unset", 0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Unknown",
+                                     0);
+}
 
 struct CharectersInsertedCase {
   std::string test_name;
@@ -181,7 +477,8 @@ TEST_P(CharectersInsertedMetricsTest, RecordStateMetricPerTone) {
   const CharectersInsertedCase& test_case = GetParam();
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder metrics_recorder(&context, test_case.mode);
   metrics_recorder.SetTone(test_case.tone);
 
@@ -237,7 +534,8 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_F(EditorMetricsRecorderTest, WriteCharectersInsertedMetrics) {
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder metrics_recorder(&context,
                                          EditorOpportunityMode::kWrite);
   metrics_recorder.SetTone(EditorTone::kUnset);
@@ -268,7 +566,8 @@ TEST_P(SettingToneFromQueryAndFreeformTest, ConvertQueryToneToMetricTone) {
   const SetToneCase& test_case = GetParam();
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder metrics_recorder(&context,
                                          EditorOpportunityMode::kRewrite);
   metrics_recorder.SetTone(test_case.query_tone_string,
@@ -325,7 +624,8 @@ INSTANTIATE_TEST_SUITE_P(EditorMetricsRecorderTest,
 TEST_F(EditorMetricsRecorderTest, WriteServerResponseMetrics) {
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder metrics_recorder(&context,
                                          EditorOpportunityMode::kWrite);
   metrics_recorder.SetTone(EditorTone::kUnset);
@@ -352,7 +652,8 @@ TEST_P(RewriteServerResponseMetricsTest, RewriteServerResponseMetrics) {
   const ServerResponseRewriteCase& test_case = GetParam();
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder metrics_recorder(&context,
                                          EditorOpportunityMode::kRewrite);
   metrics_recorder.SetTone(test_case.tone);
@@ -443,7 +744,8 @@ TEST_P(EditorStateMetricsSegmentedByLanguage,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kWrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -468,7 +770,8 @@ TEST_P(EditorStateMetricsSegmentedByLanguage,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -492,7 +795,8 @@ TEST_P(EditorStateMetricsSegmentedByLanguage, DoesntRecordIfFlagDisabled) {
   ScopedFeatureList feature_list;
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -558,7 +862,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kWrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -576,7 +881,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -594,7 +900,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list;
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -612,7 +919,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kWrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -631,7 +939,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -650,7 +959,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list;
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -667,7 +977,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kWrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -685,7 +996,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -703,7 +1015,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list;
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -720,7 +1033,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kWrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -738,7 +1052,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -756,7 +1071,8 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   ScopedFeatureList feature_list;
   FakeSystem system;
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   context.OnActivateIme(test_case.engine_id);
@@ -792,7 +1108,8 @@ TEST_P(WritesCriticalStateMetrics, ForRewrite) {
   ukm_recorder.UpdateSourceURL(source_id, GURL("https://test.example.com"));
   FakeSystem system(source_id);
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   recorder.LogEditorState(editor_state);
@@ -811,7 +1128,8 @@ TEST_P(WritesCriticalStateMetrics, ForWrite) {
   ukm_recorder.UpdateSourceURL(source_id, GURL("https://test.example.com"));
   FakeSystem system(source_id);
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kWrite);
 
   recorder.LogEditorState(editor_state);
@@ -854,14 +1172,14 @@ INSTANTIATE_TEST_SUITE_P(EditorMetricsRecorderTest,
                              EditorStates::kBlockedByAppType,
                              EditorStates::kBlockedByInvalidFormFactor,
                              EditorStates::kBlockedByNetworkStatus,
-                             EditorStates::ErrorUnknown,
-                             EditorStates::ErrorInvalidArgument,
-                             EditorStates::ErrorResourceExhausted,
-                             EditorStates::ErrorBackendFailure,
-                             EditorStates::ErrorNoInternetConnection,
-                             EditorStates::ErrorUnsupportedLanguage,
-                             EditorStates::ErrorBlockedOutputs,
-                             EditorStates::ErrorRestrictedRegion,
+                             EditorStates::kErrorUnknown,
+                             EditorStates::kErrorInvalidArgument,
+                             EditorStates::kErrorResourceExhausted,
+                             EditorStates::kErrorBackendFailure,
+                             EditorStates::kErrorNoInternetConnection,
+                             EditorStates::kErrorUnsupportedLanguage,
+                             EditorStates::kErrorBlockedOutputs,
+                             EditorStates::kErrorRestrictedRegion,
                              EditorStates::kPromoCardExplicitDismissal,
                              EditorStates::kConsentScreenImpression,
                              EditorStates::kTextInsertionRequested,
@@ -878,7 +1196,8 @@ TEST_P(DoesNotWriteCriticalStateMetrics, ForRewrite) {
   ukm_recorder.UpdateSourceURL(source_id, GURL("https://test.example.com"));
   FakeSystem system(source_id);
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kRewrite);
 
   recorder.LogEditorState(editor_state);
@@ -894,7 +1213,8 @@ TEST_P(DoesNotWriteCriticalStateMetrics, ForWrite) {
   ukm_recorder.UpdateSourceURL(source_id, GURL("https://test.example.com"));
   FakeSystem system(source_id);
   FakeContextObserver observer;
-  EditorContext context(&observer, &system, kAllowedCountryCode);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
   EditorMetricsRecorder recorder(&context, EditorOpportunityMode::kWrite);
 
   recorder.LogEditorState(editor_state);

@@ -335,6 +335,10 @@ aura::Window* BackdropController::GetTopmostWindowWithBackdrop() {
   return nullptr;
 }
 
+void BackdropController::HideOnTakingPineScreenshot() {
+  Hide(/*destroy=*/false, /*animate=*/false);
+}
+
 base::ScopedClosureRunner BackdropController::PauseUpdates() {
   DCHECK(!pause_update_);
 
@@ -436,8 +440,8 @@ void BackdropController::EnsureBackdropWidget() {
 
   backdrop_ = std::make_unique<views::Widget>();
   views::Widget::InitParams params(
+      views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.bounds = container_->GetBoundsInScreen();
   params.layer_type = ui::LAYER_SOLID_COLOR;
   params.name = "Backdrop";

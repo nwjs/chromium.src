@@ -10,7 +10,6 @@
 #include "components/viz/common/resources/release_callback.h"
 #include "components/viz/test/test_context_provider.h"
 #include "components/viz/test/test_gles2_interface.h"
-#include "components/viz/test/test_gpu_memory_buffer_manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
@@ -554,7 +553,7 @@ TEST_F(CanvasResourceProviderTest,
   EXPECT_TRUE(provider->IsSingleBuffered());
 
   viz::TransferableResource tr;
-  tr.set_mailbox(gpu::Mailbox::GenerateForSharedImage());
+  tr.set_mailbox(gpu::Mailbox::Generate());
   tr.set_texture_target(GL_TEXTURE_2D);
   tr.set_sync_token(gpu::SyncToken());
   tr.size = kSize;

@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">পেষ্টেল হালধীয়া</translation>
 <translation id="1056898198331236512">সতর্কবার্তা</translation>
 <translation id="1059913517121127803">স্কেনিং আৰম্ভ কৰিব পৰা নগ’ল</translation>
+<translation id="1061864016440983342">অৱস্থানৰ অবিহনে ব্যৱহাৰ কৰক</translation>
 <translation id="1062823486781306604"><ph name="COUNT" />ৰ <ph name="INDEX" />, <ph name="NAME" />।</translation>
 <translation id="1070066693520972135">ডব্লিউইপি</translation>
 <translation id="1071587090247825784">ফায়াৰৱাল চিনাক্ত কৰা হৈছে</translation>
@@ -29,7 +30,7 @@
 <translation id="1145018782460575098">বাহ্যিক ডিভাইচৰ বাবে ফাৰ্মৱেৰ আপডে’ট কৰা ৱিণ্ড’খন খোলা আছে। <ph name="NUM_UPDATES" /> টা আপডে’ট উপলব্ধ।</translation>
 <translation id="1145516343487477149">Chromebook সম্পৰ্কীয় সহায়ক প্ৰবন্ধ আৰু সাধাৰণ প্ৰশ্নসমূহৰ উত্তৰ বিচাৰক</translation>
 <translation id="1154390310959620237">আপুনি মাত্ৰ ৫ টা শ্বৰ্টকাট কাষ্টমাইজ কৰিব পাৰে। নতুন এটা যোগ কৰিবলৈ এটা শ্বৰ্টকাট মচক।</translation>
-<translation id="1155154308031262006">এটা প্ৰম্প্‌ট দিয়ক</translation>
+<translation id="1155154308031262006">এটা প্ৰ’ম্পট্‌ দিয়ক</translation>
 <translation id="115705039208660697">আনাৰস</translation>
 <translation id="1164939766849482256">কাহিলি পুৱাৰ পৰা আন্ধাৰ হোৱালৈকে দেখুওৱা স্ক্ৰীন ছেভাৰ</translation>
 <translation id="1167755866710282443">কীসমূহ কাষ্টমাইজ কৰিবলৈ মেনু খোলক। মেনু স্থানান্তৰ কৰিবলৈ টানি আনি এৰক।</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">অধিক ছেটিং</translation>
 <translation id="2082932131694554252">কীব’ৰ্ডৰ কী আৱণ্টন কৰক</translation>
 <translation id="2085089206770112532">ডিছপ্লে’ৰ উজ্জ্বলতা ডাউন</translation>
+<translation id="2086091080968010660">সময় ভিত্তিক সালসলনিসমূহ সঠিক নহ’বও পাৰে। ছেটিঙত ছিষ্টেমৰ অৱস্থানৰ এক্সেছ অন কৰক।</translation>
 <translation id="2102231663024125441">পাঠ সম্পাদনা</translation>
 <translation id="2105810540595158374">ডিভাইচটো এটা গে’ম নিয়ন্ত্ৰক।</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, সংস্কৰণ <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">এপিএনৰ সবিশেষ সম্পাদনা কৰক</translation>
 <translation id="2195732836444333448">এই মুহূৰ্তত সক্ষমতাত আছে। সোনকালে উভতি আহক।</translation>
 <translation id="2201758491318984023">চাইকেল</translation>
-<translation id="2203222757805818543">বৰ্তমানৰ সময়সূচীখন <ph name="SUNRISE" /> - <ph name="SUNSET" /> হিচাপে ছেট কৰা হৈছে। গাঢ় ম’ডৰ সময়সূচী স্বয়ংক্ৰিয়ভাৱে আপডে’ট কৰিবলৈ <ph name="BEGIN_LINK" />অৱস্থানৰ এক্সেছ অন কৰক<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">গৰম বসন্ত</translation>
 <translation id="2203642483788377106">শিলৰ গৰা</translation>
 <translation id="2208388655216963643">ইম্প্ৰেশ্বনিষ্ট</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">ডিফ’ল্টবোৰ পুনঃস্থাপন কৰক</translation>
 <translation id="2286454467119466181">সৰল</translation>
 <translation id="2287186687001756809">কোনো প্ৰতিচ্ছবি উপলব্ধ নহয়। ফট’ যোগ দিবলৈ, <ph name="LINK" />লৈ যাওক</translation>
+<translation id="2294577623958216786">বৰ্তমানৰ সময়সূচীখন <ph name="SUNRISE" />-<ph name="SUNSET" /> হিচাপে ছেট কৰা হৈছে। সূৰ্যাস্ত আৰু সূৰ্যোদয়ৰ সময়সূচী স্বয়ংক্ৰিয়ভাৱে আপডে’ট কৰিবলৈ, ছিষ্টেমৰ অৱস্থানৰ এক্সেছ অন কৰক।</translation>
 <translation id="2305172810646967500">ক’লা</translation>
 <translation id="2307344026739914387">বৰ্তমানৰ কী পেয়াৰ ব্যৱহাৰ কৰক</translation>
 <translation id="2308243864813041101">আপডে’ট প্ৰক্ৰিয়াটো অব্যাহত ৰাখিবলৈ <ph name="DEVICE_NAME" />ৰ ইউএছবি কে’বলডাল আনপ্লাগ কৰক</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">বালিৰ স্তূপ</translation>
 <translation id="2619761439309613843">দৈনিক নতুন ৱালপেপাৰ</translation>
 <translation id="2620436844016719705">ছিষ্টেম</translation>
+<translation id="2637303424821734920">অফ কৰা আছে - স্থানীয় বতৰৰ তথ্য প্ৰদৰ্শন কৰিবলৈ <ph name="BEGIN_LINK" />ছিষ্টেমৰ অৱস্থানৰ এক্সেছ অন কৰক<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">ছাইন-ইন প্ৰতিচ্ছবি</translation>
 <translation id="2640549051766135490">এলবাম <ph name="TITLE" /> <ph name="DESC" /> বাছনি কৰা হৈছে</translation>
 <translation id="2645380101799517405">নিয়ন্ত্ৰণ</translation>
@@ -347,8 +350,8 @@
 <translation id="2875812231449496375">এই ৱালপেপাৰখনৰ সৈতে শ্ৰেষ্ঠ ফলাফল পাবলৈ এইটো অন কৰক। আপুনি যিকোনো সময়তে এই ছেটিংটো অফ কৰিব পাৰে।</translation>
 <translation id="2878387241690264070"><ph name="NUM_SECONDS" /> ছেকেণ্ডত <ph name="RATE" /> চাৰ্জ খৰচ হৈছে।</translation>
 <translation id="2880569433548999039">ডাৱৰৰ প্ৰবাহৰ স্ক্ৰীন ছেভাৰ</translation>
-<translation id="2882230315487799269">AI প্ৰম্প্‌ট কাষ্টমাইজ কৰক</translation>
-<translation id="2888298276507578975">"ধন্যবাদসূচক টোকা লিখক"ৰ দৰে প্ৰম্প্‌ট দিয়ক</translation>
+<translation id="2882230315487799269">AI প্ৰ’ম্পট্‌ কাষ্টমাইজ কৰক</translation>
+<translation id="2888298276507578975">"ধন্যবাদসূচক টোকা লিখক"ৰ দৰে প্ৰ’ম্পট্‌ দিয়ক</translation>
 <translation id="2890557891229184386">গ্ৰীষ্মমণ্ডলীয় দ্বীপ</translation>
 <translation id="2895772081848316509">গাঢ়</translation>
 <translation id="2926057806159140518">আপোনাৰ ব্যৱহাৰকাৰীৰ নাম আৰু পাছৱৰ্ড দিয়ক অথবা আপোনাৰ কিউ আৰ ক’ড স্কেন কৰক</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">নেপথ্য</translation>
 <translation id="3027578600144895987">কেমেৰাটো বন্ধ কৰক</translation>
 <translation id="3031560714565892478">ডিভাইচটো এটা ভিডিঅ’ কেমেৰা।</translation>
+<translation id="3051968340259309715">এইটোৱে আপোনাৰ অৱস্থান নিৰ্ধাৰণ কৰিবলৈ ছিষ্টেম সেৱাসমূহক অৱস্থানৰ সঠিকতা ব্যৱহাৰ কৰিবলৈ দিয়ে। অৱস্থানৰ সঠিকতাই ডিভাইচৰ অৱস্থান অনুমান কৰিবলৈ এক্সেলেৰ’মিটাৰ আৰু জাইৰোস্ক’প আদিৰ দৰে ডিভাইচ ছেন্সৰৰ ডেটাৰ লগতে ৱাই-ফাই এক্সেছ পইণ্ট, চেলুলাৰ নেটৱৰ্ক টাৱাৰ আৰু GPSৰ দৰে বেতাঁৰ ছিগনেলৰ বিষয়ে তথ্যসমূহ ব্যৱহাৰ কৰে। আপুনি ছেটিং &gt; গোপনীয়তা আৰু সুৰক্ষা &gt; গোপনীয়তাৰ নিয়ন্ত্ৰণ &gt; অৱস্থানৰ এক্সেছত অৱস্থান অফ কৰিব পাৰে। <ph name="LINK_BEGIN" />অধিক জানক<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />এমএ</translation>
 <translation id="3056720590588772262">এণ্ডপইণ্ট</translation>
 <translation id="3060579846059757016">ৰূপৰেখা</translation>
+<translation id="3061850252076394168">কথা ক’বলৈ বাছনি কৰক সুবিধাটো সক্ষম কৰক</translation>
 <translation id="3069085583900247081">পৰীক্ষা বিফল হৈছে</translation>
 <translation id="3078740164268491126">তালিকা</translation>
 <translation id="3081652522083185657">পোহৰ</translation>
@@ -384,7 +389,7 @@
 <translation id="3170673040743561620">আপোনাৰ নথি স্কেনাৰটোত ৰাখক</translation>
 <translation id="3174321110679064523">কাহিলি পুৱাৰ পৰা আন্ধাৰ হোৱালৈকে দেখুওৱা ৱালপেপাৰ</translation>
 <translation id="3178532070248519384">আভাণ্ট-গাৰ্ড</translation>
-<translation id="3182676044300231689">"এইটো অধিক আত্মবিশ্বাসী যেন লগা কৰক"ৰ দৰে এটা প্ৰম্প্‌ট দিয়ক</translation>
+<translation id="3182676044300231689">"এইটো অধিক আত্মবিশ্বাসী যেন লগা কৰক"ৰ দৰে এটা প্ৰ’ম্পট্‌ দিয়ক</translation>
 <translation id="3188257591659621405">মোৰ ফাইলসমূহ</translation>
 <translation id="319101249942218879">অৱতাৰৰ প্ৰতিচ্ছবি সলনি হৈছে</translation>
 <translation id="3192947282887913208">অডিঅ’ ফাইল</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">হ’ষ্ট সম্পৰ্কীয় সকলো সমস্যা সমাধান কৰাত বিফল হ'ল</translation>
 <translation id="4593212453765072419">প্ৰ’ক্সী বিশ্বাসযোগ্যতাৰ প্ৰমাণীকৰণৰ আৱশ্যক</translation>
 <translation id="4609350030397390689">কীব’ৰ্ডৰ উজ্জ্বলতা ডাউন</translation>
-<translation id="4617553623719764431">বতৰ দেখুওৱা হোৱা নাই কাৰণ ই আপোনাৰ অৱস্থান নাজানে। স্থানীয় বতৰ দেখুৱাবলৈ, <ph name="BEGIN_LINK" />অৱস্থানৰ এক্সেছ অন কৰক<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="TOTAL_PAGE_NUMBER" />ৰ ভিতৰত <ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />। প্ৰিণ্টৰ কাৰ্যটো বাতিল কৰিবলৈ এণ্টাৰ টিপক।</translation>
 <translation id="463791356324567266">স্কেন বাতিল কৰি থকা হৈছে…</translation>
 <translation id="4646949265910132906">সুৰক্ষিত ৱাই-ফাই সংযোগ</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">চলাওক</translation>
 <translation id="4987769320337599931">ফায়াৰৱাল</translation>
 <translation id="4988526792673242964">পৃষ্ঠা</translation>
+<translation id="4989542687859782284">উপলব্ধ নহয়</translation>
 <translation id="4999333166442584738">ৰিপ’ৰ্ট লুকুৱাওক</translation>
 <translation id="500920857929044050">পৰীক্ষা কৰা বন্ধ কৰক</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">কীব’ৰ্ডৰ উজ্জ্বলতা</translation>
 <translation id="6412715219990689313">বিল্ট-ইন কীব’ৰ্ড</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
+<translation id="6419454453018688975">ছিষ্টেমৰ অৱস্থানৰ এক্সেছ অন কৰক</translation>
 <translation id="6423239382391657905">VPN খোলক</translation>
-<translation id="6438073885402882007">ই অনুমতি থকা ছিষ্টেম সেৱাসমূহক আপোনাৰ অৱস্থান ব্যৱহাৰ কৰাৰ অনুমতি দিয়ে। অৱস্থান সেৱাই আপোনাৰ ডিভাইচৰ অৱস্থান অনুমান কৰাত সহায় কৰিবলৈ ৱাই-ফাই, ম’বাইল নেটৱৰ্ক আৰু ছেন্সৰৰ দৰে উৎসসমূহ ব্যৱহাৰ কৰিব পাৰে। <ph name="LINK_BEGIN" />অধিক জানক<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">দুৰ্বল (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">একাউণ্টৰ ছেটিঙলৈ যাওক</translation>
 <translation id="6462978824459367242">এতিয়া APN যোগ কৰাৰ বুটামটো এতিয়া সক্ষম কৰা হৈছে</translation>
@@ -1065,7 +1070,7 @@
           অধিক অদ্বিতীয় আৰু বৈচিত্ৰময় AI প্ৰতিচ্ছবিৰ বিকল্পসমূহ লাভ কৰিবলৈ "মোক অনুপ্ৰাণিত কৰক" বাছনি কৰক।
           <ph name="LINE_BREAK" />
           <ph name="LINE_BREAK" />
-          যেতিয়া আপুনি AIৰ জৰিয়তে সৃষ্টি কৰে, <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Googleৰ গোপনীয়তাৰ নীতি<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />ৰ অধীনত প্ৰতিচ্ছবি সৃষ্টি আৰু প্ৰ’ডাক্ট উন্নত কৰিবলৈ প্ৰম্প্‌টটো Google AI ছাৰ্ভাৰসমূহলৈ পঠিওৱা হয়।
+          যেতিয়া আপুনি AIৰ জৰিয়তে সৃষ্টি কৰে, <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Googleৰ গোপনীয়তাৰ নীতি<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />ৰ অধীনত প্ৰতিচ্ছবি সৃষ্টি আৰু প্ৰ’ডাক্ট উন্নত কৰিবলৈ প্ৰ’ম্পট্‌টো Google AI ছাৰ্ভাৰসমূহলৈ পঠিওৱা হয়।
           <ph name="LINE_BREAK" />
           <ph name="LINE_BREAK" />
           Generative AI সম্পৰীক্ষামূলক, বিকাশৰ প্ৰাৰম্ভিক স্থিতিত আছে আৰু বৰ্তমান ইয়াৰ উপলব্ধতা সীমিত।</translation>

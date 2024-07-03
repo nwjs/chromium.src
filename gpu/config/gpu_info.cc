@@ -35,8 +35,6 @@ void EnumerateGPUDevice(const gpu::GPUInfo::GPUDevice& device,
   enumerator->AddString("deviceString", device.device_string);
   enumerator->AddString("driverVendor", device.driver_vendor);
   enumerator->AddString("driverVersion", device.driver_version);
-  enumerator->AddInt("cudaComputeCapabilityMajor",
-                     device.cuda_compute_capability_major);
   enumerator->AddInt("gpuPreference", static_cast<int>(device.gpu_preference));
   enumerator->EndGPUDevice();
 }
@@ -79,7 +77,7 @@ const char* ImageDecodeAcceleratorTypeToString(
     case gpu::ImageDecodeAcceleratorType::kUnknown:
       return "Unknown";
   }
-  NOTREACHED() << "Invalid ImageDecodeAcceleratorType.";
+  NOTREACHED_IN_MIGRATION() << "Invalid ImageDecodeAcceleratorType.";
   return "";
 }
 
@@ -131,6 +129,8 @@ void EnumerateOverlayInfo(const gpu::OverlayInfo& info,
   enumerator->AddString(
       "rgb10a2OverlaySupport",
       gpu::OverlaySupportToString(info.rgb10a2_overlay_support));
+  enumerator->AddString("p010OverlaySupport",
+                        gpu::OverlaySupportToString(info.p010_overlay_support));
   enumerator->EndOverlayInfo();
 }
 #endif
@@ -213,8 +213,12 @@ bool GPUInfo::GPUDevice::IsSoftwareRenderer() const {
     case 0x0000:  // Info collection failed to identify a GPU
     case 0xffff:  // Chromium internal flag for software rendering
     case 0x15ad:  // VMware
-    case 0x1414:  // Microsoft software renderer
       return true;
+    case 0x1414:  // Microsoft software renderer
+      // Specifically check for the Warp device id. The Microsoft
+      // vendor id is also used for other, non-software devices such
+      // as XBox.
+      return (device_id == 0x008c);
     default:
       return false;
   }

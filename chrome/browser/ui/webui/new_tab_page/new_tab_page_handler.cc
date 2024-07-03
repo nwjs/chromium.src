@@ -50,8 +50,8 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
-#include "chrome/browser/ui/side_panel/customize_chrome/customize_chrome_tab_helper.h"
-#include "chrome/browser/ui/side_panel/customize_chrome/customize_chrome_utils.h"
+#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_tab_helper.h"
+#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_pref_names.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_section.h"
 #include "chrome/browser/ui/webui/webui_util_desktop.h"
@@ -78,7 +78,6 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/theme_provider.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
@@ -163,21 +162,13 @@ new_tab_page::mojom::ThemePtr MakeTheme(
     text_color = color_provider.GetColor(kColorNewTabPageTextUnthemed);
     theme->logo_color =
         color_provider.GetColor(kColorNewTabPageLogoUnthemedLight);
-
-    // TODO(crbug.com/40061384): Post GM3 launch, we can remove the
-    // kColorNewTabPageMostVisitedTileBackgroundUnthemed color and related
-    // logic.
     most_visited->background_color =
-        features::IsChromeWebuiRefresh2023()
-            ? color_provider.GetColor(kColorNewTabPageMostVisitedTileBackground)
-            : color_provider.GetColor(
-                  kColorNewTabPageMostVisitedTileBackgroundUnthemed);
+        color_provider.GetColor(kColorNewTabPageMostVisitedTileBackground);
   } else {
     text_color = color_provider.GetColor(kColorNewTabPageText);
     if (theme_provider->GetDisplayProperty(
             ThemeProperties::NTP_LOGO_ALTERNATE) == 1 ||
-        (features::IsChromeWebuiRefresh2023() &&
-         !theme_service->GetIsGrayscale() &&
+        (!theme_service->GetIsGrayscale() &&
          theme_service->GetUserColor().has_value())) {
       theme->logo_color = color_provider.GetColor(kColorNewTabPageLogo);
     }
@@ -314,11 +305,6 @@ new_tab_page::mojom::ImageDoodlePtr MakeImageDoodle(
     int width_px,
     int height_px,
     const std::string& background_color,
-    int share_button_x,
-    int share_button_y,
-    const std::string& share_button_icon,
-    const std::string& share_button_bg,
-    double share_button_opacity,
     GURL log_url,
     GURL cta_log_url) {
   auto doodle = new_tab_page::mojom::ImageDoodle::New();
@@ -331,16 +317,6 @@ new_tab_page::mojom::ImageDoodlePtr MakeImageDoodle(
   doodle->width = width_px;
   doodle->height = height_px;
   doodle->background_color = ParseHexColor(background_color);
-  if (!share_button_icon.empty()) {
-    doodle->share_button = new_tab_page::mojom::DoodleShareButton::New();
-    doodle->share_button->x = share_button_x;
-    doodle->share_button->y = share_button_y;
-    doodle->share_button->icon_url = GURL(base::StringPrintf(
-        "data:image/png;base64,%s", share_button_icon.c_str()));
-    doodle->share_button->background_color = SkColorSetA(
-        ParseHexColor(share_button_bg),
-        std::clamp(share_button_opacity, 0.0, 1.0) * SK_AlphaOPAQUE);
-  }
   if (type == search_provider_logos::LogoType::ANIMATED) {
     doodle->image_impression_log_url = cta_log_url;
     doodle->animation_impression_log_url = log_url;
@@ -965,10 +941,7 @@ void NewTabPageHandler::SetCustomizeChromeSidePanelVisible(
     feature_promo_helper_->RecordFeatureUsage(
         feature_engagement::events::kCustomizeChromeOpened, tab);
     feature_promo_helper_->CloseFeaturePromo(
-        features::IsChromeRefresh2023() && features::IsChromeWebuiRefresh2023()
-            ? feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature
-            : feature_engagement::kIPHDesktopCustomizeChromeFeature,
-        tab);
+        feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature, tab);
   }
 }
 
@@ -998,22 +971,9 @@ void NewTabPageHandler::MaybeShowFeaturePromo(
 
   switch (iph_feature) {
     case new_tab_page::mojom::IphFeature::kCustomizeChrome: {
-      if (features::IsChromeRefresh2023() &&
-          features::IsChromeWebuiRefresh2023()) {
-        feature_promo_helper_->MaybeShowFeaturePromo(
-            feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature,
-            web_contents_.get());
-      } else {
-        const auto customize_chrome_button_open_count =
-            profile_->GetPrefs()->GetInteger(
-                prefs::kNtpCustomizeChromeButtonOpenCount);
-
-        if (customize_chrome_button_open_count == 0) {
-          feature_promo_helper_->MaybeShowFeaturePromo(
-              feature_engagement::kIPHDesktopCustomizeChromeFeature,
-              web_contents_.get());
-        }
-      }
+      feature_promo_helper_->MaybeShowFeaturePromo(
+          feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature,
+          web_contents_.get());
     } break;
     case new_tab_page::mojom::IphFeature::kCustomizeModules: {
       feature_promo_helper_->MaybeShowFeaturePromo(
@@ -1021,7 +981,7 @@ void NewTabPageHandler::MaybeShowFeaturePromo(
           web_contents_.get());
     } break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -1138,7 +1098,7 @@ void NewTabPageHandler::OnCustomizeDialogAction(
       event = NTP_CUSTOMIZE_SHORTCUT_VISIBILITY_TOGGLE_CLICKED;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   LogEvent(event);
 }
@@ -1158,7 +1118,7 @@ void NewTabPageHandler::OnDoodleImageClicked(
       event = NTP_STATIC_LOGO_CLICKED;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
   LogEvent(event);
@@ -1207,7 +1167,7 @@ void NewTabPageHandler::OnDoodleShared(
       channel_id = 6;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
   std::string query =
@@ -1240,11 +1200,6 @@ void NewTabPageHandler::OnThemeChanged() {
 
 void NewTabPageHandler::OnCustomBackgroundImageUpdated() {
   OnThemeChanged();
-}
-
-void NewTabPageHandler::OnNtpCustomBackgroundServiceShuttingDown() {
-  ntp_custom_background_service_observation_.Reset();
-  ntp_custom_background_service_ = nullptr;
 }
 
 void NewTabPageHandler::OnCollectionInfoAvailable() {
@@ -1375,21 +1330,14 @@ void NewTabPageHandler::OnLogoAvailable(
         logo->metadata.type, logo->encoded_image->as_string(),
         logo->metadata.mime_type, logo->metadata.animated_url,
         logo->metadata.width_px, logo->metadata.height_px, "#ffffff",
-        logo->metadata.share_button_x, logo->metadata.share_button_y,
-        logo->metadata.share_button_icon, logo->metadata.share_button_bg,
-        logo->metadata.share_button_opacity, logo->metadata.log_url,
-        logo->metadata.cta_log_url);
+        logo->metadata.log_url, logo->metadata.cta_log_url);
     if (logo->dark_encoded_image) {
       image_doodle->dark = MakeImageDoodle(
           logo->metadata.type, logo->dark_encoded_image->as_string(),
           logo->metadata.dark_mime_type, logo->metadata.dark_animated_url,
           logo->metadata.dark_width_px, logo->metadata.dark_height_px,
           logo->metadata.dark_background_color,
-          logo->metadata.dark_share_button_x,
-          logo->metadata.dark_share_button_y,
-          logo->metadata.dark_share_button_icon,
-          logo->metadata.dark_share_button_bg,
-          logo->metadata.dark_share_button_opacity, logo->metadata.dark_log_url,
+          logo->metadata.dark_log_url,
           logo->metadata.dark_cta_log_url);
     }
     if (logo->metadata.on_click_url.is_valid()) {

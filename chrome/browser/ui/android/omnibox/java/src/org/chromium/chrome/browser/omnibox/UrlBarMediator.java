@@ -34,17 +34,17 @@ import java.util.List;
 
 /** Handles collecting and pushing state information to the UrlBar model. */
 class UrlBarMediator implements UrlBar.UrlBarTextContextMenuDelegate, UrlBar.UrlTextChangeListener {
-    private final Context mContext;
-    private final PropertyModel mModel;
+    private final @NonNull Context mContext;
+    private final @NonNull PropertyModel mModel;
+    private final @NonNull Callback<Boolean> mOnFocusChangeCallback;
+    private final @NonNull List<UrlTextChangeListener> mUrlTextChangeListeners = new ArrayList<>();
 
-    private Callback<Boolean> mOnFocusChangeCallback;
     private boolean mHasFocus;
 
-    private UrlBarData mUrlBarData;
+    private @NonNull UrlBarData mUrlBarData = UrlBarData.EMPTY;
     private @ScrollType int mScrollType = UrlBar.ScrollType.NO_SCROLL;
     private @SelectionState int mSelectionState = UrlBarCoordinator.SelectionState.SELECT_ALL;
 
-    private final List<UrlTextChangeListener> mUrlTextChangeListeners = new ArrayList<>();
     private int mPreviousBrandedColorScheme;
     // For both Start Surface and NTP, when the surface polish flag is enabled, the search text hint
     // color is fixed for the real search box and we couldn't change it by the branded color scheme.
@@ -59,7 +59,7 @@ class UrlBarMediator implements UrlBar.UrlBarTextContextMenuDelegate, UrlBar.Url
      *     UrlBar.
      */
     public UrlBarMediator(
-            Context context,
+            @NonNull Context context,
             @NonNull PropertyModel model,
             @NonNull Callback<Boolean> focusChangeCallback) {
         mContext = context;
@@ -72,11 +72,14 @@ class UrlBarMediator implements UrlBar.UrlBarTextContextMenuDelegate, UrlBar.Url
         mModel.set(UrlBarProperties.URL_TEXT_CHANGE_LISTENER, this);
         mModel.set(UrlBarProperties.HAS_URL_SUGGESTIONS, false);
         setBrandedColorScheme(BrandedColorScheme.APP_DEFAULT);
+        pushTextToModel();
     }
 
     public void destroy() {
+        mModel.set(UrlBarProperties.FOCUS_CHANGE_CALLBACK, null);
+        mModel.set(UrlBarProperties.TEXT_CONTEXT_MENU_DELEGATE, null);
+        mModel.set(UrlBarProperties.URL_TEXT_CHANGE_LISTENER, null);
         mUrlTextChangeListeners.clear();
-        mOnFocusChangeCallback = (unused) -> {};
     }
 
     /** Adds a listener for url text changes. */
@@ -93,7 +96,11 @@ class UrlBarMediator implements UrlBar.UrlBarTextContextMenuDelegate, UrlBar.Url
      * @return Whether this data differs from the previously passed in values.
      */
     public boolean setUrlBarData(
-            UrlBarData data, @ScrollType int scrollType, @SelectionState int selectionState) {
+            @NonNull UrlBarData data,
+            @ScrollType int scrollType,
+            @SelectionState int selectionState) {
+        assert data != null;
+
         if (data.originEndIndex == data.originStartIndex) {
             scrollType = UrlBar.ScrollType.SCROLL_TO_BEGINNING;
         }
@@ -121,6 +128,7 @@ class UrlBarMediator implements UrlBar.UrlBarTextContextMenuDelegate, UrlBar.Url
         return true;
     }
 
+    @NonNull
     UrlBarData getUrlBarData() {
         return mUrlBarData;
     }
@@ -225,7 +233,7 @@ class UrlBarMediator implements UrlBar.UrlBarTextContextMenuDelegate, UrlBar.Url
         mOnFocusChangeCallback.onResult(focus);
         boolean textChangedInFocusCallback =
                 mModel.get(UrlBarProperties.TEXT_STATE) != preCallbackState;
-        if (mUrlBarData != null && !textChangedInFocusCallback) {
+        if (!textChangedInFocusCallback) {
             pushTextToModel();
         }
     }
@@ -278,7 +286,7 @@ class UrlBarMediator implements UrlBar.UrlBarTextContextMenuDelegate, UrlBar.Url
     @Override
     public String getReplacementCutCopyText(
             String currentText, int selectionStart, int selectionEnd) {
-        if (mUrlBarData == null || mUrlBarData.url == null) return null;
+        if (mUrlBarData.url == null) return null;
 
         // Replace the cut/copy text only applies if the user selected from the beginning of the
         // display text.

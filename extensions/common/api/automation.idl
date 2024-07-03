@@ -242,6 +242,7 @@
     // End ARIA Graphics module roles.
     // --------------------------------------------------------------
     grid,
+    gridCell,
     group,
     header,
     headerAsNonLandmark,
@@ -945,6 +946,9 @@ enum PositionType {
     // The value for this node: for example the <code>value</code> attribute of
     // an <code>&lt;input&gt; element.
     DOMString? value;
+
+    // The HTML id for this element, if this node is an HTML element.
+    DOMString? htmlId;
 
     // The HTML tag for this element, if this node is an HTML element.
     DOMString? htmlTag;

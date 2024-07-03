@@ -12,6 +12,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -67,6 +68,10 @@ class PrerenderHostObserver {
   // Returns immediately if the PrerenderHost was already activated, otherwise
   // spins a RunLoop until the observed host is activated.
   void WaitForActivation();
+
+  // Returns immediately if the PrerenderHost has already received headers,
+  // otherwise spins a RunLoop until the observed host receives headers.
+  void WaitForHeaders();
 
   // Returns immediately if the PrerenderHost was already destroyed, otherwise
   // spins a RunLoop until the observed host is destroyed.
@@ -151,6 +156,11 @@ class PrerenderTestHelper {
                    std::optional<blink::mojom::SpeculationEagerness> eagerness,
                    const std::string& target_hint,
                    int32_t world_id = ISOLATED_WORLD_ID_GLOBAL);
+  int AddPrerender(const GURL& prerendering_url,
+                   std::optional<blink::mojom::SpeculationEagerness> eagerness,
+                   std::optional<std::string> no_vary_search_hint,
+                   const std::string& target_hint,
+                   int32_t world_id = ISOLATED_WORLD_ID_GLOBAL);
   // AddPrerenderAsync() is the same as AddPrerender(), but does not wait until
   // the completion of prerendering.
   void AddPrerenderAsync(const GURL& prerendering_url,
@@ -158,6 +168,12 @@ class PrerenderTestHelper {
   void AddPrerendersAsync(
       const std::vector<GURL>& prerendering_urls,
       std::optional<blink::mojom::SpeculationEagerness> eagerness,
+      const std::string& target_hint,
+      int32_t world_id = ISOLATED_WORLD_ID_GLOBAL);
+  void AddPrerendersAsync(
+      const std::vector<GURL>& prerendering_urls,
+      std::optional<blink::mojom::SpeculationEagerness> eagerness,
+      std::optional<std::string> no_vary_search_hint,
       const std::string& target_hint,
       int32_t world_id = ISOLATED_WORLD_ID_GLOBAL);
 
@@ -187,6 +203,14 @@ class PrerenderTestHelper {
   static void NavigatePrimaryPage(WebContents& web_contents, const GURL& gurl);
   void NavigatePrimaryPage(const GURL& gurl);
 
+  // Navigates the primary page to the URL but does not wait until the
+  // completion of the navigation. Instead it returns a
+  // content::TestNavigationObserver.
+  static std::unique_ptr<content::TestNavigationObserver>
+  NavigatePrimaryPageAsync(WebContents& web_contents, const GURL& gurl);
+  std::unique_ptr<content::TestNavigationObserver> NavigatePrimaryPageAsync(
+      const GURL& gurl);
+
   // Opens a new window without an opener on the primary page of `web_contents`.
   // This is intended for activating a prerendered page initiated for a new
   // window.
@@ -198,10 +222,13 @@ class PrerenderTestHelper {
   [[nodiscard]] ::testing::AssertionResult VerifyPrerenderingState(
       const GURL& gurl);
 
-  // Returns RenderFrameHost corresponding to `host_id`.
+  // Returns RenderFrameHost corresponding to `host_id` or `url`.
   static RenderFrameHost* GetPrerenderedMainFrameHost(WebContents& web_contents,
                                                       int host_id);
+  static RenderFrameHost* GetPrerenderedMainFrameHost(WebContents& web_contents,
+                                                      const GURL& url);
   RenderFrameHost* GetPrerenderedMainFrameHost(int host_id);
+  RenderFrameHost* GetPrerenderedMainFrameHost(const GURL& url);
 
   int GetRequestCount(const GURL& url);
   net::test_server::HttpRequest::HeaderMap GetRequestHeaders(const GURL& url);

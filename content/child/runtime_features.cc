@@ -169,7 +169,7 @@ void SetRuntimeFeatureFromChromiumFeature(const base::Feature& chromium_feature,
       }
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -389,10 +389,8 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            kSetOnlyIfOverridden},
           {"Fledge", raw_ref(features::kPrivacySandboxAdsAPIsM1Override),
            kSetOnlyIfOverridden},
-#if BUILDFLAG(USE_FONTATIONS_BACKEND)
           {"FontationsFontBackend",
            raw_ref(blink::features::kFontationsFontBackend)},
-#endif
           {"FontSrcLocalMatching", raw_ref(features::kFontSrcLocalMatching)},
           {"LegacyWindowsDWriteFontFallback",
            raw_ref(features::kLegacyWindowsDWriteFontFallback)},
@@ -476,6 +474,12 @@ void SetRuntimeFeaturesFromCommandLine(const base::CommandLine& command_line) {
       {wrf::EnableSharedWorker, switches::kDisableSharedWorkers, false},
       {wrf::EnableMutationEvents, blink::switches::kMutationEventsEnabled,
        true},
+      {wrf::EnableKeyboardFocusableScrollers,
+       blink::switches::kKeyboardFocusableScrollersEnabled, true},
+      {wrf::EnableKeyboardFocusableScrollers,
+       blink::switches::kKeyboardFocusableScrollersOptOut, false},
+      {wrf::EnableCSSCustomStateDeprecatedSyntax,
+       blink::switches::kCSSCustomStateDeprecatedSyntaxEnabled, true},
       {wrf::EnableTextFragmentIdentifiers,
        switches::kDisableScrollToTextFragment, false},
       {wrf::EnableWebAuthenticationRemoteDesktopSupport,
@@ -715,6 +719,7 @@ void ResolveInvalidConfigurations() {
   if (base::FeatureList::IsEnabled(
           features::kCookieDeprecationFacilitatedTesting)) {
     WebRuntimeFeatures::EnableFledgeMultiBid(false);
+    WebRuntimeFeatures::EnableFledgeRealTimeReporting(false);
 
     if (!base::FeatureList::IsEnabled(
             blink::features::

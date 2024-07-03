@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <concepts>
+#include <iosfwd>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -103,7 +104,14 @@ constexpr size_t must_not_be_dynamic_extent() {
 template <class T, class U, size_t N, size_t M>
   requires((N == M || N == dynamic_extent || M == dynamic_extent) &&
            std::equality_comparable_with<T, U>)
-constexpr bool span_cmp(span<T, N> l, span<U, M> r);
+constexpr bool span_eq(span<T, N> l, span<U, M> r);
+template <class T, class U, size_t N, size_t M>
+  requires((N == M || N == dynamic_extent || M == dynamic_extent) &&
+           std::three_way_comparable_with<T, U>)
+constexpr auto span_cmp(span<T, N> l, span<U, M> r)
+    -> decltype(l[0u] <=> r[0u]);
+template <class T, size_t N>
+constexpr std::ostream& span_stream(std::ostream& l, span<T, N> r);
 
 }  // namespace internal
 
@@ -232,9 +240,13 @@ constexpr bool span_cmp(span<T, N> l, span<U, M> r);
 // - span_from_ref() function.
 // - byte_span_from_ref() function.
 // - span_from_cstring() function.
+// - span_with_nul_from_cstring() function.
 // - byte_span_from_cstring() function.
+// - byte_span_with_nul_from_cstring() function.
 // - split_at() method.
 // - operator==() comparator function.
+// - operator<=>() comparator function.
+// - operator<<() printing function.
 //
 // Furthermore, all constructors and methods are marked noexcept due to the lack
 // of exceptions in Chromium.
@@ -618,10 +630,10 @@ class GSL_POINTER span {
   // types are themselves comparable.
   //
   // For primitive types, this replaces the less safe `memcmp` function, where
-  // `memcmp(a.data(), b.data(), a.size())` can be written as `a == b` and can
-  // no longer go outside the bounds of `b`. Otherwise, it replaced std::equal
-  // or std::ranges::equal when working with spans, and when no projection is
-  // needed.
+  // `memcmp(a.data(), b.data(), a.size()) == 0` can be written as `a == b` and
+  // can no longer go outside the bounds of `b`. Otherwise, it replaced
+  // std::equal or std::ranges::equal when working with spans, and when no
+  // projection is needed.
   //
   // If the spans are of different sizes, they are not equal. If both spans are
   // empty, they are always equal (even though their data pointers may differ).
@@ -630,19 +642,50 @@ class GSL_POINTER span {
   // The non-template overloads allow implicit conversions to span for
   // comparison.
   friend constexpr bool operator==(span lhs, span rhs)
-    requires(std::equality_comparable<const T>)
+    requires(std::is_const_v<T> && std::equality_comparable<T>)
   {
-    return internal::span_cmp(span<const T, N>(lhs), span<const T, N>(rhs));
+    return internal::span_eq(span<const T, N>(lhs), span<const T, N>(rhs));
   }
   friend constexpr bool operator==(span lhs, span<const T, N> rhs)
     requires(!std::is_const_v<T> && std::equality_comparable<const T>)
   {
-    return internal::span_cmp(span<const T, N>(lhs), span<const T, N>(rhs));
+    return internal::span_eq(span<const T, N>(lhs), span<const T, N>(rhs));
   }
   template <class U, size_t M>
     requires((N == M || M == dynamic_extent) &&
              std::equality_comparable_with<const T, const U>)
   friend constexpr bool operator==(span lhs, span<U, M> rhs) {
+    return internal::span_eq(span<const T, N>(lhs), span<const U, M>(rhs));
+  }
+
+  // Compares two spans for ordering by comparing the objects pointed to by the
+  // spans. The operation is defined for spans of different types as long as the
+  // types are themselves ordered via `<=>`.
+  //
+  // For primitive types, this replaces the less safe `memcmp` function, where
+  // `memcmp(a.data(), b.data(), a.size()) < 0` can be written as `a < b` and
+  // can no longer go outside the bounds of `b`.
+  //
+  // If both spans are empty, they are always equal (even though their data
+  // pointers may differ).
+  //
+  // # Implementation note
+  // The non-template overloads allow implicit conversions to span for
+  // comparison.
+  friend constexpr auto operator<=>(span lhs, span rhs)
+    requires(std::is_const_v<T> && std::three_way_comparable<T>)
+  {
+    return internal::span_cmp(span<const T, N>(lhs), span<const T, N>(rhs));
+  }
+  friend constexpr auto operator<=>(span lhs, span<const T, N> rhs)
+    requires(!std::is_const_v<T> && std::three_way_comparable<const T>)
+  {
+    return internal::span_cmp(span<const T, N>(lhs), span<const T, N>(rhs));
+  }
+  template <class U, size_t M>
+    requires((N == M || M == dynamic_extent) &&
+             std::three_way_comparable_with<const T, const U>)
+  friend constexpr auto operator<=>(span lhs, span<U, M> rhs) {
     return internal::span_cmp(span<const T, N>(lhs), span<const U, M>(rhs));
   }
 
@@ -1003,10 +1046,10 @@ class GSL_POINTER span<T, dynamic_extent, InternalPtrType> {
   // types are themselves comparable.
   //
   // For primitive types, this replaces the less safe `memcmp` function, where
-  // `memcmp(a.data(), b.data(), a.size())` can be written as `a == b` and can
-  // no longer go outside the bounds of `b`. Otherwise, it replaced std::equal
-  // or std::ranges::equal when working with spans, and when no projection is
-  // needed.
+  // `memcmp(a.data(), b.data(), a.size()) == 0` can be written as `a == b` and
+  // can no longer go outside the bounds of `b`. Otherwise, it replaced
+  // std::equal or std::ranges::equal when working with spans, and when no
+  // projection is needed.
   //
   // If the spans are of different sizes, they are not equal. If both spans are
   // empty, they are always equal (even though their data pointers may differ).
@@ -1015,18 +1058,48 @@ class GSL_POINTER span<T, dynamic_extent, InternalPtrType> {
   // The non-template overloads allow implicit conversions to span for
   // comparison.
   friend constexpr bool operator==(span lhs, span rhs)
-    requires(std::equality_comparable<const T>)
+    requires(std::is_const_v<T> && std::equality_comparable<T>)
   {
-    return internal::span_cmp(span<const T>(lhs), span<const T>(rhs));
+    return internal::span_eq(span<const T>(lhs), span<const T>(rhs));
   }
   friend constexpr bool operator==(span lhs, span<const T> rhs)
     requires(!std::is_const_v<T> && std::equality_comparable<const T>)
   {
-    return internal::span_cmp(span<const T>(lhs), span<const T>(rhs));
+    return internal::span_eq(span<const T>(lhs), span<const T>(rhs));
   }
   template <class U, size_t M>
     requires(std::equality_comparable_with<const T, const U>)
   friend constexpr bool operator==(span lhs, span<U, M> rhs) {
+    return internal::span_eq(span<const T>(lhs), span<const U, M>(rhs));
+  }
+
+  // Compares two spans for ordering by comparing the objects pointed to by the
+  // spans. The operation is defined for spans of different types as long as the
+  // types are themselves ordered via `<=>`.
+  //
+  // For primitive types, this replaces the less safe `memcmp` function, where
+  // `memcmp(a.data(), b.data(), a.size()) < 0` can be written as `a < b` and
+  // can no longer go outside the bounds of `b`.
+  //
+  // If both spans are empty, they are always equal (even though their data
+  // pointers may differ).
+  //
+  // # Implementation note
+  // The non-template overloads allow implicit conversions to span for
+  // comparison.
+  friend constexpr auto operator<=>(span lhs, span rhs)
+    requires(std::is_const_v<T> && std::three_way_comparable<T>)
+  {
+    return internal::span_cmp(span<const T>(lhs), span<const T>(rhs));
+  }
+  friend constexpr auto operator<=>(span lhs, span<const T> rhs)
+    requires(!std::is_const_v<T> && std::three_way_comparable<const T>)
+  {
+    return internal::span_cmp(span<const T>(lhs), span<const T>(rhs));
+  }
+  template <class U, size_t M>
+    requires(std::three_way_comparable_with<const T, const U>)
+  friend constexpr auto operator<=>(span lhs, span<U, M> rhs) {
     return internal::span_cmp(span<const T>(lhs), span<const U, M>(rhs));
   }
 
@@ -1061,6 +1134,15 @@ span(R&& r) noexcept
 
 template <typename T, size_t N>
 span(const T (&)[N]) -> span<const T, N>;
+
+// span can be printed and will print each of its values, including in Gtests.
+//
+// TODO(danakj): This could move to a ToString() member method if gtest printers
+// were hooked up to base::ToString().
+template <class T, size_t N>
+constexpr std::ostream& operator<<(std::ostream& l, span<T, N> r) {
+  return internal::span_stream(l, r);
+}
 
 // [span.objectrep], views of object representation
 template <typename T, size_t X>
@@ -1303,15 +1385,38 @@ constexpr span<uint8_t, sizeof(T)> byte_span_from_ref(
 // base::span<char, 5u> s2 = base::span(std::string_view("hello"));
 // ```
 //
-// If you want to include the NUL terminator, then use the span constructor
-// directly, such as:
-// ```
-// base::span<char, 6u> s = base::span("hello");
-// ```
+// If you want to include the NUL terminator in the span, then use
+// `span_with_nul_from_cstring()`.
+//
+// Internal NUL characters (ie. that are not at the end of the string) are
+// always preserved.
 template <size_t N>
 constexpr span<const char, N - 1> span_from_cstring(
-    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N]) {
+    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    ENABLE_IF_ATTR(lit[N - 1u] == '\0', "requires string literal as input") {
   return span(lit).template first<N - 1>();
+}
+
+// Converts a string literal (such as `"hello"`) to a span of `char` that
+// includes the terminating NUL character. These two are equivalent:
+// ```
+// base::span<char, 6u> s1 = base::span_with_nul_from_cstring("hello");
+// auto h = std::cstring_view("hello");
+// base::span<char, 6u> s2 =
+//     UNSAFE_BUFFERS(base::span(h.data(), h.size() + 1u));
+// ```
+//
+// If you do not want to include the NUL terminator, then use
+// `span_from_cstring()` or use a view type (`base::cstring_view` or
+// `std::string_view`) in place of a string literal.
+//
+// Internal NUL characters (ie. that are not at the end of the string) are
+// always preserved.
+template <size_t N>
+constexpr span<const char, N> span_with_nul_from_cstring(
+    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    ENABLE_IF_ATTR(lit[N - 1u] == '\0', "requires string literal as input") {
+  return span(lit);
 }
 
 // Converts a string literal (such as `"hello"`) to a span of `uint8_t` while
@@ -1321,15 +1426,38 @@ constexpr span<const char, N - 1> span_from_cstring(
 // base::span<uint8_t, 5u> s2 = base::as_byte_span(std::string_view("hello"));
 // ```
 //
-// If you want to include the NUL terminator, then use the span constructor
-// directly, such as:
-// ```
-// base::span<uint8_t, 6u> s = base::as_bytes(base::span("hello"));
-// ```
+// If you want to include the NUL terminator in the span, then use
+// `byte_span_with_nul_from_cstring()`.
+//
+// Internal NUL characters (ie. that are not at the end of the string) are
+// always preserved.
 template <size_t N>
 constexpr span<const uint8_t, N - 1> byte_span_from_cstring(
-    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N]) {
+    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    ENABLE_IF_ATTR(lit[N - 1u] == '\0', "requires string literal as input") {
   return as_bytes(span(lit).template first<N - 1>());
+}
+
+// Converts a string literal (such as `"hello"`) to a span of `uint8_t` that
+// includes the terminating NUL character. These two are equivalent:
+// ```
+// base::span<uint8_t, 6u> s1 = base::byte_span_with_nul_from_cstring("hello");
+// auto h = base::cstring_view("hello");
+// base::span<uint8_t, 6u> s2 = base::as_bytes(
+//     UNSAFE_BUFFERS(base::span(h.data(), h.size() + 1u)));
+// ```
+//
+// If you do not want to include the NUL terminator, then use
+// `byte_span_from_cstring()` or use a view type (`base::cstring_view` or
+// `std::string_view`) in place of a string literal and `as_byte_span()`.
+//
+// Internal NUL characters (ie. that are not at the end of the string) are
+// always preserved.
+template <size_t N>
+constexpr span<const uint8_t, N> byte_span_with_nul_from_cstring(
+    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    ENABLE_IF_ATTR(lit[N - 1u] == '\0', "requires string literal as input") {
+  return as_bytes(span(lit));
 }
 
 // Convenience function for converting an object which is itself convertible
@@ -1352,6 +1480,26 @@ template <typename T, size_t N>
 constexpr span<const uint8_t, N * sizeof(T)> as_byte_span(
     const T (&arr ABSL_ATTRIBUTE_LIFETIME_BOUND)[N]) {
   return as_bytes(make_span<N>(arr));
+}
+
+// This overload adds a compile-time size that must be explicitly given,
+// checking that the size is correct at runtime. The template argument `N` is
+// the number of _bytes_ in the input range, not the number of elements.
+//
+// This is sugar for `base::span<const uint8_t, N>(base::as_byte_span(x))`.
+//
+// Example:
+// ```
+// std::string foo = "hello";
+// base::span<const uint8_t, 5> s = base::as_byte_span<5>(foo);
+// ```
+template <size_t N, typename T>
+  requires requires(const T& arg) {
+    requires !std::is_array_v<std::remove_reference_t<T>>;
+    make_span(arg);
+  }
+constexpr span<const uint8_t, N> as_byte_span(const T& arg) {
+  return span<const uint8_t, N>(as_byte_span(arg));
 }
 
 // Convenience function for converting an object which is itself convertible
@@ -1384,14 +1532,66 @@ constexpr span<uint8_t, N * sizeof(T)> as_writable_byte_span(
   return as_writable_bytes(make_span<N>(arr));
 }
 
+// This overload adds a compile-time size that must be explicitly given,
+// checking that the size is correct at runtime. The template argument `N` is
+// the number of _bytes_ in the input range, not the number of elements.
+//
+// This is sugar for `base::span<const uint8_t, N>(base::as_byte_span(x))`.
+//
+// Example:
+// ```
+// std::string foo = "hello";
+// base::span<const uint8_t, 5> s = base::as_writable_byte_span<5>(foo);
+// ```
+template <size_t N, typename T>
+  requires requires(T&& arg) {
+    requires !std::is_array_v<std::remove_reference_t<T>>;
+    make_span(arg);
+    requires !std::is_const_v<typename decltype(make_span(arg))::element_type>;
+  }
+constexpr span<uint8_t, N> as_writable_byte_span(T&& arg) {
+  return span<uint8_t, N>(as_writable_byte_span(arg));
+}
+
 namespace internal {
 
 // Template helper for implementing operator==.
 template <class T, class U, size_t N, size_t M>
   requires((N == M || N == dynamic_extent || M == dynamic_extent) &&
            std::equality_comparable_with<T, U>)
-constexpr bool span_cmp(span<T, N> l, span<U, M> r) {
+constexpr bool span_eq(span<T, N> l, span<U, M> r) {
   return l.size() == r.size() && std::equal(l.begin(), l.end(), r.begin());
+}
+
+// Template helper for implementing operator<=>.
+template <class T, class U, size_t N, size_t M>
+  requires((N == M || N == dynamic_extent || M == dynamic_extent) &&
+           std::three_way_comparable_with<T, U>)
+constexpr auto span_cmp(span<T, N> l, span<U, M> r)
+    -> decltype(l[0u] <=> r[0u]) {
+  return std::lexicographical_compare_three_way(l.begin(), l.end(), r.begin(),
+                                                r.end());
+}
+
+// Template helper for implementing printing.
+template <class T, size_t N>
+constexpr std::ostream& span_stream(std::ostream& l, span<T, N> r) {
+  l << "[";
+  if constexpr (!std::same_as<std::remove_cvref_t<T>, char>) {
+    if (!r.empty()) {
+      l << base::ToString(r.front());
+      for (const T& e : r.subspan(1u)) {
+        l << ", ";
+        l << base::ToString(e);
+      }
+    }
+  } else {
+    l << '\"';
+    l << as_string_view(r);
+    l << '\"';
+  }
+  l << "]";
+  return l;
 }
 
 }  // namespace internal

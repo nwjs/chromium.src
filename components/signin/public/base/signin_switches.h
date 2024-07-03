@@ -81,9 +81,6 @@ bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs);
 #endif
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kEnableFetchingAccountCapabilities);
-
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kForceDisableExtendedSyncPromos);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -124,14 +121,9 @@ extern const base::FeatureParam<int> kMinorModeRestrictionsFetchDeadlineMs;
 #endif
 
 #if BUILDFLAG(IS_IOS)
+// The feature that authorizes clear-cut to send log when UMA is enabled.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kUseSystemCapabilitiesForMinorModeRestrictions);
-
-// Short timeout to wait for asynchronously fetching already available system
-// capabilities.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<int>
-    kFetchImmediatelyAvailableCapabilityDeadlineMs;
+BASE_DECLARE_FEATURE(kEnableClearCut);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kRemoveSignedInAccountsDialog);

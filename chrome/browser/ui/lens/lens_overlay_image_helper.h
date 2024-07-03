@@ -23,17 +23,26 @@ bool EncodeImage(const SkBitmap& image,
 
 // Downscales and encodes the provided bitmap and then stores it in a
 // lens::ImageData object. Returns an empty object if encoding fails.
-// Downscaling only occurs if the bitmap dimensions exceed configured flag
-// values.
-lens::ImageData DownscaleAndEncodeBitmap(const SkBitmap& image);
+// Downscaling only occurs if the bitmap dimensions mixed with the
+// ui_scale_factor exceed configured flag values. ui_scale_factor will be
+// ignored if tiered downscaling is disabled.
+lens::ImageData DownscaleAndEncodeBitmap(const SkBitmap& image,
+                                         int ui_scale_factor);
+
+// Adds the significant regions to the lens::ImageData object.
+void AddSignificantRegions(
+    lens::ImageData& image_data,
+    std::vector<lens::mojom::CenterRotatedBoxPtr> significant_region_boxes);
 
 // Downscales and encodes the provided bitmap region and then stores it in a
 // lens::ImageCrop object if needed. Returns a nullopt if the region is not
 // set. Downscaling only occurs if the region dimensions exceed configured
-// flag values.
+// flag values. Providing region_bytes will use those bytes instead of cropping
+// the region from the full page bytes.
 std::optional<lens::ImageCrop> DownscaleAndEncodeBitmapRegionIfNeeded(
     const SkBitmap& image,
-    lens::mojom::CenterRotatedBoxPtr region);
+    lens::mojom::CenterRotatedBoxPtr region,
+    std::optional<SkBitmap> region_bytes);
 
 // Returns a normalized bounding box from the given tab, view, and image
 // bounds, clipping if the image bounds go outside the tab or view bounds.

@@ -178,6 +178,7 @@ Perkara yang perlu dipertimbangkan:
 <translation id="6272822675004864999">Untuk menerima pemberitahuan daripada Chrome, hidupkan pemberitahuan dalam Tetapan iOS anda.</translation>
 <translation id="630693926528731525">Kata laluan anda tidak dikongsi. Semak sambungan Internet anda dan pastikan anda dilog masuk ke Chrome. Kemudian cuba lagi.</translation>
 <translation id="6348855835728304880">Akses kata laluan Chrome anda dan pelbagai lagi merentas apl lain pada peranti ini.</translation>
+<translation id="6374691158439235563">Selesaikan Persediaan Chrome</translation>
 <translation id="6389317667633680932">Terokai ciri baharu yang membantu anda memanfaatkan Chrome sepenuhnya.</translation>
 <translation id="6412673304250309937">Semak URL melalui perbandingan dengan senarai tapak tidak selamat yang disimpan dalam Chrome. Jika tapak cuba mencuri kata laluan anda atau apabila anda memuat turun fail yang berbahaya, Chrome juga mungkin menghantar URL, termasuk sedikit kandungan halaman, kepada Penyemakan Imbas Selamat.</translation>
 <translation id="6427126399757991875">Organisasi anda sedang menyediakan Chrome...</translation>
@@ -185,12 +186,12 @@ Perkara yang perlu dipertimbangkan:
 <translation id="6484712497741564393">Log masuk sebagai <ph name="EMAIL" />.
 
 Data anda telah disulitkan dengan ungkapan laluan anda. Masukkan ungkapan laluan tersebut untuk menggunakan dan menyimpan data Chrome dalam Google Account anda.</translation>
-<translation id="6540120577248033958">Lawati laman dan klik Ikut dalam menu Chrome</translation>
 <translation id="6545449117344801102">Chrome mengesan alamat dan menggunakan Google Maps untuk memberi anda arah dan maklumat setempat.</translation>
 <translation id="6634107063912726160">Apabila anda log keluar, Chrome tidak akan menyegerakkan sebarang data baharu ke Google Account anda. Data yang disegerakkan sebelumnya akan dikekalkan dalam akaun.</translation>
 <translation id="6646696210740573446">Menghantar bahagian pengeliruan URL kepada Google melalui pelayan privasi yang menyembunyikan alamat IP anda. Jika laman cuba mencuri kata laluan anda atau apabila anda memuat turun fail yang berbahaya, Chrome juga mungkin menghantar URL, termasuk sedikit kandungan halaman, kepada Google.</translation>
 <translation id="6648150602980899529">Anda log masuk dengan akaun yang diurus oleh <ph name="DOMAIN" /> dan memberi kawalan terhadap data Chrome anda kepada  pentadbirnya. Data anda akan terikat secara kekal kepada akaun ini. Tindakan log keluar daripada Chrome akan memadamkan data anda daripada peranti ini, tetapi data itu akan kekal disimpan dalam Google Account anda.</translation>
 <translation id="6683891932310469419">Buka Halaman Sejarah Chrome anda.</translation>
+<translation id="6695698548122852044">{THRESHOLD,plural, =1{Perkara ini berlaku apabila Chrome tidak digunakan selama {THRESHOLD} minit. Data yang disimpan hanya pada peranti ini semasa anda log masuk akan dipadamkan. Data ini boleh termasuk sejarah dan kata laluan.}other{Perkara ini berlaku apabila Chrome tidak digunakan selama {THRESHOLD} minit. Data yang disimpan hanya pada peranti ini semasa anda log masuk akan dipadamkan. Data ini boleh termasuk sejarah dan kata laluan.}}</translation>
 <translation id="6709398533399187136">Kata laluan anda terdedah dalam suatu pelanggaran data. Pengurus Kata Laluan Google mengesyorkan agar anda menukarnya sekarang.</translation>
 <translation id="6820553595690137150">Penyulitan ungkapan laluan tidak termasuk kaedah pembayaran dan alamat.
 
@@ -245,8 +246,8 @@ Untuk mendapatkan lebih banyak tetapan yang menggunakan data untuk meningkatkan 
 <translation id="804638182476029347">Benarkan pemberitahuan Chrome untuk menerima makluman penurunan harga</translation>
 <translation id="8065292699993359127">Buka URL di Chrome dalam Inkognito</translation>
 <translation id="8069507567842347179">Pakej ini sudah dijejaki pada Chrome.</translation>
-<translation id="81358522153858150">Kini Chrome menyokong dasar pengguna untuk akaun terurus anda</translation>
 <translation id="8136856065410661948">Ini akan digunakan untuk membuat acara dalam Apple Calendar anda daripada Chrome dan Google Lens.</translation>
+<translation id="8154120522323162874">Manfaatkan Chrome sepenuhnya dengan meneruskan persediaan penyemak imbas anda.</translation>
 <translation id="8160472928944011082">Chrome tidak dapat mengemas kini</translation>
 <translation id="8174679664544842874">Membuka Tab Baharu dalam Chrome.</translation>
 <translation id="8213758103105806860">Lihat Penanda Halaman Chrome</translation>

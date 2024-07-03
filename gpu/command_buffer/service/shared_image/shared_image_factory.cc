@@ -5,6 +5,7 @@
 #include "gpu/command_buffer/service/shared_image/shared_image_factory.h"
 
 #include <inttypes.h>
+
 #include <memory>
 
 #include "base/containers/contains.h"
@@ -21,6 +22,7 @@
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image/compound_image_backing.h"
+#include "gpu/command_buffer/service/shared_image/egl_image_backing_factory.h"
 #include "gpu/command_buffer/service/shared_image/gl_texture_image_backing_factory.h"
 #include "gpu/command_buffer/service/shared_image/raw_draw_image_backing_factory.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
@@ -35,6 +37,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/gpu_memory_buffer.h"
+#include "ui/gl/gl_display.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_switches.h"
 #include "ui/gl/gl_utils.h"
@@ -78,14 +81,27 @@
 #include "gpu/command_buffer/service/shared_image/ahardwarebuffer_image_backing_factory.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if defined(USE_EGL)
-#include "gpu/command_buffer/service/shared_image/egl_image_backing_factory.h"
-#include "ui/gl/gl_display.h"
-#endif  // defined(USE_EGL)
-
 namespace gpu {
 
 namespace {
+
+#if BUILDFLAG(IS_ANDROID)
+// Feature enabling ExternalVkImageBacking use on Android. Serves as reverse
+// killswitch while we roll out disabling of this backing on Android.
+// TODO(crbug.com/342096125): Remove post-safe rollout.
+BASE_FEATURE(kUseExternalVkImageBackingOnAndroid,
+             "UseExternalVkImageBackingOnAndroid",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Feature enabling ExternalVkImageBacking use on ChromeOS. Serves as reverse
+// killswitch while we roll out disabling of this backing on ChromeOS.
+// TODO(crbug.com/336837285): Remove post-safe rollout.
+BASE_FEATURE(kUseExternalVkImageBackingOnChromeOS,
+             "UseExternalVkImageBackingOnChromeOS",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 #if BUILDFLAG(IS_WIN)
 // Only allow shmem overlays for NV12 on Windows.
@@ -106,7 +122,7 @@ const char* GmbTypeToString(gfx::GpuMemoryBufferType type) {
     case gfx::ANDROID_HARDWARE_BUFFER:
       return "platform";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 #if defined(USE_OZONE)
@@ -169,22 +185,36 @@ bool WillGetGmbConfigFromGpu() {
 
 }  // namespace
 
-// Overrides for flat_set lookups:
-bool operator<(
+std::size_t
+SharedImageFactory::SharedImageRepresentationFactoryRefHash::operator()(
+    const std::unique_ptr<SharedImageRepresentationFactoryRef>& o) const {
+  return std::hash<gpu::Mailbox>{}(o->mailbox());
+}
+
+std::size_t
+SharedImageFactory::SharedImageRepresentationFactoryRefHash::operator()(
+    const gpu::Mailbox& m) const {
+  return std::hash<gpu::Mailbox>{}(m);
+}
+
+bool SharedImageFactory::SharedImageRepresentationFactoryRefKeyEqual::
+operator()(
     const std::unique_ptr<SharedImageRepresentationFactoryRef>& lhs,
-    const std::unique_ptr<SharedImageRepresentationFactoryRef>& rhs) {
-  return lhs->mailbox() < rhs->mailbox();
+    const std::unique_ptr<SharedImageRepresentationFactoryRef>& rhs) const {
+  return lhs->mailbox() == rhs->mailbox();
 }
 
-bool operator<(
-    const Mailbox& lhs,
-    const std::unique_ptr<SharedImageRepresentationFactoryRef>& rhs) {
-  return lhs < rhs->mailbox();
+bool SharedImageFactory::SharedImageRepresentationFactoryRefKeyEqual::
+operator()(const std::unique_ptr<SharedImageRepresentationFactoryRef>& lhs,
+           const gpu::Mailbox& rhs) const {
+  return lhs->mailbox() == rhs;
 }
 
-bool operator<(const std::unique_ptr<SharedImageRepresentationFactoryRef>& lhs,
-               const Mailbox& rhs) {
-  return lhs->mailbox() < rhs;
+bool SharedImageFactory::SharedImageRepresentationFactoryRefKeyEqual::
+operator()(
+    const gpu::Mailbox& lhs,
+    const std::unique_ptr<SharedImageRepresentationFactoryRef>& rhs) const {
+  return lhs == rhs->mailbox();
 }
 
 SharedImageFactory::SharedImageFactory(
@@ -223,12 +253,6 @@ SharedImageFactory::SharedImageFactory(
         auto supported_format = GetFormatPixmapSupport(supported_formats);
         base::UmaHistogramEnumeration("GPU.SharedImage.FormatPixmapSupport",
                                       supported_format);
-
-        // Check if hardware GMBs with RG88 format are ever created.
-        bool is_rg88_supported =
-            base::Contains(supported_formats, gfx::BufferFormat::RG_88);
-        base::UmaHistogramBoolean("GPU.SharedImage.IsRG88HardwareGMBSupported",
-                                  is_rg88_supported);
       }
     }
     set_format_supported_metric = true;
@@ -253,7 +277,7 @@ SharedImageFactory::SharedImageFactory(
     // could be nullptr.
     bool use_passthrough = gpu_preferences.use_passthrough_cmd_decoder &&
                            gles2::PassthroughCommandDecoderSupported();
-    feature_info = new gles2::FeatureInfo(workarounds, gpu_feature_info);
+    feature_info = new gles2::FeatureInfo(workarounds_, gpu_feature_info);
     feature_info->Initialize(ContextType::CONTEXT_TYPE_OPENGLES2,
                              use_passthrough, gles2::DisallowedFeatures());
   }
@@ -278,7 +302,7 @@ SharedImageFactory::SharedImageFactory(
     bool supports_cpu_upload = !BUILDFLAG(IS_WIN);
     auto gl_texture_backing_factory =
         std::make_unique<GLTextureImageBackingFactory>(
-            gpu_preferences, workarounds, feature_info.get(),
+            gpu_preferences_, workarounds_, feature_info.get(),
             context_state_->progress_reporter(), supports_cpu_upload);
     factories_.push_back(std::move(gl_texture_backing_factory));
   }
@@ -292,14 +316,14 @@ SharedImageFactory::SharedImageFactory(
     auto d3d_factory = std::make_unique<D3DImageBackingFactory>(
         context_state_->GetD3D11Device(),
         shared_image_manager_->dxgi_shared_handle_manager(),
-        context_state_->GetGLFormatCaps());
+        context_state_->GetGLFormatCaps(), workarounds_);
     d3d_backing_factory_ = d3d_factory.get();
     factories_.push_back(std::move(d3d_factory));
   }
   {
     auto gl_texture_backing_factory =
         std::make_unique<GLTextureImageBackingFactory>(
-            gpu_preferences, workarounds, feature_info.get(),
+            gpu_preferences_, workarounds_, feature_info.get(),
             context_state_->progress_reporter(),
             /*supports_cpu_upload=*/true);
     factories_.push_back(std::move(gl_texture_backing_factory));
@@ -325,7 +349,6 @@ SharedImageFactory::SharedImageFactory(
 #endif  // BUILDFLAG(IS_WIN)
 #endif  // BUILDFLAG(ENABLE_VULKAN)
 
-#if defined(USE_EGL)
   // Create EGLImageBackingFactory if egl images are supported. Note that the
   // factory creation is kept here to preserve the current preference of factory
   // to be used.
@@ -338,7 +361,6 @@ SharedImageFactory::SharedImageFactory(
         gpu_preferences_, workarounds_, feature_info.get());
     factories_.push_back(std::move(egl_backing_factory));
   }
-#endif  // defined(USE_EGL)
 
 #if BUILDFLAG(IS_ANDROID)
   bool is_ahb_supported = true;
@@ -356,7 +378,8 @@ SharedImageFactory::SharedImageFactory(
     factories_.push_back(std::move(ahb_factory));
   }
   if (gr_context_type_ == GrContextType::kVulkan &&
-      !base::FeatureList::IsEnabled(features::kVulkanFromANGLE)) {
+      !base::FeatureList::IsEnabled(features::kVulkanFromANGLE) &&
+      base::FeatureList::IsEnabled(kUseExternalVkImageBackingOnAndroid)) {
     auto external_vk_image_factory =
         std::make_unique<ExternalVkImageBackingFactory>(context_state_);
     factories_.push_back(std::move(external_vk_image_factory));
@@ -371,7 +394,11 @@ SharedImageFactory::SharedImageFactory(
     factories_.push_back(std::move(ozone_factory));
   }
 #if BUILDFLAG(ENABLE_VULKAN)
-  if (gr_context_type_ == GrContextType::kVulkan) {
+  if (gr_context_type_ == GrContextType::kVulkan
+#if BUILDFLAG(IS_CHROMEOS)
+      && base::FeatureList::IsEnabled(kUseExternalVkImageBackingOnChromeOS)
+#endif
+  ) {
     auto external_vk_image_factory =
         std::make_unique<ExternalVkImageBackingFactory>(context_state_);
     factories_.push_back(std::move(external_vk_image_factory));
@@ -417,7 +444,8 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
 
   auto backing = factory->CreateSharedImage(
       mailbox, format, surface_handle, size, color_space, surface_origin,
-      alpha_type, usage, std::move(debug_label), IsSharedBetweenThreads(usage));
+      alpha_type, SharedImageUsageSet(usage), std::move(debug_label),
+      IsSharedBetweenThreads(usage));
 
   if (backing) {
     DVLOG(1) << "CreateSharedImage[" << backing->GetName()
@@ -489,8 +517,8 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
 
     backing = factory->CreateSharedImage(
         mailbox, format, surface_handle, size, color_space, surface_origin,
-        alpha_type, usage, debug_label, IsSharedBetweenThreads(usage),
-        buffer_usage);
+        alpha_type, SharedImageUsageSet(usage), debug_label,
+        IsSharedBetweenThreads(usage), buffer_usage);
 
     if (backing) {
       DVLOG(1) << "CreateSharedImageBackedByBuffer[" << backing->GetName()
@@ -539,8 +567,8 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
       } else {
         backing = factory->CreateSharedImage(
             mailbox, format, surface_handle, size, color_space, surface_origin,
-            alpha_type, usage, debug_label, IsSharedBetweenThreads(usage),
-            buffer_usage);
+            alpha_type, SharedImageUsageSet(usage), debug_label,
+            IsSharedBetweenThreads(usage), buffer_usage);
       }
 
       if (backing) {
@@ -583,8 +611,9 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
   }
 
   auto backing = factory->CreateSharedImage(
-      mailbox, format, size, color_space, surface_origin, alpha_type, usage,
-      std::move(debug_label), IsSharedBetweenThreads(usage), data);
+      mailbox, format, size, color_space, surface_origin, alpha_type,
+      SharedImageUsageSet(usage), std::move(debug_label),
+      IsSharedBetweenThreads(usage), data);
   if (backing) {
     DVLOG(1) << "CreateSharedImagePixels[" << backing->GetName()
              << "] with pixels size=" << size.ToString()
@@ -610,13 +639,6 @@ bool SharedImageFactory::CreateSharedImage(
     // Use this for multi-planar and real single-planar formats. All legacy
     // multi-planar GMBs must go through CreateSharedImage() that takes
     // BufferPlane parameter.
-    LOG(ERROR) << "Invalid format " << format.ToString();
-    return false;
-  }
-
-  if (!viz::HasEquivalentBufferFormat(format)) {
-    // Client GMB code still operates on BufferFormat so the SharedImageFormat
-    // received here must have an equivalent BufferFormat.
     LOG(ERROR) << "Invalid format " << format.ToString();
     return false;
   }
@@ -656,8 +678,9 @@ bool SharedImageFactory::CreateSharedImage(
         std::move(debug_label));
   } else {
     backing = factory->CreateSharedImage(
-        mailbox, format, size, color_space, surface_origin, alpha_type, usage,
-        std::move(debug_label), std::move(buffer_handle));
+        mailbox, format, size, color_space, surface_origin, alpha_type,
+        SharedImageUsage(usage), std::move(debug_label),
+        std::move(buffer_handle));
   }
 
   if (backing) {
@@ -727,7 +750,8 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
   } else {
     backing = factory->CreateSharedImage(
         mailbox, std::move(handle), format, plane, size, color_space,
-        surface_origin, alpha_type, usage, std::move(debug_label));
+        surface_origin, alpha_type, SharedImageUsageSet(usage),
+        std::move(debug_label));
   }
 
   if (backing) {
@@ -987,7 +1011,7 @@ SharedImageBackingFactory* SharedImageFactory::GetFactoryByUsage(
 
   bool share_between_threads = IsSharedBetweenThreads(usage);
   for (auto& factory : factories_) {
-    if (factory->CanCreateSharedImage(usage, format, size,
+    if (factory->CanCreateSharedImage(SharedImageUsageSet(usage), format, size,
                                       share_between_threads, gmb_type,
                                       gr_context_type_, pixel_data)) {
       return factory.get();
@@ -1124,9 +1148,10 @@ std::unique_ptr<VulkanImageRepresentation>
 SharedImageRepresentationFactory::ProduceVulkan(
     const gpu::Mailbox& mailbox,
     gpu::VulkanDeviceQueue* vulkan_device_queue,
-    gpu::VulkanImplementation& vulkan_impl) {
+    gpu::VulkanImplementation& vulkan_impl,
+    bool needs_detiling) {
   return manager_->ProduceVulkan(mailbox, tracker_.get(), vulkan_device_queue,
-                                 vulkan_impl);
+                                 vulkan_impl, needs_detiling);
 }
 #endif
 

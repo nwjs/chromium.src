@@ -16,12 +16,12 @@ namespace switches {
 // Feature to refactor how and when accounts are seeded on Android.
 BASE_FEATURE(kSeedAccountsRevamp,
              "SeedAccountsRevamp",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature to apply enterprise policies on signin regardless of sync status.
 BASE_FEATURE(kEnterprisePolicyOnSignin,
              "EnterprisePolicyOnSignin",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature to bypass double-checking that signin callers have correctly gotten
 // the user to accept account management. This check is slow and not strictly
@@ -95,12 +95,6 @@ bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs) {
 }
 #endif
 
-// Enables fetching account capabilities and populating AccountInfo with the
-// fetch result.
-BASE_FEATURE(kEnableFetchingAccountCapabilities,
-             "EnableFetchingAccountCapabilities",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // This feature disables all extended sync promos.
 BASE_FEATURE(kForceDisableExtendedSyncPromos,
              "ForceDisableExtendedSyncPromos",
@@ -136,17 +130,26 @@ bool IsExplicitBrowserSigninUIOnDesktopEnabled() {
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || \
     BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+
+// Desktop and Android are being launched (enabled by default), iOS is pending.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_ANDROID)
+#define MINOR_MODE_FEATURE_DEFAULT_STATUS base::FEATURE_ENABLED_BY_DEFAULT
+#else
+#define MINOR_MODE_FEATURE_DEFAULT_STATUS base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+
 BASE_FEATURE(kMinorModeRestrictionsForHistorySyncOptIn,
              "MinorModeRestrictionsForHistorySyncOptIn",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             MINOR_MODE_FEATURE_DEFAULT_STATUS);
 
 constexpr int kMinorModeRestrictionsFetchDeadlineDefaultValueMs =
 #if BUILDFLAG(IS_ANDROID)
     // Based on Signin.AccountCapabilities.UserVisibleLatency
-    400;
+    1000;
 #elif BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
     // Based on Signin.SyncOptIn.PreSyncConfirmationLatency
-    900;
+    1000;
 #elif BUILDFLAG(IS_IOS)
     // Based on Signin.AccountCapabilities.UserVisibleLatency
     1000;
@@ -159,16 +162,9 @@ const base::FeatureParam<int> kMinorModeRestrictionsFetchDeadlineMs{
 #endif
 
 #if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kUseSystemCapabilitiesForMinorModeRestrictions,
-             "UseSystemCapabilitiesForMinorModeRestrictions",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-constexpr int kFetchImmediatelyAvailableCapabilityDeadlineDefaultValueMs = 100;
-
-const base::FeatureParam<int> kFetchImmediatelyAvailableCapabilityDeadlineMs{
-    &kUseSystemCapabilitiesForMinorModeRestrictions,
-    /*name=*/"FetchImmediatelyAvailableCapabilityDeadlineMs",
-    kFetchImmediatelyAvailableCapabilityDeadlineDefaultValueMs};
+BASE_FEATURE(kEnableClearCut,
+             "EnableClearcut",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRemoveSignedInAccountsDialog,
              "RemoveSignedInAccountsDialog",

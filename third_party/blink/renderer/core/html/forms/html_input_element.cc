@@ -951,10 +951,8 @@ void HTMLInputElement::ParseAttribute(
     input_type_view_->ReadonlyAttributeChanged();
   } else if (name == html_names::kListAttr) {
     has_non_empty_list_ = !value.empty();
-    if (has_non_empty_list_) {
-      ResetListAttributeTargetObserver();
-      ListAttributeTargetChanged();
-    }
+    ResetListAttributeTargetObserver();
+    ListAttributeTargetChanged();
     PseudoStateChanged(CSSSelector::kPseudoHasDatalist);
     UseCounter::Count(GetDocument(), WebFeature::kListAttribute);
   } else if (name == html_names::kWebkitdirectoryAttr) {
@@ -1128,15 +1126,18 @@ void HTMLInputElement::SetChecked(bool now_checked,
       cache->CheckedStateChanged(this);
   }
 
-  // Only send a change event for items in the document (avoid firing during
-  // parsing) and don't send a change event for a radio button that's getting
-  // unchecked to match other browsers. DOM is not a useful standard for this
-  // because it says only to fire change events at "lose focus" time, which is
-  // definitely wrong in practice for these types of elements.
-  if (event_behavior == TextFieldEventBehavior::kDispatchInputAndChangeEvent &&
-      isConnected() &&
-      input_type_->ShouldSendChangeEventAfterCheckedChanged()) {
-    DispatchInputEvent();
+  if (!RuntimeEnabledFeatures::AllowJavaScriptToResetAutofillStateEnabled()) {
+    // Only send a change event for items in the document (avoid firing during
+    // parsing) and don't send a change event for a radio button that's getting
+    // unchecked to match other browsers. DOM is not a useful standard for this
+    // because it says only to fire change events at "lose focus" time, which is
+    // definitely wrong in practice for these types of elements.
+    if (event_behavior ==
+            TextFieldEventBehavior::kDispatchInputAndChangeEvent &&
+        isConnected() &&
+        input_type_->ShouldSendChangeEventAfterCheckedChanged()) {
+      DispatchInputEvent();
+    }
   }
 
   // We set the Autofilled state again because setting the autofill value
@@ -1202,7 +1203,7 @@ String HTMLInputElement::Value() const {
     case ValueMode::kValue:
       return non_attribute_value_;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return g_empty_string;
 }
 
@@ -1327,16 +1328,15 @@ void HTMLInputElement::SetValue(const String& value,
     }
   }
 
-  if (!base::FeatureList::IsEnabled(
-          features::kAutofillDontSetAutofillStateAfterJavaScriptChanges)) {
+  if (!RuntimeEnabledFeatures::AllowJavaScriptToResetAutofillStateEnabled()) {
     // We set the Autofilled state again because setting the autofill value
     // triggers JavaScript events and the site may override the autofilled
     // value, which resets the autofill state. Even if the website modifies the
     // form control element's content during the autofill operation, we want the
     // state to show as autofilled.
-    // If kAutofillDontSetAutofillStateAfterJavaScriptChanges is enabled, the
-    // WebAutofillClient will monitor JavaScript induced changes and take care
-    // of resetting the autofill state when appropriate.
+    // If AllowJavaScriptToResetAutofillState is enabled, the WebAutofillClient
+    // will monitor JavaScript induced changes and take care of resetting the
+    // autofill state when appropriate.
     SetAutofillState(autofill_state);
   }
 }
@@ -2427,6 +2427,9 @@ void HTMLInputElement::showPicker(ExceptionState& exception_state) {
         DOMExceptionCode::kNotAllowedError,
         "HTMLInputElement::showPicker() requires a user gesture.");
     return;
+  }
+  if (RuntimeEnabledFeatures::ShowPickerConsumeUserActivationEnabled()) {
+    LocalFrame::ConsumeTransientUserActivation(frame);
   }
 
   input_type_view_->OpenPopupView();

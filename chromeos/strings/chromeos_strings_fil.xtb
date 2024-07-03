@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastel yellow</translation>
 <translation id="1056898198331236512">Babala</translation>
 <translation id="1059913517121127803">Hindi masimulan ang pag-scan</translation>
+<translation id="1061864016440983342">Gamitin nang walang lokasyon</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> sa <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">May na-detect na firewall</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Higit pang mga setting</translation>
 <translation id="2082932131694554252">Nakatalagang keyboard key</translation>
 <translation id="2085089206770112532">Babaan ang liwanag ng display</translation>
+<translation id="2086091080968010660">Posibleng hindi tumpak ang mga pagbabagong batay sa oras. I-on ang access sa lokasyon ng system sa mga setting.</translation>
 <translation id="2102231663024125441">Pag-edit ng text</translation>
 <translation id="2105810540595158374">Game controller ang device.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, bersyon <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">I-edit ang mga detalye ng APN</translation>
 <translation id="2195732836444333448">Masyadong abala sa ngayon. Bumalik sa ibang pagkakataon.</translation>
 <translation id="2201758491318984023">bisikleta</translation>
-<translation id="2203222757805818543">Nakatakda ang kasalukuyang iskedyul sa <ph name="SUNRISE" /> - <ph name="SUNSET" />. Para awtomatikong i-update ang iskedyul ng dark mode, <ph name="BEGIN_LINK" />i-on ang access sa lokasyon<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">bukal</translation>
 <translation id="2203642483788377106">bangin</translation>
 <translation id="2208388655216963643">impressionist</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">I-restore ang mga default</translation>
 <translation id="2286454467119466181">Simple</translation>
 <translation id="2287186687001756809">Walang available na larawan. Para magdagdag ng mga larawan, pumunta sa <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Itinakda sa <ph name="SUNRISE" />-<ph name="SUNSET" /> ang kasalukuyang iskedyul. Para awtomatikong i-update ang iskedyul ng paglubog at pagsikat ng araw, i-on ang access sa lokasyon ng system.</translation>
 <translation id="2305172810646967500">itim</translation>
 <translation id="2307344026739914387">Gamitin ang kasalukuyang keypair</translation>
 <translation id="2308243864813041101">Bunutin ang USB cable ng <ph name="DEVICE_NAME" /> para ituloy ang proseso ng pag-update</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">sand dune</translation>
 <translation id="2619761439309613843">Araw-araw na Pag-refresh</translation>
 <translation id="2620436844016719705">System</translation>
+<translation id="2637303424821734920">NAKA-OFF - Para ipakita ang lokal na lagay ng panahon, <ph name="BEGIN_LINK" />i-on ang access sa lokasyon ng system<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Larawan sa pag-sign in</translation>
 <translation id="2640549051766135490">Pinili ang album na <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Mga Kontrol</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Background</translation>
 <translation id="3027578600144895987">Isara ang camera</translation>
 <translation id="3031560714565892478">Video camera ang device.</translation>
+<translation id="3051968340259309715">Pinapayagan nito ang mga serbisyo ng system na gamitin ang Katumpakan ng Lokasyon para matukoy ang iyong lokasyon. Gumagamit ang Katumpakan ng Lokasyon ng impormasyon tungkol sa mga wireless na signal, gaya ng mga access point ng Wi-Fi, tower ng cellular network, at GPS, kasama ang data ng sensor ng device, gaya ng accelerometer at gyroscope, para matantya ang lokasyon ng device. Puwede mong i-off ang lokasyon sa Mga Setting &gt; Privacy at seguridad &gt; Mga kontrol sa privacy &gt; Access sa lokasyon. <ph name="LINK_BEGIN" />Matuto pa<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">Endpoint</translation>
 <translation id="3060579846059757016">Mga outline</translation>
+<translation id="3061850252076394168">i-enable ang select to speak</translation>
 <translation id="3069085583900247081">Nabigo ang pagsubok</translation>
 <translation id="3078740164268491126">talahanayan</translation>
 <translation id="3081652522083185657">maliwanag</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Hindi nalutas ang lahat ng host</translation>
 <translation id="4593212453765072419">Kinakailangan ang pagpapatunay ng proxy</translation>
 <translation id="4609350030397390689">Babaan ang liwanag ng keyboard</translation>
-<translation id="4617553623719764431">Hindi ipinapakita ang lagay ng panahon dahil hindi nito matukoy ang iyong lokasyon. Para maipakita ang lokal na lagay ng panahon, <ph name="BEGIN_LINK" />i-on ang Access sa lokasyon<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> sa <ph name="TOTAL_PAGE_NUMBER" />. Pindutin ang enter para kanselahin ang pag-print.</translation>
 <translation id="463791356324567266">Kinakansela ang pag-scan...</translation>
 <translation id="4646949265910132906">Secure na Koneksyon sa WiFi</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Patakbuhin</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Mga Page</translation>
+<translation id="4989542687859782284">Hindi Available</translation>
 <translation id="4999333166442584738">Itago ang ulat</translation>
 <translation id="500920857929044050">Ihinto ang pagsusuri</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">brightness ng keyboard</translation>
 <translation id="6412715219990689313">Built-in na keyboard</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
+<translation id="6419454453018688975">I-on ang access sa lokasyon ng system</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Pinapayagan nito ang mga serbisyo ng system na may pahintulot na gamitin ang iyong lokasyon. Posibleng gumamit ang lokasyon ng mga source na tulad ng Wi‑Fi, mga mobile network, at mga sensor para makatulong sa pagtantya sa lokasyon ng iyong device. <ph name="LINK_BEGIN" />Matuto pa<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Mabagal (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Pumunta sa mga setting ng account</translation>
 <translation id="6462978824459367242">Naka-enable na ang button na Magdagdag ng APN</translation>

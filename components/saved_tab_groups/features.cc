@@ -9,8 +9,16 @@
 
 namespace tab_groups {
 // Core feature flag for tab group sync on Android.
+// Controls registration with the sync service and tab model hookup UI layer.
+// TabGroupSyncService is eanbled when either this flag or kTabGroupPaneAndroid
+// is enabled.
 BASE_FEATURE(kTabGroupSyncAndroid,
              "TabGroupSyncAndroid",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Feature flag used to enable tab group revisit surface.
+BASE_FEATURE(kTabGroupPaneAndroid,
+             "TabGroupPaneAndroid",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabGroupSyncForceOff,
@@ -19,7 +27,7 @@ BASE_FEATURE(kTabGroupSyncForceOff,
 
 BASE_FEATURE(kAndroidTabGroupStableIds,
              "AndroidTabGroupStableIds",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Builds off of the original TabGroupsSave feature by making some UI tweaks and
 // adjustments. This flag controls the v2 update of sync, restore, dialog
@@ -40,6 +48,31 @@ BASE_FEATURE(kTabGroupSyncUno,
              "TabGroupSyncUno",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Feature flag on Android to control migration from Java SharedPrefs to
+// ModelTypeStore.
+BASE_FEATURE(kMigrationFromJavaSharedPrefs,
+             "MigrationFromJavaSharedPrefs",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Feature flag to remove any merge logic from saved tab group model.
+BASE_FEATURE(kAlwaysAcceptServerDataInModel,
+             "AlwaysAcceptServerDataInModel",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Feature flag to disable auto-open of saved tab groups. Note that the
+// settings page for auto open will still be visible, and when user is allowed
+// to change. However the written pref from the user selection will not be
+// honored. This feature flag should be used only in case of an emergency.
+BASE_FEATURE(kTabGroupSyncAutoOpenKillSwitch,
+             "TabGroupSyncAutoOpenKillSwitch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Feature flag to restrict download on synced tabs if the navigation is
+// triggered without attention..
+BASE_FEATURE(kRestrictDownloadOnSyncedTabs,
+             "RestrictDownloadOnSyncedTabs",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 bool IsTabGroupsSaveV2Enabled() {
   return base::FeatureList::IsEnabled(kTabGroupsSaveV2);
 }
@@ -48,9 +81,16 @@ bool IsTabGroupsSaveUIUpdateEnabled() {
   return base::FeatureList::IsEnabled(kTabGroupsSaveUIUpdate);
 }
 
-bool ShouldCloseAllTabGroupsOnSignOut() {
-  return GetFieldTrialParamByFeatureAsBool(
-      kTabGroupSyncUno, "close_all_tab_groups_on_sign_out", false);
+bool IsMigrationFromJavaSharedPrefsEnabled() {
+  return base::FeatureList::IsEnabled(kMigrationFromJavaSharedPrefs);
+}
+
+bool AlwaysAcceptServerDataInModel() {
+  return base::FeatureList::IsEnabled(kAlwaysAcceptServerDataInModel);
+}
+
+bool RestrictDownloadOnSyncedTabs() {
+  return base::FeatureList::IsEnabled(kRestrictDownloadOnSyncedTabs);
 }
 
 }  // namespace tab_groups

@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/ranges/algorithm.h"
 #include "third_party/blink/public/common/input/web_coalesced_input_event.h"
 #include "third_party/blink/public/common/input/web_touch_event.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -74,7 +75,7 @@ const AtomicString& TouchEventNameForPointerEventType(
     case WebInputEvent::Type::kPointerMove:
       return event_type_names::kTouchmove;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return g_empty_atom;
   }
 }
@@ -94,7 +95,7 @@ WebTouchPoint::State TouchPointStateFromPointerEventType(
     case WebInputEvent::Type::kPointerMove:
       return WebTouchPoint::State::kStateMoved;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return WebTouchPoint::State::kStateUndefined;
   }
 }
@@ -310,10 +311,9 @@ WebCoalescedInputEvent TouchEventManager::GenerateWebCoalescedInputEvent() {
           return a.id < b.id;
         }
       } id_based_event_comparison;
-      std::sort(last_coalesced_touch_event_.touches,
-                last_coalesced_touch_event_.touches +
-                    last_coalesced_touch_event_.touches_length,
-                id_based_event_comparison);
+      base::ranges::sort(base::span(last_coalesced_touch_event_.touches)
+                             .first(last_coalesced_touch_event_.touches_length),
+                         id_based_event_comparison);
       result.AddCoalescedEvent(last_coalesced_touch_event_);
     } else {
       for (unsigned i = 0; i < last_coalesced_touch_event_.touches_length;

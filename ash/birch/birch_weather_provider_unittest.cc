@@ -9,8 +9,10 @@
 #include <vector>
 
 #include "ash/ambient/ambient_controller.h"
+#include "ash/birch/birch_icon_cache.h"
 #include "ash/birch/birch_model.h"
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
 #include "ash/constants/geolocation_access_level.h"
 #include "ash/public/cpp/ambient/ambient_backend_controller.h"
 #include "ash/public/cpp/ambient/fake_ambient_backend_controller_impl.h"
@@ -20,6 +22,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "chromeos/ash/components/geolocation/simple_geolocation_provider.h"
+#include "components/prefs/pref_service.h"
 
 namespace ash {
 
@@ -42,7 +45,15 @@ class StubBirchClient : public BirchClient {
   BirchDataProvider* GetCalendarProvider() override { return &provider_; }
   BirchDataProvider* GetFileSuggestProvider() override { return &provider_; }
   BirchDataProvider* GetRecentTabsProvider() override { return &provider_; }
+  BirchDataProvider* GetLastActiveProvider() override { return &provider_; }
+  BirchDataProvider* GetMostVisitedProvider() override { return &provider_; }
+  BirchDataProvider* GetSelfShareProvider() override { return &provider_; }
   BirchDataProvider* GetReleaseNotesProvider() override { return &provider_; }
+  BirchDataProvider* GetWeatherV2Provider() override {
+    // Null because V2 provider and the weather provider tested in this test
+    // suite never coexist.
+    return nullptr;
+  }
 
   void WaitForRefreshTokens(base::OnceClosure callback) override {
     did_wait_for_refresh_tokens_ = true;
@@ -58,7 +69,8 @@ class BirchWeatherProviderTest : public AshTestBase {
  public:
   BirchWeatherProviderTest() {
     feature_list_.InitWithFeatures(
-        {features::kForestFeature, features::kBirchWeather}, {});
+        {features::kForestFeature, features::kBirchWeather},
+        {features::kBirchWeatherV2});
   }
   ~BirchWeatherProviderTest() override = default;
 
@@ -107,7 +119,7 @@ TEST_F(BirchWeatherProviderTest, GetWeather) {
   auto& weather_items = birch_model->GetWeatherForTest();
   ASSERT_EQ(1u, weather_items.size());
   EXPECT_EQ(u"Cloudy", weather_items[0].title());
-  EXPECT_EQ(u"70\xB0 F", weather_items[0].temperature());
+  EXPECT_FLOAT_EQ(70.f, weather_items[0].temp_f());
   weather_items[0].LoadIcon(base::BindOnce(
       [](const ui::ImageModel& icon) { EXPECT_FALSE(icon.IsEmpty()); }));
 }
@@ -135,7 +147,7 @@ TEST_F(BirchWeatherProviderTest, GetWeatherWaitsForRefreshTokens) {
   auto& weather_items = birch_model->GetWeatherForTest();
   ASSERT_EQ(1u, weather_items.size());
   EXPECT_EQ(u"Cloudy", weather_items[0].title());
-  EXPECT_EQ(u"70\xB0 F", weather_items[0].temperature());
+  EXPECT_FLOAT_EQ(70.f, weather_items[0].temp_f());
   weather_items[0].LoadIcon(base::BindOnce(
       [](const ui::ImageModel& icon) { EXPECT_FALSE(icon.IsEmpty()); }));
 
@@ -165,30 +177,6 @@ TEST_F(BirchWeatherProviderTest, WeatherNotFetchedWhenGeolocationDisabled) {
 
   // Weather was not fetched.
   EXPECT_TRUE(birch_model->GetWeatherForTest().empty());
-}
-
-TEST_F(BirchWeatherProviderTest, GetWeatherInCelsius) {
-  auto* birch_model = Shell::Get()->birch_model();
-
-  WeatherInfo info;
-  info.condition_description = "Cloudy";
-  info.condition_icon_url = "https://fake-icon-url";
-  info.temp_f = 70.0f;
-  info.show_celsius = true;
-  ambient_backend_controller_->SetWeatherInfo(std::move(info));
-
-  base::RunLoop run_loop;
-  birch_model->RequestBirchDataFetch(/*is_post_login=*/false,
-                                     run_loop.QuitClosure());
-  EXPECT_TRUE(birch_model->GetWeatherForTest().empty());
-  run_loop.Run();
-
-  auto& weather_items = birch_model->GetWeatherForTest();
-  ASSERT_EQ(1u, weather_items.size());
-  EXPECT_EQ(u"Cloudy", weather_items[0].title());
-  EXPECT_EQ(u"21\xB0 C", weather_items[0].temperature());
-  weather_items[0].LoadIcon(base::BindOnce(
-      [](const ui::ImageModel& icon) { EXPECT_FALSE(icon.IsEmpty()); }));
 }
 
 TEST_F(BirchWeatherProviderTest, NoWeatherInfo) {
@@ -309,7 +297,7 @@ TEST_F(BirchWeatherProviderTest, RefetchWeather) {
   auto& weather_items = birch_model->GetWeatherForTest();
   ASSERT_EQ(1u, weather_items.size());
   EXPECT_EQ(u"Cloudy", weather_items[0].title());
-  EXPECT_EQ(u"70\xB0 F", weather_items[0].temperature());
+  EXPECT_FLOAT_EQ(70.f, weather_items[0].temp_f());
   weather_items[0].LoadIcon(base::BindOnce(
       [](const ui::ImageModel& icon) { EXPECT_FALSE(icon.IsEmpty()); }));
 
@@ -328,7 +316,7 @@ TEST_F(BirchWeatherProviderTest, RefetchWeather) {
   auto& updated_weather_items = birch_model->GetWeatherForTest();
   ASSERT_EQ(1u, updated_weather_items.size());
   EXPECT_EQ(u"Sunny", updated_weather_items[0].title());
-  EXPECT_EQ(u"73\xB0 F", updated_weather_items[0].temperature());
+  EXPECT_FLOAT_EQ(73.f, updated_weather_items[0].temp_f());
   weather_items[0].LoadIcon(base::BindOnce(
       [](const ui::ImageModel& icon) { EXPECT_FALSE(icon.IsEmpty()); }));
 }
@@ -351,7 +339,7 @@ TEST_F(BirchWeatherProviderTest, RefetchInvalidWeather) {
   auto& weather_items = birch_model->GetWeatherForTest();
   ASSERT_EQ(1u, weather_items.size());
   EXPECT_EQ(u"Cloudy", weather_items[0].title());
-  EXPECT_EQ(u"70\xB0 F", weather_items[0].temperature());
+  EXPECT_FLOAT_EQ(70.f, weather_items[0].temp_f());
   weather_items[0].LoadIcon(base::BindOnce(
       [](const ui::ImageModel& icon) { EXPECT_FALSE(icon.IsEmpty()); }));
 
@@ -381,6 +369,88 @@ TEST_F(BirchWeatherProviderTest, AllowOneFetchAtATime) {
 
   // The backend only received one request to fetch weather.
   EXPECT_EQ(ambient_backend_controller_->fetch_weather_count(), 1);
+}
+
+TEST_F(BirchWeatherProviderTest, DisabledByPolicy) {
+  auto* birch_model = Shell::Get()->birch_model();
+  BirchWeatherProvider provider(birch_model);
+
+  // Disable weather integration by policy, no weather should be fetched.
+  auto* pref_service =
+      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
+  pref_service->SetList(prefs::kContextualGoogleIntegrationsConfiguration, {});
+
+  provider.RequestBirchDataFetch();
+  EXPECT_EQ(ambient_backend_controller_->fetch_weather_count(), 0);
+
+  // Enable weather integration by policy, weather should be fetched.
+  base::Value::List enabled_integrations;
+  enabled_integrations.Append(prefs::kWeatherIntegrationName);
+  pref_service->SetList(prefs::kContextualGoogleIntegrationsConfiguration,
+                        std::move(enabled_integrations));
+
+  provider.RequestBirchDataFetch();
+  EXPECT_EQ(ambient_backend_controller_->fetch_weather_count(), 1);
+}
+
+TEST_F(BirchWeatherProviderTest, IconCache) {
+  auto* birch_model = Shell::Get()->birch_model();
+  auto* icon_cache = birch_model->icon_cache();
+
+  // The cache starts empty.
+  EXPECT_EQ(icon_cache->size_for_test(), 0u);
+
+  // Fetch weather.
+  WeatherInfo info1;
+  info1.condition_description = "Cloudy";
+  info1.condition_icon_url = "https://cloudy-icon-url";
+  info1.show_celsius = false;
+  info1.temp_f = 70.0f;
+  ambient_backend_controller_->SetWeatherInfo(info1);
+
+  base::RunLoop run_loop;
+  birch_model->RequestBirchDataFetch(/*is_post_login=*/false,
+                                     run_loop.QuitClosure());
+  run_loop.Run();
+
+  // The icon cache has a single item in it.
+  EXPECT_EQ(icon_cache->size_for_test(), 1u);
+  EXPECT_FALSE(icon_cache->Get("https://cloudy-icon-url").isNull());
+
+  // Fetch again with the same icon URL.
+  WeatherInfo info2;
+  info2.condition_description = "Cloudy";
+  info2.condition_icon_url = "https://cloudy-icon-url";
+  info2.show_celsius = false;
+  info2.temp_f = 70.0f;
+  ambient_backend_controller_->SetWeatherInfo(info2);
+
+  base::RunLoop run_loop2;
+  birch_model->RequestBirchDataFetch(/*is_post_login=*/false,
+                                     run_loop2.QuitClosure());
+  run_loop2.Run();
+
+  // The cache still has a single item in it because the icon was the same.
+  EXPECT_EQ(icon_cache->size_for_test(), 1u);
+  EXPECT_FALSE(icon_cache->Get("https://cloudy-icon-url").isNull());
+
+  // Fetch again with a different icon URL.
+  WeatherInfo info3;
+  info2.condition_description = "Sunny";
+  info2.condition_icon_url = "https://sunny-icon-url";
+  info2.show_celsius = false;
+  info2.temp_f = 73.0f;
+  ambient_backend_controller_->SetWeatherInfo(info2);
+
+  base::RunLoop run_loop3;
+  birch_model->RequestBirchDataFetch(/*is_post_login=*/false,
+                                     run_loop3.QuitClosure());
+  run_loop3.Run();
+
+  // Cache now has two items in it for the two different icons.
+  EXPECT_EQ(icon_cache->size_for_test(), 2u);
+  EXPECT_FALSE(icon_cache->Get("https://cloudy-icon-url").isNull());
+  EXPECT_FALSE(icon_cache->Get("https://sunny-icon-url").isNull());
 }
 
 }  // namespace ash

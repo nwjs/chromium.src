@@ -178,18 +178,32 @@ float GetLayerCombinedTargetOpacity(const ui::Layer* layer) {
 
 }  // namespace
 
-WindowOcclusionTracker::ScopedPause::ScopedPause() {
-  Env::GetInstance()->PauseWindowOcclusionTracking();
+WindowOcclusionTracker::InnerClient::InnerClient(
+    WindowOcclusionTracker* occlusion_tracker)
+    : occlusion_tracker_(
+          occlusion_tracker ? occlusion_tracker
+                            : Env::GetInstance()->GetWindowOcclusionTracker()) {
+  CHECK(occlusion_tracker_);
+}
+
+WindowOcclusionTracker::InnerClient::~InnerClient() = default;
+
+WindowOcclusionTracker::ScopedPause::ScopedPause(
+    WindowOcclusionTracker* occlusion_tracker)
+    : InnerClient(occlusion_tracker) {
+  occlusion_tracker_->Pause();
 }
 
 WindowOcclusionTracker::ScopedPause::~ScopedPause() {
-  Env::GetInstance()->UnpauseWindowOcclusionTracking();
+  occlusion_tracker_->Unpause();
 }
 
-WindowOcclusionTracker::ScopedExclude::ScopedExclude(Window* window)
-    : window_(window) {
+WindowOcclusionTracker::ScopedExclude::ScopedExclude(
+    Window* window,
+    WindowOcclusionTracker* occlusion_tracker)
+    : InnerClient(occlusion_tracker), window_(window) {
   window->AddObserver(this);
-  Env::GetInstance()->GetWindowOcclusionTracker()->Exclude(window_);
+  occlusion_tracker_->Exclude(window_);
 }
 
 WindowOcclusionTracker::ScopedExclude::~ScopedExclude() {
@@ -204,15 +218,18 @@ void WindowOcclusionTracker::ScopedExclude::OnWindowDestroying(Window* window) {
 void WindowOcclusionTracker::ScopedExclude::Shutdown() {
   if (window_) {
     window_->RemoveObserver(this);
-    Env::GetInstance()->GetWindowOcclusionTracker()->Unexclude(window_);
+    occlusion_tracker_->Unexclude(window_);
     window_ = nullptr;
+    occlusion_tracker_ = nullptr;
   }
 }
 
-WindowOcclusionTracker::ScopedForceVisible::ScopedForceVisible(Window* window)
-    : window_(window) {
+WindowOcclusionTracker::ScopedForceVisible::ScopedForceVisible(
+    Window* window,
+    WindowOcclusionTracker* occlusion_tracker)
+    : InnerClient(occlusion_tracker), window_(window) {
   window_->AddObserver(this);
-  Env::GetInstance()->GetWindowOcclusionTracker()->ForceWindowVisible(window_);
+  occlusion_tracker_->ForceWindowVisible(window_);
 }
 
 WindowOcclusionTracker::ScopedForceVisible::~ScopedForceVisible() {
@@ -228,9 +245,9 @@ void WindowOcclusionTracker::ScopedForceVisible::OnWindowDestroying(
 void WindowOcclusionTracker::ScopedForceVisible::Shutdown() {
   if (window_) {
     window_->RemoveObserver(this);
-    Env::GetInstance()->GetWindowOcclusionTracker()->RemoveForceWindowVisible(
-        window_);
+    occlusion_tracker_->RemoveForceWindowVisible(window_);
     window_ = nullptr;
+    occlusion_tracker_ = nullptr;
   }
 }
 
@@ -374,8 +391,10 @@ void WindowOcclusionTracker::MaybeComputeOcclusion() {
   }
 
   // Sanity check: Occlusion states in |tracked_windows_| should match those
-  // returned by Window::GetOcclusionState().
-  DCHECK(OcclusionStatesMatch(tracked_windows_));
+  // returned by Window::GetOcclusionState() if the default
+  // `WindowOcclusionChangeBuilder` is being used.
+  DCHECK(occlusion_change_builder_factory_ ||
+         OcclusionStatesMatch(tracked_windows_));
 }
 
 bool WindowOcclusionTracker::RecomputeOcclusionImpl(
@@ -498,7 +517,8 @@ void WindowOcclusionTracker::CleanupAnimatedWindows() {
     if (animator->IsAnimatingOnePropertyOf(
             kOcclusionCanChangeWhenPropertyAnimationEnds))
       return false;
-    animator->RemoveObserver(this);
+
+    RemoveAnimationObservationForLayer(window->layer());
     MarkRootWindowAsDirty(window->GetRootWindow());
     return true;
   });
@@ -516,7 +536,8 @@ bool WindowOcclusionTracker::MaybeObserveAnimatedWindow(Window* window) {
           kOcclusionCanChangeWhenPropertyAnimationEnds)) {
     const auto insert_result = animated_windows_.insert(window);
     if (insert_result.second) {
-      animator->AddObserver(this);
+      layer_animator_observations.AddObservation(animator);
+      animated_layer_observations_.AddObservation(window->layer());
       return true;
     }
   }
@@ -723,7 +744,7 @@ void WindowOcclusionTracker::TrackedWindowAddedToRoot(Window* window) {
     AddObserverToWindowAndDescendants(root_window);
     auto* host = root_window->GetHost();
     if (host) {
-      host->AddObserver(this);
+      window_tree_host_observations_.AddObservation(host);
       if (!NativeWindowOcclusionTracker::
               IsNativeWindowOcclusionTrackingAlwaysEnabled(host)) {
         NativeWindowOcclusionTracker::EnableNativeWindowOcclusionTracking(host);
@@ -743,7 +764,8 @@ void WindowOcclusionTracker::TrackedWindowRemovedFromRoot(Window* window) {
     RemoveObserverFromWindowAndDescendants(root_window);
     root_windows_.erase(root_window_state_it);
     WindowTreeHost* host = root_window->GetHost();
-    host->RemoveObserver(this);
+    window_tree_host_observations_.RemoveObservation(host);
+
     if (!NativeWindowOcclusionTracker::
             IsNativeWindowOcclusionTrackingAlwaysEnabled(host)) {
       NativeWindowOcclusionTracker::DisableNativeWindowOcclusionTracking(host);
@@ -758,7 +780,7 @@ void WindowOcclusionTracker::RemoveObserverFromWindowAndDescendants(
   } else {
     if (window_observations_.IsObservingSource(window))
       window_observations_.RemoveObservation(window);
-    window->layer()->GetAnimator()->RemoveObserver(this);
+    RemoveAnimationObservationForLayer(window->layer());
     animated_windows_.erase(window);
   }
   for (Window* child_window : window->children())
@@ -844,6 +866,27 @@ void WindowOcclusionTracker::OnLayerAnimationAborted(
 
 void WindowOcclusionTracker::OnLayerAnimationScheduled(
     ui::LayerAnimationSequence* sequence) {}
+
+bool WindowOcclusionTracker::RequiresNotificationWhenAnimatorDestroyed() const {
+  // `OnLayerAnimationAborted()` should be called if the `LayerAnimator` is
+  // destroyed while an animation is still active. This gives
+  // `WindowOcclusionTracker` a chance to unregister itself as a
+  // `LayerAnimationObserver`.
+  return true;
+}
+
+void WindowOcclusionTracker::LayerDestroyed(ui::Layer* layer) {
+  // The only known use case here is for the layer recreation. When
+  // `OnWindowLayerRecreated()` is called, the `window` already has a new
+  // `Layer` and `LayerAnimator`. `WindowOcclusionTracker` needs access to the
+  // old layer though so that it can unregister itself as an observer of any
+  // animated properties. This method should be called for the old layer.
+  //
+  // For all other use cases, this method is effectively a no-op because some
+  // other observer event in this class fired already and caused
+  // `RemoveAnimationObservationForLayer()` to be called.
+  RemoveAnimationObservationForLayer(layer);
+}
 
 void WindowOcclusionTracker::OnWindowHierarchyChanged(
     const HierarchyChangeParams& params) {
@@ -957,6 +1000,7 @@ void WindowOcclusionTracker::OnWindowDestroyed(Window* window) {
   // access in CleanupAnimatedWindows() if |window| is being destroyed from a
   // LayerAnimationObserver after an animation has ended but before |this| has
   // been notified.
+  RemoveAnimationObservationForLayer(window->layer());
   animated_windows_.erase(window);
 }
 
@@ -986,7 +1030,6 @@ void WindowOcclusionTracker::OnWindowLayerRecreated(Window* window) {
   if (num_removed == 0)
     return;
 
-  animator->RemoveObserver(this);
   if (MarkRootWindowAsDirty(window->GetRootWindow()))
     MaybeComputeOcclusion();
 }
@@ -1016,6 +1059,18 @@ void WindowOcclusionTracker::OnOcclusionStateChanged(
 
   MarkRootWindowAsDirty(root_window);
   MaybeComputeOcclusion();
+}
+
+void WindowOcclusionTracker::RemoveAnimationObservationForLayer(
+    ui::Layer* layer) {
+  if (animated_layer_observations_.IsObservingSource(layer)) {
+    animated_layer_observations_.RemoveObservation(layer);
+  }
+
+  ui::LayerAnimator* const animator = layer->GetAnimator();
+  if (layer_animator_observations.IsObservingSource(animator)) {
+    layer_animator_observations.RemoveObservation(animator);
+  }
 }
 
 }  // namespace aura

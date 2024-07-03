@@ -225,6 +225,132 @@ class CheckNoUNIT_TESTInSourceFilesTest(unittest.TestCase):
         MockInputApi(), MockFile('some/path/source.cc', lines))
     self.assertEqual(0, len(errors))
 
+
+class CheckEachPerfettoTestDataFileHasDepsEntry(unittest.TestCase):
+
+  def testNewSha256FileNoDEPS(self):
+    input_api = MockInputApi()
+    input_api.files = [
+      MockFile('base/tracing/test/data_sha256/new.pftrace.sha256', []),
+    ]
+    results = PRESUBMIT.CheckEachPerfettoTestDataFileHasDepsEntry(input_api, MockOutputApi())
+    self.assertEqual(
+      ('You must update the DEPS file when you update a .sha256 file '
+       'in base/tracing/test/data_sha256'), results[0].message)
+
+  def testNewSha256FileSuccess(self):
+    input_api = MockInputApi()
+    new_deps = """deps = {
+                    'src/base/tracing/test/data': {
+                      'bucket': 'perfetto',
+                      'objects': [
+                        {
+                          'object_name': 'test_data/new.pftrace-a1b2c3f4',
+                          'sha256sum': 'a1b2c3f4',
+                          'size_bytes': 1,
+                          'generation': 1,
+                          'output_file': 'new.pftrace'
+                        },
+                      ],
+                      'dep_type': 'gcs'
+                    },
+                  }""".splitlines()
+    input_api.files = [
+      MockFile('base/tracing/test/data_sha256/new.pftrace.sha256', ['a1b2c3f4']),
+      MockFile('DEPS', new_deps, ["deps={'src/base/tracing/test/data':{}}"]),
+    ]
+    results = PRESUBMIT.CheckEachPerfettoTestDataFileHasDepsEntry(input_api, MockOutputApi())
+    self.assertEqual(0, len(results))
+
+  def testNewSha256FileWrongSha256(self):
+    input_api = MockInputApi()
+    new_deps = """deps = {
+                    'src/base/tracing/test/data': {
+                      'bucket': 'perfetto',
+                      'objects': [
+                        {
+                          'object_name': 'test_data/new.pftrace-a1b2c3f4',
+                          'sha256sum': 'wrong_hash',
+                          'size_bytes': 1,
+                          'generation': 1,
+                          'output_file': 'new.pftrace'
+                        },
+                      ],
+                      'dep_type': 'gcs'
+                    },
+                  }""".splitlines()
+    f = MockFile('base/tracing/test/data_sha256/new.pftrace.sha256', ['a1b2c3f4'])
+    input_api.files = [
+      f,
+      MockFile('DEPS', new_deps, ["deps={'src/base/tracing/test/data':{}}"]),
+    ]
+    results = PRESUBMIT.CheckEachPerfettoTestDataFileHasDepsEntry(input_api, MockOutputApi())
+    self.assertEqual((
+      'No corresponding DEPS entry found for %s. '
+      'Run `base/tracing/test/test_data.py get_deps --filepath %s` '
+      'to generate the DEPS entry.' % (f.LocalPath(), f.LocalPath())),
+      results[0].message)
+
+  def testDeleteSha256File(self):
+    input_api = MockInputApi()
+    old_deps = """deps = {
+                    'src/base/tracing/test/data': {
+                      'bucket': 'perfetto',
+                      'objects': [
+                        {
+                          'object_name': 'test_data/new.pftrace-a1b2c3f4',
+                          'sha256sum': 'a1b2c3f4',
+                          'size_bytes': 1,
+                          'generation': 1,
+                          'output_file': 'new.pftrace'
+                        },
+                      ],
+                      'dep_type': 'gcs'
+                    },
+                  }""".splitlines()
+    f = MockFile('base/tracing/test/data_sha256/new.pftrace.sha256', [], ['a1b2c3f4'], action='D')
+    input_api.files = [
+      f,
+      MockFile('DEPS', old_deps, old_deps),
+    ]
+    results = PRESUBMIT.CheckEachPerfettoTestDataFileHasDepsEntry(input_api, MockOutputApi())
+    self.assertEqual((
+      'You deleted %s so you must also remove the corresponding DEPS entry.'
+      % f.LocalPath()), results[0].message)
+
+  def testDeleteSha256Success(self):
+    input_api = MockInputApi()
+    new_deps = """deps = {
+                    'src/base/tracing/test/data': {
+                      'bucket': 'perfetto',
+                      'objects': [],
+                      'dep_type': 'gcs'
+                    },
+                  }""".splitlines()
+    old_deps = """deps = {
+                    'src/base/tracing/test/data': {
+                      'bucket': 'perfetto',
+                      'objects': [
+                        {
+                          'object_name': 'test_data/new.pftrace-a1b2c3f4',
+                          'sha256sum': 'a1b2c3f4',
+                          'size_bytes': 1,
+                          'generation': 1,
+                          'output_file': 'new.pftrace'
+                        },
+                      ],
+                      'dep_type': 'gcs'
+                    },
+                  }""".splitlines()
+    f = MockFile('base/tracing/test/data_sha256/new.pftrace.sha256', [], ['a1b2c3f4'], action='D')
+    input_api.files = [
+      f,
+      MockFile('DEPS', new_deps, old_deps),
+    ]
+    results = PRESUBMIT.CheckEachPerfettoTestDataFileHasDepsEntry(input_api, MockOutputApi())
+    self.assertEqual(0, len(results))
+
+
 class CheckAddedDepsHaveTestApprovalsTest(unittest.TestCase):
 
   def calculate(self, old_include_rules, old_specific_include_rules,
@@ -889,10 +1015,17 @@ class IncludeGuardTest(unittest.TestCase):
           '#error "Failed to include content/common/foo_messages.h"',
           '#endif',
         ]),
+        MockAffectedFile('chrome/renderer/thing/qux.h', [
+          '// Comment',
+          '#ifndef CHROME_RENDERER_THING_QUX_H_',
+          '#define CHROME_RENDERER_THING_QUX_H_',
+          'struct Boaty;',
+          '#endif',
+        ]),
       ]
     msgs = PRESUBMIT.CheckForIncludeGuards(
         mock_input_api, mock_output_api)
-    expected_fail_count = 8
+    expected_fail_count = 10
     self.assertEqual(expected_fail_count, len(msgs),
                      'Expected %d items, found %d: %s'
                      % (expected_fail_count, len(msgs), msgs))
@@ -903,36 +1036,45 @@ class IncludeGuardTest(unittest.TestCase):
 
     self.assertIn('content/browser/test1.h', msgs[1].message)
     self.assertIn('Recommended name: CONTENT_BROWSER_TEST1_H_',
-                     msgs[1].message)
+                  msgs[1].message)
 
     self.assertEqual(msgs[2].items, ['content/browser/test2.h:3'])
     self.assertEqual(msgs[2].message,
                      'Missing "#define CONTENT_BROWSER_TEST2_H_" for '
                      'include guard')
 
-    self.assertEqual(msgs[3].items, ['content/browser/spleling.h:1'])
-    self.assertEqual(msgs[3].message,
+    self.assertIn('content/browser/internal.h', msgs[3].message)
+    self.assertIn('Recommended #endif comment: // CONTENT_BROWSER_INTERNAL_H_',
+                  msgs[3].message)
+
+    self.assertEqual(msgs[4].items, ['content/browser/spleling.h:1'])
+    self.assertEqual(msgs[4].message,
                      'Header using the wrong include guard name '
                      'CONTENT_BROWSER_SPLLEING_H_')
 
-    self.assertIn('content/browser/foo+bar.h', msgs[4].message)
+    self.assertIn('content/browser/foo+bar.h', msgs[5].message)
     self.assertIn('Recommended name: CONTENT_BROWSER_FOO_BAR_H_',
-                  msgs[4].message)
+                  msgs[5].message)
 
-    self.assertEqual(msgs[5].items, ['content/NotInBlink.h:1'])
-    self.assertEqual(msgs[5].message,
+    self.assertEqual(msgs[6].items, ['content/NotInBlink.h:1'])
+    self.assertEqual(msgs[6].message,
                      'Header using the wrong include guard name '
                      'NotInBlink_h')
 
-    self.assertEqual(msgs[6].items, ['third_party/blink/InBlink.h:1'])
-    self.assertEqual(msgs[6].message,
+    self.assertEqual(msgs[7].items, ['third_party/blink/InBlink.h:1'])
+    self.assertEqual(msgs[7].message,
                      'Header using the wrong include guard name '
                      'InBlink_h')
 
-    self.assertEqual(msgs[7].items, ['third_party/blink/AlsoInBlink.h:1'])
-    self.assertEqual(msgs[7].message,
+    self.assertEqual(msgs[8].items, ['third_party/blink/AlsoInBlink.h:1'])
+    self.assertEqual(msgs[8].message,
                      'Header using the wrong include guard name '
                      'WrongInBlink_h')
+
+    self.assertIn('chrome/renderer/thing/qux.h', msgs[9].message)
+    self.assertIn('Recommended #endif comment: // CHROME_RENDERER_THING_QUX_H_',
+                  msgs[9].message)
+
 
 class AccessibilityRelnotesFieldTest(unittest.TestCase):
   def testRelnotesPresent(self):
@@ -2836,6 +2978,12 @@ class BannedTypeCheckTest(unittest.TestCase):
                ['using namespace std;  // nocheck']),
       MockFile('some/cpp/comment/file.cc',
                ['  // A comment about `using namespace std;`']),
+      MockFile('some/cpp/problematic/file3.cc',
+               ['params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET']),
+      MockFile('some/cpp/problematic/file4.cc',
+               ['params.ownership = Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET']),
+      MockFile('some/cpp/problematic/file5.cc',
+               ['Browser* browser = chrome::FindBrowserWithTab(web_contents)']),
     ]
 
     results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
@@ -2847,6 +2995,9 @@ class BannedTypeCheckTest(unittest.TestCase):
         'third_party/blink/problematic/file.cc' in results[0].message)
     self.assertTrue('some/cpp/ok/file.cc' not in results[1].message)
     self.assertTrue('some/cpp/problematic/file2.cc' in results[0].message)
+    self.assertTrue('some/cpp/problematic/file3.cc' in results[0].message)
+    self.assertTrue('some/cpp/problematic/file4.cc' in results[0].message)
+    self.assertTrue('some/cpp/problematic/file5.cc' in results[0].message)
     self.assertFalse('some/cpp/nocheck/file.cc' in results[0].message)
     self.assertFalse('some/cpp/nocheck/file.cc' in results[1].message)
     self.assertFalse('some/cpp/comment/file.cc' in results[0].message)
@@ -3164,6 +3315,9 @@ class CheckUniquePtrTest(unittest.TestCase):
       ]),
       MockFile('dir/nested.cc', ['set<std::unique_ptr<T>>();']),
       MockFile('dir/nested2.cc', ['map<U, std::unique_ptr<T>>();']),
+      # Changed line is inside a multiline template block.
+      MockFile('dir/template.cc', [' std::unique_ptr<T>>(']),
+      MockFile('dir/template2.cc', [' std::unique_ptr<T>>()']),
 
       # Two-argument invocation of std::unique_ptr is exempt because there is
       # no equivalent using std::make_unique.
@@ -3172,7 +3326,7 @@ class CheckUniquePtrTest(unittest.TestCase):
     ]
 
     results = PRESUBMIT.CheckUniquePtrOnUpload(mock_input_api, MockOutputApi())
-    self.assertEqual(0, len(results))
+    self.assertEqual([], results)
 
 class CheckNoDirectIncludesHeadersWhichRedefineStrCat(unittest.TestCase):
   def testBlocksDirectIncludes(self):
@@ -4687,7 +4841,18 @@ class CheckRawPtrUsageTest(unittest.TestCase):
         MockAffectedFile(
             'test3/third_party/blink/renderer/platform/wtf/foo.cc',
             ['raw_ptr<int>']),
-        MockAffectedFile('test4/blink/public/web/foo.cc', ['raw_ptr<int>']),
+        MockAffectedFile(
+            'test4/third_party/blink/renderer/platform/fonts/foo.h',
+            ['raw_ptr<int>']),
+        MockAffectedFile(
+            'test5/third_party/blink/renderer/core/paint/foo.cc',
+            ['raw_ptr<int>']),
+        MockAffectedFile(
+            'test6/third_party/blink/renderer/platform/graphics/compositing/foo.h',
+            ['raw_ptr<int>']),
+        MockAffectedFile(
+            'test7/third_party/blink/renderer/platform/graphics/paint/foo.cc',
+            ['raw_ptr<int>']),
     ]
     mock_output_api = MockOutputApi()
     errors = PRESUBMIT.CheckRawPtrUsage(mock_input_api, mock_output_api)
@@ -5327,6 +5492,66 @@ class CheckInlineConstexprDefinitionsInHeadersTest(unittest.TestCase):
     ]
     warnings = PRESUBMIT.CheckTodoBugReferences(input_api, MockOutputApi())
     self.assertEqual(0, len(warnings))
+
+class CheckDeprecatedSyncConsentFunctionsTest(unittest.TestCase):
+  """Test the presubmit for deprecated ConsentLevel::kSync functions."""
+
+  def testCppMobilePlatformPath(self):
+    input_api = MockInputApi()
+    input_api.files = [
+      MockFile('chrome/browser/android/file.cc', ['OtherFunction']),
+      MockFile('chrome/android/file.cc', ['HasSyncConsent']),
+      MockFile('ios/file.mm', ['CanSyncFeatureStart']),
+      MockFile('components/foo/ios/file.cc', ['IsSyncFeatureEnabled']),
+      MockFile('components/foo/delegate_android.cc', ['IsSyncFeatureActive']),
+      MockFile('components/foo/delegate_ios.cc', ['IsSyncFeatureActive']),
+      MockFile('components/foo/android_delegate.cc', ['IsSyncFeatureActive']),
+      MockFile('components/foo/ios_delegate.cc', ['IsSyncFeatureActive']),
+    ]
+
+    results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+
+    self.assertEqual(1, len(results))
+    self.assertFalse('chrome/browser/android/file.cc' in results[0].message),
+    self.assertTrue('chrome/android/file.cc' in results[0].message),
+    self.assertTrue('ios/file.mm' in results[0].message),
+    self.assertTrue('components/foo/ios/file.cc' in results[0].message),
+    self.assertTrue('components/foo/delegate_android.cc' in results[0].message),
+    self.assertTrue('components/foo/delegate_ios.cc' in results[0].message),
+    self.assertTrue('components/foo/android_delegate.cc' in results[0].message),
+    self.assertTrue('components/foo/ios_delegate.cc' in results[0].message),
+
+  def testCppNonMobilePlatformPath(self):
+    input_api = MockInputApi()
+    input_api.files = [
+      MockFile('chrome/browser/file.cc', ['HasSyncConsent']),
+      MockFile('bios/file.cc', ['HasSyncConsent']),
+      MockFile('components/kiosk/file.cc', ['HasSyncConsent']),
+    ]
+
+    results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+
+    self.assertEqual(0, len(results))
+
+  def testJavaPath(self):
+    input_api = MockInputApi()
+    input_api.files = [
+      MockFile('components/foo/file1.java', ['otherFunction']),
+      MockFile('components/foo/file2.java', ['hasSyncConsent']),
+      MockFile('chrome/foo/file3.java', ['canSyncFeatureStart']),
+      MockFile('chrome/foo/file4.java', ['isSyncFeatureEnabled']),
+      MockFile('chrome/foo/file5.java', ['isSyncFeatureActive']),
+    ]
+
+    results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
+
+    self.assertEqual(1, len(results))
+    self.assertFalse('components/foo/file1.java' in results[0].message),
+    self.assertTrue('components/foo/file2.java' in results[0].message),
+    self.assertTrue('chrome/foo/file3.java' in results[0].message),
+    self.assertTrue('chrome/foo/file4.java' in results[0].message),
+    self.assertTrue('chrome/foo/file5.java' in results[0].message),
+
 
 if __name__ == '__main__':
   unittest.main()

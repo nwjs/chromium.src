@@ -42,6 +42,7 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/gfx/image/image_unittest_util.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -103,6 +104,9 @@ constexpr char kAccountId[] = "1234";
 constexpr char kAccountIdNicolas[] = "nico_id";
 constexpr char kAccountIdPeter[] = "peter_id";
 constexpr char kAccountIdZach[] = "zach_id";
+constexpr char kAccountPicture[] = "https://idp.example/profilepic";
+constexpr char kAccountPicture404[] = "https://idp.example/404";
+constexpr int kAccountPictureSize = 10;
 constexpr char kEmail[] = "ken@idp.example";
 constexpr char kDomainHint[] = "domain@corp.com";
 constexpr char kOtherDomainHint[] = "other_domain@corp.com";
@@ -442,6 +446,7 @@ enum class FetchedEndpoint {
   ACCOUNTS,
   TOKEN,
   WELL_KNOWN,
+  PICTURE,
 };
 
 class TestIdpNetworkRequestManager : public MockIdpNetworkRequestManager {
@@ -599,6 +604,18 @@ class TestIdpNetworkRequestManager : public MockIdpNetworkRequestManager {
     }
   }
 
+  void DownloadAndDecodeImage(const GURL& url,
+                              ImageCallback callback) override {
+    EXPECT_TRUE(url == GURL(kAccountPicture) || url == GURL(kAccountPicture404))
+        << url;
+    ++num_fetched_[FetchedEndpoint::PICTURE];
+    if (url == GURL(kAccountPicture404)) {
+      std::move(callback).Run(gfx::Image());
+    } else {
+      std::move(callback).Run(gfx::test::CreateImage(kAccountPictureSize));
+    }
+  }
+
   std::map<FetchedEndpoint, size_t> num_fetched_;
 
  protected:
@@ -702,7 +719,7 @@ class TestDialogController
     idp_signin_status_mismatch_dialog_action_ = action;
   }
 
-  void ShowAccountsDialog(
+  bool ShowAccountsDialog(
       const std::string& top_frame_for_display,
       const std::optional<std::string>& iframe_for_display,
       const std::vector<IdentityProviderData>& identity_provider_data,
@@ -715,7 +732,7 @@ class TestDialogController
       IdentityRequestDialogController::AccountsDisplayedCallback
           accounts_displayed_callback) override {
     if (!state_) {
-      return;
+      return false;
     }
     state_->displayed_accounts.clear();
 
@@ -766,9 +783,10 @@ class TestDialogController
       case AccountsDialogAction::kNone:
         break;
     }
+    return true;
   }
 
-  void ShowFailureDialog(
+  bool ShowFailureDialog(
       const std::string& top_frame_for_display,
       const std::optional<std::string>& iframe_for_display,
       const std::string& idp_for_display,
@@ -779,7 +797,7 @@ class TestDialogController
       IdentityRequestDialogController::LoginToIdPCallback
           identity_registry_callback) override {
     if (!state_) {
-      return;
+      return false;
     }
 
     state_->displayed_mismatch_idps.push_back(idp_for_display);
@@ -798,9 +816,10 @@ class TestDialogController
       case IdpSigninStatusMismatchDialogAction::kNone:
         break;
     }
+    return true;
   }
 
-  void ShowErrorDialog(
+  bool ShowErrorDialog(
       const std::string& top_frame_for_display,
       const std::optional<std::string>& iframe_for_display,
       const std::string& idp_for_display,
@@ -812,7 +831,7 @@ class TestDialogController
       IdentityRequestDialogController::MoreDetailsCallback
           more_details_callback) override {
     if (!state_) {
-      return;
+      return false;
     }
 
     state_->did_show_error_dialog = true;
@@ -840,16 +859,17 @@ class TestDialogController
       case ErrorDialogAction::kNone:
         break;
     }
+    return true;
   }
 
-  void ShowLoadingDialog(const std::string& top_frame_for_display,
+  bool ShowLoadingDialog(const std::string& top_frame_for_display,
                          const std::string& idp_for_display,
                          blink::mojom::RpContext rp_context,
                          blink::mojom::RpMode rp_mode,
                          IdentityRequestDialogController::DismissCallback
                              dismiss_callback) override {
     if (!state_) {
-      return;
+      return false;
     }
 
     state_->did_show_loading_dialog = true;
@@ -862,6 +882,7 @@ class TestDialogController
       case LoadingDialogAction::kNone:
         break;
     }
+    return true;
   }
 
   base::WeakPtr<TestDialogController> AsWeakPtr() {
@@ -3349,7 +3370,7 @@ class DisableApiWhenDialogShownDialogController : public TestDialogController {
   DisableApiWhenDialogShownDialogController& operator=(
       DisableApiWhenDialogShownDialogController&) = delete;
 
-  void ShowAccountsDialog(
+  bool ShowAccountsDialog(
       const std::string& top_frame_for_display,
       const std::optional<std::string>& iframe_for_display,
       const std::vector<IdentityProviderData>& identity_provider_data,
@@ -3366,7 +3387,7 @@ class DisableApiWhenDialogShownDialogController : public TestDialogController {
         rp_origin_to_disable_, ApiPermissionStatus::BLOCKED_SETTINGS);
 
     // Call parent class method in order to store callback parameters.
-    TestDialogController::ShowAccountsDialog(
+    return TestDialogController::ShowAccountsDialog(
         top_frame_for_display, iframe_for_display,
         std::move(identity_provider_data), sign_in_mode, rp_mode,
         new_account_idp, std::move(on_selected), std::move(on_add_account),
@@ -5497,6 +5518,49 @@ TEST_F(FederatedAuthRequestImplTest, DomainHintMultipleAccountsNoMatch) {
       FedCmMetrics::NumAccounts::kZero, 1);
 }
 
+TEST_F(FederatedAuthRequestImplTest, PictureFetch) {
+  MockConfiguration configuration = kConfigurationValid;
+  configuration.idp_info[kProviderUrlFull].accounts[0].picture =
+      GURL(kAccountPicture);
+  // This ensures we don't fetch client metadata, to test a different codepath.
+  configuration.idp_info[kProviderUrlFull].accounts[0].login_state =
+      LoginState::kSignIn;
+
+  RunAuthTest(kDefaultRequestParameters, kExpectationSuccess, configuration);
+  ASSERT_EQ(displayed_accounts().size(), 1u);
+  EXPECT_EQ(displayed_accounts()[0].id, kAccountId);
+  EXPECT_FALSE(displayed_accounts()[0].decoded_picture.IsEmpty());
+  EXPECT_EQ(kAccountPictureSize,
+            displayed_accounts()[0].decoded_picture.Width());
+  EXPECT_EQ(kAccountPictureSize,
+            displayed_accounts()[0].decoded_picture.Height());
+}
+
+TEST_F(FederatedAuthRequestImplTest, PictureFetchMultipleAccounts) {
+  MockConfiguration configuration = kConfigurationValid;
+  configuration.idp_info[kProviderUrlFull].accounts = kMultipleAccounts;
+  configuration.idp_info[kProviderUrlFull].accounts[0].picture =
+      GURL(kAccountPicture);
+  configuration.idp_info[kProviderUrlFull].accounts[1].picture =
+      GURL(kAccountPicture);
+  configuration.idp_info[kProviderUrlFull].accounts[2].picture =
+      GURL(kAccountPicture404);
+
+  RunAuthTest(kDefaultRequestParameters, kExpectationSuccess, configuration);
+  ASSERT_EQ(displayed_accounts().size(), 3u);
+  EXPECT_FALSE(displayed_accounts()[0].decoded_picture.IsEmpty());
+  EXPECT_EQ(kAccountPictureSize,
+            displayed_accounts()[0].decoded_picture.Width());
+  EXPECT_EQ(kAccountPictureSize,
+            displayed_accounts()[0].decoded_picture.Height());
+  EXPECT_FALSE(displayed_accounts()[1].decoded_picture.IsEmpty());
+  EXPECT_EQ(kAccountPictureSize,
+            displayed_accounts()[1].decoded_picture.Width());
+  EXPECT_EQ(kAccountPictureSize,
+            displayed_accounts()[1].decoded_picture.Height());
+  EXPECT_TRUE(displayed_accounts()[2].decoded_picture.IsEmpty());
+}
+
 // Test that when FedCmRpContext flag is enabled and rp_context is specified,
 // the FedCM request succeeds with the specified rp_context.
 TEST_F(FederatedAuthRequestImplTest, RpContextIsSetToNonDefaultValue) {
@@ -7294,7 +7358,7 @@ class TestDialogControllerWithImmediateDismiss : public TestDialogController {
   TestDialogControllerWithImmediateDismiss& operator=(
       TestDialogControllerWithImmediateDismiss&) = delete;
 
-  void ShowAccountsDialog(
+  bool ShowAccountsDialog(
       const std::string& top_frame_for_display,
       const std::optional<std::string>& iframe_for_display,
       const std::vector<IdentityProviderData>& identity_provider_data,
@@ -7307,9 +7371,10 @@ class TestDialogControllerWithImmediateDismiss : public TestDialogController {
       IdentityRequestDialogController::AccountsDisplayedCallback
           accounts_displayed_callback) override {
     std::move(dismiss_callback).Run(DismissReason::kOther);
+    return false;
   }
 
-  void ShowFailureDialog(
+  bool ShowFailureDialog(
       const std::string& top_frame_for_display,
       const std::optional<std::string>& iframe_for_display,
       const std::string& idp_for_display,
@@ -7320,6 +7385,7 @@ class TestDialogControllerWithImmediateDismiss : public TestDialogController {
       IdentityRequestDialogController::LoginToIdPCallback
           identity_registry_callback) override {
     std::move(dismiss_callback).Run(DismissReason::kOther);
+    return false;
   }
 };
 

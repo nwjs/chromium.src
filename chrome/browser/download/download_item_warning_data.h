@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_DOWNLOAD_DOWNLOAD_ITEM_WARNING_DATA_H_
 #define CHROME_BROWSER_DOWNLOAD_DOWNLOAD_ITEM_WARNING_DATA_H_
 
+#include <optional>
 #include <vector>
 
 #include "base/supports_user_data.h"
@@ -116,6 +117,7 @@ class DownloadItemWarningData : public base::SupportsUserData::Data {
   // Enum representing the trigger of the scan request.
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
+  // LINT.IfChange
   enum class DeepScanTrigger {
     // The trigger is unknown.
     TRIGGER_UNKNOWN = 0,
@@ -137,6 +139,7 @@ class DownloadItemWarningData : public base::SupportsUserData::Data {
 
     kMaxValue = TRIGGER_IMMEDIATE_DEEP_SCAN,
   };
+  // LINT.ThenChange(/tools/metrics/histograms/metadata/sb_client/enums.xml)
 
   ~DownloadItemWarningData() override;
 

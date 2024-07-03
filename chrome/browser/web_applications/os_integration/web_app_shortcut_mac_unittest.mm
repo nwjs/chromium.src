@@ -162,6 +162,10 @@ class WebAppShortcutCreatorTest : public testing::Test {
 
     auto_login_util_mock_ = std::make_unique<WebAppAutoLoginUtilMock>();
     WebAppAutoLoginUtil::SetInstanceForTesting(auto_login_util_mock_.get());
+
+    // Make sure that the tests in this class will actually try to set the
+    // localized app dir name.
+    WebAppShortcutCreator::ResetHaveLocalizedAppDirNameForTesting();
   }
 
   void TearDown() override {
@@ -485,8 +489,6 @@ TEST_F(WebAppShortcutCreatorTest, ProtocolHandlers) {
 TEST_F(WebAppShortcutCreatorTest, CreateShortcutsConflict) {
   NiceMock<WebAppShortcutCreatorMock> shortcut_creator(app_data_dir_,
                                                        info_.get());
-  base::FilePath strings_file =
-      destination_dir_.Append(".localized").Append("en_US.strings");
 
   // Create a conflicting .app.
   EXPECT_FALSE(base::PathExists(shim_path_));
@@ -571,7 +573,7 @@ TEST_F(WebAppShortcutCreatorTest, UpdateShortcuts) {
   EXPECT_TRUE(base::DeletePathRecursively(other_shim_path.Append("Contents")));
 
   updated_paths.clear();
-  EXPECT_FALSE(shortcut_creator.UpdateShortcuts(false, &updated_paths));
+  EXPECT_TRUE(shortcut_creator.UpdateShortcuts(false, &updated_paths));
   EXPECT_TRUE(updated_paths.empty());
   EXPECT_FALSE(base::PathExists(shim_path_));
   EXPECT_FALSE(base::PathExists(other_shim_path.Append("Contents")));

@@ -236,7 +236,6 @@
 <translation id="2189104374785738357">APN விவரங்களை மாற்றுதல்</translation>
 <translation id="2195732836444333448">தற்போது அதிகமானோர் பயன்படுத்துகின்றனர். மீண்டும் வந்து பார்க்கவும்.</translation>
 <translation id="2201758491318984023">சைக்கிள்</translation>
-<translation id="2203222757805818543">தற்போதைய கால அட்டவணை <ph name="SUNRISE" /> - <ph name="SUNSET" /> என்று அமைக்கப்பட்டுள்ளது. டார்க் பயன்முறையின் கால அட்டவணையைத் தானாக மாற்ற <ph name="BEGIN_LINK" />இருப்பிட அணுகலை இயக்கவும்<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">வெந்நீரூற்று</translation>
 <translation id="2203642483788377106">செங்குத்தான பாறை</translation>
 <translation id="2208388655216963643">உணர்வுப்பதிவுவாதம்</translation>
@@ -313,6 +312,7 @@
 <translation id="2618015542787108131">மணல் மேடு</translation>
 <translation id="2619761439309613843">தினசரிப் புதுப்பிப்பு</translation>
 <translation id="2620436844016719705">அமைப்பு</translation>
+<translation id="2637303424821734920">முடக்கப்பட்டுள்ளது - உள்ளூர் வானிலையைக் காட்ட, <ph name="BEGIN_LINK" />சிஸ்டத்திற்கு இருப்பிட அணுகலை இயக்கவும்<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">உள்நுழைவுப் படம்</translation>
 <translation id="2640549051766135490"><ph name="TITLE" /> <ph name="DESC" /> ஆல்பம் தேர்ந்தெடுக்கப்பட்டது</translation>
 <translation id="2645380101799517405">கட்டுப்பாடுகள்</translation>
@@ -361,9 +361,11 @@
 <translation id="3017079585324758401">பின்புலம்</translation>
 <translation id="3027578600144895987">கேமராவை மூடும்</translation>
 <translation id="3031560714565892478">சாதனம் ஒரு வீடியோ கேமரா.</translation>
+<translation id="3051968340259309715">இதைச் செய்தால், உங்கள் இருப்பிடத்தைத் தீர்மானிக்க சிஸ்டம் சேவைகள் இருப்பிடத் துல்லியத்தைப் பயன்படுத்தும். சாதனத்தின் இருப்பிடத்தைக் கணிப்பதற்கு ஆக்சலரோமீட்டர், திசை காட்டி போன்ற சாதன சென்சார் தரவுடன் வைஃபை ஆக்சஸ் பாயின்ட்டுகள், மொபைல் நெட்வொர்க் டவர்கள், GPS போன்ற வயர்லெஸ் சிக்னல்கள் குறித்த தகவல்களை இருப்பிடத் துல்லியம் பயன்படுத்தும். அமைப்புகள் &gt; தனியுரிமையும் பாதுகாப்பும் &gt; தனியுரிமைக் கட்டுப்பாடுகள் &gt; இருப்பிட அணுகல் என்பதற்குச் சென்று இருப்பிட அமைப்பை முடக்கிக்கொள்ளலாம். <ph name="LINK_BEGIN" />மேலும் அறிக<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">எண்ட்பாயிண்ட்</translation>
 <translation id="3060579846059757016">அவுட்லைன்கள்</translation>
+<translation id="3061850252076394168">பேசும் திரையை இயக்கும்</translation>
 <translation id="3069085583900247081">சோதனை தோல்வியடைந்தது</translation>
 <translation id="3078740164268491126">அட்டவணை</translation>
 <translation id="3081652522083185657">லைட்</translation>
@@ -630,7 +632,6 @@
 <translation id="458794348635939462">அனைத்து ஹோஸ்ட்களையும் சரிசெய்ய முடியவில்லை</translation>
 <translation id="4593212453765072419">பிராக்ஸி அங்கீகரிப்பு தேவை</translation>
 <translation id="4609350030397390689">கீபோர்டு ஒளிர்வைக் குறைக்கும்</translation>
-<translation id="4617553623719764431">உங்கள் இருப்பிடம் தெரியாததால் வானிலைத் தகவல் காட்டப்படவில்லை. உள்ளூர் வானிலைத் தகவலைப் பார்க்க <ph name="BEGIN_LINK" />இருப்பிட அணுகலை இயக்கவும்<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" />. அச்சுப் பணியை ரத்துசெய்ய என்ட்டர் விசையை அழுத்தவும்.</translation>
 <translation id="463791356324567266">ஸ்கேன் செய்வதை ரத்துசெய்கிறது...</translation>
 <translation id="4646949265910132906">பாதுகாப்பான வைஃபை இணைப்பு</translation>
@@ -704,6 +705,7 @@
 <translation id="4985509611418653372">இயக்கு</translation>
 <translation id="4987769320337599931">ஃபயர்வால்</translation>
 <translation id="4988526792673242964">பக்கங்கள்</translation>
+<translation id="4989542687859782284">இல்லை</translation>
 <translation id="4999333166442584738">அறிக்கையை மறை</translation>
 <translation id="500920857929044050">சோதனையை நிறுத்து</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -960,7 +962,6 @@
 <translation id="6412715219990689313">உள்ளமைந்த கீபோர்டு</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">இது, உங்கள் இருப்பிட விவரத்தைப் பயன்படுத்த சிஸ்டம் சேவைகளை அனுமதிக்கும். உங்கள் சாதனத்தின் இருப்பிடத்தைக் கணிக்க உதவுவதற்கு வைஃபை, மொபைல் நெட்வொர்க்குகள், சென்சார்கள் போன்றவற்றை இருப்பிட அமைப்புகள் பயன்படுத்தக்கூடும். <ph name="LINK_BEGIN" />மேலும் தெரிந்துகொள்ளுங்கள்<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">மோசமாக உள்ளது (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">கணக்கு அமைப்புகளுக்குச் செல்லும்</translation>
 <translation id="6462978824459367242">'APNனைச் சேர்' பட்டன் இப்போது இயக்கப்பட்டுள்ளது</translation>

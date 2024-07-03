@@ -43,7 +43,6 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
-import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
@@ -88,6 +87,7 @@ public class TabListCoordinator
     static final int GRID_LAYOUT_SPAN_COUNT_LARGE = 4;
     static final int MAX_SCREEN_WIDTH_COMPACT_DP = 600;
     static final int MAX_SCREEN_WIDTH_MEDIUM_DP = 800;
+    static final float PERCENTAGE_AREA_OVERLAP_MERGE_THRESHOLD = 0.5f;
 
     private final TabListMediator mMediator;
     private final TabListRecyclerView mRecyclerView;
@@ -123,9 +123,7 @@ public class TabListCoordinator
      * @param browserControlsStateProvider The {@link BrowserControlsStateProvider} for top
      *     controls.
      * @param tabModelFilterSupplier The supplier for the current tab model filter.
-     * @param regularTabModelSupplier The supplier for the regular tab model.
      * @param thumbnailProvider Provider to provide screenshot related details.
-     * @param titleProvider Provider for a given tab's title.
      * @param actionOnRelatedTabs Whether tab-related actions should be operated on all related
      *     tabs.
      * @param gridCardOnClickListenerProvider Provides the onClickListener for opening dialog when
@@ -145,17 +143,13 @@ public class TabListCoordinator
      * @param rootView The root view of the app.
      * @param onModelTokenChange Callback to invoke whenever a model changes. Only currently
      *     respected in TabListMode.STRIP mode.
-     * @param hasEmptyView A boolean to determine if we should show empty view in tab switcher.
-     *     Currently only valid for TabListMode.GRID and TabListMode.LIST.
      */
     TabListCoordinator(
             @TabListMode int mode,
             Context context,
             @NonNull BrowserControlsStateProvider browserControlsStateProvider,
             @NonNull ObservableSupplier<TabModelFilter> tabModelFilterSupplier,
-            @NonNull Supplier<TabModel> regularTabModelSupplier,
             @Nullable ThumbnailProvider thumbnailProvider,
-            @Nullable PseudoTab.TitleProvider titleProvider,
             boolean actionOnRelatedTabs,
             @Nullable
                     TabListMediator.GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
@@ -174,9 +168,7 @@ public class TabListCoordinator
                 browserControlsStateProvider,
                 /* modalDialogManager= */ null,
                 tabModelFilterSupplier,
-                regularTabModelSupplier,
                 thumbnailProvider,
-                titleProvider,
                 actionOnRelatedTabs,
                 gridCardOnClickListenerProvider,
                 dialogHandler,
@@ -191,7 +183,8 @@ public class TabListCoordinator
                 false,
                 0,
                 0,
-                0);
+                0,
+                /* onTabGroupCreation= */ null);
     }
 
     TabListCoordinator(
@@ -200,9 +193,7 @@ public class TabListCoordinator
             @NonNull BrowserControlsStateProvider browserControlsStateProvider,
             @Nullable ModalDialogManager modalDialogManager,
             @NonNull ObservableSupplier<TabModelFilter> tabModelFilterSupplier,
-            @NonNull Supplier<TabModel> regularTabModelSupplier,
             @Nullable ThumbnailProvider thumbnailProvider,
-            @Nullable PseudoTab.TitleProvider titleProvider,
             boolean actionOnRelatedTabs,
             @Nullable
                     TabListMediator.GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
@@ -218,7 +209,8 @@ public class TabListCoordinator
             boolean hasEmptyView,
             int emptyImageResId,
             int emptyHeadingStringResId,
-            int emptySubheadingStringResId) {
+            int emptySubheadingStringResId,
+            @Nullable Runnable onTabGroupCreation) {
         mMode = mode;
         mTabActionState = initialTabActionState;
         mContext = context;
@@ -306,11 +298,12 @@ public class TabListCoordinator
                         mMode == TabListMode.STRIP,
                         R.dimen.default_favicon_corner_radius);
 
+        TabModelFilter currentFilter = mCurrentTabModelFilterSupplier.get();
         ActionConfirmationManager actionConfirmationManager =
                 new ActionConfirmationManager(
-                        regularTabModelSupplier.get().getProfile(),
+                        currentFilter.getTabModel().getProfile().getOriginalProfile(),
                         mContext,
-                        (TabGroupModelFilter) mCurrentTabModelFilterSupplier.get(),
+                        (TabGroupModelFilter) currentFilter,
                         modalDialogManager);
 
         mMediator =
@@ -320,9 +313,7 @@ public class TabListCoordinator
                         mMode,
                         modalDialogManager,
                         tabModelFilterSupplier,
-                        regularTabModelSupplier,
                         thumbnailProvider,
-                        titleProvider,
                         tabListFaviconProvider,
                         new TabGroupColorFaviconProvider(mContext),
                         actionOnRelatedTabs,
@@ -332,7 +323,8 @@ public class TabListCoordinator
                         priceWelcomeMessageControllerSupplier,
                         componentName,
                         initialTabActionState,
-                        actionConfirmationManager);
+                        actionConfirmationManager,
+                        onTabGroupCreation);
 
         try (TraceEvent e = TraceEvent.scoped("TabListCoordinator.setupRecyclerView")) {
             // Ignore attachToParent initially. In some contexts multiple TabListCoordinators are
@@ -405,12 +397,18 @@ public class TabListCoordinator
 
         mHasEmptyView = hasEmptyView;
         if (mHasEmptyView) {
-            mTabListEmptyCoordinator =
-                    new TabListEmptyCoordinator(parentView, mModel, browserControlsStateProvider);
+            mTabListEmptyCoordinator = new TabListEmptyCoordinator(parentView, mModel);
             mEmptyStateHeadingResId = emptyHeadingStringResId;
             mEmptyStateSubheadingResId = emptySubheadingStringResId;
             mEmptyStateImageResId = emptyImageResId;
         }
+
+        configureRecyclerViewTouchHelpers(mMode, mTabActionState);
+    }
+
+    /** Returns the {@link TabListMode} of the coordinator. */
+    public @TabListMode int getTabListMode() {
+        return mMode;
     }
 
     /**
@@ -422,6 +420,14 @@ public class TabListCoordinator
                             onLongPressTabItemEventListener) {
         assert mMediator != null;
         mMediator.setOnLongPressTabItemEventListener(onLongPressTabItemEventListener);
+    }
+
+    /** Sets the current {@link TabActionState} for the TabList. */
+    public void setTabActionState(@TabActionState int tabActionState) {
+        assert mMediator != null;
+        mTabActionState = tabActionState;
+        configureRecyclerViewTouchHelpers(mMode, mTabActionState);
+        mMediator.setTabActionState(tabActionState);
     }
 
     @NonNull
@@ -509,18 +515,20 @@ public class TabListCoordinator
             if (dynamicResourceLoader != null) {
                 mRecyclerView.createDynamicView(dynamicResourceLoader);
             }
+        }
+    }
 
-            // TODO(crbug.com/339460636): Initialize the item touch helper in setTabActionState
-            // function.
-            if ((mMode == TabListMode.GRID || mMode == TabListMode.LIST)
-                    && mTabActionState != TabActionState.SELECTABLE) {
+    private void configureRecyclerViewTouchHelpers(
+            @TabListMode int mode, @TabActionState int tabActionState) {
+        if ((mMode == TabListMode.GRID || mMode == TabListMode.LIST)
+                && mTabActionState != TabActionState.SELECTABLE) {
+            if (mItemTouchHelper == null || mOnItemTouchListener == null) {
                 TabGridItemTouchHelperCallback callback =
                         (TabGridItemTouchHelperCallback)
                                 mMediator.getItemTouchHelperCallback(
                                         mContext.getResources()
                                                 .getDimension(R.dimen.swipe_to_dismiss_threshold),
-                                        mContext.getResources()
-                                                .getDimension(R.dimen.tab_grid_merge_threshold),
+                                        PERCENTAGE_AREA_OVERLAP_MERGE_THRESHOLD,
                                         mContext.getResources()
                                                 .getDimension(R.dimen.bottom_sheet_peek_height));
 
@@ -534,7 +542,6 @@ public class TabListCoordinator
                 //
                 // See similar comments in TabGridItemTouchHelperCallback for more details.
                 mItemTouchHelper = new ItemTouchHelper(callback);
-                mItemTouchHelper.attachToRecyclerView(mRecyclerView);
                 mOnItemTouchListener =
                         new OnItemTouchListener() {
                             @Override
@@ -575,7 +582,13 @@ public class TabListCoordinator
                                 callback.shouldBlockAction();
                             }
                         };
-                mRecyclerView.addOnItemTouchListener(mOnItemTouchListener);
+            }
+            mItemTouchHelper.attachToRecyclerView(mRecyclerView);
+            mRecyclerView.addOnItemTouchListener(mOnItemTouchListener);
+        } else {
+            if (mItemTouchHelper != null && mOnItemTouchListener != null) {
+                mItemTouchHelper.attachToRecyclerView(null);
+                mRecyclerView.removeOnItemTouchListener(mOnItemTouchListener);
             }
         }
     }
@@ -659,12 +672,8 @@ public class TabListCoordinator
     /**
      * @see TabListMediator#resetWithListOfTabs(List, boolean)
      */
-    boolean resetWithListOfTabs(@Nullable List<PseudoTab> tabs, boolean quickMode) {
+    boolean resetWithListOfTabs(@Nullable List<Tab> tabs, boolean quickMode) {
         return mMediator.resetWithListOfTabs(tabs, quickMode);
-    }
-
-    boolean resetWithListOfTabs(@Nullable List<Tab> tabs) {
-        return resetWithListOfTabs(PseudoTab.getListOfPseudoTab(tabs), false);
     }
 
     void softCleanup() {

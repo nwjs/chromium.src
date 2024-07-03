@@ -8,6 +8,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "chrome/browser/lens/core/mojom/geometry.mojom.h"
 #include "chrome/browser/lens/core/mojom/lens.mojom.h"
 #include "chrome/browser/lens/core/mojom/overlay_object.mojom.h"
 #include "chrome/browser/lens/core/mojom/text.mojom.h"
@@ -24,11 +25,13 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_view_state_observer.h"
 #include "chrome/browser/ui/webui/searchbox/lens_searchbox_client.h"
 #include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
+#include "chrome/common/chrome_render_frame.mojom.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/sessions/core/session_id.h"
 #include "components/viz/common/frame_timing_details.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -44,6 +47,7 @@ namespace lens {
 class LensOverlayQueryController;
 class LensOverlaySidePanelCoordinator;
 class LensPermissionBubbleController;
+class LensSearchBubbleController;
 }  // namespace lens
 
 namespace views {
@@ -116,9 +120,22 @@ class LensOverlayController : public LensSearchboxClient,
   static bool IsEnabled(Profile* profile);
 
   // Sets a region to search after the overlay loads, then calls ShowUI().
+  // All units are in device pixels. region_bitmap contains the high definition
+  // image bytes to use for the search instead of cropping the region from the
+  // viewport.
   void ShowUIWithPendingRegion(
       lens::LensOverlayInvocationSource invocation_source,
-      lens::mojom::CenterRotatedBoxPtr region);
+      const gfx::Rect& tab_bounds,
+      const gfx::Rect& view_bounds,
+      const gfx::Rect& region_bounds,
+      const SkBitmap& region_bitmap);
+
+  // Implementation detail of above, exposed for testing. Do not call this
+  // directly.
+  void ShowUIWithPendingRegion(
+      lens::LensOverlayInvocationSource invocation_source,
+      lens::mojom::CenterRotatedBoxPtr region,
+      const SkBitmap& region_bitmap);
 
   // This is entry point for showing the overlay UI. This has no effect if state
   // is not kOff. This has no effect if the tab is not in the foreground. If the
@@ -300,6 +317,8 @@ class LensOverlayController : public LensSearchboxClient,
   // Called when the lens side panel has been hidden.
   void OnSidePanelHidden();
 
+  tabs::TabInterface* GetTabInterface();
+
   // Testing function to issue a Lens (region selection) request.
   void IssueLensRequestForTesting(lens::mojom::CenterRotatedBoxPtr region);
 
@@ -319,49 +338,55 @@ class LensOverlayController : public LensSearchboxClient,
   content::WebContents* GetSidePanelWebContentsForTesting();
 
   // Returns the current page URL for testing.
-  const GURL& GetPageURLForTesting() { return GetPageURL(); }
+  const GURL& GetPageURLForTesting();
 
   // Returns the current searchbox page classification for testing.
   metrics::OmniboxEventProto::PageClassification
-  GetPageClassificationForTesting() {
-    return GetPageClassification();
-  }
+  GetPageClassificationForTesting();
 
   // Returns the current thumbnail URI for testing.
-  const std::string& GetThumbnailForTesting() { return GetThumbnail(); }
+  const std::string& GetThumbnailForTesting();
 
   // Handles the event where text was modified in the searchbox for testing.
-  void OnTextModifiedForTesting() { OnTextModified(); }
+  void OnTextModifiedForTesting();
 
   // Handles the event where the thumbnail was removed from the searchbox for
   // testing.
-  void OnThumbnailRemovedForTesting() { OnThumbnailRemoved(); }
+  void OnThumbnailRemovedForTesting();
 
   // Returns the lens response stored in this controller for testing.
   const lens::proto::LensOverlayInteractionResponse&
-  GetLensResponseForTesting() {
-    return GetLensResponse();
-  }
+  GetLensResponseForTesting();
 
-  const lens::mojom::CenterRotatedBoxPtr& GetSelectedRegionForTesting() {
+  const lens::mojom::CenterRotatedBoxPtr& get_selected_region_for_testing() {
     return initialization_data_->selected_region_;
   }
 
-  const std::optional<std::pair<int, int>> GetSelectedTextForTesting() {
+  const std::optional<std::pair<int, int>> get_selected_text_for_region() {
     return initialization_data_->selected_text_;
   }
 
-  const std::vector<SearchQuery>& GetSearchQueryHistoryForTesting() {
+  const std::vector<SearchQuery>& get_search_query_history_for_testing() {
     return initialization_data_->search_query_history_stack_;
   }
 
-  const std::optional<SearchQuery>& GetLoadedSearchQueryForTesting() {
+  const std::optional<SearchQuery>& get_loaded_search_query_for_testing() {
     return initialization_data_->currently_loaded_search_query_;
   }
 
+  const std::vector<lens::mojom::CenterRotatedBoxPtr>&
+  GetSignificantRegionBoxesForTesting() {
+    return initialization_data_->significant_region_boxes_;
+  }
+
   lens::LensPermissionBubbleController*
-  GetLensPermissionBubbleControllerForTesting() {
+  get_lens_permission_bubble_controller_for_testing() {
     return permission_bubble_controller_.get();
+  }
+
+  lens::LensSearchBubbleController*
+  get_lens_search_bubble_controller_for_testing() {
+    return search_bubble_controller_.get();
   }
 
  protected:
@@ -393,6 +418,8 @@ class LensOverlayController : public LensSearchboxClient,
         lens::PaletteId color_palette,
         std::optional<GURL> page_url,
         std::optional<std::string> page_title,
+        std::vector<lens::mojom::CenterRotatedBoxPtr> significant_regions_ =
+            std::vector<lens::mojom::CenterRotatedBoxPtr>(),
         std::vector<lens::mojom::OverlayObjectPtr> objects =
             std::vector<lens::mojom::OverlayObjectPtr>(),
         lens::mojom::TextPtr text = lens::mojom::TextPtr(),
@@ -420,6 +447,9 @@ class LensOverlayController : public LensSearchboxClient,
 
     // The page title, if it is allowed to be shared.
     std::optional<std::string> page_title_;
+
+    // Bounding boxes for significant regions identified in the screenshot.
+    std::vector<lens::mojom::CenterRotatedBoxPtr> significant_region_boxes_;
 
     // The latest stored interaction response from the server.
     lens::proto::LensOverlayInteractionResponse interaction_response_;
@@ -458,12 +488,26 @@ class LensOverlayController : public LensSearchboxClient,
   // Takes a screenshot of the current viewport.
   void CaptureScreenshot();
 
+  // Fetches the bounding boxes of all images within the current viewport.
+  void FetchViewportImageBoundingBoxes(const SkBitmap& bitmap);
+
   // Called once a screenshot has been captured. This should trigger transition
   // to kOverlay. As this process is asynchronous, there are edge cases that can
   // result in multiple in-flight screenshot attempts. We record the
   // `attempt_id` for each attempt so we can ignore all but the most recent
   // attempt.
-  void DidCaptureScreenshot(int attempt_id, const SkBitmap& bitmap);
+  // `chrome_render_frame` is added to keep the InterfacePtr alive during the
+  // IPC call in FetchViewportImageBoundingBoxes().
+  void DidCaptureScreenshot(
+      mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame>
+          chrome_render_frame,
+      int attempt_id,
+      const SkBitmap& bitmap,
+      const std::vector<gfx::Rect>& bounds);
+
+  // Adds bounding boxes to the initialization data.
+  void AddBoundingBoxesToInitializationData(
+      const std::vector<gfx::Rect>& bounds);
 
   // Called when the UI needs to create the overlay widget.
   void ShowOverlayWidget();
@@ -513,9 +557,8 @@ class LensOverlayController : public LensSearchboxClient,
   // content::WebContentsDelegate:
   bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
                          const content::ContextMenuParams& params) override;
-  bool HandleKeyboardEvent(
-      content::WebContents* source,
-      const content::NativeWebKeyboardEvent& event) override;
+  bool HandleKeyboardEvent(content::WebContents* source,
+                           const input::NativeWebKeyboardEvent& event) override;
 
   // FullscreenObserver:
   void OnFullscreenStateChanged() override;
@@ -556,6 +599,12 @@ class LensOverlayController : public LensSearchboxClient,
 
   // Removes the blur on the live page.
   void RemoveBackgroundBlur();
+
+  // Makes a Lens request and updates all state related to the Lens request. If
+  // region_bitmap is provided, it will use those bytes to send to the Lens
+  // server instead of cropping the region from the full page screenshot.
+  void DoLensRequest(lens::mojom::CenterRotatedBoxPtr region,
+                     std::optional<SkBitmap> region_bitmap);
 
   // lens::mojom::LensPageHandler overrides.
   void ActivityRequestedByOverlay(
@@ -631,8 +680,12 @@ class LensOverlayController : public LensSearchboxClient,
   // Tracks the internal state machine.
   State state_ = State::kOff;
 
-  // The current corner radii set to the web view.
-  gfx::RoundedCornersF corner_radii_ = {0, 0, 0, 0};
+// The initial web view corner radii depending on the OS.
+#if BUILDFLAG(IS_MAC)
+  gfx::RoundedCornersF initial_corner_radii_ = {0, 0, 10, 10};
+#else
+  gfx::RoundedCornersF initial_corner_radii_ = {0, 0, 0, 0};
+#endif
 
   // Controller for showing the page screenshot permission bubble.
   std::unique_ptr<lens::LensPermissionBubbleController>
@@ -659,6 +712,11 @@ class LensOverlayController : public LensSearchboxClient,
 
   // Pending region to search after the overlay loads.
   lens::mojom::CenterRotatedBoxPtr pending_region_;
+
+  // The bitmap for the pending region stored in pending_region_.
+  // pending_region_ and pending_region_bitmap_ are correlated and their
+  // lifecycles are should stay in sync.
+  SkBitmap pending_region_bitmap_;
 
   // If the side panel needed to be closed before dismissing the overlay, this
   // stores the original dismissal_source so it is properly recorded when the
@@ -756,6 +814,10 @@ class LensOverlayController : public LensSearchboxClient,
   raw_ptr<views::WebView> overlay_web_view_;
   // Stores the session ID for the window of the widget on creation.
   std::optional<const SessionID> overlay_widget_window_session_id_;
+
+  // Owns the search bubble that shows over the overlay, before the side panel
+  // is showing.
+  std::unique_ptr<lens::LensSearchBubbleController> search_bubble_controller_;
 
   // --------------------Browser window scoped state: END---------------------
 

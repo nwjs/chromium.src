@@ -41,13 +41,13 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_directory_handle.mojom.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_error.mojom-shared.h"
-#include "third_party/blink/public/mojom/file_system_access/file_system_access_observer.mojom.h"
 
 namespace content {
 
-using blink::mojom::FileSystemAccessChangeType;
 using Change = FileSystemAccessWatcherManager::Observation::Change;
 using Observation = FileSystemAccessWatcherManager::Observation;
+using ChangeInfo = FileSystemAccessChangeSource::ChangeInfo;
+using ChangeType = FileSystemAccessChangeSource::ChangeType;
 using FilePathType = FileSystemAccessChangeSource::FilePathType;
 
 namespace {
@@ -62,52 +62,26 @@ void SpinEventLoopForABit() {
   loop.Run();
 }
 
-// TODO(crbug.com/40260973): Report the modified path on more platforms.
+// TODO(crbug.com/321980270): Report the modified path on more platforms.
 bool ReportsModifiedPathForLocalObservations() {
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
   return true;
 #else
   return false;
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 }
 
-// TODO(crbug.com/40260973): Report change info on more platforms.
+// TODO(crbug.com/321980270): Report change info on more platforms.
 bool ReportsChangeInfoForLocalObservations() {
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
   return true;
 #else
   return false;
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA) &&
         // !BUILDFLAG(IS_IOS)
-
-blink::mojom::FileSystemAccessChangeTypePtr ToMojoChangeTypePtr(
-    FileSystemAccessChangeType::Tag change_type,
-    std::vector<std::string> relative_path_moved_from = {}) {
-  switch (change_type) {
-    case FileSystemAccessChangeType::Tag::kCreated:
-      return FileSystemAccessChangeType::NewCreated(
-          blink::mojom::FileSystemAccessChangeTypeCreated::New());
-    case FileSystemAccessChangeType::Tag::kDeleted:
-      return FileSystemAccessChangeType::NewDeleted(
-          blink::mojom::FileSystemAccessChangeTypeDeleted::New());
-    case FileSystemAccessChangeType::Tag::kErrored:
-      return FileSystemAccessChangeType::NewErrored(
-          blink::mojom::FileSystemAccessChangeTypeErrored::New());
-    case FileSystemAccessChangeType::Tag::kModified:
-      return FileSystemAccessChangeType::NewModified(
-          blink::mojom::FileSystemAccessChangeTypeModified::New());
-    case FileSystemAccessChangeType::Tag::kMoved:
-      return FileSystemAccessChangeType::NewMoved(
-          blink::mojom::FileSystemAccessChangeTypeMoved::New(
-              std::move(relative_path_moved_from)));
-    case FileSystemAccessChangeType::Tag::kUnknown:
-      return FileSystemAccessChangeType::NewUnknown(
-          blink::mojom::FileSystemAccessChangeTypeUnknown::New());
-  }
-}
 
 // Accumulates changes it receives from the given `observation`.
 class ChangeAccumulator {
@@ -173,7 +147,7 @@ class FakeChangeSource : public FileSystemAccessChangeSource {
 
   void Signal(base::FilePath relative_path = base::FilePath(),
               bool error = false,
-              ChangeInfo change_info = {}) {
+              ChangeInfo change_info = ChangeInfo()) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     NotifyOfChange(std::move(relative_path), error, change_info);
   }
@@ -394,9 +368,7 @@ TEST_F(FileSystemAccessWatcherManagerTest, UnownedSource) {
 
   source.Signal();
 
-  std::list<Change> expected_changes = {
-      {file_url, ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown),
-       FilePathType::kUnknown}};
+  std::list<Change> expected_changes = {{file_url, ChangeInfo()}};
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(testing::ContainerEq(expected_changes))(
         accumulator.changes());
@@ -428,7 +400,7 @@ TEST_F(FileSystemAccessWatcherManagerTest, SourceFailsInitialization) {
   EXPECT_EQ(get_observation_future.Get().error()->status,
             blink::mojom::FileSystemAccessStatus::kOperationFailed);
 
-  // TODO(crbug.com/40105284): Determine what should happen on failure to
+  // TODO(crbug.com/341095544): Determine what should happen on failure to
   // initialize a source, then add better test coverage.
 }
 
@@ -458,10 +430,7 @@ TEST_F(FileSystemAccessWatcherManagerTest, RemoveObservation) {
 
     source.Signal();
 
-    std::list<Change> expected_changes = {
-        {file_url,
-         ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown),
-         FilePathType::kUnknown}};
+    std::list<Change> expected_changes = {{file_url, ChangeInfo()}};
     EXPECT_TRUE(base::test::RunUntil([&]() {
       return testing::Matches(testing::ContainerEq(expected_changes))(
           accumulator.changes());
@@ -501,10 +470,9 @@ TEST_F(FileSystemAccessWatcherManagerTest, ObserveBucketFS) {
 
   // TODO(crbug.com/40283118): Expect changes for recursively-created
   // intermediate directories.
-  Change expected_change{
-      test_dir_url,
-      ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kCreated),
-      FilePathType::kDirectory};
+  ChangeInfo change_info(FilePathType::kDirectory, ChangeType::kCreated,
+                         test_dir_url.path());
+  Change expected_change{test_dir_url, change_info};
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(testing::Contains(expected_change))(
         accumulator.changes());
@@ -512,7 +480,7 @@ TEST_F(FileSystemAccessWatcherManagerTest, ObserveBucketFS) {
 }
 
 TEST_F(FileSystemAccessWatcherManagerTest, UnsupportedScope) {
-  // TODO(crbug.com/40283896): External backends are not yet supported.
+  // TODO(crbug.com/321980129): External backends are not yet supported.
   base::FilePath test_external_path =
       base::FilePath::FromUTF8Unsafe(kTestMountPoint).AppendASCII("foo");
   auto external_url = manager_->CreateFileSystemURLFromPath(
@@ -529,7 +497,7 @@ TEST_F(FileSystemAccessWatcherManagerTest, UnsupportedScope) {
             blink::mojom::FileSystemAccessStatus::kNotSupportedError);
 }
 
-// TODO(crbug.com/40283894): Add tests covering more edge cases regarding
+// TODO(crbug.com/321980367): Add tests covering more edge cases regarding
 // overlapping scopes.
 TEST_F(FileSystemAccessWatcherManagerTest, OverlappingSourceScopes) {
   base::FilePath dir_path = dir_.GetPath().AppendASCII("dir");
@@ -567,13 +535,10 @@ TEST_F(FileSystemAccessWatcherManagerTest, OverlappingSourceScopes) {
   source_for_file.Signal();
   source_for_dir.Signal(/*relative_path=*/file_path.BaseName());
 
-  // TODO(crbug.com/40268906): It would be nice if the watcher manager
+  // TODO(crbug.com/321980367): It would be nice if the watcher manager
   // could consolidate these changes....
 
-  Change expected_change{
-      file_url, ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown),
-      FilePathType::kUnknown};
-
+  Change expected_change{file_url, ChangeInfo()};
   std::list<Change> expected_changes = {expected_change, expected_change};
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(testing::ContainerEq(expected_changes))(
@@ -623,14 +588,9 @@ TEST_F(FileSystemAccessWatcherManagerTest, OverlappingObservationScopes) {
   // Observed by both accumulators.
   source.Signal(/*relative_path=*/file_path.BaseName());
 
-  std::list<Change> expected_dir_changes = {
-      {dir_url, ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown),
-       FilePathType::kUnknown},
-      {file_url, ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown),
-       FilePathType::kUnknown}};
-  std::list<Change> expected_file_changes = {
-      {file_url, ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown),
-       FilePathType::kUnknown}};
+  std::list<Change> expected_dir_changes = {{dir_url, ChangeInfo()},
+                                            {file_url, ChangeInfo()}};
+  std::list<Change> expected_file_changes = {{file_url, ChangeInfo()}};
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(testing::ContainerEq(expected_dir_changes))(
                dir_accumulator.changes()) &&
@@ -664,13 +624,10 @@ TEST_F(FileSystemAccessWatcherManagerTest, ErroredChange) {
 
   source.Signal(/*relative_path=*/base::FilePath(), /*error=*/true);
 
-  std::list<Change> expected_changes = {
-      {file_url, ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kErrored),
-       FilePathType::kUnknown}};
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return testing::Matches(testing::ContainerEq(expected_changes))(
-        accumulator.changes());
-  }));
+  // TODO(crbug.com/40105284): For now, errored events are not reported.
+  // Once we update to report the first error (but not subsequent ones), update
+  // this expectation.
+  EXPECT_THAT(accumulator.changes(), testing::IsEmpty());
 }
 
 TEST_F(FileSystemAccessWatcherManagerTest, ChangeAtRelativePath) {
@@ -704,8 +661,7 @@ TEST_F(FileSystemAccessWatcherManagerTest, ChangeAtRelativePath) {
       {manager_->CreateFileSystemURLFromPath(
            FileSystemAccessEntryFactory::PathType::kLocal,
            dir_path.Append(relative_path)),
-       ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown),
-       FilePathType::kUnknown}};
+       ChangeInfo()}};
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(testing::ContainerEq(expected_changes))(
         accumulator.changes());
@@ -735,13 +691,11 @@ TEST_F(FileSystemAccessWatcherManagerTest, ChangeType) {
   EXPECT_TRUE(
       watcher_manager().HasObservationForTesting(accumulator.observation()));
 
-  source.Signal(
-      /*relative_path=*/base::FilePath(), /*error=*/false,
-      {.change_type = FileSystemAccessChangeSource::ChangeType::kCreated});
+  base::FilePath path;
+  ChangeInfo change_info(FilePathType::kUnknown, ChangeType::kCreated, path);
+  source.Signal(/*relative_path=*/path, /*error=*/false, change_info);
 
-  std::list<Change> expected_changes = {
-      {file_url, ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kCreated),
-       FilePathType::kUnknown}};
+  std::list<Change> expected_changes = {{file_url, change_info}};
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(testing::ContainerEq(expected_changes))(
         accumulator.changes());
@@ -771,20 +725,17 @@ TEST_F(FileSystemAccessWatcherManagerTest, ErrorTakesPrecedenceOverChangeType) {
   EXPECT_TRUE(
       watcher_manager().HasObservationForTesting(accumulator.observation()));
 
-  source.Signal(
-      /*relative_path=*/base::FilePath(), /*error=*/true,
-      {.change_type = FileSystemAccessChangeSource::ChangeType::kCreated});
+  base::FilePath path;
+  ChangeInfo change_info(FilePathType::kUnknown, ChangeType::kCreated, path);
+  source.Signal(/*relative_path=*/path, /*error=*/true, change_info);
 
-  std::list<Change> expected_changes = {
-      {file_url, ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kErrored),
-       FilePathType::kUnknown}};
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return testing::Matches(testing::ContainerEq(expected_changes))(
-        accumulator.changes());
-  }));
+  // TODO(crbug.com/40105284): For now, errored events are not reported.
+  // Once we update to report the first error (but not subsequent ones), update
+  // this expectation.
+  EXPECT_THAT(accumulator.changes(), testing::IsEmpty());
 }
 
-// TODO(crbug.com/40105284): Consider parameterizing these tests once
+// TODO(crbug.com/321980129): Consider parameterizing these tests once
 // observing changes to other backends is supported.
 
 TEST_F(FileSystemAccessWatcherManagerTest, WatchLocalDirectory) {
@@ -814,23 +765,21 @@ TEST_F(FileSystemAccessWatcherManagerTest, WatchLocalDirectory) {
   EXPECT_TRUE(
       watcher_manager().HasObservationForTesting(accumulator.observation()));
 
-  // Delete a file in the directory. This should be reported to `accumulator`.
-  base::DeleteFile(file_path);
+  // Move a file in the directory. This should be reported to `accumulator`.
+  auto new_file_path = dir_path.AppendASCII("bar");
+  base::Move(file_path, new_file_path);
 
   auto expected_url =
       ReportsModifiedPathForLocalObservations()
           ? manager_->CreateFileSystemURLFromPath(
-                FileSystemAccessEntryFactory::PathType::kLocal, file_path)
+                FileSystemAccessEntryFactory::PathType::kLocal, new_file_path)
           : dir_url;
-  auto mojo_change_ptr =
+  ChangeInfo change_info =
       ReportsChangeInfoForLocalObservations()
-          ? ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kDeleted)
-          : ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown);
-  auto file_path_type = ReportsChangeInfoForLocalObservations()
-                            ? FilePathType::kFile
-                            : FilePathType::kUnknown;
-  std::list<Change> expected_changes = {
-      {expected_url, std::move(mojo_change_ptr), file_path_type}};
+          ? ChangeInfo(FilePathType::kFile, ChangeType::kMoved, new_file_path,
+                       file_path)
+          : ChangeInfo();
+  std::list<Change> expected_changes = {{expected_url, change_info}};
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(testing::ContainerEq(expected_changes))(
         accumulator.changes());
@@ -883,10 +832,7 @@ TEST_F(FileSystemAccessWatcherManagerTest,
 #endif  // BUILDFLAG(IS_ANDROID)|| BUILDFLAG(IS_IOS) || BUILDFLAG(IS_FUCHSIA)
 }
 
-// TODO(crbug/333048551): Failing on Mac. Re-enable the test after fixing the
-// issue.
-TEST_F(FileSystemAccessWatcherManagerTest,
-       DISABLED_WatchLocalDirectoryRecursively) {
+TEST_F(FileSystemAccessWatcherManagerTest, WatchLocalDirectoryRecursively) {
   base::FilePath dir_path = dir_.GetPath().AppendASCII("dir");
   auto dir_url = manager_->CreateFileSystemURLFromPath(
       FileSystemAccessEntryFactory::PathType::kLocal, dir_path);
@@ -918,27 +864,15 @@ TEST_F(FileSystemAccessWatcherManagerTest,
   EXPECT_TRUE(watcher_manager().HasSourceContainingScopeForTesting(
       accumulator.observation()->scope()));
 
-  // TODO(crbug.com/40263777): Ensure that no events are reported by this
+  // TODO(crbug.com/343801378): Ensure that no events are reported by this
   // point.
 
   // Delete a file in the sub-directory. This should be reported to
   // `accumulator`.
   base::DeleteFile(file_path);
 
-  auto expected_url =
-      ReportsModifiedPathForLocalObservations()
-          ? manager_->CreateFileSystemURLFromPath(
-                FileSystemAccessEntryFactory::PathType::kLocal, file_path)
-          : dir_url;
-  auto mojo_change_ptr =
-      ReportsChangeInfoForLocalObservations()
-          ? ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kDeleted)
-          : ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown);
-  auto file_path_type = ReportsChangeInfoForLocalObservations()
-                            ? FilePathType::kFile
-                            : FilePathType::kUnknown;
-  std::list<Change> expected_changes = {
-      {expected_url, std::move(mojo_change_ptr), file_path_type}};
+  // TODO(crbug.com/40263777): Check values of expected changes, depending
+  // on platform availability for change types.
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(testing::Not(testing::IsEmpty()))(
         accumulator.changes());
@@ -975,15 +909,23 @@ TEST_F(FileSystemAccessWatcherManagerTest, WatchLocalFile) {
   // Deleting the watched file should notify `accumulator`.
   base::DeleteFile(file_path);
 
-  auto mojo_change_ptr =
+#if BUILDFLAG(IS_WIN)
+  // There is no way to know the correct handle type on Windows in this
+  // scenario.
+  //
+  // Window's content::FilePathWatcher uses base::GetFileInfo to figure out the
+  // file path type. Since `fileInDir` is deleted, there is nothing to call
+  // base::GetFileInfo on.
+  ChangeInfo change_info(FilePathType::kUnknown, ChangeType::kDeleted,
+                         file_url.path());
+#else
+  ChangeInfo change_info =
       ReportsChangeInfoForLocalObservations()
-          ? ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kDeleted)
-          : ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown);
-  auto file_path_type = ReportsChangeInfoForLocalObservations()
-                            ? FilePathType::kFile
-                            : FilePathType::kUnknown;
-  std::list<Change> expected_changes = {
-      {file_url, std::move(mojo_change_ptr), file_path_type}};
+          ? ChangeInfo(FilePathType::kFile, ChangeType::kDeleted,
+                       file_url.path())
+          : ChangeInfo();
+#endif
+  std::list<Change> expected_changes = {{file_url, change_info}};
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(testing::ContainerEq(expected_changes))(
         accumulator.changes());
@@ -1039,15 +981,23 @@ TEST_F(FileSystemAccessWatcherManagerTest,
   // Deleting the watched file should notify each `accumulator`.
   base::DeleteFile(file_path);
 
-  auto mojo_change_ptr =
+#if BUILDFLAG(IS_WIN)
+  // There is no way to know the correct handle type on Windows in this
+  // scenario.
+  //
+  // Window's content::FilePathWatcher uses base::GetFileInfo to figure out the
+  // file path type. Since `fileInDir` is deleted, there is nothing to call
+  // base::GetFileInfo on.
+  ChangeInfo change_info(FilePathType::kUnknown, ChangeType::kDeleted,
+                         file_url.path());
+#else
+  ChangeInfo change_info =
       ReportsChangeInfoForLocalObservations()
-          ? ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kDeleted)
-          : ToMojoChangeTypePtr(FileSystemAccessChangeType::Tag::kUnknown);
-  auto file_path_type = ReportsChangeInfoForLocalObservations()
-                            ? FilePathType::kFile
-                            : FilePathType::kUnknown;
-  std::list<Change> expected_changes = {
-      {file_url, std::move(mojo_change_ptr), file_path_type}};
+          ? ChangeInfo(FilePathType::kFile, ChangeType::kDeleted,
+                       file_url.path())
+          : ChangeInfo();
+#endif
+  std::list<Change> expected_changes = {{file_url, change_info}};
   const auto expected_changes_matcher = testing::ContainerEq(expected_changes);
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return testing::Matches(expected_changes_matcher)(accumulator1.changes()) &&

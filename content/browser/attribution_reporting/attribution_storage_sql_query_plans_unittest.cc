@@ -11,7 +11,8 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_util.h"
 #include "base/test/gmock_expected_support.h"
-#include "content/browser/attribution_reporting/attribution_storage_sql.h"
+#include "content/browser/attribution_reporting/attribution_resolver.h"
+#include "content/browser/attribution_reporting/attribution_resolver_impl.h"
 #include "content/browser/attribution_reporting/attribution_test_utils.h"
 #include "content/browser/attribution_reporting/sql_queries.h"
 #include "content/browser/attribution_reporting/sql_query_plan_test_util.h"
@@ -35,8 +36,8 @@ class AttributionSqlQueryPlanTest : public testing::Test {
     ASSERT_TRUE(temp_directory_.CreateUniqueTempDir());
 
     {
-      std::unique_ptr<AttributionStorage> storage =
-          std::make_unique<AttributionStorageSql>(
+      std::unique_ptr<AttributionResolver> storage =
+          std::make_unique<AttributionResolverImpl>(
               temp_directory_.GetPath(),
               std::make_unique<ConfigurableStorageDelegate>());
 
@@ -242,6 +243,35 @@ TEST_F(AttributionSqlQueryPlanTest, kDeleteAttributionRateLimitByReportIdSql) {
   EXPECT_THAT(
       GetPlan(attribution_queries::kDeleteAttributionRateLimitByReportIdSql),
       ValueIs(UsesIndex("rate_limit_report_id_idx")));
+}
+
+TEST_F(AttributionSqlQueryPlanTest,
+       kAggregatableDebugReportAllowedForRateLimitSql) {
+  EXPECT_THAT(
+      GetPlan(
+          attribution_queries::kAggregatableDebugReportAllowedForRateLimitSql),
+      ValueIs(UsesIndex("aggregatable_debug_rate_limits_context_site_idx")));
+}
+
+TEST_F(AttributionSqlQueryPlanTest,
+       kDeleteExpiredAggregatableDebugRateLimitsSql) {
+  EXPECT_THAT(
+      GetPlan(
+          attribution_queries::kDeleteExpiredAggregatableDebugRateLimitsSql),
+      ValueIs(UsesIndex("aggregatable_debug_rate_limits_time_idx")));
+}
+
+TEST_F(AttributionSqlQueryPlanTest,
+       kSelectAggregatableDebugRateLimitsForDeletionSql) {
+  EXPECT_THAT(GetPlan(attribution_queries::
+                          kSelectAggregatableDebugRateLimitsForDeletionSql),
+              ValueIs(UsesIndex("aggregatable_debug_rate_limits_time_idx")));
+}
+
+TEST_F(AttributionSqlQueryPlanTest, kDeleteAggregatableDebugRateLimitRangeSql) {
+  EXPECT_THAT(
+      GetPlan(attribution_queries::kDeleteAggregatableDebugRateLimitRangeSql),
+      ValueIs(UsesIndex("aggregatable_debug_rate_limits_time_idx")));
 }
 
 }  // namespace

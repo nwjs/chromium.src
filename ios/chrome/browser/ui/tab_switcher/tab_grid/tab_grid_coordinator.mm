@@ -13,6 +13,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
 #import "components/bookmarks/browser/core_bookmark_model.h"
+#import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/feature_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/search_engines/template_url_service.h"
@@ -67,6 +68,7 @@
 #import "ios/chrome/browser/ui/bookmarks/home/bookmarks_coordinator.h"
 #import "ios/chrome/browser/ui/bring_android_tabs/bring_android_tabs_prompt_coordinator.h"
 #import "ios/chrome/browser/ui/bring_android_tabs/tab_list_from_android_coordinator.h"
+#import "ios/chrome/browser/ui/bubble/bubble_constants.h"
 #import "ios/chrome/browser/ui/commerce/price_card/price_card_mediator.h"
 #import "ios/chrome/browser/ui/history/history_coordinator.h"
 #import "ios/chrome/browser/ui/history/history_coordinator_delegate.h"
@@ -298,7 +300,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 #pragma mark - Public
 
 - (Browser*)browser {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nil;
 }
 
@@ -349,7 +351,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [self dismissPopovers];
 
   [self.inactiveTabsCoordinator hide];
-  [_toolbarsCoordinator stop];
 
   if (_bookmarksCoordinator) {
     [_bookmarksCoordinator dismissBookmarkModalControllerAnimated:YES];
@@ -414,20 +415,18 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     }
   }
 
+  // Determine the tab group, if any, of the active web state.
   const TabGroup* tabGroup = nullptr;
-
+  WebStateList* webStateList = nullptr;
   if (currentActivePage == TabGridPageRegularTabs) {
-    WebStateList* webStateList = self.regularBrowser->GetWebStateList();
-    int activeWebStateIndex =
-        webStateList->GetIndexOfWebState(webStateList->GetActiveWebState());
-    if (activeWebStateIndex != WebStateList::kInvalidIndex) {
-      tabGroup = webStateList->GetGroupOfWebStateAt(activeWebStateIndex);
-    }
+    webStateList = self.regularBrowser->GetWebStateList();
   } else if (currentActivePage == TabGridPageIncognitoTabs) {
-    WebStateList* webStateList = self.incognitoBrowser->GetWebStateList();
+    webStateList = self.incognitoBrowser->GetWebStateList();
+  }
+  if (webStateList) {
     int activeWebStateIndex =
         webStateList->GetIndexOfWebState(webStateList->GetActiveWebState());
-    if (activeWebStateIndex != WebStateList::kInvalidIndex) {
+    if (webStateList->ContainsIndex(activeWebStateIndex)) {
       tabGroup = webStateList->GetGroupOfWebStateAt(activeWebStateIndex);
     }
   }
@@ -744,7 +743,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 - (void)start {
   ChromeBrowserState* browser_state = self.regularBrowser->GetBrowserState();
   _mediator = [[TabGridMediator alloc]
-           initWithPrefService:browser_state->GetPrefs()
+       initWithIdentityManager:IdentityManagerFactory::GetForBrowserState(
+                                   browser_state)
+                   prefService:browser_state->GetPrefs()
       featureEngagementTracker:feature_engagement::TrackerFactory::
                                    GetForBrowserState(browser_state)];
 
@@ -764,9 +765,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   _mediator.consumer = _baseViewController;
 
-  _toolbarsCoordinator =
-      [[TabGridToolbarsCoordinator alloc] initWithBaseViewController:nil
-                                                             browser:nil];
+  _toolbarsCoordinator = [[TabGridToolbarsCoordinator alloc]
+      initWithBaseViewController:baseViewController
+                         browser:_regularBrowser];
   _toolbarsCoordinator.searchDelegate = self.baseViewController;
   _toolbarsCoordinator.toolbarTabGridDelegate = self.baseViewController;
   [_toolbarsCoordinator start];
@@ -833,6 +834,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [_incognitoGridCoordinator start];
 
   self.incognitoTabsMediator = _incognitoGridCoordinator.incognitoGridMediator;
+  [self.incognitoTabsMediator
+      initializeSupervisedUserCapabilitiesObserver:
+          IdentityManagerFactory::GetForBrowserState(browser_state)];
   self.incognitoTabsMediator.toolbarTabGridDelegate = baseViewController;
 
   baseViewController.incognitoGridHandler =
@@ -851,23 +855,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                                     tabContextMenuDelegate:self];
   self.baseViewController.remoteTabsViewController.menuProvider =
       self.recentTabsContextMenuHelper;
-
-  if (IsInactiveTabsAvailable()) {
-    self.inactiveTabsCoordinator = [[InactiveTabsCoordinator alloc]
-        initWithBaseViewController:self.baseViewController
-                           browser:_inactiveBrowser
-                          delegate:self];
-    self.inactiveTabsCoordinator.tabContextMenuDelegate = self;
-
-    [self.inactiveTabsCoordinator start];
-
-    baseViewController.inactiveGridHandler =
-        self.inactiveTabsCoordinator.gridCommandsHandler;
-    self.regularTabsMediator.containedGridToolbarsProvider =
-        self.inactiveTabsCoordinator.toolbarsConfigurationProvider;
-    self.regularTabsMediator.inactiveTabsGridCommands =
-        self.inactiveTabsCoordinator.gridCommandsHandler;
-  }
 
   // TODO(crbug.com/41390276) : Remove RecentTabsTableViewController dependency
   // on ChromeBrowserState so that we don't need to expose the view controller.
@@ -916,6 +903,23 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       [[GridContainerViewController alloc] init];
   self.baseViewController.remoteGridContainerViewController =
       _remoteGridContainerViewController;
+
+  if (IsInactiveTabsAvailable()) {
+    self.inactiveTabsCoordinator = [[InactiveTabsCoordinator alloc]
+        initWithBaseViewController:self.baseViewController
+                           browser:_inactiveBrowser
+                          delegate:self];
+    self.inactiveTabsCoordinator.tabContextMenuDelegate = self;
+
+    [self.inactiveTabsCoordinator start];
+
+    baseViewController.inactiveGridHandler =
+        self.inactiveTabsCoordinator.gridCommandsHandler;
+    self.regularTabsMediator.containedGridToolbarsProvider =
+        self.inactiveTabsCoordinator.toolbarsConfigurationProvider;
+    self.regularTabsMediator.inactiveTabsGridCommands =
+        self.inactiveTabsCoordinator.gridCommandsHandler;
+  }
 
   self.firstPresentation = YES;
 
@@ -1053,13 +1057,13 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       activeBrowser = self.regularBrowser;
       break;
     case TabGridPageRemoteTabs:
-      DUMP_WILL_BE_NOTREACHED_NORETURN()
+      DUMP_WILL_BE_NOTREACHED()
           << "It is invalid to have an active tab in Recent Tabs.";
       // This appears to come up in release -- see crbug.com/1069243.
       // Defensively early return instead of continuing.
       return;
     case TabGridPageTabGroups:
-      DUMP_WILL_BE_NOTREACHED_NORETURN()
+      DUMP_WILL_BE_NOTREACHED()
           << "It is invalid to have an active tab in Tab Groups.";
       // This may come up in release -- see crbug.com/1069243.
       // Defensively early return instead of continuing.
@@ -1235,12 +1239,21 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
           feature_engagement::kIPHiOSTabGridSwipeRightForIncognito);
 }
 
-- (void)tabGridDidDismissSwipeToIncognitoIPH {
-  feature_engagement::TrackerFactory::GetForBrowserState(
-      self.regularBrowser->GetBrowserState())
-      ->DismissedWithSnooze(
-          feature_engagement::kIPHiOSTabGridSwipeRightForIncognito,
-          feature_engagement::Tracker::SnoozeAction::DISMISSED);
+- (void)tabGridDidDismissSwipeToIncognitoIPHWithReason:
+    (IPHDismissalReasonType)reason {
+  feature_engagement::Tracker* tracker =
+      feature_engagement::TrackerFactory::GetForBrowserState(
+          self.regularBrowser->GetBrowserState());
+  if (tracker) {
+    tracker->DismissedWithSnooze(
+        feature_engagement::kIPHiOSTabGridSwipeRightForIncognito,
+        feature_engagement::Tracker::SnoozeAction::DISMISSED);
+    if (reason == IPHDismissalReasonType::kTappedClose) {
+      tracker->NotifyEvent(
+          feature_engagement::events::
+              kIOSSwipeRightForIncognitoIPHDismissButtonTapped);
+    }
+  }
 }
 
 #pragma mark - InactiveTabsCoordinatorDelegate

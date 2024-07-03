@@ -101,6 +101,7 @@
 #include "ash/media/media_controller_impl.h"
 #include "ash/metrics/feature_discovery_duration_reporter_impl.h"
 #include "ash/metrics/login_unlock_throughput_recorder.h"
+#include "ash/metrics/unlock_throughput_recorder.h"
 #include "ash/metrics/user_metrics_recorder.h"
 #include "ash/multi_capture/multi_capture_service_client.h"
 #include "ash/multi_device_setup/multi_device_notification_presenter.h"
@@ -203,7 +204,6 @@
 #include "ash/utility/occlusion_tracker_pauser.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "ash/wm/ash_focus_rules.h"
-#include "ash/wm/bounds_tracker/window_bounds_tracker.h"
 #include "ash/wm/container_finder.h"
 #include "ash/wm/coral/coral_controller.h"
 #include "ash/wm/cursor_manager_chromeos.h"
@@ -672,6 +672,10 @@ DeskProfilesDelegate* Shell::GetDeskProfilesDelegate() {
   return shell_delegate_->GetDeskProfilesDelegate();
 }
 
+WebAuthNDialogController* Shell::webauthn_dialog_controller() {
+  return webauthn_dialog_controller_.get();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Shell, private:
 
@@ -683,8 +687,6 @@ Shell::Shell(std::unique_ptr<ShellDelegate> shell_delegate)
           std::make_unique<WebAuthNDialogControllerImpl>()),
       in_session_auth_dialog_controller_(
           std::make_unique<InSessionAuthDialogControllerImpl>()),
-      keyboard_brightness_control_delegate_(
-          std::make_unique<KeyboardBrightnessController>()),
       locale_update_controller_(std::make_unique<LocaleUpdateControllerImpl>()),
       parent_access_controller_(std::make_unique<ParentAccessControllerImpl>()),
       local_authentication_request_controller_(
@@ -722,6 +724,7 @@ Shell::~Shell() {
   }
 #endif
   booting_animation_controller_.reset();
+  unlock_throughput_recorder_.reset();
   login_unlock_throughput_recorder_.reset();
 
   hud_display::HUDDisplayView::Destroy();
@@ -883,8 +886,6 @@ Shell::~Shell() {
   // Controllers who have WindowObserver added must be deleted
   // before |window_tree_host_manager_| is deleted.
   persistent_window_controller_.reset();
-
-  window_bounds_tracker_.reset();
 
   display_highlight_controller_.reset();
 
@@ -1169,6 +1170,7 @@ Shell::~Shell() {
   // Observes `SessionController` and must be destroyed before it.
   federated_service_controller_.reset();
   brightness_control_delegate_.reset();
+  keyboard_brightness_control_delegate_.reset();
 
   UsbguardClient::Shutdown();
 
@@ -1198,6 +1200,7 @@ void Shell::Init(
   native_display_delegate_ = std::move(native_display_delegate);
   login_unlock_throughput_recorder_ =
       std::make_unique<LoginUnlockThroughputRecorder>();
+  unlock_throughput_recorder_ = std::make_unique<UnlockThroughputRecorder>();
 
   // Required by DetachableBaseHandler.
   chromeos::InitializeDBusClient<HammerdClient>(dbus_bus.get());
@@ -1235,6 +1238,11 @@ void Shell::Init(
       std::make_unique<system::BrightnessControllerChromeos>(
           local_state_, session_controller_.get());
 
+  // This needs to be initialized after SessionController.
+  keyboard_brightness_control_delegate_ =
+      std::make_unique<KeyboardBrightnessController>(local_state_,
+                                                     session_controller_.get());
+
   // These controllers call Shell::Get() in their constructors, so they cannot
   // be in the member initialization list.
   touch_devices_controller_ = std::make_unique<TouchDevicesController>();
@@ -1248,9 +1256,11 @@ void Shell::Init(
       std::make_unique<PolicyRecommendationRestorer>();
   screen_switch_check_controller_ =
       std::make_unique<ScreenSwitchCheckController>();
-  multidevice_notification_presenter_ =
-      std::make_unique<MultiDeviceNotificationPresenter>(
-          message_center::MessageCenter::Get());
+  if (features::IsCrossDeviceFeatureSuiteAllowed()) {
+    multidevice_notification_presenter_ =
+        std::make_unique<MultiDeviceNotificationPresenter>(
+            message_center::MessageCenter::Get());
+  }
   media_controller_ = std::make_unique<MediaControllerImpl>();
   media_notification_provider_ =
       shell_delegate_->CreateMediaNotificationProvider();
@@ -1410,12 +1420,6 @@ void Shell::Init(
   focus_rules_ = new AshFocusRules();
   focus_controller_ = std::make_unique<::wm::FocusController>(focus_rules_);
   focus_controller_->AddObserver(this);
-
-  // `WindowBoundsTracker` depends on `FocusController`, as it needs to track
-  // the window's activation changes.
-  if (features::IsWindowBoundsTrackerEnabled()) {
-    window_bounds_tracker_ = std::make_unique<WindowBoundsTracker>();
-  }
 
   overview_controller_ = std::make_unique<OverviewController>();
 
@@ -1698,10 +1702,8 @@ void Shell::Init(
     wm_mode_controller_ = std::make_unique<WmModeController>();
   }
 
-  if (features::IsHotspotEnabled()) {
-    hotspot_icon_animation_ = std::make_unique<HotspotIconAnimation>();
-    hotspot_info_cache_ = std::make_unique<HotspotInfoCache>();
-  }
+  hotspot_icon_animation_ = std::make_unique<HotspotIconAnimation>();
+  hotspot_info_cache_ = std::make_unique<HotspotInfoCache>();
 
   window_tree_host_manager_->InitHosts();
 
@@ -1866,13 +1868,8 @@ void Shell::InitializeDisplayManager() {
   display_configuration_observer_ =
       std::make_unique<DisplayConfigurationObserver>();
 
-  // `window_bounds_tracker_` will be used to remap or restore windows on
-  // display removal, reconnection and rotation if the corresponding flag is
-  // enabled.
-  if (!features::IsWindowBoundsTrackerEnabled()) {
-    persistent_window_controller_ =
-        std::make_unique<PersistentWindowController>();
-  }
+  persistent_window_controller_ =
+      std::make_unique<PersistentWindowController>();
 
   projecting_observer_ =
       std::make_unique<ProjectingObserver>(display_manager_->configurator());
@@ -1978,7 +1975,7 @@ std::unique_ptr<ui::EventTargetIterator> Shell::GetChildIterator() const {
 }
 
 ui::EventTargeter* Shell::GetEventTargeter() {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 

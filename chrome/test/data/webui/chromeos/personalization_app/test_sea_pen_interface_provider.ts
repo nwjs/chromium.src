@@ -12,7 +12,7 @@ import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 
 export class TestSeaPenProvider extends TestBrowserProxy implements
     SeaPenProviderInterface {
-  images: SeaPenThumbnail[] = [
+  thumbnails: SeaPenThumbnail[] = [
     {
       id: 1,
       image: {url: 'https://sea-pen-images.googleusercontent.com/1'},
@@ -37,26 +37,28 @@ export class TestSeaPenProvider extends TestBrowserProxy implements
     333,
   ];
 
-  recentImageInfo2: RecentSeaPenImageInfo = {
-    query: {
-      templateQuery: {
-        id: SeaPenTemplateId.kGlowscapes,
-        options: Object.fromEntries([
-          [
-            SeaPenTemplateChip.kGlowscapesLandscape,
-            SeaPenTemplateOption.kGlowscapesLandscapeCoralReef,
-          ],
-          [
-            SeaPenTemplateChip.kGlowscapesFeature,
-            SeaPenTemplateOption.kGlowscapesFeatureFlower,
-          ],
-        ]),
-        userVisibleQuery: {
-          text: 'test template query',
-          templateTitle: 'test template title',
-        },
+  seaPenQuery: SeaPenQuery = {
+    templateQuery: {
+      id: SeaPenTemplateId.kGlowscapes,
+      options: Object.fromEntries([
+        [
+          SeaPenTemplateChip.kGlowscapesLandscape,
+          SeaPenTemplateOption.kGlowscapesLandscapeCoralReef,
+        ],
+        [
+          SeaPenTemplateChip.kGlowscapesFeature,
+          SeaPenTemplateOption.kGlowscapesFeatureFlower,
+        ],
+      ]),
+      userVisibleQuery: {
+        text: 'test template query',
+        templateTitle: 'test template title',
       },
     },
+  };
+
+  recentImageInfo2: RecentSeaPenImageInfo = {
+    query: this.seaPenQuery,
     creationTime: stringToMojoString16('Dec 15, 2023'),
   };
 
@@ -94,10 +96,10 @@ export class TestSeaPenProvider extends TestBrowserProxy implements
 
   constructor() {
     super([
-      'searchWallpaper',
+      'getSeaPenThumbnails',
       'selectSeaPenThumbnail',
       'selectRecentSeaPenImage',
-      'getRecentSeaPenImages',
+      'getRecentSeaPenImageIds',
       'getRecentSeaPenImageThumbnail',
       'deleteRecentSeaPenImage',
       'shouldShowSeaPenIntroductionDialog',
@@ -105,10 +107,10 @@ export class TestSeaPenProvider extends TestBrowserProxy implements
     ]);
   }
 
-  searchWallpaper(query: SeaPenQuery) {
-    this.methodCalled('searchWallpaper', query);
+  getSeaPenThumbnails(query: SeaPenQuery) {
+    this.methodCalled('getSeaPenThumbnails', query);
     return Promise.resolve({
-      images: this.images,
+      thumbnails: this.thumbnails,
       statusCode: MantaStatusCode.kOk,
     });
   }
@@ -127,8 +129,8 @@ export class TestSeaPenProvider extends TestBrowserProxy implements
     return this.selectSeaPenRecentImageResponse;
   }
 
-  getRecentSeaPenImages() {
-    this.methodCalled('getRecentSeaPenImages');
+  getRecentSeaPenImageIds() {
+    this.methodCalled('getRecentSeaPenImageIds');
     return Promise.resolve({ids: this.recentImageIds});
   }
 

@@ -8,7 +8,7 @@ import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min
 import type {SettingsSecurityPageElement} from 'chrome://settings/lazy_load.js';
 import {HttpsFirstModeSetting, SafeBrowsingSetting} from 'chrome://settings/lazy_load.js';
 import type {SettingsPrefsElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
-import {HatsBrowserProxyImpl, CrSettingsPrefs, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PrivacyElementInteractions, PrivacyPageBrowserProxyImpl, Router, routes, SafeBrowsingInteractions, SecureDnsMode, SecurityPageInteraction} from 'chrome://settings/settings.js';
+import {HatsBrowserProxyImpl, CrSettingsPrefs, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PrivacyElementInteractions, PrivacyPageBrowserProxyImpl, resetRouterForTesting, Router, routes, SafeBrowsingInteractions, SecureDnsMode, SecurityPageInteraction} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue, assertNotEquals} from 'chrome://webui-test/chai_assert.js';
 import {isChildVisible, eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
@@ -60,16 +60,19 @@ suite('Main', function() {
       enableSecurityKeysSubpage: true,
       enableHttpsFirstModeNewSettings: true,
     });
+    resetRouterForTesting();
   });
 
   setup(function() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
     testMetricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
     testPrivacyBrowserProxy = new TestPrivacyPageBrowserProxy();
     PrivacyPageBrowserProxyImpl.setInstance(testPrivacyBrowserProxy);
     openWindowProxy = new TestOpenWindowProxy();
     OpenWindowProxyImpl.setInstance(openWindowProxy);
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
     page = document.createElement('settings-security-page');
     page.prefs = pagePrefs();
     document.body.appendChild(page);
@@ -84,17 +87,14 @@ suite('Main', function() {
   });
 
   test('ChromeRootStorePage', async function() {
+    // Chrome Root Store Help link should not be present since
+    // kEnableCertManagementUIV2 feature flag is enabled by
+    // SettingsSecurityPageTest constructor.
+    // TODO(crbug.com/40928765): remove this comment once the feature flag is
+    // set to default enabled.
     const row =
         page.shadowRoot!.querySelector<HTMLElement>('#chromeCertificates');
-    // <if expr="is_chromeos">
-    assertTrue(!!row, 'Chrome Root Store Help Center link not found');
-    row.click();
-    const url = await openWindowProxy.whenCalled('openUrl');
-    assertEquals(url, loadTimeData.getString('chromeRootStoreHelpCenterURL'));
-    // </if>
-    // <if expr="not is_chromeos">
     assertFalse(!!row, 'Chrome Root Store Help Center link unexpectedly found');
-    // </if>
   });
 
   // <if expr="not chromeos_lacros">
@@ -179,9 +179,11 @@ suite('SecurityPageHappinessTrackingSurveys', function() {
   });
 
   setup(function() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
     testHatsBrowserProxy = new TestHatsBrowserProxy();
     HatsBrowserProxyImpl.setInstance(testHatsBrowserProxy);
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
     page = document.createElement('settings-security-page');
     page.prefs = settingsPrefs.prefs;
     document.body.appendChild(page);
@@ -269,16 +271,19 @@ suite('FlagsDisabled', function() {
       enableHttpsFirstModeNewSettings: false,
       enableCertManagementUIV2: false,
     });
+    resetRouterForTesting();
   });
 
   setup(function() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
     testMetricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
     testPrivacyBrowserProxy = new TestPrivacyPageBrowserProxy();
     PrivacyPageBrowserProxyImpl.setInstance(testPrivacyBrowserProxy);
     openWindowProxy = new TestOpenWindowProxy();
     OpenWindowProxyImpl.setInstance(openWindowProxy);
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
     page = document.createElement('settings-security-page');
     page.prefs = pagePrefs();
     document.body.appendChild(page);
@@ -462,27 +467,30 @@ suite('SafeBrowsing', function() {
   let page: SettingsSecurityPageElement;
   let openWindowProxy: TestOpenWindowProxy;
 
-  async function setUpPage() {
-    page = document.createElement('settings-security-page');
-    page.prefs = pagePrefs();
-    document.body.appendChild(page);
-    page.$.safeBrowsingEnhanced.updateCollapsed();
-    page.$.safeBrowsingStandard.updateCollapsed();
-    flush();
-  }
-  async function resetPage() {
-    page.remove();
-    await setUpPage();
-  }
+  function setUpPage() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
-  setup(function() {
     testMetricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
     testPrivacyBrowserProxy = new TestPrivacyPageBrowserProxy();
     PrivacyPageBrowserProxyImpl.setInstance(testPrivacyBrowserProxy);
     openWindowProxy = new TestOpenWindowProxy();
     OpenWindowProxyImpl.setInstance(openWindowProxy);
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    page = document.createElement('settings-security-page');
+    page.prefs = pagePrefs();
+    document.body.appendChild(page);
+    page.$.safeBrowsingEnhanced.updateCollapsed();
+    page.$.safeBrowsingStandard.updateCollapsed();
+    return microtasksFinished();
+  }
+
+  async function resetPage() {
+    page.remove();
+    await setUpPage();
+  }
+
+  setup(function() {
     return setUpPage();
   });
 
@@ -923,9 +931,9 @@ suite('SafeBrowsing', function() {
   });
 
   test('UpdatedStandardProtectionDropdown', async () => {
-    loadTimeData.overrideValues({
-      enableHashPrefixRealTimeLookups: false,
-    });
+    loadTimeData.overrideValues({enableHashPrefixRealTimeLookups: false});
+    resetRouterForTesting();
+
     await resetPage();
     const standardProtection = page.$.safeBrowsingStandard;
     const updatedSpSubLabel =
@@ -990,9 +998,9 @@ suite('SafeBrowsing', function() {
 
   // <if expr="_google_chrome">
   test('StandardProtectionDropdownWithProxyString', async () => {
-    loadTimeData.overrideValues({
-      enableHashPrefixRealTimeLookups: true,
-    });
+    loadTimeData.overrideValues({enableHashPrefixRealTimeLookups: true});
+    resetRouterForTesting();
+
     await resetPage();
     const standardProtection = page.$.safeBrowsingStandard;
     const subLabel =
@@ -1009,6 +1017,8 @@ suite('SafeBrowsing', function() {
           enableFriendlierSafeBrowsingSettings: false,
           enableHashPrefixRealTimeLookups: true,
         });
+        resetRouterForTesting();
+
         await resetPage();
         const standardProtection = page.$.safeBrowsingStandard;
         const subLabel = loadTimeData.getString('safeBrowsingStandardDesc');
@@ -1034,18 +1044,18 @@ suite('SafeBrowsing', function() {
   // </if>
 
   test('FriendlierSettingsPopulatedOnEsbOptIn', async function() {
-    loadTimeData.overrideValues({
-      enableFriendlierSafeBrowsingSettings: false,
-    });
+    loadTimeData.overrideValues({enableFriendlierSafeBrowsingSettings: false});
+    resetRouterForTesting();
+
     await resetPage();
     page.$.safeBrowsingEnhanced.click();
     await eventToPromise('selected-changed', page.$.safeBrowsingRadioGroup);
     assertFalse(
         page.getPref('safebrowsing.esb_opt_in_with_friendlier_settings').value);
 
-    loadTimeData.overrideValues({
-      enableFriendlierSafeBrowsingSettings: true,
-    });
+    loadTimeData.overrideValues({enableFriendlierSafeBrowsingSettings: true});
+    resetRouterForTesting();
+
     await resetPage();
     page.$.safeBrowsingEnhanced.click();
     await eventToPromise('selected-changed', page.$.safeBrowsingRadioGroup);

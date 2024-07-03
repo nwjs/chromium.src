@@ -20,6 +20,7 @@
 #include "url/gurl.h"
 
 namespace commerce {
+class ClusterServerProxy;
 class ProductSpecificationsService;
 struct CandidateProduct;
 struct ProductGroup;
@@ -31,6 +32,9 @@ class ClusterManager : public ProductSpecificationsSet::Observer {
       base::RepeatingCallback<void(const GURL&, ProductInfoCallback)>;
   using GetOpenUrlInfosCallback =
       base::RepeatingCallback<const std::vector<UrlInfo>()>;
+  using GetEntryPointInfoCallback =
+      base::OnceCallback<void(std::optional<EntryPointInfo>)>;
+  using GetComparableUrlsCallback = base::OnceCallback<void(std::set<GURL>)>;
 
   class Observer : public base::CheckedObserver {
    public:
@@ -40,6 +44,7 @@ class ClusterManager : public ProductSpecificationsSet::Observer {
   };
 
   ClusterManager(ProductSpecificationsService* product_specification_service,
+                 std::unique_ptr<ClusterServerProxy> cluster_server_proxy,
                  const GetProductInfoCallback& get_product_info_cb,
                  const GetOpenUrlInfosCallback& get_open_url_infos_cb);
   ~ClusterManager() override;
@@ -68,23 +73,31 @@ class ClusterManager : public ProductSpecificationsSet::Observer {
   // Gets a product group that the given product can be clustered into. If
   // this candidate product is already in a product group, empty result
   // is returned.
-  std::optional<ProductGroup> GetProductGroupForCandidateProduct(
+  virtual std::optional<ProductGroup> GetProductGroupForCandidateProduct(
       const GURL& product_url);
 
   // Gets information to decide if entry point should show on navivation to
   // `url` and return it. The returned EntryPointInfo will include `url`
   // if it can be clustered into a group.
-  std::optional<EntryPointInfo> GetEntryPointInfoForNavigation(GURL url);
+  virtual void GetEntryPointInfoForNavigation(
+      const GURL& url,
+      GetEntryPointInfoCallback callback);
 
   // Gets information to decide if entry point should show on selection and
   // return it. `old_url` is the URL of the tab before selection.
   // `new_url` is the URL of the tab after selection.
-  std::optional<EntryPointInfo> GetEntryPointInfoForSelection(GURL old_url,
-                                                              GURL new_url);
+  virtual void GetEntryPointInfoForSelection(
+      const GURL& old_url,
+      const GURL& new_url,
+      GetEntryPointInfoCallback callback);
 
   // Finds similar candidate products for a product group.
   std::vector<GURL> FindSimilarCandidateProductsForProductGroup(
       const base::Uuid& uuid);
+
+  // Finds comparable URLs for a list of URLs.
+  void GetComparableUrls(const std::set<GURL>& product_urls,
+                         GetComparableUrlsCallback callback);
 
   // Registers an observer for cluster manager.
   void AddObserver(Observer* observer);
@@ -117,6 +130,17 @@ class ClusterManager : public ProductSpecificationsSet::Observer {
   // Finds similar candidate products for a candidate product. The returned
   // URLs doesn't include the `product_url`.
   std::set<GURL> FindSimilarCandidateProducts(const GURL& product_url);
+
+  void OnGetComparableUrls(GetComparableUrlsCallback callback,
+                           bool success,
+                           const std::set<GURL>& comparable_urls);
+
+  void OnProductInfoFetchedForSimilarUrls(
+      std::optional<std::string> title,
+      GetEntryPointInfoCallback callback,
+      const std::vector<std::pair<GURL, const ProductInfo>>& product_infos);
+
+  std::unique_ptr<ClusterServerProxy> cluster_server_proxy_;
 
   // Callback to get product info.
   GetProductInfoCallback get_product_info_cb_;

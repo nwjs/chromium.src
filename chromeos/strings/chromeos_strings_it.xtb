@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">giallo pastello</translation>
 <translation id="1056898198331236512">Avviso</translation>
 <translation id="1059913517121127803">Impossibile avviare la scansione</translation>
+<translation id="1061864016440983342">Usa senza posizione</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> di <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Firewall rilevato</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Altre impostazioni</translation>
 <translation id="2082932131694554252">Tasto della tastiera assegnato</translation>
 <translation id="2085089206770112532">Riduci la luminosità del display</translation>
+<translation id="2086091080968010660">Le modifiche basate sul tempo potrebbero non essere accurate. Attiva l'accesso alla posizione del sistema nelle impostazioni.</translation>
 <translation id="2102231663024125441">Modifica del testo</translation>
 <translation id="2105810540595158374">Il dispositivo è un controller.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versione <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Modifica dettagli APN</translation>
 <translation id="2195732836444333448">Al momento il server è occupato. Torna a breve.</translation>
 <translation id="2201758491318984023">bicicletta</translation>
-<translation id="2203222757805818543">La programmazione corrente è impostata su <ph name="SUNRISE" /> - <ph name="SUNSET" />. Per aggiornare automaticamente la programmazione della modalità Buio, <ph name="BEGIN_LINK" />attiva l'accesso alla posizione<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">sorgente termale</translation>
 <translation id="2203642483788377106">una scogliera</translation>
 <translation id="2208388655216963643">impressionista</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Ripristina predefinite</translation>
 <translation id="2286454467119466181">Semplice</translation>
 <translation id="2287186687001756809">Nessuna immagine disponibile. Per aggiungere foto, visita la pagina <ph name="LINK" />.</translation>
+<translation id="2294577623958216786">La programmazione corrente è impostata su <ph name="SUNRISE" />-<ph name="SUNSET" />. Per aggiornare automaticamente la programmazione del tramonto e dell'alba, attiva l'accesso alla posizione del sistema.</translation>
 <translation id="2305172810646967500">nero</translation>
 <translation id="2307344026739914387">Utilizza coppia di chiavi corrente</translation>
 <translation id="2308243864813041101">Scollega il cavo USB di <ph name="DEVICE_NAME" /> per continuare il processo di aggiornamento</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">una duna di sabbia</translation>
 <translation id="2619761439309613843">Aggiornam. quotidiano</translation>
 <translation id="2620436844016719705">Sistema</translation>
+<translation id="2637303424821734920">OFF - Per visualizzare il meteo locale, <ph name="BEGIN_LINK" />attiva l'accesso alla posizione del sistema<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Immagine accesso</translation>
 <translation id="2640549051766135490">Album <ph name="TITLE" /> <ph name="DESC" /> selezionato</translation>
 <translation id="2645380101799517405">Controlli</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Sfondo</translation>
 <translation id="3027578600144895987">Chiudi la videocamera</translation>
 <translation id="3031560714565892478">Il dispositivo è una videocamera.</translation>
+<translation id="3051968340259309715">Questa autorizzazione consente ai servizi di sistema di utilizzare la precisione della posizione per determinare la tua posizione. Per stimare la posizione del dispositivo, la precisione della posizione utilizza informazioni su segnali wireless, come punti di accesso Wi-Fi, torri di rete mobile e GPS, insieme a dati dei sensori del dispositivo, come accelerometro e giroscopio. Puoi disattivare la posizione in Impostazioni &gt; Privacy e sicurezza &gt; Controlli per la privacy &gt; Accesso alla posizione. <ph name="LINK_BEGIN" />Scopri di più<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Endpoint</translation>
 <translation id="3060579846059757016">Prospetti</translation>
+<translation id="3061850252076394168">attiva Seleziona per ascoltare</translation>
 <translation id="3069085583900247081">Test non riuscito</translation>
 <translation id="3078740164268491126">tabella</translation>
 <translation id="3081652522083185657">chiaro</translation>
@@ -613,7 +618,7 @@
 <translation id="4500966230243561393">Colore interfaccia</translation>
 <translation id="4503223151711056411">Freccia sinistra</translation>
 <translation id="4503441351962730761">arte moderna</translation>
-<translation id="4507392511610824664">aumenta la luminosità</translation>
+<translation id="4507392511610824664">aumenta luminosità</translation>
 <translation id="4511264077854731334">Portale</translation>
 <translation id="4513946894732546136">Feedback</translation>
 <translation id="4521826082652183069">Corrispondenza nome alternativo del soggetto</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">impossibile risolvere tutti gli host</translation>
 <translation id="4593212453765072419">Autenticazione proxy richiesta</translation>
 <translation id="4609350030397390689">Riduci la luminosità della tastiera</translation>
-<translation id="4617553623719764431">Il meteo non viene visualizzato perché il servizio non conosce la tua posizione. Per visualizzare il meteo locale, <ph name="BEGIN_LINK" />attiva l'accesso alla posizione<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> di <ph name="TOTAL_PAGE_NUMBER" />. Premi Invio per annullare il processo di stampa.</translation>
 <translation id="463791356324567266">Annullamento scansione in corso…</translation>
 <translation id="4646949265910132906">Connessione Wi-Fi protetta</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Esegui</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Pagine</translation>
+<translation id="4989542687859782284">Non disponibili</translation>
 <translation id="4999333166442584738">Nascondi rapporto</translation>
 <translation id="500920857929044050">Interrompi test</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">Luminosità della tastiera</translation>
 <translation id="6412715219990689313">Tastiera integrata</translation>
 <translation id="6417265370957905582">Assistente Google</translation>
+<translation id="6419454453018688975">Attiva l'accesso alla posizione del sistema</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Questa autorizzazione consente ai servizi di sistema che dispongono dell'autorizzazione di utilizzare la tua posizione. Il servizio di geolocalizzazione potrebbe usare fonti quali Wi-Fi, reti mobili e sensori per stabilire la posizione approssimativa del dispositivo. <ph name="LINK_BEGIN" />Scopri di più<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Debole (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Vai alle impostazioni dell'account</translation>
 <translation id="6462978824459367242">Il pulsante Aggiungi APN è ora attivo</translation>

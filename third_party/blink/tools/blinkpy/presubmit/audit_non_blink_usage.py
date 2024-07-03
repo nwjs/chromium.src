@@ -11,7 +11,7 @@ script can be run in standalone mode to check for existing violations.
 Example command:
 
 $ git ls-files third_party/blink \
-    | python third_party/blink/tools/blinkpy/presubmit/audit_non_blink_usage.py
+    | python3 third_party/blink/tools/blinkpy/presubmit/audit_non_blink_usage.py
 """
 
 from __future__ import print_function
@@ -43,12 +43,12 @@ _CONFIG = [
             'gfx::HDRMetadata',
             'gfx::HdrMetadataExtendedRange',
             'gfx::ICCProfile',
-            'gfx::RadToDeg',
 
             # For fast cos/sin functions
             'gfx::SinCosDegrees',
 
             # absl
+            'absl::Cleanup',
             'absl::MakeInt128',
             'absl::MakeUint128',
             'absl::Int128High64',
@@ -96,6 +96,7 @@ _CONFIG = [
             'base::Location',
             'base::MakeRefCounted',
             'base::MappedReadOnlyRegion',
+            'base::MatchPattern',
             'base::MatcherStringPattern',
             'base::MetricsSubSampler',
             'base::Microseconds',
@@ -110,6 +111,7 @@ _CONFIG = [
             'base::PersistentHash',
             'base::PlatformThread',
             'base::PlatformThreadId',
+            'base::RadToDeg',
             'base::RefCountedData',
             'base::RunLoop',
             'base::HashingLRUCache',
@@ -158,6 +160,7 @@ _CONFIG = [
             'base::ranges::.+',
             'base::sequence_manager::TaskTimeObserver',
             'base::span',
+            'base::span(_with_nul)?_from_cstring',
             'base::Span(Reader|Writer)',
             'base::as_byte_span',
             'base::as_writable_byte_span',
@@ -279,6 +282,7 @@ _CONFIG = [
             # //base/numerics/clamped_math.h.
             'base::ClampAdd',
             'base::ClampedNumeric',
+            'base::ClampMin',
             'base::ClampMax',
             'base::ClampSub',
             'base::MakeClampedNum',
@@ -305,8 +309,8 @@ _CONFIG = [
 
             # Byte order
             'base::BigEndian(Reader|Writer)',
-            'base::numerics::U(8|16|32|64)(To|From)(Big|Little|Native)Endian',
-            'base::numerics::ByteSwap',
+            'base::(numerics::)?U(8|16|32|64)(To|From)(Big|Little|Native)Endian',
+            'base::(numerics::)?ByteSwap',
 
             # (Cryptographic) random number generation
             'base::RandUint64',
@@ -525,6 +529,7 @@ _CONFIG = [
             'cc::kPixelsPerLineStep',
             'cc::kMinFractionToStepWhenPaging',
             'cc::kPercentDeltaForDirectionalScroll',
+            'cc::BrowserControlsOffsetTagsInfo',
             'cc::MainThreadScrollingReason',
             'cc::ManipulationInfo',
             'cc::ScrollSnapAlign',
@@ -648,6 +653,7 @@ _CONFIG = [
 
             # HTTP status codes
             'net::HTTP_.+',
+            'net::ERR_.*',
 
             # For ConnectionInfo enumeration
             'net::HttpConnectionInfo',
@@ -769,6 +775,10 @@ _CONFIG = [
             # Protected memory
             'base::ProtectedMemory',
             'base::AutoWritableMemory',
+
+            # Allow Highway SIMD Library and the possible namespace aliases.
+            'hwy::HWY_NAMESPACE.*',
+            'hw::.+',
         ],
         'disallowed': [
             ('base::Bind(Once|Repeating)',
@@ -1095,11 +1105,35 @@ _CONFIG = [
     },
     {
         'paths': [
-            'third_party/blink/public/web/web_frame_widget.h',
+            'third_party/blink/public',
         ],
         'allowed': [
             'base::OnceCallback',
+            'base::OnceClosure',
+            'base::RepeatingCallback',
+            'base::RepeatingClosure',
+
+            'gfx::Point',
+            'gfx::PointF',
             'gfx::Rect',
+            'gfx::RectF',
+
+            # The Blink public API is shared between non-Blink and Blink code
+            # and must use the regular variants.
+            'mojom::.+',
+
+            # Prefer WebString over std::string in the public API. Other STL
+            # types are generally allowed for interop with non-Blink code, as
+            # containers like WTF::Vector are not exposed outside Blink.
+            'std::.+',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/platform/web_audio_device.h',
+        ],
+        'allowed': [
+            'media::OutputDeviceStatus',
         ],
     },
     {
@@ -1696,6 +1730,13 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/renderer/core/layout/layout_theme.cc',
+            'third_party/blink/renderer/core/layout/layout_theme.h',
+        ],
+        'allowed': ['ui::ColorProvider'],
+    },
+    {
+        'paths': [
             'third_party/blink/renderer/core/scroll/mac_scrollbar_animator_impl.h',
             'third_party/blink/renderer/core/scroll/mac_scrollbar_animator_impl.mm',
         ],
@@ -2049,38 +2090,10 @@ _CONFIG = [
     },
     {
         'paths': [
-            'third_party/blink/renderer/modules/ml/webnn/ml_graph_builder.cc',
-        ],
-        'allowed': [
-            'webnn::features::.+',
-        ]
-    },
-    {
-        'paths': [
-            'third_party/blink/renderer/modules/ml/webnn/ml_graph_test_mojo.cc',
-        ],
-        'allowed': [
-            'base::test::ScopedFeatureList',
-            'blink_mojom::.+',
-            'webnn::features::.+',
-        ]
-    },
-    {
-        'paths': [
-            'third_party/blink/renderer/modules/ml/webnn/ml_graph_type_converter.cc',
+            'third_party/blink/renderer/modules/ml/webnn/',
         ],
         'allowed': [
             'blink_mojom::.+',
-        ]
-    },
-    {
-        'paths': [
-            'third_party/blink/renderer/modules/ml/webnn/ml_graph_tflite_converter.cc',
-            'third_party/blink/renderer/modules/ml/webnn/ml_graph_test_model_loader.cc',
-        ],
-        'allowed': [
-            'flatbuffers::.+',
-            'tflite::.+',
         ]
     },
     {
@@ -2323,7 +2336,7 @@ def main():
                     print('%s uses disallowed identifiers:' % path)
                     for i in disallowed_identifiers:
                         print(i.line, i.identifier, i.advice)
-        except IOError as e:
+        except (IOError, UnicodeDecodeError) as e:
             print('could not open %s: %s' % (path, e))
 
 

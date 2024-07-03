@@ -83,10 +83,11 @@ DawnD3DImageRepresentation::~DawnD3DImageRepresentation() {
 }
 
 wgpu::Texture DawnD3DImageRepresentation::BeginAccess(
-    wgpu::TextureUsage usage) {
+    wgpu::TextureUsage usage,
+    wgpu::TextureUsage internal_usage) {
   D3DImageBacking* d3d_image_backing = static_cast<D3DImageBacking*>(backing());
   texture_ = d3d_image_backing->BeginAccessDawn(device_, backend_type_, usage,
-                                                view_formats_);
+                                                internal_usage, view_formats_);
   return texture_;
 }
 

@@ -30,6 +30,7 @@
 #include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
 #include "components/autofill/core/browser/metrics/form_events/form_event_logger_base.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
+#include "components/autofill/core/browser/ui/popup_interaction.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -45,6 +46,25 @@ namespace autofill {
 using mojom::SubmissionSource;
 
 namespace {
+
+constexpr char kUserActionRootPopupShown[] =
+    "Autofill_PopupInteraction_PopupLevel_0_SuggestionShown";
+constexpr char kUserActionSecondLevelPopupShown[] =
+    "Autofill_PopupInteraction_PopupLevel_1_SuggestionShown";
+constexpr char kUserActionThirdLevelPopupShown[] =
+    "Autofill_PopupInteraction_PopupLevel_2_SuggestionShown";
+constexpr char kUserActionRootPopupSuggestionSelected[] =
+    "Autofill_PopupInteraction_PopupLevel_0_SuggestionSelected";
+constexpr char kUserActionSecondLevelPopupSuggestionSelected[] =
+    "Autofill_PopupInteraction_PopupLevel_1_SuggestionSelected";
+constexpr char kUserActionThirdLevelPopupSuggestionSelected[] =
+    "Autofill_PopupInteraction_PopupLevel_2_SuggestionSelected";
+constexpr char kUserActionRootPopupSuggestionAccepted[] =
+    "Autofill_PopupInteraction_PopupLevel_0_SuggestionAccepted";
+constexpr char kUserActionSecondLevelPopupSuggestionAccepted[] =
+    "Autofill_PopupInteraction_PopupLevel_1_SuggestionAccepted";
+constexpr char kUserActionThirdLevelPopupSuggestionAccepted[] =
+    "Autofill_PopupInteraction_PopupLevel_2_SuggestionAccepted";
 
 // Exponential bucket spacing for UKM event data.
 constexpr double kAutofillEventDataBucketSpacing = 2.0;
@@ -120,6 +140,7 @@ enum FieldTypeGroupForMetrics {
   GROUP_ADDRESS_HOME_STREET_LOCATION_AND_LANDMARK = 44,
   GROUP_ADDRESS_HOME_DEPENDENT_LOCALITY_AND_LANDMARK = 45,
   GROUP_ADDRESS_HOME_HOUSE_NUMBER_AND_APT = 46,
+  GROUP_STANDALONE_CREDIT_CARD_VERIFICATION = 47,
   // Note: if adding an enum value here, run
   // tools/metrics/histograms/update_autofill_enums.py
   NUM_FIELD_TYPE_GROUPS_FOR_METRICS
@@ -382,7 +403,8 @@ int GetFieldTypeGroupPredictionQualityMetric(
         case CREDIT_CARD_STANDALONE_VERIFICATION_CODE:
         case SINGLE_USERNAME_FORGOT_PASSWORD:
         case SINGLE_USERNAME_WITH_INTERMEDIATE_VALUES:
-          NOTREACHED() << field_type << " type is not in that group.";
+          NOTREACHED_IN_MIGRATION()
+              << field_type << " type is not in that group.";
           group = GROUP_AMBIGUOUS;
           break;
       }
@@ -417,14 +439,18 @@ int GetFieldTypeGroupPredictionQualityMetric(
           group = GROUP_CREDIT_CARD_DATE;
           break;
         case CREDIT_CARD_VERIFICATION_CODE:
-        case CREDIT_CARD_STANDALONE_VERIFICATION_CODE:
           group = GROUP_CREDIT_CARD_VERIFICATION;
           break;
         default:
-          NOTREACHED() << field_type << " has no group assigned (ambiguous)";
+          NOTREACHED_IN_MIGRATION()
+              << field_type << " has no group assigned (ambiguous)";
           group = GROUP_AMBIGUOUS;
           break;
       }
+      break;
+
+    case FieldTypeGroup::kStandaloneCvcField:
+      group = GROUP_STANDALONE_CREDIT_CARD_VERIFICATION;
       break;
 
     case FieldTypeGroup::kPasswordField:
@@ -440,7 +466,7 @@ int GetFieldTypeGroupPredictionQualityMetric(
       break;
 
     case FieldTypeGroup::kTransaction:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 
@@ -479,7 +505,7 @@ const char* GetQualityMetricPredictionSource(
   switch (source) {
     default:
     case AutofillMetrics::PREDICTION_SOURCE_UNKNOWN:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return "Unknown";
 
     case AutofillMetrics::PREDICTION_SOURCE_HEURISTIC:
@@ -495,7 +521,7 @@ const char* GetQualityMetricTypeSuffix(
     AutofillMetrics::QualityMetricType metric_type) {
   switch (metric_type) {
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       [[fallthrough]];
     case AutofillMetrics::TYPE_SUBMISSION:
       return "";
@@ -898,13 +924,6 @@ void AutofillMetrics::LogCreditCardInfoBarMetric(
 }
 
 // static
-void AutofillMetrics::LogCreditCardFillingInfoBarMetric(InfoBarMetric metric) {
-  DCHECK_LT(metric, NUM_INFO_BAR_METRICS);
-  UMA_HISTOGRAM_ENUMERATION("Autofill.CreditCardFillingInfoBar", metric,
-                            NUM_INFO_BAR_METRICS);
-}
-
-// static
 void AutofillMetrics::LogScanCreditCardPromptMetric(
     ScanCreditCardPromptMetric metric) {
   DCHECK_LT(metric, NUM_SCAN_CREDIT_CARD_PROMPT_METRICS);
@@ -1013,7 +1032,7 @@ void AutofillMetrics::LogUnmaskPromptEventDuration(
       suffix = ".Success";
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
   base::UmaHistogramLongTimes("Autofill.UnmaskPrompt.Duration", duration);
@@ -1068,7 +1087,7 @@ void AutofillMetrics::LogRealPanResult(
       metric_result = PAYMENTS_RESULT_VCN_RETRIEVAL_PERMANENT_FAILURE;
       break;
     case AutofillClient::PaymentsRpcResult::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 
@@ -1081,7 +1100,7 @@ void AutofillMetrics::LogRealPanResult(
       card_type_suffix = "VirtualCard";
       break;
     case AutofillClient::PaymentsRpcCardType::kUnknown:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 
@@ -1133,7 +1152,7 @@ void AutofillMetrics::LogRealPanDuration(
       result_suffix = "NetworkError";
       break;
     case AutofillClient::PaymentsRpcResult::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 
@@ -1160,7 +1179,7 @@ void AutofillMetrics::LogUnmaskingDuration(
       card_type_suffix = "VirtualCard";
       break;
     case AutofillClient::PaymentsRpcCardType::kUnknown:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 
@@ -1181,7 +1200,7 @@ void AutofillMetrics::LogUnmaskingDuration(
       result_suffix = "NetworkError";
       break;
     case AutofillClient::PaymentsRpcResult::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
   base::UmaHistogramLongTimes("Autofill.UnmaskPrompt.UnmaskingDuration",
@@ -1376,51 +1395,6 @@ void AutofillMetrics::LogFormFillDuration(const std::string& metric,
 }
 
 // static
-void AutofillMetrics::LogIsAutofillEnabledAtStartup(bool enabled) {
-  UMA_HISTOGRAM_BOOLEAN("Autofill.IsEnabled.Startup", enabled);
-}
-
-// static
-void AutofillMetrics::LogIsAutofillProfileEnabledAtStartup(bool enabled) {
-  UMA_HISTOGRAM_BOOLEAN("Autofill.Address.IsEnabled.Startup", enabled);
-}
-
-// static
-void AutofillMetrics::LogIsAutofillCreditCardEnabledAtStartup(bool enabled) {
-  UMA_HISTOGRAM_BOOLEAN("Autofill.CreditCard.IsEnabled.Startup", enabled);
-}
-
-// static
-void AutofillMetrics::LogIsAutofillEnabledAtPageLoad(
-    bool enabled,
-    PaymentsSigninState sync_state) {
-  std::string name("Autofill.IsEnabled.PageLoad");
-  UMA_HISTOGRAM_BOOLEAN(name, enabled);
-  base::UmaHistogramBoolean(name + GetMetricsSyncStateSuffix(sync_state),
-                            enabled);
-}
-
-// static
-void AutofillMetrics::LogIsAutofillProfileEnabledAtPageLoad(
-    bool enabled,
-    PaymentsSigninState sync_state) {
-  std::string name("Autofill.Address.IsEnabled.PageLoad");
-  UMA_HISTOGRAM_BOOLEAN(name, enabled);
-  base::UmaHistogramBoolean(name + GetMetricsSyncStateSuffix(sync_state),
-                            enabled);
-}
-
-// static
-void AutofillMetrics::LogIsAutofillCreditCardEnabledAtPageLoad(
-    bool enabled,
-    PaymentsSigninState sync_state) {
-  std::string name("Autofill.CreditCard.IsEnabled.PageLoad");
-  UMA_HISTOGRAM_BOOLEAN(name, enabled);
-  base::UmaHistogramBoolean(name + GetMetricsSyncStateSuffix(sync_state),
-                            enabled);
-}
-
-// static
 void AutofillMetrics::LogStoredCreditCardMetrics(
     const std::vector<std::unique_ptr<CreditCard>>& local_cards,
     const std::vector<std::unique_ptr<CreditCard>>& server_cards,
@@ -1492,7 +1466,7 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
         break;
       case CreditCard::RecordType::kVirtualCard:
         // This card type is not persisted in Chrome.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -1602,6 +1576,73 @@ void AutofillMetrics::LogAutofillSuggestionHidingReason(
                                 reason);
 }
 
+void AutofillMetrics::LogPopupInteraction(FillingProduct filling_product,
+                                          int popup_level,
+                                          PopupInteraction action) {
+  // Three level popups are the most we can currently have.
+  CHECK_GE(popup_level, 0);
+  CHECK_LE(popup_level, 2);
+  const std::string histogram_metric_name =
+      base::StrCat({"Autofill.PopupInteraction.PopupLevel.",
+                    base::NumberToString(popup_level)});
+  base::UmaHistogramEnumeration(histogram_metric_name, action);
+  base::UmaHistogramEnumeration(
+      base::StrCat({histogram_metric_name, ".",
+                    FillingProductToString(filling_product)}),
+      action);
+
+  // Only emit user actions for address suggestions.
+  if (filling_product != FillingProduct::kAddress) {
+    return;
+  }
+
+  if (popup_level == 0) {
+    switch (action) {
+      case PopupInteraction::kPopupShown:
+        base::RecordAction(base::UserMetricsAction(kUserActionRootPopupShown));
+        break;
+      case PopupInteraction::kSuggestionSelected:
+        base::RecordAction(
+            base::UserMetricsAction(kUserActionRootPopupSuggestionSelected));
+        break;
+      case PopupInteraction::kSuggestionAccepted:
+        base::RecordAction(
+            base::UserMetricsAction(kUserActionRootPopupSuggestionAccepted));
+        break;
+    }
+  } else if (popup_level == 1) {
+    switch (action) {
+      case PopupInteraction::kPopupShown:
+        base::RecordAction(
+            base::UserMetricsAction(kUserActionSecondLevelPopupShown));
+        break;
+      case PopupInteraction::kSuggestionSelected:
+        base::RecordAction(base::UserMetricsAction(
+            kUserActionSecondLevelPopupSuggestionSelected));
+        break;
+      case PopupInteraction::kSuggestionAccepted:
+        base::RecordAction(base::UserMetricsAction(
+            kUserActionSecondLevelPopupSuggestionAccepted));
+        break;
+    }
+  } else {
+    switch (action) {
+      case PopupInteraction::kPopupShown:
+        base::RecordAction(
+            base::UserMetricsAction(kUserActionThirdLevelPopupShown));
+        break;
+      case PopupInteraction::kSuggestionSelected:
+        base::RecordAction(base::UserMetricsAction(
+            kUserActionThirdLevelPopupSuggestionSelected));
+        break;
+      case PopupInteraction::kSuggestionAccepted:
+        base::RecordAction(base::UserMetricsAction(
+            kUserActionThirdLevelPopupSuggestionAccepted));
+        break;
+    }
+  }
+}
+
 void AutofillMetrics::LogSectioningMetrics(
     const base::flat_map<Section, size_t>& fields_per_section) {
   constexpr std::string_view kBaseHistogramName = "Autofill.Sectioning.";
@@ -1684,7 +1725,7 @@ AutofillMetrics::CreditCardSeamlessness::QualitativeFillableFormEvent() const {
       return autofill_metrics::
           FORM_EVENT_CREDIT_CARD_SEAMLESS_FILLABLE_PARTIAL_FILL;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return autofill_metrics::
       FORM_EVENT_CREDIT_CARD_SEAMLESS_FILLABLE_PARTIAL_FILL;
 }
@@ -1711,7 +1752,7 @@ AutofillMetrics::CreditCardSeamlessness::QualitativeFillFormEvent() const {
       return autofill_metrics::
           FORM_EVENT_CREDIT_CARD_SEAMLESS_FILL_PARTIAL_FILL;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return autofill_metrics::FORM_EVENT_CREDIT_CARD_SEAMLESS_FILL_PARTIAL_FILL;
 }
 
@@ -1885,6 +1926,13 @@ void AutofillMetrics::LogParseFormTiming(const base::TimeDelta& duration) {
 }
 
 // static
+void AutofillMetrics::LogParsedFormUntilInteractionTiming(
+    const base::TimeDelta& duration) {
+  base::UmaHistogramLongTimes("Autofill.Timing.ParseFormUntilInteraction2",
+                              duration);
+}
+
+// static
 void AutofillMetrics::LogIsQueriedCreditCardFormSecure(bool is_secure) {
   UMA_HISTOGRAM_BOOLEAN("Autofill.QueriedCreditCardFormIsSecure", is_secure);
 }
@@ -1920,6 +1968,17 @@ void AutofillMetrics::LogAutocompleteEvent(AutocompleteEvent event) {
   DCHECK_LT(event, AutocompleteEvent::NUM_AUTOCOMPLETE_EVENTS);
   base::UmaHistogramEnumeration("Autocomplete.Events2", event,
                                 NUM_AUTOCOMPLETE_EVENTS);
+}
+
+// static
+void AutofillMetrics::LogAutofillPopupVisibleDuration(
+    FillingProduct filling_product,
+    const base::TimeDelta& duration) {
+  base::UmaHistogramTimes("Autofill.Popup.VisibleDuration", duration);
+  base::UmaHistogramTimes(
+      base::StrCat({"Autofill.Popup.VisibleDuration.",
+                    FillingProductToString(filling_product)}),
+      duration);
 }
 
 // static
@@ -2387,7 +2446,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::
   SetStatusVector(AutofillStatus::kWasFocused,
                   OptionalBooleanToBool(was_focused));
   SetStatusVector(AutofillStatus::kIsInSubFrame,
-                  form.ToFormData().host_frame != field.host_frame());
+                  form.ToFormData().host_frame() != field.host_frame());
 
   if (filling_prevented_by_iframe_security_policy !=
       OptionalBoolean::kUndefined) {
@@ -2864,7 +2923,7 @@ void AutofillMetrics::LogAutocompletePredictionCollisionTypes(
       autocomplete_suffix = "Password";
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   // Log the metric for heuristic and server type.
@@ -2904,7 +2963,7 @@ const std::string PaymentsRpcResultToMetricsSuffix(
       result_suffix = ".VcnRetrievalFailure";
       break;
     case AutofillClient::PaymentsRpcResult::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   return result_suffix;
@@ -2937,7 +2996,7 @@ std::string AutofillMetrics::GetHistogramStringForCardType(
       case AutofillClient::PaymentsRpcCardType::kVirtualCard:
         return ".VirtualCard";
       case AutofillClient::PaymentsRpcCardType::kUnknown:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   } else if (absl::holds_alternative<CreditCard::RecordType>(card_type)) {

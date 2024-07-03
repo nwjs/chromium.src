@@ -41,6 +41,7 @@ inline constexpr char kCredentialProviderEnabledOnStartup[] =
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
+
 // Boolean pref indicating if the one-time notice for account storage was shown.
 // The notice informs passwords will start being saved to the signed-in account.
 inline constexpr char kAccountStorageNoticeShown[] =
@@ -84,7 +85,29 @@ inline constexpr char kCurrentMigrationVersionToGoogleMobileServices[] =
 // last time migrated, in milliseconds since UNIX epoch.
 inline constexpr char kTimeOfLastMigrationAttempt[] =
     "time_of_last_migration_attempt";
+#endif
 
+// The total amount of passwords available in Password Manager account store.
+inline constexpr char kTotalPasswordsAvailableForAccount[] =
+    "total_passwords_available_for_account";
+
+// The total amount of passwords available in Password Manager profile store.
+inline constexpr char kTotalPasswordsAvailableForProfile[] =
+    "total_passwords_available_for_profile";
+
+// The pref representing a bit vector that stores the reasons for password
+// deletion from the Password Manager account store. It gets reset on Chrome
+// startup, at most once per day.
+inline constexpr char kPasswordRemovalReasonForAccount[] =
+    "password_removal_reason_for_account";
+
+// The pref representing a bit vector that stores the reasons for password
+// deletion from the Password Manager profile store. It gets reset on Chrome
+// startup, at most once per day.
+inline constexpr char kPasswordRemovalReasonForProfile[] =
+    "password_removal_reason_for_profile";
+
+#if BUILDFLAG(IS_ANDROID)
 // Integer pref indicating whether the client is ready to use UPM for local
 // passwords and settings and split password stores for syncing users.
 // The preconditions for the pref to be set to true:
@@ -320,6 +343,14 @@ inline constexpr char kPasswordGenerationNudgePasswordDismissCount[] =
 // in the Password Manager UI.
 inline constexpr char kPasswordManagerPromoCardsList[] =
     "password_manager.password_promo_cards_list";
+
+// A cache of whether the profile LoginDatabase has autofillable credentials.
+inline constexpr char kAutofillableCredentialsProfileStoreLoginDatabase[] =
+    "password_manager.autofillable_credentials_profile_store_login_database";
+
+// A cache of whether the account LoginDatabase has autofillable credentials.
+inline constexpr char kAutofillableCredentialsAccountStoreLoginDatabase[] =
+    "password_manager.autofillable_credentials_account_store_login_database";
 #endif
 
 // Boolean pref indicating whether password sharing is enabled. Enables both

@@ -158,6 +158,7 @@
 <translation id="3602290021589620013">Визуализация</translation>
 <translation id="3628308229821498208">Предложени търсения</translation>
 <translation id="3697164069658504920">Когато настройката е включена, сайтовете могат да извеждат запитвания за използване на USB устройства. Когато е изключена, сайтовете не могат да използват такива устройства.</translation>
+<translation id="3701220924999499408"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="FROM_DEVICE" /> <ph name="SEPARATOR2" /> <ph name="RECENCY" /></translation>
 <translation id="3707034683772193706">Сайтовете, които посещавате, могат да запазват в Chrome малко количество информация, чиято основна цел е да потвърди, че не сте робот</translation>
 <translation id="3721953990244350188">Отхвърляне и показване на следващото налично действие</translation>
 <translation id="3744111561329211289">Синхронизиране на заден план</translation>
@@ -190,7 +191,6 @@
 <translation id="4169549551965910670">Установена е връзка с USB устройство</translation>
 <translation id="4194328954146351878">Извеждане на запитване, преди да се разреши на сайтовете да четат и променят информация на устройства с NFC (препоръчително)</translation>
 <translation id="4200726100658658164">Отваряне на настройките за местоположението</translation>
-<translation id="4206661981211220935"><ph name="RECENCY" /> <ph name="SEPARATOR" /> От <ph name="FROM_DEVICE" /></translation>
 <translation id="4226663524361240545">Възможно е устройството да вибрира при известия</translation>
 <translation id="4259722352634471385">Навигирането е блокирано: <ph name="URL" /></translation>
 <translation id="4278390842282768270">Разрешено</translation>
@@ -198,7 +198,6 @@
 <translation id="42981349822642051">Разгъване</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{Изтича утре}other{Изтича след # дни}}</translation>
 <translation id="4336566011000459927">Chrome ще ограничи „бисквитките“ отново днес</translation>
-<translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> Последният ви раздел</translation>
 <translation id="4338831206024587507">Всички сайтове от <ph name="DOMAIN" /></translation>
 <translation id="4402755511846832236">Блокиране на сайтовете, така че да не знаят дали това устройство се използва активно</translation>
 <translation id="4412992751769744546">Разрешаване на „бисквитките“ на трети страни</translation>
@@ -229,6 +228,7 @@
 <translation id="4962975101802056554">Отмяна на всички разрешения за устройството</translation>
 <translation id="497421865427891073">Преминаване напред</translation>
 <translation id="4976702386844183910">Последно посещение: <ph name="DATE" /></translation>
+<translation id="498287755803443017"><ph name="FROM_DEVICE" /> <ph name="SEPARATOR" /> <ph name="RECENCY" /></translation>
 <translation id="4985206706500620449">Разрешихте „бисквитките“ на трети страни за този сайт</translation>
 <translation id="4994033804516042629">Няма намерени контакти</translation>
 <translation id="4996978546172906250">Споделяне чрез</translation>
@@ -280,6 +280,7 @@
 <translation id="5690795753582697420">Камерата е изключена от настройките на Android</translation>
 <translation id="5691080386278724773"><ph name="SITE" /> може да използва информацията ви, докато разглеждате</translation>
 <translation id="5700761515355162635">„Бисквитките“ на трети страни са разрешени</translation>
+<translation id="5705383358494210886"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /></translation>
 <translation id="5706552988683188916">„Бисквитките“ и другите данни за сайта <ph name="WEBSITE" /> ще бъдат изтрити</translation>
 <translation id="5723967018671998714">„Бисквитките“ на трети страни са блокирани в режим „инкогнито“</translation>
 <translation id="5740126560802162366">Сайтовете могат да запазват данни на устройството ви</translation>
@@ -304,7 +305,6 @@
 <translation id="6015775454662021376">Контролирайте достъпа на този сайт до устройството ви</translation>
 <translation id="6040143037577758943">Затваряне</translation>
 <translation id="6042308850641462728">Още</translation>
-<translation id="6060464773477604108"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> Последният ви раздел</translation>
 <translation id="6064125863973209585">Завършени изтегляния</translation>
 <translation id="6071501408666570960">Възможно е да излезете от профила си в този сайт</translation>
 <translation id="6120483543004435978">Когато настройката е включена, сайтовете могат да извеждат запитвания дали използвате активно устройството си. Когато е изключена, сайтовете няма да знаят дали използвате активно устройството си.</translation>
@@ -360,7 +360,6 @@
 <translation id="6790428901817661496">Пускане</translation>
 <translation id="6818926723028410516">Избор на елементи</translation>
 <translation id="6864395892908308021">Това устройство не може да чете NFC</translation>
-<translation id="6867014948848323204">От <ph name="FROM_DEVICE" /></translation>
 <translation id="6912998170423641340">Забраняване на сайтовете да четат текста и изображенията от буферната памет</translation>
 <translation id="6945221475159498467">Избиране</translation>
 <translation id="6950072572526089586">Сайтовете, които посещавате, могат да запазват информация за нещата, които правите, така че да работят по очаквания начин – например за да не излизате от профила си в даден сайт или за запазване на артикулите в пазарската ви кошница. Сайтовете често запазват тази информация временно на устройството ви.</translation>
@@ -426,7 +425,6 @@
 <translation id="7986741934819883144">Изберете контакт</translation>
 <translation id="7990211076305263060">Когато настройката е включена, сайтовете могат да извеждат запитвания за достъп до микрофона ви. Когато е изключена, сайтовете не могат да използват микрофона ви.</translation>
 <translation id="8007176423574883786">Изключено за това устройство</translation>
-<translation id="8009579582995973057"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> От <ph name="FROM_DEVICE" /></translation>
 <translation id="802154636333426148">Изтеглянето не бе успешно</translation>
 <translation id="8042586301629853791">Сортиране по:</translation>
 <translation id="8067883171444229417">Възпроизвеждане на видеоклипа</translation>

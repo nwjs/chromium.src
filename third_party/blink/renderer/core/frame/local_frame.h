@@ -106,7 +106,6 @@ namespace gfx {
 class Point;
 class Range;
 class Size;
-class SizeF;
 }  // namespace gfx
 
 namespace network {
@@ -403,13 +402,13 @@ class CORE_EXPORT LocalFrame final
 
   // Begin printing.
   // If too large (in the inline direction), the frame content will fit to the
-  // page size with the specified maximum shrink ratio.
+  // page size with the specified maximum shrink ratio, if this value is larger
+  // than 1. If this value is 1 or less, there will be no shrinking.
   void StartPrinting(const WebPrintParams&, float maximum_shrink_ratio = 0);
-  void StartPrinting(const gfx::SizeF& page_size = gfx::SizeF(),
-                     float maximum_shrink_ratio = 0);
+  void StartPrintingSubLocalFrame();
 
   void EndPrinting();
-  bool ShouldUsePrintingLayout() const;
+  bool ShouldUsePaginatedLayout() const;
 
   // Setup for a Paint Preview of the page which will paint the full page
   // contents.
@@ -589,7 +588,7 @@ class CORE_EXPORT LocalFrame final
   // |mime_type| and populated with the contents of |data|. Only intended for
   // use in internal-implementation LocalFrames that aren't in the frame tree.
   void ForceSynchronousDocumentInstall(const AtomicString& mime_type,
-                                       scoped_refptr<const SharedBuffer> data);
+                                       const SegmentedBuffer& data);
 
   // Called when certain event listeners are added for the first time/last time,
   // making it possible/not possible to terminate the frame suddenly.
@@ -1098,6 +1097,13 @@ class CORE_EXPORT LocalFrame final
   Member<CoreProbeSink> probe_sink_;
   scoped_refptr<InspectorTaskRunner> inspector_task_runner_;
   Member<PerformanceMonitor> performance_monitor_;
+
+  // Whether `performance_monitor_` was created by this (not a reference to a
+  // `PerformanceMonitor` created by another `LocalFrame`) and not shutdown yet.
+  //
+  // TODO(crbug.com/337200890): Remove when investigation is complete.
+  bool must_shutdown_performance_monitor_ = false;
+
   Member<AdTracker> ad_tracker_;
   Member<IdlenessDetector> idleness_detector_;
   Member<AttributionSrcLoader> attribution_src_loader_;

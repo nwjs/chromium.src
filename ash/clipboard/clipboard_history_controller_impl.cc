@@ -162,7 +162,7 @@ void RecordMenuIndexPastedUserAction(int command_id) {
           base::UserMetricsAction("Ash_ClipboardHistory_PastedItem5"));
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -368,7 +368,7 @@ class ClipboardHistoryControllerImpl::AcceleratorTarget
     } else if (accelerator == paste_first_item_plaintext_) {
       HandlePasteFirstItem(ClipboardHistoryPasteType::kPlainTextCtrlV);
     } else {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
     }
 
@@ -919,7 +919,7 @@ void ClipboardHistoryControllerImpl::ExecuteCommand(int command_id,
       context_menu_->SelectMenuItemHoveredByMouse();
       return;
     case Action::kEmpty:
-      DUMP_WILL_BE_NOTREACHED_NORETURN();
+      DUMP_WILL_BE_NOTREACHED();
       return;
   }
 }

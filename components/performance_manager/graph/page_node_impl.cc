@@ -5,6 +5,7 @@
 #include "components/performance_manager/graph/page_node_impl.h"
 
 #include <memory>
+#include <utility>
 
 #include "base/check_op.h"
 #include "base/functional/bind.h"
@@ -16,6 +17,7 @@
 #include "components/performance_manager/graph/process_node_impl.h"
 #include "components/performance_manager/public/graph/graph_operations.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/web_contents.h"
 
 namespace performance_manager {
 
@@ -32,7 +34,7 @@ bool IsValidInitialPageState(PageState page_state) {
     case PageState::kBackForwardCache:
       return false;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return false;
 }
 
@@ -45,19 +47,19 @@ bool IsValidPageStateTransition(PageState old_state, PageState new_state) {
     case PageState::kBackForwardCache:
       return new_state == PageState::kActive;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return false;
 }
 
 }  // namespace
 
-PageNodeImpl::PageNodeImpl(const WebContentsProxy& contents_proxy,
+PageNodeImpl::PageNodeImpl(base::WeakPtr<content::WebContents> web_contents,
                            const std::string& browser_context_id,
                            const GURL& visible_url,
                            PagePropertyFlags initial_properties,
                            base::TimeTicks visibility_change_time,
                            PageState page_state)
-    : contents_proxy_(contents_proxy),
+    : web_contents_(std::move(web_contents)),
       visibility_change_time_(visibility_change_time),
       main_frame_url_(visible_url),
       browser_context_id_(browser_context_id),
@@ -225,8 +227,8 @@ bool PageNodeImpl::HadUserEdits() const {
   return had_user_edits_.value();
 }
 
-const WebContentsProxy& PageNodeImpl::GetContentsProxy() const {
-  return contents_proxy();
+base::WeakPtr<content::WebContents> PageNodeImpl::GetWebContents() const {
+  return web_contents_;
 }
 
 PageState PageNodeImpl::GetPageState() const {
@@ -256,10 +258,6 @@ uint64_t PageNodeImpl::EstimatePrivateFootprintSize() const {
   return total;
 }
 
-const WebContentsProxy& PageNodeImpl::contents_proxy() const {
-  return contents_proxy_;
-}
-
 base::WeakPtr<PageNodeImpl> PageNodeImpl::GetWeakPtrOnUIThread() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   return weak_this_;
@@ -278,8 +276,9 @@ void PageNodeImpl::AddFrame(base::PassKey<FrameNodeImpl>,
   DCHECK(graph()->NodeInGraph(frame_node));
 
   ++frame_node_count_;
-  if (frame_node->parent_frame_node() == nullptr)
+  if (frame_node->parent_frame_node() == nullptr) {
     main_frame_nodes_.insert(frame_node);
+  }
 }
 
 void PageNodeImpl::RemoveFrame(base::PassKey<FrameNodeImpl>,
@@ -388,8 +387,9 @@ void PageNodeImpl::OnMainFrameNavigationCommitted(
   main_frame_url_.SetAndMaybeNotify(this, url);
 
   // No mainframe document change notification on same-document navigations.
-  if (same_document)
+  if (same_document) {
     return;
+  }
 
   for (auto& observer : GetObservers()) {
     observer.OnMainFrameDocumentChanged(this);
@@ -415,25 +415,25 @@ FrameNodeImpl* PageNodeImpl::embedder_frame_node() const {
 
 FrameNodeImpl* PageNodeImpl::main_frame_node() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (main_frame_nodes_.empty())
+  if (main_frame_nodes_.empty()) {
     return nullptr;
+  }
 
   // Return the current frame node if there is one. Iterating over this set is
   // fine because it is almost always of length 1 or 2.
-  for (FrameNodeImpl* frame : main_frame_nodes_) {
+  for (FrameNodeImpl* frame : main_frame_nodes()) {
     if (frame->IsCurrent()) {
       return frame;
     }
   }
 
   // Otherwise, return any old main frame node.
-  return *main_frame_nodes_.begin();
+  return *main_frame_nodes().begin();
 }
 
-const base::flat_set<raw_ptr<FrameNodeImpl, CtnExperimental>>&
-PageNodeImpl::main_frame_nodes() const {
+PageNode::NodeSetView<FrameNodeImpl*> PageNodeImpl::main_frame_nodes() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return main_frame_nodes_;
+  return NodeSetView<FrameNodeImpl*>(main_frame_nodes_);
 }
 
 void PageNodeImpl::SetOpenerFrameNode(FrameNodeImpl* opener) {
@@ -443,8 +443,9 @@ void PageNodeImpl::SetOpenerFrameNode(FrameNodeImpl* opener) {
   DCHECK_NE(this, opener->page_node());
 
   auto* previous_opener = opener_frame_node_.get();
-  if (previous_opener)
+  if (previous_opener) {
     previous_opener->RemoveOpenedPage(PassKey(), this);
+  }
   opener_frame_node_ = opener;
   opener->AddOpenedPage(PassKey(), this);
 
@@ -479,8 +480,9 @@ void PageNodeImpl::SetEmbedderFrameNodeAndEmbeddingType(
   auto* previous_embedder = embedder_frame_node_.get();
   auto previous_type = embedding_type_;
 
-  if (previous_embedder)
+  if (previous_embedder) {
     previous_embedder->RemoveEmbeddedPage(PassKey(), this);
+  }
   embedder_frame_node_ = embedder;
   embedding_type_ = embedding_type;
   embedder->AddEmbeddedPage(PassKey(), this);
@@ -532,12 +534,14 @@ void PageNodeImpl::OnBeforeLeavingGraph() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // Sever opener relationships.
-  if (opener_frame_node_)
+  if (opener_frame_node_) {
     ClearOpenerFrameNode();
+  }
 
   // Sever embedder relationships.
-  if (embedder_frame_node_)
+  if (embedder_frame_node_) {
     ClearEmbedderFrameNodeAndEmbeddingType();
+  }
 
   DCHECK_EQ(0u, frame_node_count_);
 }
@@ -565,23 +569,10 @@ const FrameNode* PageNodeImpl::GetMainFrameNode() const {
   return main_frame_node();
 }
 
-bool PageNodeImpl::VisitMainFrameNodes(const FrameNodeVisitor& visitor) const {
+PageNode::NodeSetView<const FrameNode*> PageNodeImpl::GetMainFrameNodes()
+    const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  for (FrameNodeImpl* frame_impl : main_frame_nodes_) {
-    const FrameNode* frame = frame_impl;
-    if (!visitor(frame)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-const base::flat_set<raw_ptr<const FrameNode, CtnExperimental>>
-PageNodeImpl::GetMainFrameNodes() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  base::flat_set<raw_ptr<const FrameNode, CtnExperimental>> main_frame_nodes(
-      main_frame_nodes_.begin(), main_frame_nodes_.end());
-  return main_frame_nodes;
+  return NodeSetView<const FrameNode*>(main_frame_nodes_);
 }
 
 void PageNodeImpl::SetLifecycleState(LifecycleState lifecycle_state) {

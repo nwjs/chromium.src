@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">melyn pastel</translation>
 <translation id="1056898198331236512">Rhybudd</translation>
 <translation id="1059913517121127803">Methu â dechrau sganio</translation>
+<translation id="1061864016440983342">Defnyddio heb leoliad</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> o <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Canfuwyd wal dân</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Rhagor o osodiadau</translation>
 <translation id="2082932131694554252">Allwedd bysellfwrdd wedi'i aseinio</translation>
 <translation id="2085089206770112532">Disgleirdeb y sgrîn i lawr</translation>
+<translation id="2086091080968010660">Mae'n bosib na fydd newidiadau ar sail amser yn gywir. Trowch fynediad lleoliad system ymlaen yn y gosodiadau.</translation>
 <translation id="2102231663024125441">Golygu testun</translation>
 <translation id="2105810540595158374">Mae'r ddyfais yn rheolydd gêm.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, fersiwn <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Golygu manylion APN</translation>
 <translation id="2195732836444333448">Capasiti yn llawn ar hyn o bryd. Dewch yn ôl yn fuan.</translation>
 <translation id="2201758491318984023">beic</translation>
-<translation id="2203222757805818543">Mae'r amserlen bresennol wedi'i gosod i <ph name="SUNRISE" /> - <ph name="SUNSET" />. I ddiweddaru'r amserlen modd tywyll yn awtomatig, <ph name="BEGIN_LINK" />trowch fynediad lleoliad ymlaen<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">ffynnon boeth</translation>
 <translation id="2203642483788377106">clogwyn</translation>
 <translation id="2208388655216963643">argraffiadol</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Adfer Gosodiadau Diofyn</translation>
 <translation id="2286454467119466181">Syml</translation>
 <translation id="2287186687001756809">Nid oes unrhyw lun ar gael. I ychwanegu lluniau, ewch i <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Mae'r amserlen bresennol wedi'i gosod i <ph name="SUNRISE" />-<ph name="SUNSET" />. I ddiweddaru'r amserlen machlud a chodiad haul yn awtomatig, trowch fynediad lleoliad system ymlaen.</translation>
 <translation id="2305172810646967500">du</translation>
 <translation id="2307344026739914387">Defnyddio'r pâr o allweddi presennol</translation>
 <translation id="2308243864813041101">Dadblygiwch y cebl USB <ph name="DEVICE_NAME" /> i barhau â'r broses ddiweddaru</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">twyn tywod</translation>
 <translation id="2619761439309613843">Ail-lwytho'n Ddyddiol</translation>
 <translation id="2620436844016719705">System</translation>
+<translation id="2637303424821734920">WEDI'I DDIFFODD - I arddangos tywydd lleol, <ph name="BEGIN_LINK" />trowch fynediad at leoliad system ymlaen<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Llun mewngofnodi</translation>
 <translation id="2640549051766135490">Wedi dewis albwm <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Rheolyddion</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Cefndir</translation>
 <translation id="3027578600144895987">Cau'r camera</translation>
 <translation id="3031560714565892478">Mae'r ddyfais yn gamera fideo.</translation>
+<translation id="3051968340259309715">Mae hyn yn caniatáu i wasanaethau system ddefnyddio Cywirdeb Lleoliad i benderfynu ar eich lleoliad. Mae Cywirdeb Lleoliad yn defnyddio gwybodaeth am signalau diwifr, megis pwyntiau mynediad Wi-Fi, tyrau rhwydwaith symudol, a GPS, ynghyd â data synhwyrydd dyfais, megis cyflymromedr a gyrosgop, i amcangyfrif lleoliad dyfais. Gallwch ddiffodd lleoliad yn y Gosodiadau &gt; Preifatrwydd a diogelwch &gt; Rheolaethau preifatrwydd &gt; Mynediad lleoliad. <ph name="LINK_BEGIN" />Dysgu rhagor<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">Diweddbwynt</translation>
 <translation id="3060579846059757016">Amlinelliadau</translation>
+<translation id="3061850252076394168">galluogi dewis i siarad</translation>
 <translation id="3069085583900247081">Gwnaeth y prawf fethu</translation>
 <translation id="3078740164268491126">tabl</translation>
 <translation id="3081652522083185657">golau</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Wedi methu â datrys yr holl westeiwyr</translation>
 <translation id="4593212453765072419">Mae angen dilysu dirprwy weinydd</translation>
 <translation id="4609350030397390689">Disgleirdeb y bysellfwrdd i lawr</translation>
-<translation id="4617553623719764431">Nid yw'r tywydd yn cael ei arddangos oherwydd nad yw'n gwybod eich lleoliad. I ddangos tywydd lleol, <ph name="BEGIN_LINK" />trowch fynediad Lleoliad ymlaen<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> allan o <ph name="TOTAL_PAGE_NUMBER" />. Pwyswch Enter i ganslo'r dasg argraffu hon.</translation>
 <translation id="463791356324567266">Wrthi'n canslo sganio...</translation>
 <translation id="4646949265910132906">Cysylltiad Wi-Fi diogel</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Rhedeg</translation>
 <translation id="4987769320337599931">Wal dân</translation>
 <translation id="4988526792673242964">Tudalennau</translation>
+<translation id="4989542687859782284">Nid yw ar gael</translation>
 <translation id="4999333166442584738">Cuddio'r adroddiad</translation>
 <translation id="500920857929044050">Stopio'r prawf</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">disgleirdeb bysellfwrdd</translation>
 <translation id="6412715219990689313">Bysellfwrdd integredig</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
+<translation id="6419454453018688975">Trowch fynediad lleoliad system ymlaen</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Mae hyn yn caniatáu i wasanaethau system gyda chaniatâd i ddefnyddio'ch lleoliad. Gall lleoliad ddefnyddio ffynonellau megis Wi-Fi, rhwydweithiau symudol, a synwyryddion i helpu i amcangyfrif lleoliad eich dyfais. <ph name="LINK_BEGIN" />Dysgu rhagor<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Gwan (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Mynd i'r gosodiadau cyfrif</translation>
 <translation id="6462978824459367242">Mae'r botwm Ychwanegu APN bellach wedi'i alluogi</translation>

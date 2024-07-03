@@ -7,6 +7,7 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
+#include "base/observer_list_types.h"
 #include "base/types/expected.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
@@ -113,12 +114,31 @@ enum class OnDeviceModelEligibilityReason {
   kFeatureExecutionNotEnabled = 11,
   // On-device model adaptation was required but not available.
   kModelAdaptationNotAvailable = 12,
+  // Validation has not completed for the model yet.
+  kValidationPending = 13,
+  // Validation failed for the model.
+  kValidationFailed = 14,
 
   // This must be kept in sync with
   // OptimizationGuideOnDeviceModelEligibilityReason in optimization/enums.xml.
 
   // Insert new values before this line.
-  kMaxValue = kModelAdaptationNotAvailable,
+  kMaxValue = kValidationFailed,
+};
+
+// Observer that is notified when the on-device model availability changes for
+// the on-device eligible features.
+class OnDeviceModelAvailabilityObserver : public base::CheckedObserver {
+ public:
+  // Notifies the consumers whenever the on-device model availability for the
+  // `feature` changes. `reason` indicates the current availability of the
+  // model. This could be invoked without the model availability state toggling.
+  // This is not called automatically when the observer is added initially.
+  // Consumers should call `OnDeviceModelServiceController::CanCreateSession` to
+  // check the initial (or current) model availability state.
+  virtual void OnDeviceModelAvailablityChanged(
+      ModelBasedCapabilityKey feature,
+      OnDeviceModelEligibilityReason reason) = 0;
 };
 
 // Interface for model execution.
@@ -170,6 +190,14 @@ class OptimizationGuideModelExecutor {
       ModelBasedCapabilityKey feature,
       const google::protobuf::MessageLite& request_metadata,
       OptimizationGuideModelExecutionResultCallback callback) = 0;
+
+  // Observer for on-device model availability changes.
+  virtual void AddOnDeviceModelAvailabilityChangeObserver(
+      optimization_guide::ModelBasedCapabilityKey feature,
+      OnDeviceModelAvailabilityObserver* observer) {}
+  virtual void RemoveOnDeviceModelAvailabilityChangeObserver(
+      optimization_guide::ModelBasedCapabilityKey feature,
+      OnDeviceModelAvailabilityObserver* observer) {}
 };
 
 }  // namespace optimization_guide

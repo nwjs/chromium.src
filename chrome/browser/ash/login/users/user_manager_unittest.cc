@@ -37,6 +37,7 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chromeos/ash/components/cryptohome/system_salt_getter.h"
 #include "chromeos/ash/components/dbus/concierge/concierge_client.h"
+#include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/system/fake_statistics_provider.h"
 #include "components/account_id/account_id.h"
@@ -59,7 +60,7 @@ namespace ash {
 namespace {
 
 AccountId CreateDeviceLocalAccountId(const std::string& account_id,
-                                     policy::DeviceLocalAccount::Type type) {
+                                     policy::DeviceLocalAccountType type) {
   return AccountId::FromUserEmail(
       policy::GenerateDeviceLocalAccountUserId(account_id, type));
 }
@@ -74,7 +75,7 @@ const AccountId kAccountId1 =
     AccountId::FromUserEmailGaiaId("user1@example.com", "9012345678");
 const AccountId kKioskAccountId =
     CreateDeviceLocalAccountId(kDeviceLocalAccountId,
-                               policy::DeviceLocalAccount::TYPE_KIOSK_APP);
+                               policy::DeviceLocalAccountType::kKioskApp);
 }  // namespace
 
 class UserManagerObserverTest : public user_manager::UserManager::Observer {
@@ -132,6 +133,8 @@ class UserManagerTest : public testing::Test {
     command_line.AppendSwitch(::switches::kTestType);
     command_line.AppendSwitch(switches::kIgnoreUserProfileMappingForTests);
 
+    UserDataAuthClient::InitializeFake();
+
     UserImageManagerImpl::SkipDefaultUserImageDownloadForTesting();
     UserImageManagerImpl::SkipProfileImageDownloadForTesting();
 
@@ -175,6 +178,8 @@ class UserManagerTest : public testing::Test {
 
     base::RunLoop().RunUntilIdle();
     ConciergeClient::Shutdown();
+
+    UserDataAuthClient::Shutdown();
   }
 
   bool IsEphemeralAccountId(const AccountId& account_id) const {
@@ -214,10 +219,6 @@ class UserManagerTest : public testing::Test {
     task_environment_.RunUntilIdle();
   }
 
-  std::unique_ptr<MockRemoveUserManager> CreateMockRemoveUserManager() const {
-    return std::make_unique<MockRemoveUserManager>();
-  }
-
   void SetDeviceSettings(bool ephemeral_users_enabled,
                          const std::string& owner) {
     settings_helper_.SetBoolean(kAccountsPrefEphemeralUsersEnabled,
@@ -233,9 +234,9 @@ class UserManagerTest : public testing::Test {
         base::Value(base::Value::List().Append(
             base::Value::Dict()
                 .Set(kAccountsPrefDeviceLocalAccountsKeyId, account_id)
-                .Set(kAccountsPrefDeviceLocalAccountsKeyType,
-                     static_cast<int>(
-                         policy::DeviceLocalAccount::TYPE_KIOSK_APP))
+                .Set(
+                    kAccountsPrefDeviceLocalAccountsKeyType,
+                    static_cast<int>(policy::DeviceLocalAccountType::kKioskApp))
                 .Set(kAccountsPrefDeviceLocalAccountsKeyEphemeralMode,
                      static_cast<int>(ephemeral_mode))
                 .Set(kAccountsPrefDeviceLocalAccountsKeyKioskAppId, ""))));
@@ -245,7 +246,7 @@ class UserManagerTest : public testing::Test {
   // `TYPE_SAML_PUBLIC_SESSION` types.
   void SetDeviceLocalPublicAccount(
       const std::string& account_id,
-      policy::DeviceLocalAccount::Type type,
+      policy::DeviceLocalAccountType type,
       policy::DeviceLocalAccount::EphemeralMode ephemeral_mode) {
     settings_helper_.Set(
         kAccountsPrefDeviceLocalAccounts,
@@ -372,12 +373,12 @@ TEST_F(UserManagerTest, IsEphemeralAccountIdTrueForPublicAccountId) {
       /* ephemeral_users_enabled= */ false,
       /* owner= */ kOwnerAccountId.GetUserEmail());
   SetDeviceLocalPublicAccount(
-      kDeviceLocalAccountId, policy::DeviceLocalAccount::TYPE_PUBLIC_SESSION,
+      kDeviceLocalAccountId, policy::DeviceLocalAccountType::kPublicSession,
       policy::DeviceLocalAccount::EphemeralMode::kDisable);
   RetrieveTrustedDevicePolicies();
 
   const AccountId public_accout_id = CreateDeviceLocalAccountId(
-      kDeviceLocalAccountId, policy::DeviceLocalAccount::TYPE_PUBLIC_SESSION);
+      kDeviceLocalAccountId, policy::DeviceLocalAccountType::kPublicSession);
   EXPECT_TRUE(IsEphemeralAccountId(public_accout_id));
 }
 
@@ -390,14 +391,13 @@ TEST_F(UserManagerTest, IsEphemeralAccountIdTrueForSamlPublicAccountId) {
       /* ephemeral_users_enabled= */ false,
       /* owner= */ kOwnerAccountId.GetUserEmail());
   SetDeviceLocalPublicAccount(
-      kDeviceLocalAccountId,
-      policy::DeviceLocalAccount::TYPE_SAML_PUBLIC_SESSION,
+      kDeviceLocalAccountId, policy::DeviceLocalAccountType::kSamlPublicSession,
       policy::DeviceLocalAccount::EphemeralMode::kDisable);
   RetrieveTrustedDevicePolicies();
 
   const AccountId saml_public_accout_id = CreateDeviceLocalAccountId(
       kDeviceLocalAccountId,
-      policy::DeviceLocalAccount::TYPE_SAML_PUBLIC_SESSION);
+      policy::DeviceLocalAccountType::kSamlPublicSession);
   EXPECT_TRUE(IsEphemeralAccountId(saml_public_accout_id));
 }
 
@@ -519,8 +519,7 @@ TEST_F(UserManagerTest, DoNotSaveKioskAccountsToKRegularUsersPref) {
 }
 
 TEST_F(UserManagerTest, RemoveUser) {
-  std::unique_ptr<MockRemoveUserManager> user_manager =
-      CreateMockRemoveUserManager();
+  auto user_manager = ChromeUserManagerImpl::CreateChromeUserManager();
 
   // Create owner account and login in.
   user_manager->UserLoggedIn(kOwnerAccountId, kOwnerAccountId.GetUserEmail(),
@@ -538,7 +537,7 @@ TEST_F(UserManagerTest, RemoveUser) {
   EXPECT_EQ(2U, user_manager->GetUsers().size());
 
   // Recreate the user manager to log out all accounts.
-  user_manager = CreateMockRemoveUserManager();
+  user_manager = ChromeUserManagerImpl::CreateChromeUserManager();
   UserManagerObserverTest observer_test;
   user_manager->AddObserver(&observer_test);
   ASSERT_EQ(2U, user_manager->GetUsers().size());
@@ -555,24 +554,18 @@ TEST_F(UserManagerTest, RemoveUser) {
   ASSERT_TRUE(user_to_remove);
   ASSERT_EQ(kAccountId0, user_to_remove->GetAccountId());
 
-  // Removing non-owner account is acceptable.
-  EXPECT_CALL(*user_manager, AsyncRemoveCryptohome(kAccountId0)).Times(1);
-
   // Pass the account id of the user to be removed from the user list to verify
   // that a reference to the account id will not be used after user removal.
   user_manager->RemoveUser(kAccountId0,
                            user_manager::UserRemovalReason::UNKNOWN);
-  testing::Mock::VerifyAndClearExpectations(user_manager.get());
   EXPECT_EQ(1, observer_test.OnUserToBeRemovedCallCount());
   EXPECT_EQ(1, observer_test.OnUserRemovedCallCount());
   EXPECT_EQ(1U, user_manager->GetUsers().size());
 
   // Removing owner account is unacceptable.
-  EXPECT_CALL(*user_manager, AsyncRemoveCryptohome(kOwnerAccountId)).Times(0);
   observer_test.ResetCallCounts();
   user_manager->RemoveUser(kOwnerAccountId,
                            user_manager::UserRemovalReason::UNKNOWN);
-  testing::Mock::VerifyAndClearExpectations(user_manager.get());
   EXPECT_EQ(0, observer_test.OnUserToBeRemovedCallCount());
   EXPECT_EQ(0, observer_test.OnUserRemovedCallCount());
   EXPECT_EQ(1U, user_manager->GetUsers().size());

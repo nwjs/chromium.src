@@ -401,12 +401,6 @@ PhysicalBoxFragment::PhysicalBoxFragment(
 }
 
 PhysicalBoxFragment::~PhysicalBoxFragment() {
-  // Note: This function may not always be called because the dtor of
-  // PhysicalFragment is made non-virtual for memory efficiency.
-  SetInkOverflowType(ink_overflow_.Reset(InkOverflowType()));
-}
-
-void PhysicalBoxFragment::Dispose() {
   if (HasInkOverflow())
     SetInkOverflowType(ink_overflow_.Reset(InkOverflowType()));
   if (HasItems())
@@ -433,7 +427,7 @@ const LayoutBox* PhysicalBoxFragment::OwnerLayoutBox() const {
   if (UNLIKELY(IsFragmentainerBox())) {
     if (owner_box->IsLayoutView()) {
       DCHECK_EQ(GetBoxType(), kPageArea);
-      DCHECK(To<LayoutView>(owner_box)->ShouldUsePrintingLayout());
+      DCHECK(To<LayoutView>(owner_box)->ShouldUsePaginatedLayout());
     } else {
       DCHECK(IsColumnBox());
     }
@@ -1069,7 +1063,7 @@ void PhysicalBoxFragment::AddOutlineRects(
   DCHECK(IsOutlineOwner());
 
   // For anonymous blocks, the children add outline rects.
-  if (!IsAnonymousBlock()) {
+  if (!IsAnonymousBlock() || GetBoxType() == kPageBorderBox) {
     if (IsSvgText()) {
       if (Items()) {
         collector.AddRect(PhysicalRect::EnclosingRect(

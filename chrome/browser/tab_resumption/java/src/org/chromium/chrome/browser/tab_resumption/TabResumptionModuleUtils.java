@@ -21,12 +21,13 @@ public class TabResumptionModuleUtils {
     private static final int DEFAULT_MAX_TILES_NUMBER = 2;
 
     /** Callback to handle click on suggestion tiles. */
-    public interface SuggestionClickCallbacks {
-        // Called to open a URL.
-        void onSuggestionClickByUrl(GURL gurl);
+    public interface SuggestionClickCallback {
+        void onSuggestionClicked(SuggestionEntry entry);
+    }
 
-        // Called to switch to an existing Tab.
-        void onSuggestionClickByTabId(int tabId);
+    /** Overrides getCurrentTime() return value, for testing. */
+    public interface FakeGetCurrentTimeMs {
+        long get();
     }
 
     /**
@@ -81,6 +82,46 @@ public class TabResumptionModuleUtils {
                     ChromeFeatureList.TAB_RESUMPTION_MODULE_ANDROID,
                     TAB_RESUMPTION_USE_DEFAULT_APP_FILTER_PARAM,
                     false);
+
+    private static final String TAB_RESUMPTION_DISABLE_BLEND_PARAM = "disable_blend";
+    public static final BooleanCachedFieldTrialParameter TAB_RESUMPTION_DISABLE_BLEND =
+            ChromeFeatureList.newBooleanCachedFieldTrialParameter(
+                    ChromeFeatureList.TAB_RESUMPTION_MODULE_ANDROID,
+                    TAB_RESUMPTION_DISABLE_BLEND_PARAM,
+                    false);
+
+    private static final String TAB_RESUMPTION_FETCH_HISTORY_BACKEND_PARAM =
+            "fetch_history_backend";
+    public static final BooleanCachedFieldTrialParameter TAB_RESUMPTION_FETCH_HISTORY_BACKEND =
+            ChromeFeatureList.newBooleanCachedFieldTrialParameter(
+                    ChromeFeatureList.TAB_RESUMPTION_MODULE_ANDROID,
+                    TAB_RESUMPTION_FETCH_HISTORY_BACKEND_PARAM,
+                    false);
+
+    private static final String TAB_RESUMPTION_FETCH_LOCAL_TABS_BACKEND_PARAM =
+            "fetch_local_tabs_backend";
+    public static final BooleanCachedFieldTrialParameter TAB_RESUMPTION_FETCH_LOCAL_TABS_BACKEND =
+            ChromeFeatureList.newBooleanCachedFieldTrialParameter(
+                    ChromeFeatureList.TAB_RESUMPTION_MODULE_ANDROID,
+                    TAB_RESUMPTION_FETCH_LOCAL_TABS_BACKEND_PARAM,
+                    false);
+
+    private static FakeGetCurrentTimeMs sFakeGetCurrentTimeMs;
+
+    /**
+     * Overrides the getCurrentTimeMs() results. Using a function instead of static value for
+     * flexibility, which is useful for simulating an advancing clock. Passing null disables this.
+     */
+    static void setFakeCurrentTimeMsForTesting(FakeGetCurrentTimeMs fakeGetCurrentTimeMs) {
+        sFakeGetCurrentTimeMs = fakeGetCurrentTimeMs;
+    }
+
+    /** Returns the current time in ms since the epock. Mockable. */
+    static long getCurrentTimeMs() {
+        return (sFakeGetCurrentTimeMs == null)
+                ? System.currentTimeMillis()
+                : sFakeGetCurrentTimeMs.get();
+    }
 
     /**
      * Computes the string representation of how recent an event was, given the time delta.

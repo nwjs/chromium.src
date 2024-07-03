@@ -17,6 +17,7 @@
 #include "components/autofill/core/browser/data_model/bank_account.h"
 #include "components/autofill/core/browser/data_model/credit_card_art_image.h"
 #include "components/autofill/core/browser/geo/autofill_country.h"
+#include "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/card_metadata_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/cvc_storage_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/iban_metrics.h"
@@ -236,7 +237,7 @@ PaymentsDataManager::PaymentsDataManager(
       this, profile_database, account_database);
   SetPrefService(pref_service);
   if (pref_service_) {
-    AutofillMetrics::LogIsAutofillCreditCardEnabledAtStartup(
+    autofill_metrics::LogIsAutofillCreditCardEnabledAtStartup(
         IsAutofillPaymentMethodsEnabled());
     if (IsAutofillPaymentMethodsEnabled()) {
       autofill_metrics::LogIsAutofillPaymentsCvcStorageEnabledAtStartup(
@@ -379,7 +380,7 @@ void PaymentsDataManager::OnWebDataServiceRequestDone(
         OnMaskedBankAccountsRefreshed();
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 
@@ -711,7 +712,7 @@ bool PaymentsDataManager::HasMaskedBankAccounts() const {
 }
 
 std::vector<BankAccount> PaymentsDataManager::GetMaskedBankAccounts() const {
-  if (!IsAutofillPaymentMethodsEnabled()) {
+  if (!HasMaskedBankAccounts()) {
     return {};
   }
   std::vector<BankAccount> bank_accounts;
@@ -1037,7 +1038,7 @@ bool PaymentsDataManager::IsKnownCard(const CreditCard& credit_card) const {
         }
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 
@@ -1676,7 +1677,7 @@ bool PaymentsDataManager::ShouldSuggestServerPaymentMethods() const {
 
 void PaymentsDataManager::LoadCreditCards() {
   if (!database_helper_->GetLocalDatabase()) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1704,7 +1705,7 @@ void PaymentsDataManager::LoadCreditCardCloudTokenData() {
 
 void PaymentsDataManager::LoadIbans() {
   if (!database_helper_->GetLocalDatabase()) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
   CancelPendingLocalQuery(&pending_local_ibans_query_);
@@ -1766,7 +1767,7 @@ void PaymentsDataManager::CancelPendingLocalQuery(
     WebDataServiceBase::Handle* handle) {
   if (*handle) {
     if (!database_helper_->GetLocalDatabase()) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
     }
     database_helper_->GetLocalDatabase()->CancelRequest(*handle);
@@ -1778,7 +1779,7 @@ void PaymentsDataManager::CancelPendingServerQuery(
     WebDataServiceBase::Handle* handle) {
   if (*handle) {
     if (!database_helper_->GetServerDatabase()) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
     }
     database_helper_->GetServerDatabase()->CancelRequest(*handle);
@@ -1873,6 +1874,10 @@ void PaymentsDataManager::AddServerCreditCardForTest(
 void PaymentsDataManager::AddCreditCardBenefitForTest(
     CreditCardBenefit benefit) {
   credit_card_benefits_.push_back(std::move(benefit));
+}
+
+bool PaymentsDataManager::IsFacilitatedPaymentsPixUserPrefEnabled() const {
+  return prefs::IsFacilitatedPaymentsPixEnabled(pref_service_);
 }
 
 bool PaymentsDataManager::HasPendingPaymentQueries() const {

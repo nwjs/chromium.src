@@ -1033,8 +1033,7 @@ bool PrerenderHostRegistry::CancelHostInternal(
   std::unique_ptr<PrerenderHost> prerender_host = std::move(iter->second);
   prerender_host_by_frame_tree_node_id_.erase(iter);
 
-  reason.ReportMetrics(prerender_host->trigger_type(),
-                       prerender_host->embedder_histogram_suffix());
+  reason.ReportMetrics(prerender_host->GetHistogramSuffix());
 
   NotifyCancel(prerender_host->frame_tree_node_id(), reason);
 
@@ -1575,7 +1574,6 @@ int PrerenderHostRegistry::FindHostToActivateInternal(
   if (navigation_request.IsInPrerenderedMainFrame())
     return RenderFrameHost::kNoFrameTreeNodeId;
 
-  // TODO(crbug.com/331591646): Add No Vary Search hint functionality.
   // Find an available host for the navigation URL.
   PrerenderHost* host = nullptr;
   for (const auto& [host_id, it_prerender_host] :
@@ -1585,8 +1583,19 @@ int PrerenderHostRegistry::FindHostToActivateInternal(
       break;
     }
   }
-  if (!host)
+  if (!host) {
+    for (const auto& [host_id, it_prerender_host] :
+         prerender_host_by_frame_tree_node_id_) {
+      if (it_prerender_host->IsNoVarySearchHintUrlMatch(
+              navigation_request.GetURL())) {
+        host = it_prerender_host.get();
+        break;
+      }
+    }
+  }
+  if (!host) {
     return RenderFrameHost::kNoFrameTreeNodeId;
+  }
 
   // Disallow activation when the navigation URL has an effective URL like
   // hosted apps and NTP.
@@ -1627,7 +1636,6 @@ int PrerenderHostRegistry::FindHostToActivateInternal(
   {
     PrerenderCancellationReason reason = PrerenderCancellationReason::
         CreateCandidateReasonForActivationParameterMismatch();
-
     // Compare navigation params from activation with the navigation params
     // from the initial prerender navigation. If they don't match, the
     // navigation should not activate the prerendered page.

@@ -17,6 +17,7 @@
 #import "components/metrics/demographics/user_demographics.h"
 #import "components/password_manager/core/browser/sharing/password_receiver_service.h"
 #import "components/password_manager/core/browser/sharing/password_sender_service.h"
+#import "components/plus_addresses/settings/plus_address_setting_service.h"
 #import "components/plus_addresses/webdata/plus_address_webdata_service.h"
 #import "components/sync/base/sync_util.h"
 #import "components/sync/service/model_type_controller.h"
@@ -101,6 +102,7 @@ WebViewSyncClient::WebViewSyncClient(
           /*account_bookmark_sync_service=*/nullptr,
           /*power_bookmark_service=*/nullptr,
           /*supervised_user_settings_service=*/nullptr,
+          /*plus_address_setting_service=*/nullptr,
           /*plus_address_webdata_service=*/nullptr,
           /*TODO(crbug.com/330201909) implement on iOS
              product_specifications_service= */
@@ -194,7 +196,7 @@ WebViewSyncClient::GetExtensionsActivity() {
 
 base::WeakPtr<syncer::ModelTypeControllerDelegate>
 WebViewSyncClient::GetControllerDelegateForModelType(syncer::ModelType type) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return base::WeakPtr<syncer::ModelTypeControllerDelegate>();
 }
 
@@ -205,11 +207,6 @@ WebViewSyncClient::GetSyncApiComponentFactory() {
 
 bool WebViewSyncClient::IsCustomPassphraseAllowed() {
   return true;
-}
-
-void WebViewSyncClient::OnLocalSyncTransportDataCleared() {
-  DCHECK_CURRENTLY_ON(web::WebThread::UI);
-  metrics::ClearDemographicsPrefs(pref_service_);
 }
 
 bool WebViewSyncClient::IsPasswordSyncAllowed() {

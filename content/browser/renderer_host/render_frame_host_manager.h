@@ -80,6 +80,11 @@ enum class GetFrameHostForNavigationFailed {
   // RenderFrameHost (because the pre-existing unsuitable speculative
   // RenderFrameHost cannot be discarded).
   kBlockedByPendingCommit,
+  // Intentionally defer the creation of the RenderFrameHost to prioritize
+  // initiating the network request instead.
+  // Please refer to the comments of features:kDeferSpeculativeRFHCreation
+  // in contents/common/features.cc for more details.
+  kIntentionalDefer,
 };
 
 // Manages RenderFrameHosts for a FrameTreeNode. It maintains a
@@ -1047,12 +1052,6 @@ class CONTENT_EXPORT RenderFrameHostManager {
   // stored in back-forward cache or to activate the prerenderer.
   std::unique_ptr<StoredPage> CollectPage(
       std::unique_ptr<RenderFrameHostImpl> main_render_frame_host);
-
-  // Helper to determine whether the provided navigation should perform an early
-  // RenderFrameHost swap for a back/forward navigation, to support a navigation
-  // transition. This is an experimental feature, see https://crbug.com/1480129.
-  bool ShouldPerformEarlySwapForNavigationTransition(
-      NavigationRequest* request);
 
   // Update `render_frame_host`'s opener in the renderer process in response to
   // the opener being modified (e.g., with window.open or being set to null) in

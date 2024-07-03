@@ -10,8 +10,6 @@ assert(enable_extensions)
 # TODO(crbug.com/40124309): Delete web_applications/extensions/ directory.
 source_set("extensions") {
   sources = [
-    "bookmark_app_util.cc",
-    "bookmark_app_util.h",
     "extension_status_utils.cc",
     "extensions_manager.cc",
     "web_app_extension_shortcut.cc",
@@ -53,13 +51,12 @@ source_set("unit_tests") {
   deps = [
     ":extensions",
     "//build:chromeos_buildflags",
-    "//chrome/browser/web_applications:web_applications",
+    "//chrome/browser/web_applications",
     "//chrome/browser/web_applications:web_applications_test_support",
     "//chrome/browser/web_applications:web_applications_unit_tests",
     "//chrome/common",
     "//chrome/test:test_support",
-    "//components/crx_file:crx_file",
-    "//components/webapps/browser:browser",
+    "//components/webapps/browser",
     "//components/webapps/common",
     "//content/public/browser",
     "//content/test:test_support",

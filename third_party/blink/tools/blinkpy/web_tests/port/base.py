@@ -43,7 +43,7 @@ import time
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
-from typing import Literal, Optional, Set, Tuple
+from typing import List, Literal, Optional, Set, Tuple
 
 import six
 from six.moves import zip_longest
@@ -57,7 +57,12 @@ from blinkpy.common import path_finder
 from blinkpy.common.memoized import memoized
 from blinkpy.common.system.executive import ScriptError
 from blinkpy.common.system.path import abspath_to_uri
-from blinkpy.w3c.wpt_manifest import WPTManifest, MANIFEST_NAME
+from blinkpy.w3c.wpt_manifest import (
+    FuzzyRange,
+    FuzzyParameters,
+    WPTManifest,
+    MANIFEST_NAME,
+)
 from blinkpy.web_tests.layout_package.bot_test_expectations import BotTestExpectationsFactory
 from blinkpy.web_tests.models.test_configuration import TestConfiguration
 from blinkpy.web_tests.models.test_run_results import TestRunException
@@ -74,9 +79,6 @@ from blinkpy.web_tests.servers import pywebsocket
 from blinkpy.web_tests.servers import wptserve
 
 _log = logging.getLogger(__name__)
-
-FuzzyRange = Tuple[int, int]
-FuzzyParameters = Tuple[Optional[FuzzyRange], Optional[FuzzyRange]]
 
 # Path relative to the build directory.
 CONTENT_SHELL_FONTS_DIR = "test_fonts"
@@ -154,6 +156,7 @@ class Port(object):
 
     CONTENT_SHELL_NAME = 'content_shell'
     CHROME_NAME = 'chrome'
+    HEADLESS_SHELL_NAME = 'headless_shell'
 
     # Update the first line in third_party/blink/web_tests/TestExpectations and
     # the documentation in docs/testing/web_test_expectations.md when this list
@@ -394,55 +397,26 @@ class Port(object):
         flags += self.get_option('additional_driver_flag', [])
         return flags
 
-    def additional_driver_flags(self):
+    def additional_driver_flags(self) -> List[str]:
+        """Get extra switches to apply to all tests in this run.
+
+        Note on layering: Only hardcode switches here if they're useful for all
+        embedders and test scenarios (e.g., `//content/public/` switches).
+        Embedder-specific switches should be added to the corresponding
+        `Driver.cmd_line()` implementation.
+        """
         flags = self._specified_additional_driver_flags()
-        driver_name = self.driver_name()
-
-        # Enable "test" and "experimental" features by passing either
-        # `--run-web-tests` or `--enable-blink-test-features`.
-        if driver_name == self.CONTENT_SHELL_NAME:
-            flags.extend([
-                '--run-web-tests',
-                # `--ignore-certificate-errors-spki-list` requires
-                # `--user-data-dir` to take effect. `--user-data-dir` is an
-                # embedder-defined switch; it seems that we don't need to pass
-                # this for `chrome`, as `chromedriver` will supply its own
-                # value.
-                '--user-data-dir',
-            ])
-        elif driver_name == self.CHROME_NAME:
-            flags.extend([
-                '--enable-blink-test-features',
-                # Expose the non-standard `window.gc()` for `wpt_internal/`
-                # tests. See: crbug.com/1509657
-                '--js-flags=--expose-gc',
-            ])
-
-        if driver_name in {self.CONTENT_SHELL_NAME, self.CHROME_NAME}:
-            known_fingerprints = [
-                WPT_FINGERPRINT,
-                SXG_FINGERPRINT,
-                SXG_WPT_FINGERPRINT,
-            ]
-            flags.extend([
-                '--ignore-certificate-errors-spki-list=' +
-                ','.join(known_fingerprints),
-                # Required for WebTransport tests.
-                '--webtransport-developer-mode',
-            ])
-            if self.get_option('nocheck_sys_deps', False):
-                flags.append('--disable-system-font-check')
-
-        # If we're already repeating the tests more than once, then we're not
-        # particularly concerned with speed. Resetting the shell between tests
-        # increases test run time by 2-5X, but provides more consistent results
-        # [less state leaks between tests].
-        if (self.get_option('reset_shell_between_tests')
-                or (self.get_option('repeat_each')
-                    and self.get_option('repeat_each') > 1)
-                or (self.get_option('iterations')
-                    and self.get_option('iterations') > 1)):
-            flags += ['--reset-shell-between-tests']
+        known_fingerprints = [
+            WPT_FINGERPRINT,
+            SXG_FINGERPRINT,
+            SXG_WPT_FINGERPRINT,
+        ]
+        flags.extend([
+            '--ignore-certificate-errors-spki-list=' +
+            ','.join(known_fingerprints),
+            # Required for WebTransport tests.
+            '--webtransport-developer-mode',
+        ])
         return flags
 
     def supports_per_test_timeout(self):
@@ -1310,6 +1284,14 @@ class Port(object):
                 file_digest = ''
             hasher.update(f'{changed_file}:{file_digest}\n'.encode())
         return hasher.hexdigest()
+
+    @classmethod
+    def split_wpt_dir(cls, test: str) -> Tuple[Optional[str], str]:
+        """Split a test path into its WPT directory (if any) and the rest."""
+        for wpt_dir in cls.WPT_DIRS:
+            if test.startswith(wpt_dir):
+                return wpt_dir, test[len(f'{wpt_dir}/'):]
+        return None, test
 
     def is_wpt_file(self, path):
         """Returns whether a path is a WPT test file."""

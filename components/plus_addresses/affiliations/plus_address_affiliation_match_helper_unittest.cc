@@ -8,6 +8,7 @@
 #include "base/test/gmock_move_support.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/task_environment.h"
 #include "components/affiliations/core/browser/affiliation_service.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/affiliations/core/browser/mock_affiliation_service.h"
@@ -16,6 +17,7 @@
 #include "components/plus_addresses/plus_address_service.h"
 #include "components/plus_addresses/plus_address_test_utils.h"
 #include "components/plus_addresses/plus_address_types.h"
+#include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -36,10 +38,10 @@ class PlusAddressAffiliationMatchHelperTest : public testing::Test {
  public:
   PlusAddressAffiliationMatchHelperTest() {
     plus_address_service_ = std::make_unique<PlusAddressService>(
-        /*identity_manager=*/nullptr,
-        /*pref_service=*/nullptr,
+        identity_test_env_.identity_manager(),
         std::make_unique<testing::NiceMock<MockPlusAddressHttpClient>>(),
-        /*webdata_service=*/nullptr);
+        /*webdata_service=*/nullptr,
+        /*affiliation_service=*/mock_affiliation_service());
 
     match_helper_ = std::make_unique<PlusAddressAffiliationMatchHelper>(
         plus_address_service(), mock_affiliation_service());
@@ -63,8 +65,7 @@ class PlusAddressAffiliationMatchHelperTest : public testing::Test {
   void SaveProfiles(const std::vector<PlusProfile>& profiles) {
     std::vector<PlusAddressDataChange> changes;
     for (const PlusProfile& profile : profiles) {
-      changes.push_back(
-          PlusAddressDataChange(PlusAddressDataChange::Type::kAdd, profile));
+      changes.emplace_back(PlusAddressDataChange::Type::kAdd, profile);
     }
     plus_address_service()->OnWebDataChangedBySync(changes);
   }
@@ -82,10 +83,12 @@ class PlusAddressAffiliationMatchHelperTest : public testing::Test {
   }
 
  private:
+  base::test::ScopedFeatureList features_{features::kPlusAddressAffiliations};
+  base::test::TaskEnvironment task_environment_;
+  signin::IdentityTestEnvironment identity_test_env_;
   testing::StrictMock<MockAffiliationService> mock_affiliation_service_;
   std::unique_ptr<PlusAddressService> plus_address_service_;
   std::unique_ptr<PlusAddressAffiliationMatchHelper> match_helper_;
-  base::test::ScopedFeatureList features_{features::kPlusAddressAffiliations};
 };
 
 // Verifies that PSL extensions are cached within the match helper and a single

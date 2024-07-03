@@ -15,6 +15,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/toggle_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
@@ -38,12 +39,6 @@ std::unique_ptr<views::View> CreateSeparator(bool padded) {
                           DISTANCE_HORIZONTAL_SEPARATOR_PADDING_PAGE_INFO_VIEW)
                     : 0;
 
-  if (!features::IsChromeRefresh2023()) {
-    // Distance for multi content list is used, but split in half, since there
-    // is a separator in the middle of it. For ChromeRefresh2023, the separator
-    // spacing is larger hence no need to split in half.
-    vmargin /= 2;
-  }
   auto separator = std::make_unique<views::Separator>();
   separator->SetProperty(views::kMarginsKey, gfx::Insets::VH(vmargin, hmargin));
   return separator;
@@ -95,11 +90,7 @@ void CookieControlsContentView::AddContentLabels() {
 
   description_ = label_wrapper_->AddChildView(std::make_unique<views::Label>());
   description_->SetTextContext(views::style::CONTEXT_LABEL);
-  if (features::IsChromeRefresh2023()) {
-    description_->SetTextStyle(views::style::STYLE_BODY_5);
-  } else {
-    description_->SetTextStyle(views::style::STYLE_SECONDARY);
-  }
+  description_->SetTextStyle(views::style::STYLE_BODY_5);
   description_->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT);
   description_->SetMultiLine(true);
   description_->SetProperty(views::kElementIdentifierKey, kDescription);
@@ -121,9 +112,7 @@ void CookieControlsContentView::SetToggleVisible(bool visible) {
 
 void CookieControlsContentView::SetToggleLabel(const std::u16string& label) {
   toggle_label_->SetText(label);
-  if (features::IsChromeRefresh2023()) {
-    toggle_label_->SetTextStyle(views::style::STYLE_BODY_5);
-  }
+  toggle_label_->SetTextStyle(views::style::STYLE_BODY_5);
 
   const std::u16string accessible_name = base::JoinString(
       {
@@ -132,7 +121,7 @@ void CookieControlsContentView::SetToggleLabel(const std::u16string& label) {
           label,
       },
       u"\n");
-  toggle_button_->SetAccessibleName(accessible_name);
+  toggle_button_->GetViewAccessibility().SetName(accessible_name);
 }
 
 void CookieControlsContentView::SetEnforcedIcon(const gfx::VectorIcon& icon,
@@ -177,7 +166,7 @@ void CookieControlsContentView::AddToggleRow() {
                 toggle_row_->GetFirstLineHeight()));
 
   // The accessible name will be updated again when the label is updated.
-  toggle_button_->SetAccessibleName(l10n_util::GetStringUTF16(
+  toggle_button_->GetViewAccessibility().SetName(l10n_util::GetStringUTF16(
       IDS_COOKIE_CONTROLS_BUBBLE_THIRD_PARTY_COOKIES_LABEL));
   toggle_button_->SetVisible(true);
   toggle_button_->SetProperty(views::kElementIdentifierKey, kToggleButton);

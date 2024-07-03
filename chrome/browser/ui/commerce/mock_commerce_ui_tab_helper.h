@@ -29,7 +29,10 @@ class MockCommerceUiTabHelper : public commerce::CommerceUiTabHelper {
   MOCK_METHOD(const gfx::Image&, GetProductImage, ());
   MOCK_METHOD(bool, ShouldShowPriceTrackingIconView, ());
   MOCK_METHOD(bool, ShouldShowPriceInsightsIconView, ());
+  MOCK_METHOD(bool, ShouldShowProductSpecificationsIconView, ());
+  MOCK_METHOD(void, OnProductSpecificationsIconClicked, (), (override));
   MOCK_METHOD(bool, IsPriceTracking, ());
+  MOCK_METHOD(bool, IsInRecommendedSet, (), (override));
   MOCK_METHOD(void,
               SetPriceTrackingState,
               (bool enable,

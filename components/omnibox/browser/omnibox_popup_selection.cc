@@ -99,7 +99,7 @@ bool OmniboxPopupSelection::IsControlPresentOnMatch(
     default:
       break;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return false;
 }
 
@@ -168,7 +168,7 @@ OmniboxPopupSelection OmniboxPopupSelection::GetNextSelection(
     return *(current - 1);
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return *this;
 }
 

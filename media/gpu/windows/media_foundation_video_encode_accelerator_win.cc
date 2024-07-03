@@ -80,6 +80,8 @@ constexpr uint8_t kVP9MaxQuantizer = 56;
 constexpr uint8_t kAV1MinQuantizer = 10;
 // //third_party/webrtc/media/engine/webrtc_video_engine.h.
 constexpr uint8_t kAV1MaxQuantizer = 56;
+constexpr gfx::Size kMaxResolution(1920, 1088);
+constexpr gfx::Size kMinResolution(32, 32);
 
 constexpr CLSID kIntelAV1HybridEncoderCLSID = {
     0x62c053ce,
@@ -416,7 +418,7 @@ VideoRateControlWrapper::RateControlConfig CreateRateControllerConfig(
       break;
     }
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
   int bitrate_sum = 0;
@@ -485,15 +487,10 @@ MediaFoundationVideoEncodeAccelerator::
 
 VideoEncodeAccelerator::SupportedProfiles
 MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles() {
-  TRACE_EVENT1("gpu,startup",
-               "MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles",
-               "from_cache", supported_profiles_.has_value());
+  TRACE_EVENT0("gpu,startup",
+               "MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles");
   DVLOG(3) << __func__;
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  if (supported_profiles_.has_value()) {
-    return supported_profiles_.value();
-  }
 
   std::vector<VideoCodec> supported_codecs(
       {VideoCodec::kH264, VideoCodec::kVP9, VideoCodec::kAV1});
@@ -520,10 +517,10 @@ MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles() {
     // There's no easy way to enumerate the supported resolution bounds, so we
     // just choose reasonable default values.
     SupportedProfile profile(VIDEO_CODEC_PROFILE_UNKNOWN,
-                             /*max_resolution=*/gfx::Size(1920, 1088),
+                             /*max_resolution=*/kMaxResolution,
                              kMaxFrameRateNumerator, kMaxFrameRateDenominator,
                              bitrate_mode, {SVCScalabilityMode::kL1T1});
-    profile.min_resolution = gfx::Size(32, 32);
+    profile.min_resolution = kMinResolution;
 
     if (!workarounds_.disable_svc_encoding) {
       if (num_temporal_layers >= 2) {
@@ -556,8 +553,6 @@ MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles() {
       profiles.push_back(portrait_profile);
     }
   }
-
-  supported_profiles_ = profiles;
 
   return profiles;
 }
@@ -1024,21 +1019,26 @@ void MediaFoundationVideoEncodeAccelerator::RequestEncodingParametersChange(
   }
 }
 
-bool MediaFoundationVideoEncodeAccelerator::IsFrameSizeAllowed(
-    const gfx::Size& size) {
-  for (const auto& profile : GetSupportedProfiles()) {
-    if (profile.profile == profile_) {
-      if (size.width() <= profile.max_resolution.width() &&
-          size.height() <= profile.max_resolution.height() &&
-          size.width() >= profile.min_resolution.width() &&
-          size.height() >= profile.min_resolution.height()) {
-        return true;
-      } else {
-        return false;
-      }
-    }
+bool MediaFoundationVideoEncodeAccelerator::IsFrameSizeAllowed(gfx::Size size) {
+  // TODO (crbug.com/40942709): Figure out how to get max supported resolution
+  // from MF API. Once it's done and GetSupportedProfiles() returns the true max
+  // resolution, we should use it here.
+  // Since GetSupportedProfiles() is very expensive, its result will need to
+  // be cashed in a static variable at the GPU process level.
+  if (size.width() >= kMinResolution.width() &&
+      size.height() >= kMinResolution.height() &&
+      size.width() <= kMaxResolution.width() &&
+      size.height() <= kMaxResolution.height()) {
+    return true;
   }
-  NOTREACHED();
+
+  size.Transpose();
+  if (size.width() >= kMinResolution.width() &&
+      size.height() >= kMinResolution.height() &&
+      size.width() <= kMaxResolution.width() &&
+      size.height() <= kMaxResolution.height()) {
+    return true;
+  }
   return false;
 }
 
@@ -1588,10 +1588,13 @@ HRESULT MediaFoundationVideoEncodeAccelerator::ProcessInput(
       hr = codec_api_->SetValue(&CODECAPI_AVEncVideoSelectLayer, &var);
       RETURN_ON_HR_FAILURE(hr, "Couldn't set select temporal layer", hr);
       var.vt = VT_UI8;
-      var.ulVal = quantizer.value();
+      // Only 16 least significant bits are responsible for generic frame QP
+      // values.
+      var.ullVal = quantizer.value() & 0xFFFF;
       hr = codec_api_->SetValue(&CODECAPI_AVEncVideoEncodeQP, &var);
       RETURN_ON_HR_FAILURE(hr, "Couldn't set frame QP", hr);
-      hr = input_sample_->SetUINT64(MFSampleExtension_VideoEncodeQP, var.ulVal);
+      hr =
+          input_sample_->SetUINT64(MFSampleExtension_VideoEncodeQP, var.ullVal);
       RETURN_ON_HR_FAILURE(hr, "Couldn't set input sample attribute QP", hr);
     }
 
@@ -1660,13 +1663,7 @@ HRESULT MediaFoundationVideoEncodeAccelerator::PopulateInputSampleBuffer(
     RETURN_ON_HR_FAILURE(hr, "Set CODECAPI_AVEncVideoForceKeyFrame failed", hr);
   }
 
-  if (frame->storage_type() ==
-      VideoFrame::StorageType::STORAGE_GPU_MEMORY_BUFFER) {
-    if (!frame->HasGpuMemoryBuffer()) {
-      LOG(ERROR) << "Failed to get GMB for input frame";
-      return MF_E_INVALID_STREAM_DATA;
-    }
-
+  if (frame->HasMappableGpuBuffer()) {
     if (frame->HasNativeGpuMemoryBuffer() && dxgi_device_manager_ != nullptr) {
       if (!dxgi_resource_mapping_required_) {
         return PopulateInputSampleBufferGpu(std::move(frame));
@@ -1755,13 +1752,11 @@ HRESULT MediaFoundationVideoEncodeAccelerator::CopyInputSampleBufferFromGpu(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK_EQ(frame.storage_type(),
             VideoFrame::StorageType::STORAGE_GPU_MEMORY_BUFFER);
-  DCHECK(frame.HasGpuMemoryBuffer());
-  DCHECK_EQ(frame.GetGpuMemoryBuffer()->GetType(),
-            gfx::GpuMemoryBufferType::DXGI_SHARED_HANDLE);
   DCHECK(dxgi_device_manager_);
 
-  gfx::GpuMemoryBufferHandle buffer_handle =
-      frame.GetGpuMemoryBuffer()->CloneHandle();
+  gfx::GpuMemoryBufferHandle buffer_handle = frame.GetGpuMemoryBufferHandle();
+  CHECK(!buffer_handle.is_null());
+  CHECK_EQ(buffer_handle.type, gfx::GpuMemoryBufferType::DXGI_SHARED_HANDLE);
 
   auto d3d_device = dxgi_device_manager_->GetDevice();
   if (!d3d_device) {
@@ -1834,13 +1829,11 @@ HRESULT MediaFoundationVideoEncodeAccelerator::PopulateInputSampleBufferGpu(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK_EQ(frame->storage_type(),
             VideoFrame::StorageType::STORAGE_GPU_MEMORY_BUFFER);
-  DCHECK(frame->HasGpuMemoryBuffer());
-  DCHECK_EQ(frame->GetGpuMemoryBuffer()->GetType(),
-            gfx::GpuMemoryBufferType::DXGI_SHARED_HANDLE);
   DCHECK(dxgi_device_manager_);
 
-  gfx::GpuMemoryBufferHandle buffer_handle =
-      frame->GetGpuMemoryBuffer()->CloneHandle();
+  gfx::GpuMemoryBufferHandle buffer_handle = frame->GetGpuMemoryBufferHandle();
+  CHECK(!buffer_handle.is_null());
+  CHECK_EQ(buffer_handle.type, gfx::GpuMemoryBufferType::DXGI_SHARED_HANDLE);
 
   auto d3d_device = dxgi_device_manager_->GetDevice();
   if (!d3d_device) {

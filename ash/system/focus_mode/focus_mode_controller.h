@@ -13,6 +13,7 @@
 #include "ash/system/focus_mode/focus_mode_histogram_names.h"
 #include "ash/system/focus_mode/focus_mode_session.h"
 #include "ash/system/focus_mode/focus_mode_tasks_provider.h"
+#include "ash/system/focus_mode/sounds/focus_mode_sounds_controller.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -37,7 +38,9 @@ class FocusModeSoundsController;
 // keeps track of the system state to restore after a Focus Mode session ends.
 // Has a timer that runs while a session is active and notifies `observers_` on
 // every timer tick.
-class ASH_EXPORT FocusModeController : public SessionObserver {
+class ASH_EXPORT FocusModeController
+    : public SessionObserver,
+      public FocusModeSoundsController::Observer {
  public:
   class Observer : public base::CheckedObserver {
    public:
@@ -120,6 +123,11 @@ class ASH_EXPORT FocusModeController : public SessionObserver {
   // SessionObserver:
   void OnActiveUserSessionChanged(const AccountId& account_id) override;
 
+  // FocusModeSoundsController::Observer:
+  // Will close/create the media widget for an active focus session depending on
+  // if there is a selected playlist or not.
+  void OnSelectedPlaylistChanged() override;
+
   // Extends an active focus session by ten minutes by clicking the `+10 min`
   // button.
   void ExtendSessionDuration();
@@ -164,17 +172,17 @@ class ASH_EXPORT FocusModeController : public SessionObserver {
   // Returns whether there is a currently selected task.
   bool HasSelectedTask() const;
 
-  // Marks the task as completed with the tasks provider, and also clears the
-  // selected task data.
-  void CompleteTask();
+  // Marks the task as completed, and also clears the selected task data.
+  // Updates the tasks provider if `update` is `true`. For example, if the task
+  // has been completed outside of focus mode, `update` should be `false`.
+  void CompleteTask(bool update = true);
 
   // Shows the ending moment nudge that is anchored to the focus mode tray. Only
   // show if there isn't already showing and if there is no tray bubble open.
   void MaybeShowEndingMomentNudge();
 
-  // TODO(b/318897434): This is only needed for the accelerator to trigger an
-  // ending moment immediately if there is an ongoing session. Remove this after
-  // testing is complete.
+  // This is currently only used in testing to trigger an ending moment
+  // immediately if there is an ongoing session.
   void TriggerEndingMomentImmediately();
 
  private:
@@ -189,9 +197,18 @@ class ASH_EXPORT FocusModeController : public SessionObserver {
   // cached values in case different users have different stored preferences.
   void UpdateFromUserPrefs();
 
-  // Saves the current selected settings to user prefs so we can provide the
-  // same set-up the next time the user comes back to Focus Mode.
+  // Called by `UpdateFromUserPrefs` to update our cached values for the active
+  // user about the selected task.
+  void UpdateSelectedTaskFromUserPrefs();
+
+  // Called once a session starts. Saves the current selected settings to user
+  // prefs so we can provide the same set-up the next time the user comes back
+  // to Focus Mode.
   void SaveSettingsToUserPrefs();
+
+  // Called once a session starts, and when a task is selected or deselected in
+  // focus session.
+  void SaveSelectedTaskSettingsToUserPrefs();
 
   // Closes any open system tray bubbles. This is done whenever we start a focus
   // session.
@@ -204,7 +221,9 @@ class ASH_EXPORT FocusModeController : public SessionObserver {
   // displays.
   bool IsFocusTrayBubbleVisible() const;
 
-  void CreateMediaWidget();
+  // Creates the media widget if one doesn't already exist and if there is a
+  // selected playlist.
+  void MaybeCreateMediaWidget();
   void CloseMediaWidget();
 
   // Gives Focus Mode access to the Google Tasks API.

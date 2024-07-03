@@ -381,8 +381,6 @@ void AddStringsGeneric(base::Value::Dict* dict) {
   SET_STRING("ALL_FILES_FILTER", IDS_FILE_BROWSER_ALL_FILES_FILTER);
   SET_STRING("ARCHIVE_MOUNT_FAILED", IDS_FILE_BROWSER_ARCHIVE_MOUNT_FAILED);
   SET_STRING("ARCHIVE_MOUNT_MESSAGE", IDS_FILE_BROWSER_ARCHIVE_MOUNT_MESSAGE);
-  SET_STRING("ARCHIVE_MOUNT_INVALID_PATH",
-             IDS_FILE_BROWSER_ARCHIVE_MOUNT_INVALID_PATH);
   SET_STRING("BULK_PINNING_BATTERY_SAVER",
              IDS_FILE_BROWSER_BULK_PINNING_BATTERY_SAVER);
   SET_STRING("BULK_PINNING_ERROR", IDS_FILE_BROWSER_BULK_PINNING_ERROR);
@@ -1226,7 +1224,9 @@ bool IsEligibleAndEnabledGoogleOneOfferFilesBanner() {
   }
 
   return base::FeatureList::IsEnabled(
-      ash::features::kGoogleOneOfferFilesBanner);
+             ash::features::kGoogleOneOfferFilesBanner) &&
+         !base::FeatureList::IsEnabled(
+             ash::features::kDisableGoogleOneOfferFilesBanner);
 }
 
 void AddStringsForVms(base::Value::Dict* dict) {

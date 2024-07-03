@@ -149,7 +149,7 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   ScriptController& GetScriptController() const { return *script_controller_; }
 
   void Initialize();
-  void ClearForReuse() { document_ = nullptr; }
+  void ClearForReuse();
 
   void ResetWindowAgent(WindowAgent*);
 
@@ -478,14 +478,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   const BlinkStorageKey& GetStorageKey() const { return storage_key_; }
   void SetStorageKey(const BlinkStorageKey& storage_key);
 
-  // This storage key must only be used when binding session storage.
-  //
-  // TODO(crbug.com/1407150): Remove this when deprecation trial is complete.
-  const BlinkStorageKey& GetSessionStorageKey() const {
-    return session_storage_key_;
-  }
-  void SetSessionStorageKey(const BlinkStorageKey& session_storage_key);
-
   void DidReceiveUserActivation();
 
   // Returns the state of the |payment_request_token_| in this document.
@@ -576,6 +568,8 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   // Return the viewport size including scrollbars.
   gfx::Size GetViewportSize() const;
 
+  void UpdateEventListenerCountsToDocumentForReuseIfNeeded();
+
   Member<ScriptController> script_controller_;
 
   Member<Document> document_;
@@ -658,13 +652,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   // The storage key for this LocalDomWindow.
   BlinkStorageKey storage_key_;
 
-  // The storage key here is the one to use when binding session storage. This
-  // may differ from `storage_key_` as a deprecation trial can prevent the
-  // partitioning of session storage.
-  //
-  // TODO(crbug.com/1407150): Remove this when deprecation trial is complete.
-  BlinkStorageKey session_storage_key_;
-
   // Fire "online" and "offline" events.
   Member<NetworkStateObserver> network_state_observer_;
 
@@ -700,6 +687,9 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
 
   // https://html.spec.whatwg.org/multipage/browsing-the-web.html#has-been-revealed
   bool has_been_revealed_ = false;
+
+  // Used to indicate if the DOM window is reused or not.
+  bool is_dom_window_reused_ = false;
 };
 
 template <>

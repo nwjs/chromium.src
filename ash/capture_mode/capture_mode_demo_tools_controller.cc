@@ -112,7 +112,9 @@ bool ShouldConsiderKey(ui::KeyboardCode key_code) {
 
 views::Widget::InitParams CreateWidgetParams(
     VideoRecordingWatcher* video_recording_watcher) {
-  views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
+  views::Widget::InitParams params(
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_POPUP);
   params.parent =
       video_recording_watcher->GetOnCaptureSurfaceWidgetParentWindow();
   params.child = true;
@@ -215,7 +217,7 @@ void CaptureModeDemoToolsController::OnTouchEvent(
       return;
     }
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 

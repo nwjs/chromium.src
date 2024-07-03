@@ -500,7 +500,7 @@ constexpr CGFloat kErrorSymbolSize = 22.;
     case ItemTypeSignInHeader:
     case ItemTypeSignOutSyncingFooter:
     case ItemTypeRestrictedAccountsFooter:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 
@@ -600,7 +600,8 @@ constexpr CGFloat kErrorSymbolSize = 22.;
       GetApplicationContext()
           ->GetSystemIdentityManager()
           ->PresentAccountDetailsController(identity, self,
-                                            /*animated=*/YES);
+                                            /*animated=*/YES,
+                                            base::DoNothing());
 }
 
 // Handles the account remove action from

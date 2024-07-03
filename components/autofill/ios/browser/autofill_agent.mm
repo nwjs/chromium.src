@@ -61,10 +61,12 @@
 #import "components/autofill/ios/form_util/form_handlers_java_script_feature.h"
 #import "components/autofill/ios/form_util/form_util_java_script_feature.h"
 #import "components/grit/components_resources.h"
+#import "components/plus_addresses/features.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
 #import "components/prefs/pref_service.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/web/common/url_scheme_util.h"
 #import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
@@ -419,8 +421,8 @@ constexpr CGFloat kSuggestionIconWidth = 32;
       autofillManager->OnUserAcceptedCardsFromAccountOption();
     }
   } else {
-    NOTREACHED() << "unknown identifier "
-                 << base::to_underlying(suggestion.popupItemId);
+    NOTREACHED_IN_MIGRATION()
+        << "unknown identifier " << base::to_underlying(suggestion.popupItemId);
   }
 }
 
@@ -523,7 +525,8 @@ constexpr CGFloat kSuggestionIconWidth = 32;
       fieldData.Set(NumberToString(form.data.fields[i].renderer_id().value()),
                     base::Value(form.fields[i].overall_type));
     }
-    predictionData.Set(base::UTF16ToUTF8(form.data.name), std::move(fieldData));
+    predictionData.Set(base::UTF16ToUTF8(form.data.name()),
+                       std::move(fieldData));
   }
   AutofillJavaScriptFeature::GetInstance()->FillPredictionData(
       frame, std::move(predictionData));
@@ -595,7 +598,8 @@ constexpr CGFloat kSuggestionIconWidth = 32;
         minorValue = SysUTF16ToNSString(popup_suggestion.minor_text.value);
       }
 
-      if (!popup_suggestion.labels.empty()) {
+      if (!popup_suggestion.labels.empty() &&
+          !popup_suggestion.labels.front().empty()) {
         DCHECK_EQ(popup_suggestion.labels.size(), 1U);
         DCHECK_EQ(popup_suggestion.labels[0].size(), 1U);
         displayDescription =
@@ -621,6 +625,12 @@ constexpr CGFloat kSuggestionIconWidth = 32;
       // Show any plus_address suggestions.
       value = SysUTF16ToNSString(popup_suggestion.main_text.value);
       icon = [self plusAddressIcon:popup_suggestion];
+      if (!popup_suggestion.labels.empty() &&
+          !popup_suggestion.labels.front().empty() &&
+          IsKeyboardAccessoryUpgradeEnabled()) {
+        displayDescription =
+            SysUTF16ToNSString(popup_suggestion.labels[0][0].value);
+      }
     }
 
     if (!value)
@@ -1128,8 +1138,13 @@ constexpr CGFloat kSuggestionIconWidth = 32;
           autofill::SuggestionType::kCreateNewPlusAddress) {
     return nil;
   }
-  // TODO(crbug.com/40276862): Finalize icons, including in the unbranded case.
+
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  if (base::FeatureList::IsEnabled(
+          plus_addresses::features::kPlusAddressUIRedesign)) {
+    return nil;
+  }
+
   if (plus_address_suggestion.icon !=
       autofill::Suggestion::Icon::kPlusAddress) {
     return nil;

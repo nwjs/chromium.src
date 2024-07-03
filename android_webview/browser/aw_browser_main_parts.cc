@@ -18,7 +18,6 @@
 #include "android_webview/browser/metrics/system_state_util.h"
 #include "android_webview/browser/network_service/aw_network_change_notifier_factory.h"
 #include "android_webview/browser/tracing/background_tracing_field_trial.h"
-#include "android_webview/browser_jni_headers/AwInterfaceRegistrar_jni.h"
 #include "android_webview/common/aw_descriptors.h"
 #include "android_webview/common/aw_paths.h"
 #include "android_webview/common/aw_resource.h"
@@ -60,6 +59,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/synthetic_trial_syncer.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/result_codes.h"
@@ -68,6 +68,9 @@
 #include "third_party/blink/public/common/origin_trials/origin_trials_settings_provider.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gl/gl_surface.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "android_webview/browser_jni_headers/AwInterfaceRegistrar_jni.h"
 
 namespace android_webview {
 
@@ -230,6 +233,9 @@ void AwBrowserMainParts::RegisterSyntheticTrials() {
   metrics->GetSyntheticTrialRegistry()->AddObserver(
       variations::SyntheticTrialsActiveGroupIdProvider::GetInstance());
 
+  synthetic_trial_syncer_ = content::SyntheticTrialSyncer::Create(
+      metrics->GetSyntheticTrialRegistry());
+
   static constexpr char kWebViewApkTypeTrial[] = "WebViewApkType";
   ApkType apk_type = AwBrowserProcess::GetApkType();
   std::string apk_type_string;
@@ -324,7 +330,7 @@ int AwBrowserMainParts::PreMainMessageLoopRun() {
 
 void AwBrowserMainParts::WillRunMainMessageLoop(
     std::unique_ptr<base::RunLoop>& run_loop) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void AwBrowserMainParts::PostCreateThreads() {

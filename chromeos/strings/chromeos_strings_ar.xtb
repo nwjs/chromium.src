@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">أصفر باستيل</translation>
 <translation id="1056898198331236512">تحذير</translation>
 <translation id="1059913517121127803">تعذَّر إجراء عملية المسح الضوئي.</translation>
+<translation id="1061864016440983342">الاستخدام بدون تفعيل الموقع الجغرافي</translation>
 <translation id="1062823486781306604">‫<ph name="INDEX" /> من أصل <ph name="COUNT" />، <ph name="NAME" /></translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">تم العثور على جدار حماية.</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">مزيد من الإعدادات</translation>
 <translation id="2082932131694554252">مفتاح لوحة المفاتيح المخصَّص</translation>
 <translation id="2085089206770112532">تقليل سطوع الشاشة</translation>
+<translation id="2086091080968010660">قد لا تكون التغييرات المستنِدة إلى الوقت دقيقة. فعِّل إذن الوصول إلى الموقع الجغرافي للنظام ضمن الإعدادات.</translation>
 <translation id="2102231663024125441">تعديل النص</translation>
 <translation id="2105810540595158374">الجهاز هو ذراع تحكّم في الألعاب.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />، الإصدار <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">تعديل تفاصيل اسم نقطة الوصول</translation>
 <translation id="2195732836444333448">تم بلوغ الحدّ الأقصى من الطلبات حاليًا. يُرجى المحاولة مرة أخرى قريبًا.</translation>
 <translation id="2201758491318984023">دراجة</translation>
-<translation id="2203222757805818543">تم ضبط الجدول الزمني الحالي على <ph name="SUNRISE" /> إلى <ph name="SUNSET" />. لتعديل الجدول الزمني للوضع الداكن تلقائيًا، يجب <ph name="BEGIN_LINK" />تفعيل إذن الوصول إلى بيانات الموقع الجغرافي<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">ينبوع ساخن</translation>
 <translation id="2203642483788377106">منحدر صخري</translation>
 <translation id="2208388655216963643">الفن الانطباعي</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">استعادة الإعدادات التلقائية</translation>
 <translation id="2286454467119466181">بسيطة</translation>
 <translation id="2287186687001756809">لا تتوفّر صور. لإضافة صور، انتقِل إلى <ph name="LINK" />.</translation>
+<translation id="2294577623958216786">تم ضبط الجدول الزمني الحالي على <ph name="SUNRISE" /> إلى <ph name="SUNSET" />. لتعديل الجدول الزمني لغروب الشمس وشروقها تلقائيًا، يجب تفعيل إذن الوصول إلى الموقع الجغرافي للنظام.</translation>
 <translation id="2305172810646967500">أسود</translation>
 <translation id="2307344026739914387">استخدام مفتاحَي التشفير الحاليين</translation>
 <translation id="2308243864813041101">‏عليك فصل كابل USB الخاص بجهاز "<ph name="DEVICE_NAME" />" عن مصدر الطاقة لمواصلة عملية التحديث</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">كثيب رملي</translation>
 <translation id="2619761439309613843">إعادة التحميل يوميًا</translation>
 <translation id="2620436844016719705">النظام</translation>
+<translation id="2637303424821734920">الإذن غير مفعَّل: للاطّلاع على حالة الطقس المحلي، يجب <ph name="BEGIN_LINK" />تفعيل إذن الوصول إلى الموقع الجغرافي للنظام<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">صورة الملف الشخصي</translation>
 <translation id="2640549051766135490">تمّ اختيار ألبوم <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">عناصر التحكّم</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">الخلفية</translation>
 <translation id="3027578600144895987">إغلاق الكاميرا</translation>
 <translation id="3031560714565892478">الجهاز هو كاميرا فيديو.</translation>
+<translation id="3051968340259309715">‏يسمح هذا الإجراء لخدمات النظام باستخدام ميزة "دقة الموقع الجغرافي" لتحديد موقعك الجغرافي. تستخدم هذه الميز معلومات عن الإشارات اللاسلكية، مثل نقاط وصول Wi-Fi وأبراج شبكات الجوّال ونظام تحديد المواقع العالمي (GPS)، بالإضافة إلى بيانات أدوات الاستشعار في الجهاز، مثل مقياس التسارع والجيروسكوب، لتقدير الموقع الجغرافي للجهاز. لإيقاف إمكانية الوصول إلى الموقع الجغرافي، انتقِل إلى "الإعدادات" &gt; "الخصوصية والأمان" &gt; "عناصر التحكّم في الخصوصية" &gt; "تحديد الموقع الجغرافي". <ph name="LINK_BEGIN" />مزيد من المعلومات<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> ميلي أمبير</translation>
 <translation id="3056720590588772262">نقطة النهاية</translation>
 <translation id="3060579846059757016">المخططات</translation>
+<translation id="3061850252076394168">تفعيل ميزة "سماع الاختيار"</translation>
 <translation id="3069085583900247081">تعذّر إجراء اختبار</translation>
 <translation id="3078740164268491126">جدول</translation>
 <translation id="3081652522083185657">فاتحة</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">تعذَّرت مطابقة جميع الأجهزة المضيفة.</translation>
 <translation id="4593212453765072419">مطلوب مصادقة الخادم الوكيل</translation>
 <translation id="4609350030397390689">تقليل سطوع لوحة المفاتيح</translation>
-<translation id="4617553623719764431">لا تظهر حالة الطقس لأنّك لم تسمح بالوصول إلى موقعك الجغرافي. لعرض حالة الطقس المحلي، يجب <ph name="BEGIN_LINK" />تفعيل إذن الوصول إلى الموقع الجغرافي<ph name="END_LINK" />.</translation>
 <translation id="4627232916386272576">‏<ph name="DOCUMENT_TITLE" />، <ph name="PRINTER_NAME" />، <ph name="CREATION_TIME" />، <ph name="PRINTED_PAGE_NUMBER" /> من أصل <ph name="TOTAL_PAGE_NUMBER" />. يمكنك الضغط على enter لإلغاء مهمة الطباعة.</translation>
 <translation id="463791356324567266">جارٍ إلغاء المسح الضوئي...</translation>
 <translation id="4646949265910132906">‏اتصال Wi-Fi آمن</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">تشغيل</translation>
 <translation id="4987769320337599931">جدار الحماية</translation>
 <translation id="4988526792673242964">الصفحات</translation>
+<translation id="4989542687859782284">التجارب غير المتاحة</translation>
 <translation id="4999333166442584738">إخفاء التقرير</translation>
 <translation id="500920857929044050">إيقاف الاختبار</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">سطوع لوحة المفاتيح</translation>
 <translation id="6412715219990689313">لوحة مفاتيح مُدمَجة</translation>
 <translation id="6417265370957905582">‏مساعد Google</translation>
+<translation id="6419454453018688975">تفعيل إذن الوصول إلى الموقع الجغرافي للنظام</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">‏يتيح ذلك لخدمات النظام التي لديها الإذن إمكانية استخدام موقعك الجغرافي. يمكن لخدمة الموقع الجغرافي استخدام مصادر، مثل شبكة Wi-Fi وشبكات الجوّال وأدوات الاستشعار للمساعدة في تقدير الموقع الجغرافي لجهازك. <ph name="LINK_BEGIN" />مزيد من المعلومات<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">إشارة ضعيفة (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">الانتقال إلى إعدادات الحساب</translation>
 <translation id="6462978824459367242">‏زر "إضافة اسم نقطة الوصول" (APN) مفعّل الآن</translation>

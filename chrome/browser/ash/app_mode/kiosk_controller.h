@@ -17,9 +17,13 @@ class Profile;
 
 namespace ash {
 
-class KioskLaunchController;
+class KioskProfileLoadFailedObserver;
 class KioskSystemSession;
 class LoginDisplayHost;
+
+namespace kiosk_vision {
+class TelemetryProcessor;
+}
 
 // Public interface for Kiosk.
 class KioskController {
@@ -39,8 +43,19 @@ class KioskController {
                             bool is_auto_launch,
                             LoginDisplayHost* host) = 0;
 
+  // Returns true if a kiosk launch is in progress. Will return false at any
+  // other time, including when the kiosk launch is finished.
+  virtual bool IsSessionStarting() const = 0;
+
   // Cancels the kiosk session launch, if any is in progress.
   virtual void CancelSessionStart() = 0;
+
+  // Adds/Removes an observer that will be informed if the profile fails to
+  // load during launch. Can only be called while a kiosk launch is in progress.
+  virtual void AddProfileLoadFailedObserver(
+      KioskProfileLoadFailedObserver* observer) = 0;
+  virtual void RemoveProfileLoadFailedObserver(
+      KioskProfileLoadFailedObserver* observer) = 0;
 
   virtual bool HandleAccelerator(LoginAcceleratorAction action) = 0;
 
@@ -55,9 +70,14 @@ class KioskController {
   // Kiosk session, or before `InitializeSystemSession`.
   virtual KioskSystemSession* GetKioskSystemSession() = 0;
 
-  // Returns the `KioskLaunchController`. Will return nullptr if no kiosk
-  // launch is in progress.
-  virtual KioskLaunchController* GetLaunchController() = 0;
+  // Returns the `kiosk_vision::TelemetryProcessor`.
+  // Can be `nullptr` in the following cases:
+  // * Outside a Kiosk session.
+  // * Before `InitializeSystemSession`.
+  // * When the Kiosk Vision framework is disabled by policy.
+  // * When the Kiosk Vision framework is not yet initialized.
+  virtual kiosk_vision::TelemetryProcessor*
+  GetKioskVisionTelemetryProcessor() = 0;
 };
 
 }  // namespace ash

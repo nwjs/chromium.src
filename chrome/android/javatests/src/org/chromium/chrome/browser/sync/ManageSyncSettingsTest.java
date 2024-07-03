@@ -19,7 +19,6 @@ import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,18 +29,22 @@ import static java.util.Map.entry;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.Instrumentation.ActivityResult;
+import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.preference.CheckBoxPreference;
 import androidx.preference.Preference;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.test.espresso.contrib.RecyclerViewActions;
 import androidx.test.espresso.intent.Intents;
 import androidx.test.espresso.intent.matcher.IntentMatchers;
 import androidx.test.filters.LargeTest;
@@ -64,6 +67,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
+import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -74,6 +78,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridge;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridgeJni;
+import org.chromium.chrome.browser.password_manager.account_storage_toggle.AccountStorageToggleFragmentArgs;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -88,6 +93,7 @@ import org.chromium.chrome.browser.sync.ui.PassphraseCreationDialogFragment;
 import org.chromium.chrome.browser.sync.ui.PassphraseDialogFragment;
 import org.chromium.chrome.browser.sync.ui.PassphraseTypeDialogFragment;
 import org.chromium.chrome.browser.ui.signin.GoogleActivityController;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ActivityTestUtils;
@@ -95,13 +101,19 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.policy.test.annotations.Policies;
+import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.TemplateUrlService;
+import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.sync.SyncFeatureMap;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
+import org.chromium.components.sync.internal.SyncPrefNames;
+import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
+import org.chromium.ui.test.util.ViewUtils;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -112,8 +124,9 @@ import java.util.Set;
 /** Tests for ManageSyncSettings. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@DoNotBatch(reason = "TODO(crbug.com/40743432): SyncTestRule doesn't support batching.")
 public class ManageSyncSettingsTest {
-    private static final int RENDER_TEST_REVISION = 5;
+    private static final int RENDER_TEST_REVISION = 6;
 
     /** Maps selected types to their UI element IDs. */
     private Map<Integer, String> mUiDataTypes;
@@ -121,21 +134,31 @@ public class ManageSyncSettingsTest {
     /** Maps selected types to their Account UI element IDs. */
     private static final Map<Integer, String> ACCOUNT_UI_DATATYPES =
             Map.ofEntries(
-                    entry(UserSelectableType.AUTOFILL, ManageSyncSettings.PREF_SYNC_AUTOFILL),
-                    entry(UserSelectableType.BOOKMARKS, ManageSyncSettings.PREF_SYNC_BOOKMARKS),
+                    entry(
+                            UserSelectableType.AUTOFILL,
+                            ManageSyncSettings.PREF_ACCOUNT_SECTION_ADDRESSES_TOGGLE),
+                    entry(
+                            UserSelectableType.BOOKMARKS,
+                            ManageSyncSettings.PREF_ACCOUNT_SECTION_BOOKMARKS_TOGGLE),
                     entry(
                             UserSelectableType.PAYMENTS,
-                            ManageSyncSettings.PREF_SYNC_PAYMENTS_INTEGRATION),
+                            ManageSyncSettings.PREF_ACCOUNT_SECTION_PAYMENTS_TOGGLE),
                     // HISTORY and TABS are bundled in the same switch in the new settings panel.
                     entry(
                             UserSelectableType.HISTORY,
-                            ManageSyncSettings.PREF_SYNC_HISTORY_AND_TABS),
-                    entry(UserSelectableType.TABS, ManageSyncSettings.PREF_SYNC_HISTORY_AND_TABS),
-                    entry(UserSelectableType.PASSWORDS, ManageSyncSettings.PREF_SYNC_PASSWORDS),
+                            ManageSyncSettings.PREF_ACCOUNT_SECTION_HISTORY_TOGGLE),
+                    entry(
+                            UserSelectableType.TABS,
+                            ManageSyncSettings.PREF_ACCOUNT_SECTION_HISTORY_TOGGLE),
+                    entry(
+                            UserSelectableType.PASSWORDS,
+                            ManageSyncSettings.PREF_ACCOUNT_SECTION_PASSWORDS_TOGGLE),
                     entry(
                             UserSelectableType.READING_LIST,
-                            ManageSyncSettings.PREF_SYNC_READING_LIST),
-                    entry(UserSelectableType.PREFERENCES, ManageSyncSettings.PREF_SYNC_SETTINGS));
+                            ManageSyncSettings.PREF_ACCOUNT_SECTION_READING_LIST_TOGGLE),
+                    entry(
+                            UserSelectableType.PREFERENCES,
+                            ManageSyncSettings.PREF_ACCOUNT_SECTION_SETTINGS_TOGGLE));
 
     private SettingsActivity mSettingsActivity;
 
@@ -163,6 +186,7 @@ public class ManageSyncSettingsTest {
     @Mock private TemplateUrlService mTemplateUrlService;
     @Mock private GoogleActivityController mGoogleActivityController;
     @Mock private PasswordManagerUtilBridge.Natives mPasswordManagerUtilBridgeJniMock;
+    @Mock private HistorySyncHelper mHistorySyncHelperMock;
 
     @Before
     public void setUp() {
@@ -187,6 +211,8 @@ public class ManageSyncSettingsTest {
 
         TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
         when(mTemplateUrlService.isEeaChoiceCountry()).thenReturn(false);
+
+        HistorySyncHelper.setInstanceForTesting(mHistorySyncHelperMock);
 
         mUiDataTypes = new HashMap<>();
         mUiDataTypes.put(UserSelectableType.AUTOFILL, ManageSyncSettings.PREF_SYNC_AUTOFILL);
@@ -235,22 +261,37 @@ public class ManageSyncSettingsTest {
     @SmallTest
     @Feature({"Sync"})
     @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
-    // Disabling explicitly since it's included in fieldtrial_testing_config.json
-    @DisableFeatures({SyncFeatureMap.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE})
     public void testSyncAccountDataTypes() {
+        // The types that should be default-enabled in transport mode depend on various flags.
+        Set<String> expectedEnabledTypes =
+                new HashSet<>(
+                        Arrays.asList(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_PAYMENTS_TOGGLE,
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_SETTINGS_TOGGLE));
+        if (SyncFeatureMap.isEnabled(SyncFeatureMap.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE)) {
+            expectedEnabledTypes.add(ManageSyncSettings.PREF_ACCOUNT_SECTION_BOOKMARKS_TOGGLE);
+        }
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.READING_LIST_ENABLE_SYNC_TRANSPORT_MODE_UPON_SIGNIN)) {
+            expectedEnabledTypes.add(ManageSyncSettings.PREF_ACCOUNT_SECTION_READING_LIST_TOGGLE);
+        }
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.ENABLE_PASSWORDS_ACCOUNT_STORAGE_FOR_NON_SYNCING_USERS)) {
+            expectedEnabledTypes.add(ManageSyncSettings.PREF_ACCOUNT_SECTION_PASSWORDS_TOGGLE);
+        }
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.SYNC_ENABLE_CONTACT_INFO_DATA_TYPE_IN_TRANSPORT_MODE)) {
+            expectedEnabledTypes.add(ManageSyncSettings.PREF_ACCOUNT_SECTION_ADDRESSES_TOGGLE);
+        }
+
         mSyncTestRule.setUpAccountAndSignInForTesting();
         ManageSyncSettings fragment = startManageSyncPreferences();
         Collection<ChromeSwitchPreference> dataTypes = getAccountDataTypes(fragment).values();
-
         for (ChromeSwitchPreference dataType : dataTypes) {
-            // Only settings and payments are available upon sign in without toggling more flags.
-            if (dataType.getKey().equals(ManageSyncSettings.PREF_SYNC_SETTINGS)
-                    || dataType.getKey()
-                            .equals(ManageSyncSettings.PREF_SYNC_PAYMENTS_INTEGRATION)) {
-                Assert.assertTrue(dataType.isChecked());
-            } else {
-                Assert.assertFalse(dataType.isChecked());
-            }
+            Assert.assertEquals(
+                    "Wrong checked state for toggle " + dataType.getKey(),
+                    expectedEnabledTypes.contains(dataType.getKey()),
+                    dataType.isChecked());
             Assert.assertTrue(dataType.isEnabled());
         }
     }
@@ -380,6 +421,68 @@ public class ManageSyncSettingsTest {
         // empty set in the backend. But sync stop request should not be called.
         mSyncTestRule.togglePreference(getSyncEverything(fragment));
         Assert.assertTrue(SyncTestUtil.isSyncFeatureEnabled());
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testPressingSignOut() {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+
+        Assert.assertNotNull(
+                mSyncTestRule.getSigninTestRule().getPrimaryAccount(ConsentLevel.SIGNIN));
+
+        startManageSyncPreferences();
+
+        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        onView(withText(R.string.sign_out)).perform(click());
+        Assert.assertNull(mSyncTestRule.getSigninTestRule().getPrimaryAccount(ConsentLevel.SIGNIN));
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testSyncAddressesWithCustomPasspharaseShowsWarningDialog() {
+        mSyncTestRule.getFakeServerHelper().setCustomPassphraseNigori("passphrase");
+
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        SyncTestUtil.waitForSyncTransportActive();
+        mSyncTestRule.getSyncService();
+
+        ManageSyncSettings fragment = startManageSyncPreferences();
+
+        ChromeSwitchPreference addresses_toggle =
+                (ChromeSwitchPreference)
+                        fragment.findPreference(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_ADDRESSES_TOGGLE);
+        mSyncTestRule.togglePreference(addresses_toggle);
+        onView(withText(R.string.sync_addresses_title))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testSyncHistoryAndTabsToggle() {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        SyncTestUtil.waitForSyncTransportActive();
+
+        ManageSyncSettings fragment = startManageSyncPreferences();
+        ChromeSwitchPreference historyToggle =
+                (ChromeSwitchPreference)
+                        fragment.findPreference(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_HISTORY_TOGGLE);
+
+        // Switching history sync on from settings clears history sync declined prefs.
+        mSyncTestRule.togglePreference(historyToggle);
+        verify(mHistorySyncHelperMock).clearHistorySyncDeclinedPrefs();
+        // Switching history sync off from settings records history sync declined prefs.
+        mSyncTestRule.togglePreference(historyToggle);
+        verify(mHistorySyncHelperMock).recordHistorySyncDeclinedPrefs();
     }
 
     @Test
@@ -583,7 +686,7 @@ public class ManageSyncSettingsTest {
         Preference encryption = getEncryption(fragment);
         clickPreference(encryption);
 
-        final PassphraseTypeDialogFragment typeFragment = getPassphraseTypeDialogFragment();
+        getPassphraseTypeDialogFragment();
         mSyncTestRule.signOut();
 
         // Mimic the user clicking on the explicit passphrase checkbox immediately after signing
@@ -723,8 +826,8 @@ public class ManageSyncSettingsTest {
         SyncTestUtil.waitForTrustedVaultKeyRequired(true);
 
         final ManageSyncSettings fragment = startManageSyncPreferences();
-        // Mimic the user tapping on Encryption. This should start DummyKeyRetrievalActivity and
-        // notify native client that keys were changed. Right before DummyKeyRetrievalActivity
+        // Mimic the user tapping on Encryption. This should start FakeKeyRetrievalActivity and
+        // notify native client that keys were changed. Right before FakeKeyRetrievalActivity
         // completion FakeTrustedVaultClientBackend will start populate keys.
         Preference encryption = fragment.findPreference(ManageSyncSettings.PREF_ENCRYPTION);
         clickPreference(encryption);
@@ -758,8 +861,8 @@ public class ManageSyncSettingsTest {
         SyncTestUtil.waitForTrustedVaultRecoverabilityDegraded(true);
 
         // Mimic the user tapping on the error card's button. This should start
-        // DummyRecoverabilityDegradedFixActivity and notify native client that recoverability has
-        // changed. Right before DummyRecoverabilityDegradedFixActivity completion
+        // FakeRecoverabilityDegradedFixActivity and notify native client that recoverability has
+        // changed. Right before FakeRecoverabilityDegradedFixActivity completion
         // FakeTrustedVaultClientBackend will exit the recoverability degraded state.
         final ManageSyncSettings fragment = startManageSyncPreferences();
         TestThreadUtils.runOnUiThreadBlocking(
@@ -785,6 +888,23 @@ public class ManageSyncSettingsTest {
                         .isVisible());
         Assert.assertNotNull(fragment.getView().findViewById(R.id.bottom_bar_shadow));
         Assert.assertNotNull(fragment.getView().findViewById(R.id.bottom_bar_button_container));
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync", "RenderTest"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testSigninSettingsTopAvatar() throws Exception {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        final ManageSyncSettings fragment = startManageSyncPreferences();
+
+        ViewUtils.waitForVisibleView(withId(R.id.central_account_card));
+        View view =
+                TestThreadUtils.runOnUiThreadBlockingNoException(
+                        () -> {
+                            return fragment.getActivity().findViewById(R.id.central_account_card);
+                        });
+        mRenderTestRule.render(view, "sign_in_settings_top_avatar");
     }
 
     @Test
@@ -1002,6 +1122,7 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"PersonalizedGoogleServices"})
+    @DisableFeatures({ChromeFeatureList.LINKED_SERVICES_SETTING})
     public void testClickGoogleActivityControls() {
         mSyncTestRule.setUpAccountAndEnableSyncForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
@@ -1019,6 +1140,7 @@ public class ManageSyncSettingsTest {
     @LargeTest
     @Feature({"PersonalizedGoogleServices"})
     @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    @DisableFeatures({ChromeFeatureList.LINKED_SERVICES_SETTING})
     public void testClickGoogleActivityControlsWhenSyncPromosShouldBeReplacedWithSigninPromos() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
@@ -1207,11 +1329,12 @@ public class ManageSyncSettingsTest {
         verifyUrlKeyedAnonymizedDataCollectionNotSet();
     }
 
+    // TODO(crbug.com/330438265): Extend this test for the identity error card.
     @Test
     @LargeTest
     @Feature({"Sync"})
     public void testSyncErrorCardActionForUpmBackendOutdatedError() {
-        when(mPasswordManagerUtilBridgeJniMock.isGmsCoreUpdateRequired(any(), anyBoolean()))
+        when(mPasswordManagerUtilBridgeJniMock.isGmsCoreUpdateRequired(any(), any()))
                 .thenReturn(true);
 
         mSyncTestRule.setUpAccountAndEnableSyncForTesting();
@@ -1235,11 +1358,12 @@ public class ManageSyncSettingsTest {
         Intents.release();
     }
 
+    // TODO(crbug.com/330438265): Extend this test for the identity error card.
     @Test
     @SmallTest
     @Feature({"Sync"})
     public void testSyncErrorCardForUpmBackendOutdatedUpdatedDynamically() {
-        when(mPasswordManagerUtilBridgeJniMock.isGmsCoreUpdateRequired(any(), anyBoolean()))
+        when(mPasswordManagerUtilBridgeJniMock.isGmsCoreUpdateRequired(any(), any()))
                 .thenReturn(true);
 
         mSyncTestRule.setUpAccountAndEnableSyncForTesting();
@@ -1255,8 +1379,7 @@ public class ManageSyncSettingsTest {
 
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    when(mPasswordManagerUtilBridgeJniMock.isGmsCoreUpdateRequired(
-                                    any(), anyBoolean()))
+                    when(mPasswordManagerUtilBridgeJniMock.isGmsCoreUpdateRequired(any(), any()))
                             .thenReturn(false);
                     // TODO(crbug.com/327623232): Observe such changes instead.
                     preference.syncStateChanged();
@@ -1314,6 +1437,73 @@ public class ManageSyncSettingsTest {
 
         // The error card is now hidden.
         Assert.assertFalse(preference.isShown());
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testPasswordsToggleWithHighlighting() {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+
+        Bundle args = new Bundle();
+        args.putBoolean(AccountStorageToggleFragmentArgs.HIGHLIGHT, true);
+        mSettingsActivityTestRule.startSettingsActivity(args);
+
+        ChromeSwitchPreference toggle =
+                (ChromeSwitchPreference)
+                        mSettingsActivityTestRule
+                                .getFragment()
+                                .findPreference(
+                                        ManageSyncSettings.PREF_ACCOUNT_SECTION_PASSWORDS_TOGGLE);
+        @Nullable Integer backgroundColor = toggle.getBackgroundColor();
+        Assert.assertNotNull(backgroundColor);
+        Assert.assertTrue(backgroundColor.equals(R.color.iph_highlight_blue));
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testPasswordsToggleWithoutHighlighting() {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+
+        ManageSyncSettings settings = startManageSyncPreferences();
+
+        ChromeSwitchPreference toggle =
+                (ChromeSwitchPreference)
+                        settings.findPreference(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_PASSWORDS_TOGGLE);
+        Assert.assertNull(toggle.getBackgroundColor());
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testSyncDisabledByPolicy() {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        SyncService syncService = mSyncTestRule.getSyncService();
+        // Mark sync disabled by policy.
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    PrefService prefService =
+                            UserPrefs.get(ProfileManager.getLastUsedRegularProfile());
+                    prefService.setBoolean(SyncPrefNames.SYNC_MANAGED, true);
+                    Assert.assertTrue(syncService.isSyncDisabledByEnterprisePolicy());
+                });
+
+        ManageSyncSettings fragment = startManageSyncPreferences();
+
+        onView(withText(R.string.settings_sync_disabled_by_administrator))
+                .check(matches(isDisplayed()));
+
+        // All datatype toggles should be unchecked and disabled.
+        Map<Integer, ChromeSwitchPreference> dataTypes = getAccountDataTypes(fragment);
+        for (ChromeSwitchPreference dataType : dataTypes.values()) {
+            Assert.assertFalse(dataType.isChecked());
+            Assert.assertFalse(dataType.isEnabled());
+        }
     }
 
     private ManageSyncSettings startManageSyncPreferences() {

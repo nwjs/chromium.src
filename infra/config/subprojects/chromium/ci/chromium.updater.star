@@ -5,7 +5,7 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "builders", "cpu", "os", "reclient")
+load("//lib/builders.star", "builders", "cpu", "os", "siso")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -19,12 +19,11 @@ ci.defaults.set(
     os = os.LINUX_DEFAULT,
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     health_spec = health_spec.DEFAULT,
-    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
-    reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
-    siso_remote_jobs = reclient.jobs.DEFAULT,
+    siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 consoles.console_view(
@@ -65,7 +64,7 @@ ci.builder(
         configs = [
             "updater",
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = True,
@@ -96,7 +95,7 @@ ci.builder(
         configs = [
             "updater",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = True,
@@ -175,12 +174,14 @@ ci.builder(
         configs = [
             "updater",
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
+            "x64",
         ],
     ),
     builderless = True,
     cores = None,
     os = os.MAC_ANY,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "debug|mac",
         short_name = "bld",
@@ -207,12 +208,14 @@ ci.builder(
         configs = [
             "updater",
             "release_builder",
-            "reclient",
+            "remoteexec",
+            "x64",
         ],
     ),
     builderless = True,
     cores = None,
     os = os.MAC_ANY,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "release|mac",
         short_name = "bld",
@@ -240,7 +243,7 @@ ci.builder(
             "arm64",
             "updater",
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = True,
@@ -274,7 +277,7 @@ ci.builder(
             "arm64",
             "updater",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = True,
@@ -308,12 +311,14 @@ ci.builder(
             "updater",
             "asan",
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
+            "x64",
         ],
     ),
     builderless = True,
     cores = None,
     os = os.MAC_ANY,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "debug|mac",
         short_name = "bld-asan",
@@ -580,7 +585,7 @@ ci.builder(
         configs = [
             "updater",
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = True,
@@ -589,8 +594,7 @@ ci.builder(
         category = "debug|win (64)",
         short_name = "bld",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
-    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -613,7 +617,7 @@ ci.builder(
         configs = [
             "updater",
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
             "x86",
             "no_symbols",
         ],
@@ -626,8 +630,7 @@ ci.builder(
         short_name = "bld",
     ),
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT * 2,
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
-    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -650,7 +653,7 @@ ci.builder(
         configs = [
             "updater",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = True,
@@ -659,8 +662,7 @@ ci.builder(
         category = "release|win (64)",
         short_name = "bld",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
-    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -683,7 +685,7 @@ ci.builder(
         configs = [
             "updater",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "x86",
         ],
     ),
@@ -693,8 +695,7 @@ ci.builder(
         category = "release|win (32)",
         short_name = "bld",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
-    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 ci.thin_tester(

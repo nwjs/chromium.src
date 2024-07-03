@@ -79,7 +79,6 @@ public class MessageFacility extends Facility<PageStation> {
                                         MessageDispatcher messageDispatcher =
                                                 MessageDispatcherProvider.from(
                                                         mHostStation
-                                                                .mChromeTabbedActivityTestRule
                                                                 .getActivity()
                                                                 .getWindowAndroid());
                                         assert messageDispatcher != null;
@@ -104,7 +103,7 @@ public class MessageFacility extends Facility<PageStation> {
                                                     GeneralLocation.TOP_CENTER,
                                                     Press.FINGER)));
         }
-        exitSync(this, dismissTrigger);
+        mHostStation.exitFacilitySync(this, dismissTrigger);
     }
 
     /** Create a ViewElement expecting the message's |title|. */

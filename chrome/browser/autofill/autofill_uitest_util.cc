@@ -90,7 +90,7 @@ void WaitForPersonalDataManagerToBeLoaded(Profile* base_profile) {
   client.SetKeepPopupOpenForTesting(true);
 
   FormData form;
-  form.url = GURL("https://foo.com/bar");
+  form.set_url(GURL("https://foo.com/bar"));
   form.fields = {test::CreateTestFormField(
       "Full name", "name", "", FormControlType::kInputText, "name")};
   form.fields.front().set_is_focusable(true);
@@ -113,7 +113,7 @@ void WaitForPersonalDataManagerToBeLoaded(Profile* base_profile) {
                                    {AutofillManagerEvent::kAskForValuesToFill});
   gfx::PointF p = element_bounds.origin();
   driver.renderer_events().AskForValuesToFill(
-      form, form.fields.front(),
+      form, form.fields.front().renderer_id(),
       /*caret_bounds=*/gfx::Rect(gfx::Point(p.x(), p.y()), gfx::Size(0, 10)),
       AutofillSuggestionTriggerSource::kFormControlElementClicked);
   testing::AssertionResult waiter_assertion_result = waiter.Wait();

@@ -206,11 +206,12 @@ void WebAppCommandScheduler::ScheduleManifestUpdateCheck(
 void WebAppCommandScheduler::ScheduleManifestUpdateFinalize(
     const GURL& url,
     const webapps::AppId& app_id,
-    WebAppInstallInfo install_info,
+    std::unique_ptr<WebAppInstallInfo> install_info,
     std::unique_ptr<ScopedKeepAlive> optional_keep_alive,
     std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive,
     ManifestWriteCallback callback,
     const base::Location& location) {
+  CHECK(install_info);
   provider_->command_manager().ScheduleCommand(
       std::make_unique<ManifestUpdateFinalizeCommand>(
           url, app_id, std::move(install_info), std::move(callback),
@@ -578,8 +579,6 @@ void WebAppCommandScheduler::SetUserDisplayMode(
 void WebAppCommandScheduler::ScheduleDedupeInstallUrls(
     base::OnceClosure callback,
     const base::Location& location) {
-  CHECK(base::FeatureList::IsEnabled(features::kWebAppDedupeInstallUrls));
-
   base::UmaHistogramCounts100("WebApp.DedupeInstallUrls.SessionRunCount",
                               ++dedupe_install_urls_run_count_);
 
@@ -595,7 +594,8 @@ void WebAppCommandScheduler::SetAppCapturesSupportedLinksDisableOverlapping(
     base::OnceClosure done,
     const base::Location& location) {
 #if BUILDFLAG(IS_CHROMEOS)
-  NOTREACHED() << "Preferred apps in ChromeOS are implemented in AppService";
+  NOTREACHED_IN_MIGRATION()
+      << "Preferred apps in ChromeOS are implemented in AppService";
 #else
   ScheduleCallback(
       "SetAppCapturesSupporedLinks", AllAppsLockDescription(),

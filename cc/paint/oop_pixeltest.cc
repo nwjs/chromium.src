@@ -11,6 +11,7 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/path_service.h"
 #include "base/test/test_switches.h"
 #include "build/build_config.h"
@@ -163,7 +164,9 @@ class OopPixelTest : public testing::Test,
     bool requires_clear = false;
     bool preclear = false;
     SkColor4f preclear_color;
-    raw_ptr<ImageDecodeCache> image_cache = nullptr;
+    // RAW_PTR_EXCLUSION: ImageDecodeCache is marked as not supported by
+    // raw_ptr. See raw_ptr.h for more information.
+    RAW_PTR_EXCLUSION ImageDecodeCache* image_cache = nullptr;
     std::vector<scoped_refptr<DisplayItemList>> additional_lists;
     raw_ptr<PaintShader> shader_with_animated_images = nullptr;
   };
@@ -231,17 +234,20 @@ class OopPixelTest : public testing::Test,
         client_shared_image->mailbox().name);
     size_t max_op_size_limit =
         gpu::raster::RasterInterface::kDefaultMaxOpSizeHint;
-    ri->RasterCHROMIUM(display_item_list.get(), &image_provider,
-                       options.content_size, options.full_raster_rect,
-                       options.playback_rect, options.post_translate,
-                       gfx::Vector2dF(options.post_scale, options.post_scale),
-                       options.requires_clear, &max_op_size_limit);
+    ri->RasterCHROMIUM(
+        display_item_list.get(), &image_provider, options.content_size,
+        options.full_raster_rect, options.playback_rect, options.post_translate,
+        gfx::Vector2dF(options.post_scale, options.post_scale),
+        options.requires_clear, /*raster_inducing_scroll_offsets=*/nullptr,
+        &max_op_size_limit);
     for (const auto& list : options.additional_lists) {
       ri->RasterCHROMIUM(list.get(), &image_provider, options.content_size,
                          options.full_raster_rect, options.playback_rect,
                          options.post_translate,
                          gfx::Vector2dF(options.post_scale, options.post_scale),
-                         options.requires_clear, &max_op_size_limit);
+                         options.requires_clear,
+                         /*raster_inducing_scroll_offsets=*/nullptr,
+                         &max_op_size_limit);
     }
     ri->EndRasterCHROMIUM();
 
@@ -1924,7 +1930,7 @@ class OopTextBlobPixelTest
           context_state->gpu_main_graphite_recorder(), image_info,
           skgpu::Mipmapped::kNo, &surface_props);
     } else {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
     }
 
     SkCanvas* canvas = surface->getCanvas();

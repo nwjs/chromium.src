@@ -174,7 +174,7 @@ void StyleRuleBase::Trace(Visitor* visitor) const {
       To<StyleRulePositionTry>(this)->TraceAfterDispatch(visitor);
       return;
   }
-  DUMP_WILL_BE_NOTREACHED_NORETURN();
+  DUMP_WILL_BE_NOTREACHED();
 }
 
 void StyleRuleBase::FinalizeGarbageCollectedObject() {
@@ -252,7 +252,7 @@ void StyleRuleBase::FinalizeGarbageCollectedObject() {
       To<StyleRulePositionTry>(this)->~StyleRulePositionTry();
       return;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 StyleRuleBase* StyleRuleBase::Copy() const {
@@ -281,7 +281,7 @@ StyleRuleBase* StyleRuleBase::Copy() const {
       return To<StyleRuleSupports>(this)->Copy();
     case kImport:
       // FIXME: Copy import rules.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nullptr;
     case kKeyframes:
       return To<StyleRuleKeyframes>(this)->Copy();
@@ -294,7 +294,7 @@ StyleRuleBase* StyleRuleBase::Copy() const {
     case kCharset:
     case kKeyframe:
     case kFunction:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nullptr;
     case kContainer:
       return To<StyleRuleContainer>(this)->Copy();
@@ -307,7 +307,7 @@ StyleRuleBase* StyleRuleBase::Copy() const {
     case kPositionTry:
       return To<StyleRulePositionTry>(this)->Copy();
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 
@@ -403,7 +403,7 @@ CSSRule* StyleRuleBase::CreateCSSOMWrapper(wtf_size_t position_hint,
     case kCharset:
     case kPageMargin:
     case kFunction:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nullptr;
   }
   if (parent_rule) {
@@ -707,7 +707,8 @@ void StyleRuleScope::SetPreludeText(const ExecutionContext* execution_context,
                                     StyleSheetContents* style_sheet) {
   auto* parser_context =
       MakeGarbageCollected<CSSParserContext>(*execution_context);
-  Vector<CSSParserToken, 32> tokens = CSSTokenizer(value).TokenizeToEOF();
+  CSSTokenizer tokenizer(value);
+  Vector<CSSParserToken, 32> tokens = tokenizer.TokenizeToEOF();
 
   StyleRule* old_parent = style_scope_->RuleForNesting();
   style_scope_ =
@@ -939,7 +940,7 @@ StyleRuleStartingStyle::StyleRuleStartingStyle(
 StyleRuleFunction::StyleRuleFunction(
     AtomicString name,
     Vector<StyleRuleFunction::Parameter> parameters,
-    scoped_refptr<CSSVariableData> function_body,
+    CSSVariableData* function_body,
     StyleRuleFunction::Type return_type)
     : StyleRuleBase(kFunction),
       name_(std::move(name)),
@@ -948,6 +949,7 @@ StyleRuleFunction::StyleRuleFunction(
       return_type_(return_type) {}
 
 void StyleRuleFunction::TraceAfterDispatch(blink::Visitor* visitor) const {
+  visitor->Trace(function_body_);
   StyleRuleBase::TraceAfterDispatch(visitor);
 }
 

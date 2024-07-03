@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/views/performance_controls/memory_saver_chip_view.h"
+
 #include <string>
 
 #include "base/notreached.h"
@@ -16,8 +17,8 @@
 #include "chrome/browser/ui/performance_controls/memory_saver_chip_tab_helper.h"
 #include "chrome/browser/ui/performance_controls/memory_saver_utils.h"
 #include "chrome/browser/ui/performance_controls/performance_controls_metrics.h"
-#include "chrome/browser/ui/side_panel/side_panel_enums.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -37,6 +38,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/text/bytes_formatting.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/view_class_properties.h"
 
 namespace {
@@ -128,12 +130,12 @@ void MemorySaverChipView::UpdateImpl() {
       }
       case memory_saver::ChipState::COLLAPSED: {
         SetVisible(true);
-        SetAccessibleName(chip_accessible_label_);
+        GetViewAccessibility().SetName(chip_accessible_label_);
         RecordMemorySaverChipState(MemorySaverChipState::kCollapsed);
         break;
       }
       default: {
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
       }
     }
   } else {

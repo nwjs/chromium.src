@@ -27,11 +27,14 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/autofill/content/browser/content_autofill_client.h"
+#include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/filling_product.h"
+#include "components/autofill/core/browser/test_autofill_manager_waiter.h"
 #include "components/autofill/core/browser/test_browser_autofill_manager.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/autofill/core/browser/ui/suggestion_type.h"
@@ -174,6 +177,10 @@ class MockComposeDialog : public compose::mojom::ComposeUntrustedDialog {
 
 class ChromeComposeClientTest : public BrowserWithTestWindowTest {
  public:
+  ChromeComposeClientTest()
+      : BrowserWithTestWindowTest(
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+
   void SetUp() override {
     scoped_compose_enabled_ = ComposeEnabling::ScopedEnableComposeForTesting();
     BrowserWithTestWindowTest::SetUp();
@@ -247,7 +254,8 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
               result.request_id = kTrainingRequestId;
               result.ordered_labels = {
                   segmentation_platform::kComposePrmotionLabelShow};
-              std::move(callback).Run(result);
+              base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+                  FROM_HERE, base::BindOnce(std::move(callback), result));
             })));
 
     test_timer_ = std::make_unique<base::ScopedMockElapsedTimersForTest>();
@@ -805,7 +813,8 @@ TEST_F(ChromeComposeClientTest, TestProactiveNudgeEngagementIsRecorded) {
   config.proactive_nudge_always_collect_training_data = true;
 
   autofill::FormData form_data;
-  form_data.url = web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL();
+  form_data.set_url(
+      web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
   form_data.fields = {autofill::test::CreateTestFormField(
       "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
 
@@ -815,10 +824,13 @@ TEST_F(ChromeComposeClientTest, TestProactiveNudgeEngagementIsRecorded) {
   const autofill::AutofillSuggestionTriggerSource trigger_source =
       autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange;
 
-  while (!client().ShouldTriggerPopup(form_data, selected_field_data,
-                                      trigger_source)) {
-    task_environment()->RunUntilIdle();
-  }
+  ASSERT_FALSE(client().ShouldTriggerPopup(form_data, selected_field_data,
+                                           trigger_source));
+
+  task_environment()->FastForwardBy(config.proactive_nudge_delay);
+
+  ASSERT_TRUE(client().ShouldTriggerPopup(form_data, selected_field_data,
+                                          trigger_source));
 
   // Simulate clicking on the nudge to open compose.
   ShowDialogAndBindMojoWithFieldData(
@@ -856,7 +868,8 @@ TEST_F(ChromeComposeClientTest,
   config.proactive_nudge_segmentation = true;
 
   autofill::FormData form_data;
-  form_data.url = web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL();
+  form_data.set_url(
+      web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
   form_data.fields = {autofill::test::CreateTestFormField(
       "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
 
@@ -864,15 +877,17 @@ TEST_F(ChromeComposeClientTest,
   selected_field_data.set_origin(
       web_contents()->GetPrimaryMainFrame()->GetLastCommittedOrigin());
 
-  ON_CALL(GetSegmentationPlatformService(), GetClassificationResult(_, _, _, _))
-      .WillByDefault(testing::WithArg<3>(testing::Invoke(
+  EXPECT_CALL(GetSegmentationPlatformService(),
+              GetClassificationResult(_, _, _, _))
+      .WillOnce(testing::WithArg<3>(testing::Invoke(
           [](segmentation_platform::ClassificationResultCallback callback) {
             auto result = segmentation_platform::ClassificationResult(
                 segmentation_platform::PredictionStatus::kSucceeded);
             result.request_id = kTrainingRequestId;
             result.ordered_labels = {
                 segmentation_platform::kComposePrmotionLabelDontShow};
-            std::move(callback).Run(result);
+            base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+                FROM_HERE, base::BindOnce(std::move(callback), result));
           })));
 
   // The initial trigger request comes from a text field change.
@@ -880,19 +895,18 @@ TEST_F(ChromeComposeClientTest,
       form_data, selected_field_data,
       autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange));
 
+  task_environment()->FastForwardBy(config.proactive_nudge_delay);
+
   // All remaining popup trigger requests come from the delayed nudge.
   const autofill::AutofillSuggestionTriggerSource trigger_source =
       autofill::AutofillSuggestionTriggerSource::kComposeDelayedProactiveNudge;
 
-  // Check that the nudge is eventually blocked by segmentation platform.
-  while (histograms().GetBucketCount(
-             compose::kComposeProactiveNudgeShowStatus,
-             compose::ComposeShowStatus::
-                 kProactiveNudgeBlockedBySegmentationPlatform) == 0) {
-    ASSERT_FALSE(client().ShouldTriggerPopup(form_data, selected_field_data,
-                                             trigger_source));
-    task_environment()->RunUntilIdle();
-  }
+  ASSERT_FALSE(client().ShouldTriggerPopup(form_data, selected_field_data,
+                                           trigger_source));
+  histograms().ExpectBucketCount(
+      compose::kComposeProactiveNudgeShowStatus,
+      compose::ComposeShowStatus::kProactiveNudgeBlockedBySegmentationPlatform,
+      1);
 
   // Commit metrics on page navigation.
   NavigateAndCommitActiveTab(GURL("about:blank"));
@@ -932,7 +946,8 @@ TEST_F(ChromeComposeClientTest,
 
 TEST_F(ChromeComposeClientTest, TestShouldTriggerProactiveNudgeDisabledUKM) {
   autofill::FormData form_data;
-  form_data.url = web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL();
+  form_data.set_url(
+      web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
   form_data.fields = {autofill::test::CreateTestFormField(
       "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
 
@@ -982,7 +997,8 @@ TEST_F(ChromeComposeClientTest, TestShouldTriggerProactiveNudgeEnabled) {
   config.proactive_nudge_segmentation = false;
 
   autofill::FormData form_data;
-  form_data.url = web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL();
+  form_data.set_url(
+      web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
   form_data.fields = {autofill::test::CreateTestFormField(
       "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
 
@@ -1031,7 +1047,7 @@ TEST_F(ChromeComposeClientTest, TestShouldTriggerProactiveNudgeEnabled) {
 TEST_F(ChromeComposeClientTest,
        TestShouldTriggerProactiveNudgePageChecksFailUKM) {
   autofill::FormData form_data;
-  form_data.url = GURL("www.example.com");
+  form_data.set_url(GURL("www.example.com"));
   form_data.fields = {autofill::test::CreateTestFormField(
       "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
 
@@ -1057,7 +1073,8 @@ TEST_F(ChromeComposeClientTest,
 TEST_F(ChromeComposeClientTest, TestProactiveNudgeMSBBDisabled) {
   SetPrefsForComposeMSBBState(false);
   autofill::FormData form_data;
-  form_data.url = web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL();
+  form_data.set_url(
+      web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
   form_data.fields = {autofill::test::CreateTestFormField(
       "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
 
@@ -1076,9 +1093,86 @@ TEST_F(ChromeComposeClientTest, TestProactiveNudgeMSBBDisabled) {
       compose::ComposeShowStatus::kProactiveNudgeDisabledByMSBB, 1);
 }
 
+TEST_F(ChromeComposeClientTest, TestCaretMovementExtendsNudgeDelay) {
+  using Observer = autofill::AutofillManager::Observer;
+
+  compose::Config& config = compose::GetMutableConfigForTesting();
+  config.proactive_nudge_enabled = true;
+  config.proactive_nudge_show_probability = 1.0;
+  config.proactive_nudge_delay = base::Microseconds(4);
+  config.proactive_nudge_segmentation = false;
+
+  autofill::FormData form_data;
+  form_data.set_url(
+      web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
+  form_data.fields = {autofill::test::CreateTestFormField(
+      "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
+
+  autofill::FormFieldData field_data = form_data.fields[0];
+  field_data.set_origin(
+      web_contents()->GetPrimaryMainFrame()->GetLastCommittedOrigin());
+  field_data.set_host_frame(form_data.host_frame());
+  field_data.set_host_form_id(form_data.renderer_id());
+
+  autofill::ContentAutofillDriver* autofill_driver =
+      autofill::ContentAutofillClient::FromWebContents(web_contents())
+          ->GetAutofillDriverFactory()
+          ->DriverForFrame(web_contents()->GetPrimaryMainFrame());
+  ASSERT_TRUE(autofill_driver);
+
+  {
+    autofill::TestAutofillManagerWaiter waiter(
+        autofill_driver->GetAutofillManager(),
+        {autofill::AutofillManagerEvent::kFormsSeen});
+    autofill_driver->renderer_events().FormsSeen(/*updated_forms=*/{form_data},
+                                                 /*removed_forms=*/{});
+    ASSERT_TRUE(waiter.Wait(/*num_awaiting_calls=*/1));
+  }
+
+  // The first call to ShouldTriggerPopup starts the nudge tracker timers.
+  ASSERT_FALSE(client().ShouldTriggerPopup(
+      form_data, field_data,
+      autofill::AutofillSuggestionTriggerSource::kTextFieldDidChange));
+
+  task_environment()->FastForwardBy(base::Microseconds(3));
+  ASSERT_TRUE(client().IsPopupTimerRunning());
+
+  // Should trigger will fail since not enough time has passed.
+  ASSERT_FALSE(
+      client().ShouldTriggerPopup(form_data, field_data,
+                                  autofill::AutofillSuggestionTriggerSource::
+                                      kComposeDelayedProactiveNudge));
+
+  // Signal that a the caret moved in the field with no selection.
+  autofill_driver->GetAutofillManager().NotifyObservers(
+      &Observer::OnAfterCaretMovedInFormField, form_data.global_id(),
+      field_data.global_id(), /*selected_text=*/u"",
+      /*caret_bounds=*/gfx::Rect());
+
+  // Moving the caret should extend the timer so it is still running.
+  task_environment()->FastForwardBy(base::Microseconds(3));
+  ASSERT_TRUE(client().IsPopupTimerRunning());
+
+  // Should trigger will fail since not enough time has passed.
+  ASSERT_FALSE(
+      client().ShouldTriggerPopup(form_data, field_data,
+                                  autofill::AutofillSuggestionTriggerSource::
+                                      kComposeDelayedProactiveNudge));
+
+  // Move forward until timer should expire.
+  task_environment()->FastForwardBy(base::Microseconds(2));
+  ASSERT_FALSE(client().IsPopupTimerRunning());
+
+  // Should trigger will now succeed.
+  ASSERT_TRUE(
+      client().ShouldTriggerPopup(form_data, field_data,
+                                  autofill::AutofillSuggestionTriggerSource::
+                                      kComposeDelayedProactiveNudge));
+}
+
 TEST_F(ChromeComposeClientTest, TestComposeShouldTriggerSavedStateNudgeUKM) {
   autofill::FormData form_data;
-  form_data.url = GetPageUrl();
+  form_data.set_url(GetPageUrl());
   form_data.fields = {autofill::test::CreateTestFormField(
       "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
 
@@ -2562,7 +2656,7 @@ TEST_F(ChromeComposeClientTest,
   auto test_origin = url::Origin::Create(test_url);
 
   autofill::FormData form_data;
-  form_data.url = test_url;
+  form_data.set_url(test_url);
   form_data.fields = {autofill::test::CreateTestFormField(
       "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
 
@@ -2594,7 +2688,8 @@ TEST_F(ChromeComposeClientTest, TextFieldChangeThresholdHidesProactiveNudge) {
   client().field_change_observer_.SetSkipSuggestionTypeForTest(true);
 
   autofill::FormData form_data;
-  form_data.url = web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL();
+  form_data.set_url(
+      web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
   form_data.fields = {autofill::test::CreateTestFormField(
       "label0", "name0", "value0", autofill::FormControlType::kTextArea)};
 

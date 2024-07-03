@@ -84,6 +84,7 @@
 #include "ui/events/test/test_event_rewriter_continuation.h"
 #include "ui/events/test/test_event_source.h"
 #include "ui/events/types/event_type.h"
+#include "ui/lottie/resource.h"
 #include "ui/message_center/fake_message_center.h"
 #include "ui/wm/core/window_util.h"
 
@@ -95,6 +96,7 @@ constexpr char kKbdSysPath[] = "/devices/platform/i8042/serio2/input/input1";
 constexpr char kKbdTopRowPropertyName[] = "CROS_KEYBOARD_TOP_ROW_LAYOUT";
 constexpr char kKbdTopRowLayoutAttributeName[] = "function_row_physmap";
 constexpr char kSixPackKeyNoMatchNudgeId[] = "six-patch-key-no-match-nudge-id";
+constexpr char kTopRowKeyNoMatchNudgeId[] = "top-row-key-no-match-nudge-id";
 
 constexpr char kKbdTopRowLayoutUnspecified[] = "";
 constexpr char kKbdTopRowLayout1Tag[] = "1";
@@ -614,6 +616,9 @@ class EventRewriterTestBase : public ChromeAshTestBase {
   ~EventRewriterTestBase() override {}
 
   void SetUp() override {
+    ui::ResourceBundle::SetLottieParsingFunctions(
+        &lottie::ParseLottieAsStillImage,
+        &lottie::ParseLottieAsThemedStillImage);
     keyboard_layout_engine_ = std::make_unique<ui::StubKeyboardLayoutEngine>();
     // Inject custom table to make this closer to en-US behavior.
     keyboard_layout_engine_->SetCustomLookupTableForTesting({
@@ -1836,6 +1841,47 @@ TEST_P(EventRewriterTest, TestRewriteToRightAlt) {
     EXPECT_EQ(KeyRightAlt::Typed(ui::EF_NONE, {kPropertyRightAlt}),
               RunRewriter(KeyLMeta::Typed()));
   }
+}
+
+TEST_P(EventRewriterTest, FnAndRightAltKeyPressedMetrics) {
+  if (!features::IsModifierSplitEnabled()) {
+    GTEST_SKIP() << "Test is only valid with the modifier split flag enabled";
+  }
+  base::HistogramTester histogram_tester;
+  scoped_feature_list_.InitAndEnableFeature(
+      features::kInputDeviceSettingsSplit);
+  SetUpKeyboard(kInternalChromeSplitModifierLayoutKeyboard);
+  SendKeyEvent(KeyFunction::Pressed());
+  histogram_tester.ExpectBucketCount(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
+      ui::ModifierKeyUsageMetric::kFunction, 1);
+  histogram_tester.ExpectBucketCount(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+      ui::ModifierKeyUsageMetric::kFunction, 1);
+
+  SendKeyEvent(KeyRightAlt::Pressed());
+  histogram_tester.ExpectBucketCount(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
+      ui::ModifierKeyUsageMetric::kRightAlt, 1);
+  histogram_tester.ExpectBucketCount(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+      ui::ModifierKeyUsageMetric::kRightAlt, 1);
+
+  // Remap RightAlt to Assistant
+  InitModifierKeyPref(nullptr, "", ui::mojom::ModifierKey::kRightAlt,
+                      ui::mojom::ModifierKey::kAssistant);
+
+  RunRewriter(KeyRightAlt::Typed());
+  histogram_tester.ExpectBucketCount(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
+      ui::ModifierKeyUsageMetric::kRightAlt, 2);
+  histogram_tester.ExpectBucketCount(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+      ui::ModifierKeyUsageMetric::kRightAlt, 1);
+  histogram_tester.ExpectBucketCount(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+      ui::ModifierKeyUsageMetric::kAssistant, 1);
+  scoped_feature_list_.Reset();
 }
 
 TEST_P(EventRewriterTest, TestRewriteToFunction) {
@@ -4804,7 +4850,7 @@ TEST_P(EventRewriterTest, SixPackRemappingsFnBased) {
   }
 }
 
-TEST_P(EventRewriterTest, NotifySixPackRewriteBlockedByFnKey) {
+TEST_P(EventRewriterTest, NotifyShortcutEventRewriteBlockedByFnKey) {
   if (!features::IsModifierSplitEnabled()) {
     GTEST_SKIP() << "Test is only valid with the modifier split flag enabled";
   }
@@ -4818,6 +4864,23 @@ TEST_P(EventRewriterTest, NotifySixPackRewriteBlockedByFnKey) {
 
   EXPECT_TRUE(nudge_manager->GetNudgeIfShown(kSixPackKeyNoMatchNudgeId));
   nudge_manager->Cancel(kSixPackKeyNoMatchNudgeId);
+
+  // Set the scan code so the key event is recognized as top row key.
+  std::vector<TestKeyEvent> key_events;
+  for (auto event : KeyF1::Typed()) {
+    event.scan_code = 1;
+    key_events.push_back(std::move(event));
+  }
+
+  std::vector<TestKeyEvent> expected_events;
+  for (auto event : KeyF1::Typed(ui::EF_COMMAND_DOWN)) {
+    event.scan_code = 1;
+    expected_events.push_back(std::move(event));
+  }
+
+  EXPECT_EQ(expected_events, RunRewriter(key_events, ui::EF_COMMAND_DOWN));
+  EXPECT_TRUE(nudge_manager->GetNudgeIfShown(kTopRowKeyNoMatchNudgeId));
+  nudge_manager->Cancel(kTopRowKeyNoMatchNudgeId);
 }
 
 TEST_P(EventRewriterTest, CapsLockRemappingFnBased) {

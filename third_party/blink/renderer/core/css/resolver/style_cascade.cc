@@ -76,9 +76,9 @@ bool ConsumeComma(CSSParserTokenStream& stream) {
 }
 
 const CSSValue* Parse(const CSSProperty& property,
-                      CSSParserTokenRange range,
+                      CSSParserTokenStream& stream,
                       const CSSParserContext* context) {
-  return CSSPropertyParser::ParseSingleValue(property.PropertyID(), range,
+  return CSSPropertyParser::ParseSingleValue(property.PropertyID(), stream,
                                              context);
 }
 
@@ -129,7 +129,7 @@ CascadeOrigin TargetOriginForRevert(CascadeOrigin origin) {
   switch (origin) {
     case CascadeOrigin::kNone:
     case CascadeOrigin::kTransition:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return CascadeOrigin::kNone;
     case CascadeOrigin::kUserAgent:
       return CascadeOrigin::kNone;
@@ -513,6 +513,8 @@ void StyleCascade::AddExplicitDefaults() {
     //   word-spacing
     //
     // (And maybe more).
+    map_.Add(CSSPropertyID::kLetterSpacing,
+             CascadePriority(CascadeOrigin::kNone));
     map_.Add(CSSPropertyID::kLineHeight, CascadePriority(CascadeOrigin::kNone));
   }
 }
@@ -972,8 +974,7 @@ void StyleCascade::TokenSequence::Append(const CSSParserToken& token,
   original_text_.Append(original_text);
 }
 
-scoped_refptr<CSSVariableData>
-StyleCascade::TokenSequence::BuildVariableData() {
+CSSVariableData* StyleCascade::TokenSequence::BuildVariableData() {
   return CSSVariableData::Create(original_text_, is_animation_tainted_,
                                  /*needs_variable_resolution=*/false,
                                  has_font_units_, has_root_font_units_,
@@ -1037,17 +1038,17 @@ const CSSValue* StyleCascade::ResolveCustomProperty(
   DCHECK(!resolver.IsLocked(property));
   CascadeResolver::AutoLock lock(property, resolver);
 
-  scoped_refptr<CSSVariableData> data = decl.VariableDataValue();
+  CSSVariableData* data = decl.VariableDataValue();
 
   if (data->NeedsVariableResolution()) {
-    data = ResolveVariableData(data.get(), *GetParserContext(decl), resolver);
+    data = ResolveVariableData(data, *GetParserContext(decl), resolver);
   }
 
-  if (HasFontSizeDependency(To<CustomProperty>(property), data.get())) {
+  if (HasFontSizeDependency(To<CustomProperty>(property), data)) {
     resolver.DetectCycle(GetCSSPropertyFontSize());
   }
 
-  if (HasLineHeightDependency(To<CustomProperty>(property), data.get())) {
+  if (HasLineHeightDependency(To<CustomProperty>(property), data)) {
     resolver.DetectCycle(GetCSSPropertyLineHeight());
   }
 
@@ -1105,8 +1106,13 @@ const CSSValue* StyleCascade::ResolveVariableReference(
   CSSParserTokenStream stream(tokenizer);
   if (ResolveTokensInto(stream, resolver, &tokenizer, *context,
                         FunctionContext{}, sequence)) {
-    sequence.StripCommentTokens();
-    if (const auto* parsed = Parse(property, sequence.TokenRange(), context)) {
+    // TODO(sesse): It would be nice if we had some way of combining
+    // ResolveTokensInto() and the re-tokenization. This is basically
+    // what we pay by using the streaming parser everywhere; we tokenize
+    // everything involving variable references twice.
+    CSSTokenizer tokenizer2(sequence.OriginalText());
+    CSSParserTokenStream stream2(tokenizer2);
+    if (const auto* parsed = Parse(property, stream2, context)) {
       return parsed;
     }
   }
@@ -1146,16 +1152,16 @@ const CSSValue* StyleCascade::ResolvePendingSubstitution(
                            FunctionContext{}, sequence)) {
       return cssvalue::CSSUnsetValue::Create();
     }
-    sequence.StripCommentTokens();
 
     HeapVector<CSSPropertyValue, 64> parsed_properties;
 
-    // NOTE: We don't actually need any original text here, since we're
-    // not storing it in a custom property anywhere.
+    // NOTE: We don't actually need the original text to be comment-stripped,
+    // since we're not storing it in a custom property anywhere.
+    CSSTokenizer tokenizer2(sequence.OriginalText());
+    CSSParserTokenStream stream2(tokenizer2);
     if (!CSSPropertyParser::ParseValue(
             shorthand_property_id, /*allow_important_annotation=*/false,
-            {sequence.TokenRange(), StringView()},
-            shorthand_value->ParserContext(), parsed_properties,
+            stream2, shorthand_value->ParserContext(), parsed_properties,
             StyleRule::RuleType::kStyle)) {
       return cssvalue::CSSUnsetValue::Create();
     }
@@ -1186,7 +1192,7 @@ const CSSValue* StyleCascade::ResolvePendingSubstitution(
     }
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return cssvalue::CSSUnsetValue::Create();
 }
 
@@ -1321,7 +1327,7 @@ const CSSValue* StyleCascade::ResolveMathFunction(
   return scoped_math_value;
 }
 
-scoped_refptr<CSSVariableData> StyleCascade::ResolveVariableData(
+CSSVariableData* StyleCascade::ResolveVariableData(
     CSSVariableData* data,
     const CSSParserContext& context,
     CascadeResolver& resolver) {
@@ -1424,13 +1430,13 @@ bool StyleCascade::ResolveVarInto(CSSParserTokenStream& stream,
   // Note that even if we are in a cycle, we must proceed in order to discover
   // secondary cycles via the var() fallback.
 
-  scoped_refptr<CSSVariableData> data = GetVariableData(property);
+  CSSVariableData* data = GetVariableData(property);
 
   // If substitution is not allowed, treat the value as
   // invalid-at-computed-value-time.
   //
   // https://drafts.csswg.org/css-variables/#animation-tainted
-  if (!resolver.AllowSubstitution(data.get())) {
+  if (!resolver.AllowSubstitution(data)) {
     data = nullptr;
   }
 
@@ -1462,8 +1468,7 @@ bool StyleCascade::ResolveVarInto(CSSParserTokenStream& stream,
     return false;
   }
 
-  return out.Append(data.get(), parent_tokenizer,
-                    CSSVariableData::kMaxVariableBytes);
+  return out.Append(data, parent_tokenizer, CSSVariableData::kMaxVariableBytes);
 }
 
 bool StyleCascade::ResolveFunctionInto(StringView function_name,

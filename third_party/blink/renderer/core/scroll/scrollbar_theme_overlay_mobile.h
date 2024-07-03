@@ -28,8 +28,8 @@ class CORE_EXPORT ScrollbarThemeOverlayMobile : public ScrollbarThemeOverlay {
  protected:
   ScrollbarThemeOverlayMobile(int thumb_thickness, int scrollbar_margin);
 
-  ScrollbarPart HitTest(const Scrollbar&, const gfx::Point&) override {
-    NOTREACHED();
+  ScrollbarPart HitTest(const Scrollbar&, const gfx::Point&) const override {
+    NOTREACHED_IN_MIGRATION();
     return kNoPart;
   }
 

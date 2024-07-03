@@ -345,17 +345,8 @@ suite('AppearanceHandler', function() {
   });
 
   test('show side panel options', function() {
-    loadTimeData.overrideValues({
-      showSidePanelOptions: true,
-    });
     createAppearancePage();
     assertTrue(!!appearancePage.shadowRoot!.querySelector('#side-panel'));
-
-    loadTimeData.overrideValues({
-      showSidePanelOptions: false,
-    });
-    createAppearancePage();
-    assertFalse(!!appearancePage.shadowRoot!.querySelector('#side-panel'));
   });
 
   test('ShowSavedTabGroupsToggleVisible', async function() {
@@ -374,6 +365,24 @@ suite('AppearanceHandler', function() {
     createAppearancePage();
     await microtasksFinished();
     assertFalse(isVisible(appearancePage.$.showSavedTabGroups));
+  });
+
+  test('ShowAutoPinNewTabGroupsToggleVisible', async function() {
+    loadTimeData.overrideValues({
+      tabGroupsSaveUIUpdateEnabled: true,
+    });
+    createAppearancePage();
+    await microtasksFinished();
+    assertTrue(isVisible(appearancePage.$.autoPinNewTabGroups));
+  });
+
+  test('ShowAutoPinNewTabGroupsToggleHidden', async function() {
+    loadTimeData.overrideValues({
+      tabGroupsSaveUIUpdateEnabled: false,
+    });
+    createAppearancePage();
+    await microtasksFinished();
+    assertFalse(isVisible(appearancePage.$.autoPinNewTabGroups));
   });
 });
 

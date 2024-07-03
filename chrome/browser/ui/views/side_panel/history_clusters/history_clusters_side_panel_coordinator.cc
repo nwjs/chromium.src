@@ -12,6 +12,7 @@
 #include "chrome/browser/history_clusters/history_clusters_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
@@ -54,25 +55,14 @@ HistoryClustersSidePanelCoordinator::~HistoryClustersSidePanelCoordinator() =
 
 // static
 bool HistoryClustersSidePanelCoordinator::IsSupported(Profile* profile) {
-  auto* history_clusters_service =
-      HistoryClustersServiceFactory::GetForBrowserContext(profile);
-  return base::FeatureList::IsEnabled(history_clusters::kSidePanelJourneys) &&
-         history_clusters_service &&
-         history_clusters_service->IsJourneysEnabledAndVisible() &&
-         !profile->IsIncognitoProfile() && !profile->IsGuestSession();
+  return side_panel::history_clusters::
+      IsHistoryClustersSidePanelSupportedForProfile(profile);
 }
 
 void HistoryClustersSidePanelCoordinator::CreateAndRegisterEntry(
     SidePanelRegistry* global_registry) {
   global_registry->Register(std::make_unique<SidePanelEntry>(
       SidePanelEntry::Id::kHistoryClusters,
-      l10n_util::GetStringUTF16(IDS_HISTORY_TITLE),
-      ui::ImageModel::FromVectorIcon(
-          features::IsChromeRefresh2023()
-              ? vector_icons::kHistoryChromeRefreshIcon
-              : kHistoryIcon,
-          ui::kColorIcon,
-          /*icon_size=*/16),
       base::BindRepeating(
           &HistoryClustersSidePanelCoordinator::CreateHistoryClustersWebView,
           base::Unretained(this)),

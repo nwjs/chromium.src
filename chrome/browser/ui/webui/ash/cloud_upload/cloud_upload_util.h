@@ -174,7 +174,8 @@ enum class OfficeTaskResult {
   kFallbackQuickOfficeAfterOpen = 18,
   kCancelledAtFallbackAfterOpen = 19,
   kCannotGetFallbackChoiceAfterOpen = 20,
-  kMaxValue = kCannotGetFallbackChoiceAfterOpen,
+  kFileAlreadyBeingOpened = 21,
+  kMaxValue = kFileAlreadyBeingOpened,
 };
 
 // The result of the "Upload to cloud" workflow for Office files.
@@ -307,6 +308,10 @@ std::string GetGenericErrorMessage();
 std::string GetReauthenticationRequiredMessage();
 // Get error message for when the file is not a valid document.
 std::string GetNotAValidDocumentErrorMessage();
+// Get message for when a file is already being opened.
+std::string GetAlreadyBeingOpenedMessage();
+// Get title for when a file is already being opened.
+std::string GetAlreadyBeingOpenedTitle();
 
 // Converts an absolute FilePath into a filesystem URL.
 storage::FileSystemURL FilePathToFileSystemURL(

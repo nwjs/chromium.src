@@ -13,13 +13,14 @@
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_tile_layout_util.h"
+#import "ios/chrome/browser/ui/content_suggestions/cells/most_visited_tiles_config.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_module.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_module_container_delegate.h"
+#import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_module_content_view_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_module_contents_factory.h"
-#import "ios/chrome/browser/ui/content_suggestions/magic_stack/most_visited_tiles_config.h"
 #import "ios/chrome/browser/ui/content_suggestions/safety_check/safety_check_state.h"
 #import "ios/chrome/browser/ui/content_suggestions/safety_check/utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -53,7 +54,8 @@ const CGFloat kSeparatorHeight = 0.5;
 
 }  // namespace
 
-@interface MagicStackModuleContainer () <UIContextMenuInteractionDelegate>
+@interface MagicStackModuleContainer () <UIContextMenuInteractionDelegate,
+                                         MagicStackModuleContentViewDelegate>
 
 // Redefined as ReadWrite.
 @property(nonatomic, assign, readwrite) ContentSuggestionsModuleType type;
@@ -70,10 +72,10 @@ const CGFloat kSeparatorHeight = 0.5;
   UIStackView* _stackView;
   UIImageView* _placeholderImage;
   UIStackView* _titleStackView;
-    MagicStackModuleContentsFactory* _magicStackModuleContentsFactory;
-    NSLayoutConstraint* _containerHeightAnchor;
-    NSLayoutConstraint* _contentStackViewBottomMarginAnchor;
-    UIContextMenuInteraction* _contextMenuInteraction;
+  MagicStackModuleContentsFactory* _magicStackModuleContentsFactory;
+  NSLayoutConstraint* _containerHeightAnchor;
+  NSLayoutConstraint* _contentStackViewBottomMarginAnchor;
+  UIContextMenuInteraction* _contextMenuInteraction;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -212,6 +214,10 @@ const CGFloat kSeparatorHeight = 0.5;
   return self;
 }
 
+- (void)dealloc {
+  [self resetCell];
+}
+
 - (void)configureWithConfig:(MagicStackModule*)config {
   [self resetCell];
   // Ensures that the modules conforms to a height of kModuleMaxHeight. For
@@ -244,11 +250,6 @@ const CGFloat kSeparatorHeight = 0.5;
           [[UIContextMenuInteraction alloc] initWithDelegate:self];
       [self addInteraction:_contextMenuInteraction];
     }
-  } else {
-    if (_contextMenuInteraction) {
-      [self removeInteraction:_contextMenuInteraction];
-      _contextMenuInteraction = nil;
-    }
   }
 
   _title.text = [MagicStackModuleContainer titleStringForModule:_type];
@@ -272,7 +273,10 @@ const CGFloat kSeparatorHeight = 0.5;
 
   _separator.hidden = ![self shouldShowSeparator];
 
-  _contentView = [_magicStackModuleContentsFactory contentViewForConfig:config traitCollection:self.traitCollection];
+  _contentView = [_magicStackModuleContentsFactory
+      contentViewForConfig:config
+           traitCollection:self.traitCollection
+       contentViewDelegate:self];
   [_stackView addArrangedSubview:_contentView];
 
   // Configures `contentView` to be the view willing to expand if needed to
@@ -321,7 +325,7 @@ const CGFloat kSeparatorHeight = 0.5;
       return l10n_util::GetNSString(
           IDS_IOS_CONTENT_SUGGESTIONS_PARCEL_TRACKING_MODULE_TITLE);
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return @"";
   }
 }
@@ -389,6 +393,13 @@ const CGFloat kSeparatorHeight = 0.5;
       self.traitCollection.preferredContentSizeCategory) {
     _title.font = [self fontForTitle];
   }
+}
+
+#pragma mark - MagicStackModuleContentViewDelegate
+
+- (void)setSubtitle:(NSString*)subtitle {
+  _subtitle.text = subtitle;
+  _subtitle.accessibilityIdentifier = subtitle;
 }
 
 #pragma mark - UIContextMenuInteractionDelegate
@@ -523,8 +534,9 @@ const CGFloat kSeparatorHeight = 0.5;
     case ContentSuggestionsModuleType::kSetUpListAllSet:
     case ContentSuggestionsModuleType::kSetUpListNotifications:
     case ContentSuggestionsModuleType::kSafetyCheck:
-    case ContentSuggestionsModuleType::kTabResumption:
       return YES;
+    case ContentSuggestionsModuleType::kTabResumption:
+      return !IsTabResumption1_5Enabled();
     default:
       return NO;
   }
@@ -591,6 +603,10 @@ const CGFloat kSeparatorHeight = 0.5;
   if (_contentView) {
     [_contentView removeFromSuperview];
     _contentView = nil;
+  }
+  if (_contextMenuInteraction) {
+    [self removeInteraction:_contextMenuInteraction];
+    _contextMenuInteraction = nil;
   }
 }
 

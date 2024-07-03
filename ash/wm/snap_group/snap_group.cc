@@ -25,6 +25,7 @@
 #include "base/check_op.h"
 #include "base/metrics/user_metrics.h"
 #include "base/time/time.h"
+#include "chromeos/ui/base/window_state_type.h"
 #include "ui/base/hit_test.h"
 #include "ui/display/display_observer.h"
 #include "ui/display/screen.h"
@@ -38,6 +39,38 @@ namespace ash {
 namespace {
 
 using chromeos::WindowStateType;
+
+// Maps `SnapGroupExitPoint` related to window state change with the given
+// `window_state` type.
+SnapGroupExitPoint GetWindowStateChangeExitPoint(WindowState* window_state) {
+  WindowStateType state_type = window_state->GetStateType();
+  switch (state_type) {
+    case WindowStateType::kDefault:
+      return SnapGroupExitPoint::kWindowStateChangedDefault;
+    case WindowStateType::kNormal:
+      return SnapGroupExitPoint::kWindowStateChangedNormal;
+    case WindowStateType::kMinimized:
+      return SnapGroupExitPoint::kWindowStateChangedMinimized;
+    case WindowStateType::kMaximized:
+      return SnapGroupExitPoint::kWindowStateChangedMaximized;
+    case WindowStateType::kInactive:
+      return SnapGroupExitPoint::kWindowStateChangedInactive;
+    case WindowStateType::kFullscreen:
+      return SnapGroupExitPoint::kWindowStateChangedFullscreen;
+    case WindowStateType::kPrimarySnapped:
+      return SnapGroupExitPoint::kWindowStateChangedPrimarySnapped;
+    case WindowStateType::kSecondarySnapped:
+      return SnapGroupExitPoint::kWindowStateChangedSecondarySnapped;
+    case WindowStateType::kPinned:
+      return SnapGroupExitPoint::kWindowStateChangedPinned;
+    case WindowStateType::kTrustedPinned:
+      return SnapGroupExitPoint::kWindowStateChangedTrustedPinned;
+    case WindowStateType::kPip:
+      return SnapGroupExitPoint::kWindowStateChangedPip;
+    case WindowStateType::kFloated:
+      return SnapGroupExitPoint::kWindowStateChangedFloated;
+  }
+}
 
 }  // namespace
 
@@ -147,7 +180,7 @@ void SnapGroup::HideDivider() {
   snap_group_divider_.SetVisible(false);
 }
 
-bool SnapGroup::IsSnapGroupLayoutHorizontal() {
+bool SnapGroup::IsSnapGroupLayoutHorizontal() const {
   return IsLayoutHorizontal(GetRootWindow());
 }
 
@@ -166,8 +199,8 @@ void SnapGroup::OnLocatedEvent(ui::LocatedEvent* event) {
   // When the window is dragged via the caption bar to unsnap, we early break
   // the group to avoid re-stacking the divider on top of the dragged window.
   if (window1_->Contains(target) || window2_->Contains(target)) {
-    SnapGroupController::Get()->RemoveSnapGroup(this);
-    RecordSnapGroupExitPoint(SnapGroupExitPoint::kDragWindowOut);
+    SnapGroupController::Get()->RemoveSnapGroup(
+        this, SnapGroupExitPoint::kDragWindowOut);
   }
 }
 
@@ -185,10 +218,10 @@ void SnapGroup::MinimizeWindows() {
 
 void SnapGroup::OnWindowDestroying(aura::Window* window) {
   DCHECK(window == window1_ || window == window2_);
-  RecordSnapGroupExitPoint(SnapGroupExitPoint::kWindowDestruction);
   // `this` will be shut down and removed from the controller immediately, and
   // then destroyed asynchronously soon.
-  SnapGroupController::Get()->RemoveSnapGroup(this);
+  SnapGroupController::Get()->RemoveSnapGroup(
+      this, SnapGroupExitPoint::kWindowDestruction);
 }
 
 void SnapGroup::OnWindowParentChanged(aura::Window* window,
@@ -227,8 +260,11 @@ void SnapGroup::OnWindowParentChanged(aura::Window* window,
 
   // The `window` may be temporarily moved under
   // `kShellWindowId_UnparentedContainer`, skip the stacking order fixing in
-  // this case.
-  if (did_parent_change && desks_util::IsDeskContainer(parent)) {
+  // this case. While "visible on all workspaces" windows should never belong to
+  // Snap Groups, this check is still necessary as the group removal can be
+  // asynchronous.
+  if (did_parent_change && desks_util::IsDeskContainer(parent) &&
+      !desks_util::IsWindowVisibleOnAllWorkspaces(to_be_moved_window)) {
     window_util::FixWindowStackingAccordingToGlobalMru(to_be_moved_window);
   }
 
@@ -244,14 +280,14 @@ void SnapGroup::OnPreWindowStateTypeChange(WindowState* window_state,
   CHECK(old_type == WindowStateType::kPrimarySnapped ||
         old_type == WindowStateType::kSecondarySnapped);
   if (window_state->GetStateType() != old_type) {
-    RecordSnapGroupExitPoint(SnapGroupExitPoint::kWindowStateChange);
     // `this` will be shut down and removed from the controller immediately, and
     // then destroyed asynchronously soon.
-    SnapGroupController::Get()->RemoveSnapGroup(this);
+    SnapGroupController::Get()->RemoveSnapGroup(
+        this, GetWindowStateChangeExitPoint(window_state));
   }
 }
 
-aura::Window* SnapGroup::GetRootWindow() {
+aura::Window* SnapGroup::GetRootWindow() const {
   // This can be called during dragging window out of a snap group to another
   // display.
   // TODO(b/331993231): Update the root window in `OnWindowParentChanged()`.
@@ -422,19 +458,29 @@ void SnapGroup::ApplyPrimarySnapRatio(float primary_snap_ratio) {
 }
 
 void SnapGroup::RefreshSnapGroup() {
+  // `RefreshSnapGroup()` may be called during a work area change triggered by
+  // other pre-window state type change events, during which the windows may no
+  // longer be snapped. No-op until we receive the state type change, upon which
+  // `this` will be removed.
+  if (!IsSnapped(window1_) || !IsSnapped(window2_)) {
+    return;
+  }
+
   CHECK_EQ(window1_->GetRootWindow(), window2_->GetRootWindow());
   // If the windows + divider no longer fit in the work area, break the group.
   if (!CanWindowsFitInWorkArea(window1_, window2_)) {
     // `this` will be shut down and removed from the controller immediately, and
     // then destroyed asynchronously soon.
-    SnapGroupController::Get()->RemoveSnapGroup(this);
+    SnapGroupController::Get()->RemoveSnapGroup(
+        this, SnapGroupExitPoint::kCanNotFitInWorkArea);
     return;
   }
 
   // Otherwise call `ApplyPrimarySnapRatio()`, which will clamp the divider
   // position to between the windows' minimum sizes.
-  ApplyPrimarySnapRatio(WindowState::Get(window1_)->snap_ratio().value_or(
-      chromeos::kDefaultSnapRatio));
+  ApplyPrimarySnapRatio(WindowState::Get(GetPhysicallyLeftOrTopWindow())
+                            ->snap_ratio()
+                            .value_or(chromeos::kDefaultSnapRatio));
 }
 
 void SnapGroup::OnOverviewModeStarting() {

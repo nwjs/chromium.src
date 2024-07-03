@@ -160,7 +160,9 @@ enum class ComposeShowStatus {
   kRandomlyBlocked = 21,
   kProactiveNudgeDisabledByMSBB = 22,
   kProactiveNudgeBlockedBySegmentationPlatform = 23,
-  kMaxValue = kProactiveNudgeBlockedBySegmentationPlatform
+  kComposeNotEnabledInCountry = 24,
+  kUndefinedCountry = 25,
+  kMaxValue = kUndefinedCountry,
 };
 
 // Enum for calculating the CTR of the Compose proactive nudge.
@@ -407,8 +409,10 @@ void LogComposeRequestReason(ComposeRequestReason reason);
 void LogComposeRequestReason(EvalLocation eval_location,
                              ComposeRequestReason reason);
 
-void LogComposeRequestStatus(compose::mojom::ComposeStatus status);
+void LogComposeRequestStatus(bool page_language_supported,
+                             compose::mojom::ComposeStatus status);
 void LogComposeRequestStatus(EvalLocation eval_location,
+                             bool page_language_supported,
                              compose::mojom::ComposeStatus status);
 
 // Log the duration of a compose request. |is_ok| indicates the status of

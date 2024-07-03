@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "net/cert/internal/trust_store_mac.h"
 
 #include <Security/Security.h>
@@ -415,7 +420,7 @@ class TrustDomainCacheFullCerts {
         domain_name = "Admin";
         break;
       case kSecTrustSettingsDomainSystem:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
     base::UmaHistogramCounts1000(
@@ -1079,7 +1084,7 @@ bssl::CertificateTrust TrustStoreMac::GetTrust(
     case TrustStatus::UNKNOWN:
       // UNKNOWN is an implementation detail of TrustImpl and should never be
       // returned.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 

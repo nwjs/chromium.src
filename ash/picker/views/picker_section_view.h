@@ -22,6 +22,7 @@ class Label;
 
 namespace ash {
 
+class PickerAssetFetcher;
 class PickerEmojiItemView;
 class PickerEmoticonItemView;
 class PickerImageItemGridView;
@@ -29,16 +30,22 @@ class PickerImageItemView;
 class PickerItemView;
 class PickerListItemContainerView;
 class PickerListItemView;
+class PickerPreviewBubbleController;
+class PickerSearchResult;
 class PickerSmallItemGridView;
 class PickerSymbolItemView;
 class PickerTraversableItemContainer;
+enum class PickerActionType;
 
 // View for a Picker section with a title and related items.
 class ASH_EXPORT PickerSectionView : public views::View {
   METADATA_HEADER(PickerSectionView, views::View)
 
  public:
-  explicit PickerSectionView(int section_width);
+  using SelectResultCallback = base::RepeatingClosure;
+
+  explicit PickerSectionView(int section_width,
+                             PickerAssetFetcher* asset_fetcher);
   PickerSectionView(const PickerSectionView&) = delete;
   PickerSectionView& operator=(const PickerSectionView&) = delete;
   ~PickerSectionView() override;
@@ -66,29 +73,38 @@ class ASH_EXPORT PickerSectionView : public views::View {
   PickerImageItemView* AddImageItem(
       std::unique_ptr<PickerImageItemView> image_item);
 
+  // Creates an item based on `result` and adds it to the section view.
+  // `preview_controller` can be null if previews are not needed. If it's not
+  // null, it must outlive this class.
+  PickerItemView* AddResult(const PickerSearchResult& result,
+                            PickerPreviewBubbleController* preview_controller,
+                            SelectResultCallback select_result_callback);
+
+  void ClearItems();
+
   // Returns the item to highlight to when navigating to this section from the
   // top, or nullptr if the section is empty.
-  PickerItemView* GetTopItem();
+  views::View* GetTopItem();
 
   // Returns the item to highlight to when navigating to this section from the
   // bottom, or nullptr if the section is empty.
-  PickerItemView* GetBottomItem();
+  views::View* GetBottomItem();
 
   // Returns the item directly above `item`, or nullptr if there is no such item
   // in the section.
-  PickerItemView* GetItemAbove(PickerItemView* item);
+  views::View* GetItemAbove(views::View* item);
 
   // Returns the item directly below `item`, or nullptr if there is no such item
   // in the section.
-  PickerItemView* GetItemBelow(PickerItemView* item);
+  views::View* GetItemBelow(views::View* item);
 
   // Returns the item directly to the left of `item`, or nullptr if there is no
   // such item in the section.
-  PickerItemView* GetItemLeftOf(PickerItemView* item);
+  views::View* GetItemLeftOf(views::View* item);
 
   // Returns the item directly to the right of `item`, or nullptr if there is no
   // such item in the section.
-  PickerItemView* GetItemRightOf(PickerItemView* item);
+  views::View* GetItemRightOf(views::View* item);
 
   const views::Label* title_label_for_testing() const { return title_label_; }
   const views::Link* title_trailing_link_for_testing() const {
@@ -135,6 +151,9 @@ class ASH_EXPORT PickerSectionView : public views::View {
 
   // The views for each result item.
   std::vector<raw_ptr<PickerItemView>> item_views_;
+
+  // `asset_fetcher` outlives `this`.
+  raw_ptr<PickerAssetFetcher> asset_fetcher_ = nullptr;
 };
 
 }  // namespace ash

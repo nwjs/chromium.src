@@ -827,7 +827,7 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
   GetProvider().scheduler().RemoveUserUninstallableManagements(
       app_id, webapps::WebappUninstallSource::kAppMenu,
       base::BindLambdaForTesting([&](webapps::UninstallResultCode code) {
-        EXPECT_EQ(code, webapps::UninstallResultCode::kSuccess);
+        EXPECT_EQ(code, webapps::UninstallResultCode::kAppRemoved);
         run_loop.Quit();
       }));
 
@@ -1168,9 +1168,9 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
   WebAppInstallManagerObserverAdapter install_observer(
       &GetProvider().install_manager());
   install_observer.SetWebAppInstalledDelegate(base::BindLambdaForTesting(
-      [](const webapps::AppId& app_id) { NOTREACHED(); }));
+      [](const webapps::AppId& app_id) { NOTREACHED_IN_MIGRATION(); }));
   install_observer.SetWebAppUninstalledDelegate(base::BindLambdaForTesting(
-      [](const webapps::AppId& app_id) { NOTREACHED(); }));
+      [](const webapps::AppId& app_id) { NOTREACHED_IN_MIGRATION(); }));
 
   // CSS #RRGGBBAA syntax.
   OverrideManifest(kManifestTemplate, {kInstallableIconList, "#00FF00F0"});
@@ -2258,13 +2258,7 @@ INSTANTIATE_TEST_SUITE_P(
                       UpdateDialogParam::kDisabled),
     ManifestUpdateManagerBrowserTest_UpdateDialog::ParamToString);
 
-class ManifestUpdateManagerLaunchHandlerBrowserTest
-    : public ManifestUpdateManagerBrowserTest {
-  base::test::ScopedFeatureList scoped_feature_list_{
-      blink::features::kWebAppEnableLaunchHandler};
-};
-
-IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerLaunchHandlerBrowserTest,
+IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
                        CheckFindsLaunchHandlerChange) {
   constexpr char kManifestTemplate[] = R"(
     {
@@ -4478,6 +4472,11 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerAppIdentityBrowserTest,
     GTEST_SKIP()
         << "Shortcuts do not manifest update when Shortstand is enabled.";
   }
+#else
+  if (base::FeatureList::IsEnabled(features::kShortcutsNotApps)) {
+    GTEST_SKIP()
+        << "Shortcuts are not web apps when ShortcutsNotApps is enabled.";
+  }
 #endif
 
   constexpr char kAppName[] = "Test app";
@@ -5521,7 +5520,7 @@ IN_PROC_BROWSER_TEST_P(
     ending_stage = starting_stage;  // No icon change.
     expected_shortcut_colors_if_updated = expected_shortcut_colors_before;
   } else {
-    NOTREACHED();  // Unhandled test input.
+    NOTREACHED_IN_MIGRATION();  // Unhandled test input.
   }
 
   OverrideManifest(kManifestTemplate, {app_name, starting_stage});
@@ -5536,7 +5535,7 @@ IN_PROC_BROWSER_TEST_P(
   } else if (IsWebApp()) {
     app_id = InstallWebApp();
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 
   const WebApp* web_app = GetProvider().registrar_unsafe().GetAppById(app_id);

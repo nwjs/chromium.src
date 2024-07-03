@@ -34,10 +34,22 @@ export class GestureHandler {
 
   constructor(mouseController: MouseController) {
     this.mouseController_ = mouseController;
-
     this.prefsListener_ = prefs => this.updateFromPrefs_(prefs);
+  }
+
+  start(): void {
     chrome.settingsPrivate.getAllPrefs(prefs => this.updateFromPrefs_(prefs));
     chrome.settingsPrivate.onPrefsChanged.addListener(this.prefsListener_);
+  }
+
+  stop(): void {
+    chrome.settingsPrivate.onPrefsChanged.removeListener(this.prefsListener_);
+    this.previousGestures_ = [];
+    this.gestureLastRecognized_.clear();
+    // TODO(b:341770655): Executing these macros clears their state, so that we
+    // aren't left in a mouse down or key down state. However, that could have
+    // other side effects. It would be best to send a synthetic cancel event.
+    this.macrosToCompleteLater_.clear();
   }
 
   private updateFromPrefs_(prefs: PrefObject[]): void {
@@ -120,10 +132,18 @@ export class GestureHandler {
     for (const [macroName, gesture] of macroNames) {
       const macro = this.macroFromName_(macroName);
       if (macro) {
+        if (macro instanceof MouseClickMacro) {
+          // Don't add mouse click macros if we are in the middle of long click.
+          if ([...this.macrosToCompleteLater_.values()].some(
+                  (savedMacro: Macro) => savedMacro.getName() ===
+                      MacroName.MOUSE_LONG_CLICK_LEFT)) {
+            continue;
+          }
+        }
         result.push(macro);
         if (macro.triggersAtActionStartAndEnd()) {
-          // Cache this macro to be run a second time later, for the key
-          // release.
+          // Cache this macro to be run a second time later,
+          // e.g. for the mouse or key release.
           this.macrosToCompleteLater_.set(gesture, macro);
         }
       }
@@ -169,6 +189,10 @@ export class GestureHandler {
       case MacroName.MOUSE_CLICK_RIGHT:
         return new MouseClickMacro(
             this.mouseController_.mouseLocation(), /*leftClick=*/ false);
+      case MacroName.MOUSE_LONG_CLICK_LEFT:
+        return new MouseClickMacro(
+            this.mouseController_.mouseLocation(), /*leftClick=*/ true,
+            /*clickImmediately=*/ false);
       case MacroName.RESET_CURSOR:
         return new ResetCursorMacro(this.mouseController_);
       case MacroName.KEY_PRESS_SPACE:
@@ -176,6 +200,8 @@ export class GestureHandler {
       case MacroName.KEY_PRESS_LEFT:
       case MacroName.KEY_PRESS_RIGHT:
       case MacroName.KEY_PRESS_UP:
+      case MacroName.KEY_PRESS_TOGGLE_OVERVIEW:
+      case MacroName.KEY_PRESS_MEDIA_PLAY_PAUSE:
         return new KeyPressMacro(name);
       default:
         return;
@@ -185,7 +211,7 @@ export class GestureHandler {
 
 export namespace GestureHandler {
   /** The default confidence threshold for facial gestures. */
-  export const DEFAULT_CONFIDENCE_THRESHOLD = 0.6;
+  export const DEFAULT_CONFIDENCE_THRESHOLD = 0.5;
 
   /** Minimum repeat rate of a gesture. */
   // TODO(b:322511275): Move to a pref in settings.

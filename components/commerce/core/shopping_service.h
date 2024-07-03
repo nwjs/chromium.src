@@ -25,6 +25,7 @@
 #include "components/commerce/core/account_checker.h"
 #include "components/commerce/core/commerce_info_cache.h"
 #include "components/commerce/core/commerce_types.h"
+#include "components/commerce/core/compare/cluster_manager.h"
 #include "components/commerce/core/product_specifications/product_specifications_service.h"
 #include "components/commerce/core/product_specifications/product_specifications_set.h"
 #include "components/commerce/core/proto/commerce_subscription_db_content.pb.h"
@@ -109,7 +110,6 @@ class ScheduledMetricsManager;
 }  // namespace metrics
 
 class BookmarkUpdateManager;
-class ClusterManager;
 class DiscountsStorage;
 class ParcelsManager;
 class ProductSpecificationsServerProxy;
@@ -431,10 +431,7 @@ class ShoppingService : public KeyedService,
 
   virtual ProductSpecificationsService* GetProductSpecificationsService();
 
-  // ClusterManager APIs.
-  virtual std::optional<EntryPointInfo> GetEntryPointInfoForSelection(
-      GURL old_url,
-      GURL new_url);
+  virtual ClusterManager* GetClusterManager();
 
   // Get a weak pointer for this service instance.
   base::WeakPtr<ShoppingService> AsWeakPtr();
@@ -723,6 +720,12 @@ class ShoppingService : public KeyedService,
   //     See ConsentLevel::kSync documentation for details.
   base::ScopedObservation<syncer::SyncService, syncer::SyncServiceObserver>
       sync_service_observation_{this};
+
+  // An observer of the ProductSpecificationsService that keeps track of the
+  // URLs contained within each ProductSpecificationsSet. This is used to keep
+  // the commerce info cache up to date.
+  std::unique_ptr<ProductSpecificationsSet::Observer>
+      prod_spec_url_ref_observer_;
 
   // Ensure certain functions are being executed on the same thread.
   SEQUENCE_CHECKER(sequence_checker_);

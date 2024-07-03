@@ -25,8 +25,8 @@ export class ItemData {
 
 /**
  * TabData contains tabSearch.mojom.Tab and data derived from it.
- * It makes tabSearch.mojom.Tab immutable and works well for closure compiler
- * type checking.
+ * It makes tabSearch.mojom.Tab immutable and works well for TypeScript type
+ * checking.
  */
 export class TabData extends ItemData {
   tab: Tab|RecentlyClosedTab;
@@ -41,7 +41,9 @@ export class TabData extends ItemData {
 }
 
 export class TabGroupData extends ItemData {
-  constructor(tabGroup: TabGroup|RecentlyClosedTabGroup) {
+  override tabGroup: RecentlyClosedTabGroup;
+
+  constructor(tabGroup: RecentlyClosedTabGroup) {
     super();
     this.tabGroup = tabGroup;
     this.type = TabItemType.RECENTLY_CLOSED_TAB_GROUP;

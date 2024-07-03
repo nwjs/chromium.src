@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/cr_components/history_embeddings/history_embeddings_handler.h"
 
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -22,6 +23,7 @@
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/l10n/time_format.h"
 #include "ui/webui/resources/cr_components/history_embeddings/history_embeddings.mojom.h"
 
 std::unique_ptr<KeyedService> BuildTestHistoryEmbeddingsService(
@@ -88,12 +90,15 @@ class HistoryEmbeddingsHandlerTest : public testing::Test {
 
   void TearDown() override { handler_.reset(); }
 
+  base::HistogramTester& histogram_tester() { return histogram_tester_; }
+
  protected:
   base::test::ScopedFeatureList feature_list_;
   content::BrowserTaskEnvironment task_environment_;
   std::unique_ptr<HistoryEmbeddingsHandler> handler_;
   std::unique_ptr<TestingProfileManager> profile_manager_;
   raw_ptr<TestingProfile> profile_ = nullptr;
+  base::HistogramTester histogram_tester_;
 };
 
 TEST_F(HistoryEmbeddingsHandlerTest, Searches) {
@@ -103,4 +108,55 @@ TEST_F(HistoryEmbeddingsHandlerTest, Searches) {
   handler_->Search(std::move(query), future.GetCallback());
   auto result = future.Take();
   ASSERT_EQ(result->items.size(), 0u);
+}
+
+TEST_F(HistoryEmbeddingsHandlerTest, FormatsMojoResults) {
+  history_embeddings::ScoredUrlRow scored_url_row(
+      history_embeddings::ScoredUrl(0, 0, {}, .5, 0u, {}));
+  scored_url_row.row = history::URLRow{GURL{"https://google.com"}};
+  scored_url_row.row.set_title(u"my title");
+  scored_url_row.row.set_last_visit(base::Time::Now() - base::Hours(1));
+  history_embeddings::SearchResult embeddings_result;
+  embeddings_result.scored_url_rows = {scored_url_row};
+
+  auto query = history_embeddings::mojom::SearchQuery::New();
+  query->query = "search query";
+  base::test::TestFuture<history_embeddings::mojom::SearchResultPtr> future;
+  handler_->OnReceivedSearchResult(future.GetCallback(), embeddings_result);
+
+  auto mojo_results = future.Take();
+  ASSERT_EQ(mojo_results->items.size(), 1u);
+  EXPECT_EQ(mojo_results->items[0]->title, "my title");
+  EXPECT_EQ(mojo_results->items[0]->url.spec(), "https://google.com/");
+  EXPECT_EQ(mojo_results->items[0]->relative_time,
+            base::UTF16ToUTF8(ui::TimeFormat::Simple(
+                ui::TimeFormat::FORMAT_ELAPSED, ui::TimeFormat::LENGTH_SHORT,
+                base::Time::Now() - scored_url_row.row.last_visit())));
+  EXPECT_EQ(mojo_results->items[0]->last_url_visit_timestamp,
+            scored_url_row.row.last_visit().InMillisecondsFSinceUnixEpoch());
+  EXPECT_EQ(mojo_results->items[0]->url_for_display, "google.com");
+}
+
+TEST_F(HistoryEmbeddingsHandlerTest, RecordsMetrics) {
+  handler_->RecordSearchResultsMetrics(false, false);
+  histogram_tester().ExpectBucketCount(
+      "History.Embeddings.UserActions",
+      HistoryEmbeddingsUserActions::kEmbeddingsSearch, 1);
+  histogram_tester().ExpectBucketCount(
+      "History.Embeddings.UserActions",
+      HistoryEmbeddingsUserActions::kEmbeddingsNonEmptyResultsShown, 0);
+  histogram_tester().ExpectBucketCount(
+      "History.Embeddings.UserActions",
+      HistoryEmbeddingsUserActions::kEmbeddingsResultClicked, 0);
+
+  handler_->RecordSearchResultsMetrics(true, true);
+  histogram_tester().ExpectBucketCount(
+      "History.Embeddings.UserActions",
+      HistoryEmbeddingsUserActions::kEmbeddingsSearch, 2);
+  histogram_tester().ExpectBucketCount(
+      "History.Embeddings.UserActions",
+      HistoryEmbeddingsUserActions::kEmbeddingsNonEmptyResultsShown, 1);
+  histogram_tester().ExpectBucketCount(
+      "History.Embeddings.UserActions",
+      HistoryEmbeddingsUserActions::kEmbeddingsResultClicked, 1);
 }

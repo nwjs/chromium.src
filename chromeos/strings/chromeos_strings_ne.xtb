@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">प्यास्टेल पहेँलो</translation>
 <translation id="1056898198331236512">चेतावनी</translation>
 <translation id="1059913517121127803">स्क्यान गर्ने प्रक्रिया सुरु गर्न सकिएन</translation>
+<translation id="1061864016440983342">लोकेसन प्रयोग गर्ने अनुमति नदिइकन प्रयोग गर्नुहोस्</translation>
 <translation id="1062823486781306604"><ph name="COUNT" /> मध्ये <ph name="INDEX" />, <ph name="NAME" />।</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">फायरवाल पत्ता लाग्यो</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">थप सेटिङहरू</translation>
 <translation id="2082932131694554252">असाइन गरिएको किबोर्डको की</translation>
 <translation id="2085089206770112532">डिस्प्लेको चमक घटाउने की</translation>
+<translation id="2086091080968010660">समयका आधारमा गरिने परिवर्तनहरू सटीक नहुन सक्छन्। सेटिङमा गई सिस्टमको लोकेसन प्रयोग गर्ने अनुमति दिनुहोस्।</translation>
 <translation id="2102231663024125441">टेक्स्ट एडिटिङ</translation>
 <translation id="2105810540595158374">यो डिभाइस गेम कन्ट्रोलर हो।</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, संस्करण <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN सम्बन्धी विवरणहरू परिवर्तन गर्नुहोस्</translation>
 <translation id="2195732836444333448">अहिले तपाईंलाई मद्दत गर्न सक्दैनौँ। चाँडै फर्केर आउनुहोस्।</translation>
 <translation id="2201758491318984023">साइकल</translation>
-<translation id="2203222757805818543">हालको समयतालिका <ph name="SUNRISE" /> - <ph name="SUNSET" /> सम्म सेट गरिएको छ। अँध्यारो मोडको समयतालिका स्वतः अपडेट गर्न <ph name="BEGIN_LINK" />लोकेसनको एक्सेस अन गर्नुहोस्<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">हट स्प्रिङ</translation>
 <translation id="2203642483788377106">भीर</translation>
 <translation id="2208388655216963643">इम्प्रेसियनिस्ट</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">डिफल्ट सेटिङ रिस्टोर गर्नुहोस्</translation>
 <translation id="2286454467119466181">सरल</translation>
 <translation id="2287186687001756809">कुनै पनि फोटो छैन। तपाईं फोटो हाल्न चाहनुहुन्छ भने <ph name="LINK" /> मा जानुहोस्</translation>
+<translation id="2294577623958216786">हालको समयतालिका <ph name="SUNRISE" /> देखि <ph name="SUNSET" /> सम्म तोकिएको छ। सूर्यास्त र सूर्योदयको समयतालिका स्वतः परिवर्तन गर्न सिस्टमको लोकेसन प्रयोग गर्ने अनुमति दिनुहोस्।</translation>
 <translation id="2305172810646967500">ब्ल्याक</translation>
 <translation id="2307344026739914387">हालको किपेयर प्रयोग गर्नुहोस्</translation>
 <translation id="2308243864813041101">अपडेट गर्ने प्रक्रिया जारी राख्न <ph name="DEVICE_NAME" /> को USB केबल निकाल्नुहोस्</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">बालुवाको स्तूप</translation>
 <translation id="2619761439309613843">दैनिक पुनः ताजा गर्नुहोस्</translation>
 <translation id="2620436844016719705">सिस्टम</translation>
+<translation id="2637303424821734920">अफ छ - स्थानीय मौसम देखाउन <ph name="BEGIN_LINK" />सिस्टमको लोकेसन प्रयोग गर्ने अनुमति गर्नुहोस्<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">प्रोफाइल फोटो</translation>
 <translation id="2640549051766135490"><ph name="TITLE" /> <ph name="DESC" /> एल्बम चयन गरियो</translation>
 <translation id="2645380101799517405">कन्ट्रोलहरू</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">पृष्ठभूमि</translation>
 <translation id="3027578600144895987">क्यामेरा बन्द गर्नुहोस्</translation>
 <translation id="3031560714565892478">यो डिभाइस भिडियो क्यामेरा हो।</translation>
+<translation id="3051968340259309715">तपाईंले यसो गर्नुभयो भने सिस्टमका सेवाले तपाईंको लोकेसन पत्ता लगाउन "लोकेसनको सटीकता" प्रयोग गर्न पाउँछन्। "लोकेसनको सटीकता" ले डिभाइसको लोकेसनको अनुमान लगाउन Wi-Fi, एक्सेस पोइन्ट, मोबाइल नेटवर्कका टावर र GPS लगायतका वायरलेस सिग्नलसम्बन्धी जानकारीका साथै डिभाइसको प्रवेगमिटर र जाइरोस्कपलगायतका सेन्सरसम्बन्धी डेटा प्रयोग गर्छ। तपाईं सेटिङ &gt; गोपनीयता तथा सुरक्षा &gt; गोपनीयतासम्बन्धी सेटिङ &gt; लोकेसन एक्सेसमा गई लोकेसन अफ गर्न सक्नुहुन्छ। <ph name="LINK_BEGIN" />थप जान्नुहोस्<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">इन्डपोइन्ट</translation>
 <translation id="3060579846059757016">आउटलाइन</translation>
+<translation id="3061850252076394168">सेलेक्ट टु स्पिक अन गर्नुहोस्</translation>
 <translation id="3069085583900247081">परीक्षण गर्न सकिएन</translation>
 <translation id="3078740164268491126">तालिका</translation>
 <translation id="3081652522083185657">उज्यालो</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">सबै होस्टहरूको समस्या समाधान गर्न सकिएन</translation>
 <translation id="4593212453765072419">प्रोक्सी प्रमाणित गर्नु पर्ने हुन्छ</translation>
 <translation id="4609350030397390689">किबोर्डको चमक घटाउने की</translation>
-<translation id="4617553623719764431">सिस्टमलाई तपाईंको लोकेसन थाहा नभएको हुनाले मौसमसम्बन्धी जानकारी देखाइएको छैन। स्थानीय मौसमसम्बन्धी जानकारी देखाउन <ph name="BEGIN_LINK" />लोकेसन प्रयोग गर्ने अनुमति दिनुहोस्<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="TOTAL_PAGE_NUMBER" /> मध्ये <ph name="PRINTED_PAGE_NUMBER" />। प्रिन्ट गर्ने कार्य रद्द गर्न enter थिच्नुहोस्।</translation>
 <translation id="463791356324567266">स्क्यान गर्ने कार्य रद्द गरिँदै छ...</translation>
 <translation id="4646949265910132906">WiFi कनेक्सन सुरक्षित बनाउनुहोस्</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">चलाउनुहोस्</translation>
 <translation id="4987769320337599931">फायरवाल</translation>
 <translation id="4988526792673242964">पृष्ठहरू</translation>
+<translation id="4989542687859782284">उपलब्ध छैन</translation>
 <translation id="4999333166442584738">रिपोर्ट लुकाउनुहोस्</translation>
 <translation id="500920857929044050">परीक्षण रोक्नुहोस्</translation>
 <translation id="5017508259293544172">छलाङ</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">किबोर्डको ब्याकलाइटको चमक</translation>
 <translation id="6412715219990689313">अन्तर्निर्मित किबोर्ड</translation>
 <translation id="6417265370957905582">Google सहायक</translation>
+<translation id="6419454453018688975">सिस्टमको लोकेसन प्रयोग गर्ने अनुमति दिनुहोस्</translation>
 <translation id="6423239382391657905">खुल्लाVPN</translation>
-<translation id="6438073885402882007">तपाईंले यसो गर्नुभयो भने अनुमति प्राप्त गरेका सिस्टमका सेवाहरूले तपाईंको लोकेसन प्रयोग गर्न सक्छन्। तपाईंको डिभाइसको अनुमानित लोकेसन पत्ता लगाउन लोकेसन सेवाले Wi‑Fi, मोबाइल नेटवर्क र सेन्सरलगायतका स्रोतहरू प्रयोग गर्न सक्छ। <ph name="LINK_BEGIN" />थप जान्नुहोस्<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">कमजोर (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">खाताका सेटिङमा जानुहोस्</translation>
 <translation id="6462978824459367242">"APN हाल्नुहोस्" बटन अहिले अन गरिएको छ</translation>

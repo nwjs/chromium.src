@@ -26,7 +26,7 @@ BASE_FEATURE(kEnableNearbyBleV2ExtendedAdvertising,
 // if the hardware supports the GATT server dual role.
 BASE_FEATURE(kEnableNearbyBleV2GattServer,
              "kEnableNearbyBleV2GattServer",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the use of Bluetooth Classic advertising from within the
 // implementation of Nearby Connections, for incremental testing purposes.
@@ -44,6 +44,11 @@ BASE_FEATURE(kEnableNearbyBluetoothClassicScanning,
 BASE_FEATURE(kNearbySharingWebRtc,
              "NearbySharingWebRtc",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables use of WifiDirect in Nearby Share.
+BASE_FEATURE(kNearbySharingWifiDirect,
+             "NearbySharingWifiDirect",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables use of WifiLan in Nearby Share.
 BASE_FEATURE(kNearbySharingWifiLan,

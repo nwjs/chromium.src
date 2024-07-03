@@ -21,6 +21,7 @@
 
 #include "base/base64.h"
 #include "base/check.h"
+#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -71,6 +72,7 @@
 #include "content/common/features.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/content_browser_client.h"
+#include "content/services/auction_worklet/public/cpp/real_time_reporting.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom-forward.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
 #include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
@@ -163,27 +165,25 @@ bool IsUrlValid(const GURL& url) {
   return url.is_valid() && url.SchemeIs(url::kHttpsScheme);
 }
 
-bool IsKAnon(const base::flat_map<std::string, bool>& kanon_keys,
+bool IsKAnon(const base::flat_set<std::string>& kanon_keys,
              const std::string& key) {
-  auto it = kanon_keys.find(key);
-  return it != kanon_keys.end() && it->second;
+  return kanon_keys.contains(key);
 }
 
-base::flat_map<auction_worklet::mojom::KAnonKeyPtr, bool> KAnonKeysToMojom(
-    const base::flat_map<std::string, bool>& kanon_keys) {
-  std::vector<std::pair<auction_worklet::mojom::KAnonKeyPtr, bool>> result;
+std::vector<auction_worklet::mojom::KAnonKeyPtr> KAnonKeysToMojom(
+    const base::flat_set<std::string>& kanon_keys) {
+  std::vector<auction_worklet::mojom::KAnonKeyPtr> result;
   for (const auto& key : kanon_keys) {
-    result.emplace_back(auction_worklet::mojom::KAnonKey::New(key.first),
-                        key.second);
+    result.emplace_back(auction_worklet::mojom::KAnonKey::New(key));
   }
-  return std::move(result);
+  return result;
 }
 
 // Finds InterestGroup::Ad in `ads` that matches `ad_descriptor`, if any.
 // Returns nullptr if `ad_descriptor` is invalid.
 const blink::InterestGroup::Ad* FindMatchingAd(
     const std::vector<blink::InterestGroup::Ad>& ads,
-    const base::flat_map<std::string, bool>& kanon_keys,
+    const base::flat_set<std::string>& kanon_keys,
     const blink::InterestGroup& interest_group,
     auction_worklet::mojom::BidRole bid_role,
     bool is_component_ad,
@@ -1555,6 +1555,8 @@ class InterestGroupAuction::BuyerHelper
           {base::StrCat({bid_state->bidder->interest_group.bidding_url->spec(),
                          " crashed while trying to run generateBid()."})});
     } else {
+      auction_->MaybeAddScriptFailureRealTimeContribution(
+          /*is_buyer=*/true, bid_state->bidder->interest_group.owner);
       OnFatalError(bid_state, errors);
     }
   }
@@ -1598,7 +1600,7 @@ class InterestGroupAuction::BuyerHelper
         /*errors=*/{});
   }
 
-  base::flat_map<std::string, bool> ComputeKAnon(
+  base::flat_set<std::string> ComputeKAnon(
       const SingleStorageInterestGroup& storage_interest_group,
       auction_worklet::mojom::KAnonymityBidMode kanon_mode) {
     if (kanon_mode == auction_worklet::mojom::KAnonymityBidMode::kNone) {
@@ -1608,20 +1610,11 @@ class InterestGroupAuction::BuyerHelper
     // k-anon cache is always checked against the same time, to avoid weird
     // behavior of validity changing in the middle of the auction.
     base::Time start_time = auction_->auction_start_time_;
-
-    std::vector<std::pair<std::string, bool>> kanon_entries;
-    for (const auto& ad_kanon : storage_interest_group->bidding_ads_kanon) {
-      if (IsKAnonymous(ad_kanon, start_time)) {
-        kanon_entries.emplace_back(ad_kanon.hashed_key, true);
-      }
+    if (IsKAnonDataExpired(storage_interest_group->last_k_anon_updated,
+                           start_time)) {
+      return {};
     }
-    for (const auto& component_ad_kanon :
-         storage_interest_group->component_ads_kanon) {
-      if (IsKAnonymous(component_ad_kanon, start_time)) {
-        kanon_entries.emplace_back(component_ad_kanon.hashed_key, true);
-      }
-    }
-    return base::flat_map<std::string, bool>(std::move(kanon_entries));
+    return storage_interest_group->hashed_kanon_keys;
   }
 
   // Invoked whenever the AuctionWorkletManager has provided a BidderWorket
@@ -1966,26 +1959,38 @@ class InterestGroupAuction::BuyerHelper
           std::move_iterator(non_kanon_pa_requests.end()));
     }
 
-    // Only keep real time reporting contributions when the buyer is opted-in.
-    // TODO(qingxinwu): Validate received real time reporting message, and
-    // report bad message if invalid.
     if (base::FeatureList::IsEnabled(
             blink::features::kFledgeRealTimeReporting) &&
-        auction_->config_->non_shared_params.per_buyer_real_time_reporting_types
-            .has_value() &&
-        auction_->config_->non_shared_params.per_buyer_real_time_reporting_types
-                .value()
-                .find(interest_group.owner) !=
-            auction_->config_->non_shared_params
-                .per_buyer_real_time_reporting_types.value()
-                .end()) {
-      RealTimeReportingContributions& real_time_contributions_for_origin =
-          state->real_time_contributions[interest_group.owner];
-      if (!real_time_contributions.empty()) {
-        real_time_contributions_for_origin.insert(
-            real_time_contributions_for_origin.end(),
-            std::move_iterator(real_time_contributions.begin()),
-            std::move_iterator(real_time_contributions.end()));
+        !base::FeatureList::IsEnabled(
+            features::kCookieDeprecationFacilitatedTesting)) {
+      if (!base::ranges::all_of(real_time_contributions,
+                                HasValidRealTimeBucket)) {
+        mojo_bids.clear();
+        real_time_contributions.clear();
+        generate_bid_client_receiver_set_.ReportBadMessage(
+            "Invalid real time reporting bucket");
+      } else if (!base::ranges::all_of(real_time_contributions,
+                                       HasValidRealTimePriorityWeight)) {
+        mojo_bids.clear();
+        real_time_contributions.clear();
+        generate_bid_client_receiver_set_.ReportBadMessage(
+            "Invalid real time reporting priority weight");
+      } else if (auction_->IsBuyerOptedInToRealTimeReporting(
+                     interest_group.owner)) {
+        // Only keep real time reporting contributions when the buyer is
+        // opted-in.
+        // Note that this adds an entry to the map for owner with an empty
+        // vector as value, if owner was not in the map. This is important to
+        // indicate that the owner is opted-in.
+        RealTimeReportingContributions& real_time_contributions_for_origin =
+            state->real_time_contributions[interest_group.owner];
+
+        if (!real_time_contributions.empty()) {
+          real_time_contributions_for_origin.insert(
+              real_time_contributions_for_origin.end(),
+              std::move_iterator(real_time_contributions.begin()),
+              std::move_iterator(real_time_contributions.end()));
+        }
       }
     }
 
@@ -2501,7 +2506,8 @@ void InterestGroupAuction::StartLoadInterestGroupsPhase(
   // If the seller can't participate in the auction, fail the auction.
   if (!is_interest_group_api_allowed_callback_.Run(
           ContentBrowserClient::InterestGroupApiOperation::kSell,
-          config_->seller)) {
+          config_->seller) ||
+      BlockDueToDisallowedCrossOriginTrustedSellerSignals()) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(
@@ -2807,6 +2813,7 @@ InterestGroupAuction::CreateReporter(
     BrowserContext* browser_context,
     PrivateAggregationManager* private_aggregation_manager,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
+    AdAuctionPageDataCallback ad_auction_page_data_callback,
     std::unique_ptr<blink::AuctionConfig> auction_config,
     const url::Origin& main_frame_origin,
     const url::Origin& frame_origin,
@@ -2997,10 +3004,11 @@ InterestGroupAuction::CreateReporter(
       interest_group_manager_, auction_worklet_manager_, browser_context,
       private_aggregation_manager,
       maybe_log_private_aggregation_web_features_callback_,
-      std::move(auction_config), devtools_auction_id_, main_frame_origin,
-      frame_origin, std::move(client_security_state),
-      std::move(url_loader_factory), kanon_mode_, bid_is_kanon,
-      std::move(winning_bid_info), std::move(top_level_seller_winning_bid_info),
+      std::move(ad_auction_page_data_callback), std::move(auction_config),
+      devtools_auction_id_, main_frame_origin, frame_origin,
+      std::move(client_security_state), std::move(url_loader_factory),
+      kanon_mode_, bid_is_kanon, std::move(winning_bid_info),
+      std::move(top_level_seller_winning_bid_info),
       std::move(component_seller_winning_bid_info),
       std::move(interest_groups_that_bid), std::move(debug_win_report_urls),
       std::move(debug_loss_report_urls), GetKAnonKeysToJoin(),
@@ -3782,6 +3790,40 @@ void InterestGroupAuction::MaybeLogPrivateAggregationWebFeatures(
       private_aggregation_requests);
 }
 
+bool InterestGroupAuction::
+    BlockDueToDisallowedCrossOriginTrustedSellerSignals() {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kFledgePermitCrossOriginTrustedSignals)) {
+    return false;
+  }
+
+  if (!config_->trusted_scoring_signals_url.has_value()) {
+    return false;
+  }
+
+  url::Origin trusted_scoring_signals_origin =
+      url::Origin::Create(config_->trusted_scoring_signals_url.value());
+
+  if (config_->seller.IsSameOriginWith(trusted_scoring_signals_origin)) {
+    return false;
+  }
+
+  if (is_interest_group_api_allowed_callback_.Run(
+          ContentBrowserClient::InterestGroupApiOperation::kSell,
+          trusted_scoring_signals_origin)) {
+    return false;
+  }
+
+  errors_.push_back(base::StringPrintf(
+      "runAdAuction() auction with seller '%s' failed because it lacks "
+      "attestation of cross-origin trusted signals origin '%s' or that origin "
+      "is disallowed by user preferences",
+      config_->seller.Serialize().c_str(),
+      trusted_scoring_signals_origin.Serialize().c_str()));
+
+  return true;
+}
+
 const InterestGroupAuction::LeaderInfo& InterestGroupAuction::leader_info()
     const {
   if (kanon_mode_ == auction_worklet::mojom::KAnonymityBidMode::kEnforce) {
@@ -4457,6 +4499,8 @@ void InterestGroupAuction::OnSellerWorkletFatalError(
   switch (fatal_error_type) {
     case AuctionWorkletManager::FatalErrorType::kScriptLoadFailed:
       result = AuctionResult::kSellerWorkletLoadFailed;
+      MaybeAddScriptFailureRealTimeContribution(/*is_buyer=*/false,
+                                                config_->seller);
       break;
     case AuctionWorkletManager::FatalErrorType::kWorkletCrash:
       result = AuctionResult::kSellerWorkletCrashed;
@@ -4464,6 +4508,51 @@ void InterestGroupAuction::OnSellerWorkletFatalError(
   }
 
   OnBiddingAndScoringComplete(result, errors);
+}
+
+bool InterestGroupAuction::IsBuyerOptedInToRealTimeReporting(
+    const url::Origin& owner) {
+  return config_->non_shared_params.per_buyer_real_time_reporting_types
+             .has_value() &&
+         base::Contains(
+             *config_->non_shared_params.per_buyer_real_time_reporting_types,
+             owner);
+}
+
+void InterestGroupAuction::MaybeAddScriptFailureRealTimeContribution(
+    bool is_buyer,
+    const url::Origin& origin) {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kFledgeRealTimeReporting)) {
+    return;
+  }
+  if (!real_time_reporting_num_buckets_.has_value()) {
+    real_time_reporting_num_buckets_ =
+        blink::features::kFledgeRealTimeReportingNumBuckets.Get();
+  }
+  if (!real_time_platform_contribution_priority_weight_.has_value()) {
+    real_time_platform_contribution_priority_weight_ =
+        blink::features::kFledgeRealTimeReportingPlatformContributionPriority
+            .Get();
+  }
+  if (is_buyer && IsBuyerOptedInToRealTimeReporting(origin)) {
+    real_time_contributions_[origin].push_back(
+        auction_worklet::mojom::RealTimeReportingContribution::New(
+            *real_time_reporting_num_buckets_ +
+                auction_worklet::RealTimeReportingPlatformError::
+                    kBiddingScriptLoadFailure,
+            *real_time_platform_contribution_priority_weight_,
+            /*latency_threshold=*/std::nullopt));
+  } else if (!is_buyer && config_->non_shared_params
+                              .seller_real_time_reporting_type.has_value()) {
+    real_time_contributions_[origin].push_back(
+        auction_worklet::mojom::RealTimeReportingContribution::New(
+            *real_time_reporting_num_buckets_ +
+                auction_worklet::RealTimeReportingPlatformError::
+                    kScoringScriptLoadFailure,
+            *real_time_platform_contribution_priority_weight_,
+            /*latency_threshold=*/std::nullopt));
+  }
 }
 
 void InterestGroupAuction::OnComponentAuctionComplete(
@@ -4634,7 +4723,8 @@ bool InterestGroupAuction::ValidateScoreBidCompleteResult(
     std::optional<double> bid_in_seller_currency,
     const std::optional<GURL>& debug_loss_report_url,
     const std::optional<GURL>& debug_win_report_url,
-    const PrivateAggregationRequests& pa_requests) {
+    const PrivateAggregationRequests& pa_requests,
+    const RealTimeReportingContributions& real_time_contributions) {
   DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   // If `debug_loss_report_url` or `debug_win_report_url` is not a valid HTTPS
   // URL, the auction should fail because the worklet is compromised.
@@ -4648,6 +4738,11 @@ bool InterestGroupAuction::ValidateScoreBidCompleteResult(
       !IsUrlValid(debug_win_report_url.value())) {
     score_ad_receivers_.ReportBadMessage(
         "Invalid seller debugging win report URL");
+    return false;
+  }
+
+  if (!std::isfinite(score)) {
+    score_ad_receivers_.ReportBadMessage("Invalid score");
     return false;
   }
 
@@ -4698,6 +4793,18 @@ bool InterestGroupAuction::ValidateScoreBidCompleteResult(
     return false;
   }
 
+  if (!base::ranges::all_of(real_time_contributions, HasValidRealTimeBucket)) {
+    score_ad_receivers_.ReportBadMessage("Invalid real time reporting bucket");
+    return false;
+  }
+
+  if (!base::ranges::all_of(real_time_contributions,
+                            HasValidRealTimePriorityWeight)) {
+    score_ad_receivers_.ReportBadMessage(
+        "Invalid real time reporting priority weight");
+    return false;
+  }
+
   return true;
 }
 
@@ -4722,7 +4829,7 @@ void InterestGroupAuction::OnScoreAdComplete(
   if (!ValidateScoreBidCompleteResult(
           score, component_auction_modified_bid_params.get(),
           bid_in_seller_currency, debug_loss_report_url, debug_win_report_url,
-          pa_requests)) {
+          pa_requests, real_time_contributions)) {
     OnBiddingAndScoringComplete(AuctionResult::kBadMojoMessage);
     return;
   }
@@ -4777,15 +4884,20 @@ void InterestGroupAuction::OnScoreAdComplete(
       }
     }
 
-    // Only keep real time reporting contributions when the seller is opted-in.
-    // TODO(qingxinwu): Validate received real time reporting message, and
-    // report bad message if invalid.
     if (base::FeatureList::IsEnabled(
-            blink::features::kFledgeRealTimeReporting)) {
+            blink::features::kFledgeRealTimeReporting) &&
+        !base::FeatureList::IsEnabled(
+            features::kCookieDeprecationFacilitatedTesting)) {
+      // Only keep real time reporting contributions when the seller is
+      // opted-in.
       if (config_->non_shared_params.seller_real_time_reporting_type
               .has_value()) {
+        // Note that this adds an entry to the map for seller with an empty
+        // vector as value, if seller was not in the map. This is important to
+        // indicate that the seller is opted-in.
         RealTimeReportingContributions& real_time_contributions_for_origin =
             bid->bid_state->real_time_contributions[config_->seller];
+
         if (!real_time_contributions.empty()) {
           real_time_contributions_for_origin.insert(
               real_time_contributions_for_origin.end(),

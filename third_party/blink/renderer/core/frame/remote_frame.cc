@@ -477,16 +477,13 @@ void RemoteFrame::ForwardPostMessage(
   if (source_frame)
     source_token = source_frame->GetLocalFrameToken();
 
-  String source_origin = source_security_origin
-                             ? source_security_origin->ToString()
-                             : g_empty_string;
   String target_origin = target_security_origin
                              ? target_security_origin->ToString()
                              : g_empty_string;
 
-  GetRemoteFrameHostRemote().RouteMessageEvent(source_token, source_origin,
-                                               target_origin,
-                                               std::move(transferable_message));
+  GetRemoteFrameHostRemote().RouteMessageEvent(
+      source_token, source_security_origin, target_origin,
+      std::move(transferable_message));
 }
 
 bool RemoteFrame::IsRemoteFrameHostRemoteBound() {
@@ -676,7 +673,8 @@ void RemoteFrame::UpdateUserActivationState(
       break;
     case mojom::blink::UserActivationUpdateType::
         kNotifyActivationPendingBrowserVerification:
-      NOTREACHED() << "Unexpected UserActivationUpdateType from browser";
+      NOTREACHED_IN_MIGRATION()
+          << "Unexpected UserActivationUpdateType from browser";
       break;
   }
 }

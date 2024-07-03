@@ -408,6 +408,8 @@ component("net") {
     "cookies/cookie_setting_override.h",
     "cookies/cookie_store.cc",
     "cookies/cookie_store.h",
+    "cookies/cookie_switches.cc",
+    "cookies/cookie_switches.h",
     "cookies/cookie_util.cc",
     "cookies/cookie_util.h",
     "cookies/parsed_cookie.cc",
@@ -1114,11 +1116,21 @@ component("net") {
     sources += [
       "device_bound_sessions/cookie_craving.cc",
       "device_bound_sessions/cookie_craving.h",
+      "device_bound_sessions/device_bound_session_params.h",
       "device_bound_sessions/device_bound_session_registration_fetcher_param.cc",
       "device_bound_sessions/device_bound_session_registration_fetcher_param.h",
       "device_bound_sessions/device_bound_session_service.cc",
       "device_bound_sessions/device_bound_session_service.h",
+      "device_bound_sessions/registration_fetcher.cc",
+      "device_bound_sessions/registration_fetcher.h",
+      "device_bound_sessions/session_binding_utils.cc",
+      "device_bound_sessions/session_binding_utils.h",
+      "device_bound_sessions/session_inclusion_rules.cc",
+      "device_bound_sessions/session_inclusion_rules.h",
+      "device_bound_sessions/unexportable_key_service_factory.cc",
+      "device_bound_sessions/unexportable_key_service_factory.h",
     ]
+    deps += [ "//components/unexportable_keys:unexportable_keys" ]
   }
 
   if (is_android) {
@@ -1224,6 +1236,8 @@ component("net") {
   if (is_apple) {
     sources += [
       "base/apple/guarded_fd.h",
+      "base/apple/http_response_headers_util.h",
+      "base/apple/http_response_headers_util.mm",
       "base/apple/url_conversions.h",
       "base/apple/url_conversions.mm",
       "base/network_change_notifier_apple.h",
@@ -2999,7 +3013,10 @@ test("net_unittests") {
   }
 
   if (is_apple) {
-    sources += [ "base/apple/url_conversions_unittest.mm" ]
+    sources += [
+      "base/apple/http_response_headers_util_unittest.mm",
+      "base/apple/url_conversions_unittest.mm",
+    ]
   }
 
   if (is_mac) {
@@ -3236,9 +3253,13 @@ test("net_unittests") {
     sources += [
       "device_bound_sessions/cookie_craving_unittest.cc",
       "device_bound_sessions/device_bound_session_registration_fetcher_param_unittest.cc",
+      "device_bound_sessions/registration_fetcher_unittest.cc",
+      "device_bound_sessions/session_binding_utils_unittest.cc",
+      "device_bound_sessions/session_inclusion_rules_unittest.cc",
       "device_bound_sessions/test_util.cc",
       "device_bound_sessions/test_util.h",
     ]
+    deps += [ "//components/unexportable_keys:unexportable_keys" ]
   }
 }
 
@@ -3917,5 +3938,18 @@ if (is_linux || is_chromeos) {
       "//base",
       "//net",
     ]
+  }
+}
+
+if (is_android) {
+  java_cpp_strings("java_cookie_switches_srcjar") {
+    # External code should depend on ":cookie_switches_java" instead.
+    visibility = [ ":*" ]
+    sources = [ "cookies/cookie_switches.cc" ]
+    template = "cookies/android/java_templates/CookieSwitches.java.tmpl"
+  }
+
+  android_library("cookie_switches_java") {
+    srcjar_deps = [ ":java_cookie_switches_srcjar" ]
   }
 }

@@ -189,7 +189,7 @@ bool PaintArtifactCompositor::NeedsCompositedScrolling(
     // wrong rendering) are obscured by the opaque background.
     return lcd_text_preference_ != LCDTextPreference::kStronglyPreferred;
   }
-  return it->value;
+  return it->value.is_composited;
 }
 
 bool PaintArtifactCompositor::ComputeNeedsCompositedScrolling(
@@ -548,10 +548,12 @@ void PaintArtifactCompositor::LayerizeGroup(
           chunk_cursor->hit_test_data->scroll_translation) {
         painted_scroll_translations_.insert(
             chunk_cursor->hit_test_data->scroll_translation.get(),
-            ComputeNeedsCompositedScrolling(artifact, chunk_cursor));
+            ScrollTranslationInfo{
+                chunk_cursor->hit_test_data->scrolling_contents_cull_rect,
+                ComputeNeedsCompositedScrolling(artifact, chunk_cursor)});
       }
-      pending_layers_.emplace_back(artifact, *chunk_cursor);
-      pending_layers_.back().SetCompositingType(
+      pending_layers_.emplace_back(
+          artifact, *chunk_cursor,
           ChunkCompositingType(artifact, *chunk_cursor));
       ++chunk_cursor;
       // force_draws_content doesn't apply to pending layers that require own
@@ -621,7 +623,7 @@ void PaintArtifactCompositor::LayerizeGroup(
         break;
       }
       if (new_layer.MightOverlap(candidate_layer)) {
-        new_layer.SetCompositingType(PendingLayer::kOverlap);
+        new_layer.SetCompositingTypeToOverlap();
         break;
       }
     }
@@ -793,10 +795,12 @@ void PaintArtifactCompositor::UpdateCompositorViewportProperties(
 
     CHECK(NeedsCompositedScrolling(*properties.inner_scroll_translation));
     CHECK(NeedsCompositedScrolling(*properties.outer_scroll_translation));
-    painted_scroll_translations_.insert(properties.inner_scroll_translation,
-                                        true);
-    painted_scroll_translations_.insert(properties.outer_scroll_translation,
-                                        true);
+    painted_scroll_translations_.insert(
+        properties.inner_scroll_translation,
+        ScrollTranslationInfo{InfiniteIntRect(), true});
+    painted_scroll_translations_.insert(
+        properties.outer_scroll_translation,
+        ScrollTranslationInfo{InfiniteIntRect(), true});
   }
 
   layer_tree_host->RegisterViewportPropertyIds(ids);
@@ -861,13 +865,11 @@ void PaintArtifactCompositor::Update(
   for (auto* node : scroll_translation_nodes) {
     property_tree_manager.EnsureCompositorScrollNode(*node);
   }
-  for (auto* node : painted_scroll_translations_.Keys()) {
-    property_tree_manager.EnsureCompositorScrollAndTransformNode(*node);
+  for (auto& [node, info] : painted_scroll_translations_) {
+    property_tree_manager.EnsureCompositorScrollAndTransformNode(
+        *node, info.scrolling_contents_cull_rect);
   }
 
-  host->property_trees()
-      ->effect_tree_mutable()
-      .ClearTransitionPseudoElementEffectNodes();
   cc::LayerSelection layer_selection;
   for (auto& pending_layer : pending_layers_) {
     pending_layer.UpdateCompositedLayer(
@@ -899,7 +901,7 @@ void PaintArtifactCompositor::Update(
 
     int scroll_id =
         property_tree_manager.EnsureCompositorScrollAndTransformNode(
-            ScrollTranslationStateForLayer(pending_layer));
+            ScrollTranslationStateForLayer(pending_layer), InfiniteIntRect());
 
     layer_list_builder.Add(&layer);
 
@@ -914,13 +916,6 @@ void PaintArtifactCompositor::Update(
 
     if (layer.subtree_property_changed())
       root_layer_->SetNeedsCommit();
-
-    auto transition_resource_id = layer.ViewTransitionResourceId();
-    if (transition_resource_id.IsValid()) {
-      host->property_trees()
-          ->effect_tree_mutable()
-          .AddTransitionPseudoElementEffectId(effect_id);
-    }
   }
 
   root_layer_->layer_tree_host()->RegisterSelection(layer_selection);

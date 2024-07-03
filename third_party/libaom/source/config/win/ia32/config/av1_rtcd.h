@@ -483,19 +483,25 @@ void av1_resize_horz_dir_c(const uint8_t* const input,
                            int in_stride,
                            uint8_t* intbuf,
                            int height,
-                           int filteredlength,
+                           int filtered_length,
                            int width2);
+void av1_resize_horz_dir_sse2(const uint8_t* const input,
+                              int in_stride,
+                              uint8_t* intbuf,
+                              int height,
+                              int filtered_length,
+                              int width2);
 void av1_resize_horz_dir_avx2(const uint8_t* const input,
                               int in_stride,
                               uint8_t* intbuf,
                               int height,
-                              int filteredlength,
+                              int filtered_length,
                               int width2);
 RTCD_EXTERN void (*av1_resize_horz_dir)(const uint8_t* const input,
                                         int in_stride,
                                         uint8_t* intbuf,
                                         int height,
-                                        int filteredlength,
+                                        int filtered_length,
                                         int width2);
 
 bool av1_resize_vert_dir_c(uint8_t* intbuf,
@@ -819,7 +825,7 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_AVX2) av1_quantize_lp = av1_quantize_lp_avx2;
     av1_resize_and_extend_frame = av1_resize_and_extend_frame_c;
     if (flags & HAS_SSSE3) av1_resize_and_extend_frame = av1_resize_and_extend_frame_ssse3;
-    av1_resize_horz_dir = av1_resize_horz_dir_c;
+    av1_resize_horz_dir = av1_resize_horz_dir_sse2;
     if (flags & HAS_AVX2) {
       av1_resize_horz_dir = av1_resize_horz_dir_avx2;
     }

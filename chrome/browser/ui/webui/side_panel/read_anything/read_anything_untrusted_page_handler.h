@@ -11,7 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/safe_ref.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/ui/side_panel/read_anything/read_anything_tab_helper.h"
+#include "chrome/browser/ui/views/side_panel/read_anything/read_anything_tab_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_coordinator.h"
@@ -139,6 +139,7 @@ class ReadAnythingUntrustedPageHandler :
   void OnFontChange(const std::string& font) override;
   void OnFontSizeChange(double font_size) override;
   void OnLinksEnabledChanged(bool enabled) override;
+  void OnImagesEnabledChanged(bool enabled) override;
   void OnColorChange(read_anything::mojom::Colors color) override;
   void OnSpeechRateChange(double rate) override;
   void OnHighlightGranularityChanged(
@@ -160,6 +161,7 @@ class ReadAnythingUntrustedPageHandler :
       const std::string& font_name,
       double font_scale,
       bool links_enabled,
+      bool images_enabled,
       ui::ColorId foreground_color_id,
       ui::ColorId background_color_id,
       ui::ColorId separator_color_id,

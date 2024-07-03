@@ -507,11 +507,10 @@ scoped_refptr<VideoFrame> AlignedDataHelper::CreateVideoFrameFromVideoFrameData(
       return nullptr;
     }
 
-    scoped_refptr<gpu::ClientSharedImage>
-        dummy_shared_images[media::VideoFrame::kMaxPlanes];
+    scoped_refptr<gpu::ClientSharedImage> dummy_shared_image;
     return media::VideoFrame::WrapExternalGpuMemoryBuffer(
         visible_rect_, natural_size_, std::move(gpu_memory_buffer),
-        dummy_shared_images, gpu::SyncToken(), 0,
+        dummy_shared_image, gpu::SyncToken(), 0,
         base::DoNothing() /* mailbox_holder_release_cb_ */, frame_timestamp);
   } else {
     const auto& shmem_region = video_frame_data.shmem_region;
@@ -572,7 +571,7 @@ AlignedDataHelper::VideoFrameData AlignedDataHelper::CreateVideoFrameData(
         << "Failed creating GpuMemoryBufferHandle";
     return VideoFrameData(std::move(gmb_handle));
 #else
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return VideoFrameData();
 #endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
   } else {

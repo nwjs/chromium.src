@@ -104,7 +104,7 @@ Domain SpotlightDomainFromString(NSString* domain) {
   }
   // On normal flow, it is not possible to reach this point. When testing the
   // app, it may be possible though if the app is downgraded.
-  DUMP_WILL_BE_NOTREACHED_NORETURN();
+  DUMP_WILL_BE_NOTREACHED();
   return DOMAIN_UNKNOWN;
 }
 
@@ -124,7 +124,7 @@ NSString* StringFromSpotlightDomain(Domain domain) {
     default:
       // On normal flow, it is not possible to reach this point. When testing
       // the app, it may be possible though if the app is downgraded.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nil;
   }
 }
@@ -146,7 +146,7 @@ NSString* SpotlightItemSourceLabelFromDomain(Domain domain) {
     default:
       // On normal flow, it is not possible to reach this point. When testing
       // the app, it may be possible though if the app is downgraded.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nil;
   }
 }

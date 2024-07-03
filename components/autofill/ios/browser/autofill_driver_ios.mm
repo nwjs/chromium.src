@@ -100,17 +100,13 @@ BrowserAutofillManager& AutofillDriverIOS::GetAutofillManager() {
 }
 
 // Return true as iOS has no MPArch.
-bool AutofillDriverIOS::IsInActiveFrame() const {
+bool AutofillDriverIOS::IsActive() const {
   return true;
 }
 
 bool AutofillDriverIOS::IsInAnyMainFrame() const {
   web::WebFrame* frame = web_frame();
   return frame ? frame->IsMainFrame() : true;
-}
-
-bool AutofillDriverIOS::IsPrerendering() const {
-  return false;
 }
 
 bool AutofillDriverIOS::HasSharedAutofillPermission() const {
@@ -124,7 +120,7 @@ bool AutofillDriverIOS::CanShowAutofillUi() const {
 base::flat_set<FieldGlobalId> AutofillDriverIOS::ApplyFormAction(
     mojom::FormActionType action_type,
     mojom::ActionPersistence action_persistence,
-    const FormData& data,
+    base::span<const FormFieldData> fields,
     const url::Origin& triggered_origin,
     const base::flat_map<FieldGlobalId, FieldType>& field_type_map) {
   switch (action_type) {
@@ -135,12 +131,12 @@ base::flat_set<FieldGlobalId> AutofillDriverIOS::ApplyFormAction(
       web::WebFrame* frame = web_frame();
       std::vector<FieldGlobalId> safe_field_ids;
       if (frame) {
-        std::vector<FormFieldData::FillData> fields;
-        for (const FormFieldData& field : data.fields) {
+        std::vector<FormFieldData::FillData> fill_data;
+        for (const FormFieldData& field : fields) {
           safe_field_ids.push_back(field.global_id());
-          fields.push_back(FormFieldData::FillData(field));
+          fill_data.push_back(FormFieldData::FillData(field));
         }
-        [bridge_ fillData:fields inFrame:frame];
+        [bridge_ fillData:fill_data inFrame:frame];
       }
       return safe_field_ids;
   }
@@ -223,22 +219,11 @@ void AutofillDriverIOS::RendererShouldSetSuggestionAvailability(
     const FieldGlobalId& field,
     mojom::AutofillSuggestionAvailability suggestion_availability) {}
 
-net::IsolationInfo AutofillDriverIOS::IsolationInfo() {
-  web::WebFramesManager* frames_manager =
-      AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(web_state_);
-  web::WebFrame* main_web_frame = frames_manager->GetMainWebFrame();
-  if (!main_web_frame)
-    return net::IsolationInfo();
-
-  web::WebFrame* frame = web_frame();
-  if (!frame) {
-    return net::IsolationInfo();
-  }
-
-  return net::IsolationInfo::Create(
-      net::IsolationInfo::RequestType::kOther,
-      url::Origin::Create(main_web_frame->GetSecurityOrigin()),
-      url::Origin::Create(frame->GetSecurityOrigin()), net::SiteForCookies());
+std::optional<net::IsolationInfo> AutofillDriverIOS::GetIsolationInfo() {
+  // On iOS we have a single, shared URLLoaderFactory provided by BrowserState.
+  // As it is shared, it is not trusted and we cannot assign trusted_params
+  // to the network request. On iOS, the IsolationInfo should always be nullopt.
+  return std::nullopt;
 }
 
 web::WebFrame* AutofillDriverIOS::web_frame() const {
@@ -254,7 +239,7 @@ void AutofillDriverIOS::AskForValuesToFill(const FormData& form,
   // The caret position is currently not extracted on iOS .
   gfx::Rect caret_bounds;
   GetAutofillManager().OnAskForValuesToFill(
-      form, field, caret_bounds,
+      form, field.global_id(), caret_bounds,
       autofill::AutofillSuggestionTriggerSource::kiOS);
 }
 
@@ -273,7 +258,7 @@ void AutofillDriverIOS::FormsSeen(const std::vector<FormData>& updated_forms) {
           autofill::features::kAutofillAcrossIframesIos)) {
     for (const autofill::FormData& form : updated_forms) {
       for (const autofill::FrameTokenWithPredecessor& child_frame :
-           form.child_frames) {
+           form.child_frames()) {
         // This absl::get is safe because on iOS, FormData::child_frames is
         // only ever populated with RemoteFrameTokens. absl::get will fail a
         // CHECK if this assumption is ever wrong.
@@ -307,21 +292,20 @@ void AutofillDriverIOS::FormSubmitted(
 void AutofillDriverIOS::CaretMovedInFormField(const FormData& form,
                                               const FormFieldData& field,
                                               const gfx::Rect& caret_bounds) {
-  GetAutofillManager().OnCaretMovedInFormField(form, field, caret_bounds);
+  GetAutofillManager().OnCaretMovedInFormField(form, field.global_id(),
+                                               caret_bounds);
 }
 
 void AutofillDriverIOS::TextFieldDidChange(const FormData& form,
                                            const FormFieldData& field,
                                            base::TimeTicks timestamp) {
   UpdateLastInteractedForm(/*form_data=*/form,
-                           /*formless_field=*/form.renderer_id
+                           /*formless_field=*/form.renderer_id()
                                ? FieldRendererId()
                                : field.renderer_id());
 
   // TODO(crbug.com/40266699): Route this using AutofillDriverRouter.
-  GetAutofillManager().OnTextFieldDidChange(
-      form, field,
-      timestamp);
+  GetAutofillManager().OnTextFieldDidChange(form, field.global_id(), timestamp);
 }
 
 void AutofillDriverIOS::SetParent(base::WeakPtr<AutofillDriverIOS> parent) {
@@ -408,7 +392,7 @@ bool AutofillDriverIOS::DetectFormSubmissionAfterFormRemoval(
   }
 
   const auto& last_interacted_form_id =
-      last_interacted_form_->form_data.renderer_id;
+      last_interacted_form_->form_data.renderer_id();
   // Check if the last interacted form was removed.
   if (last_interacted_form_id &&
       removed_forms.find(last_interacted_form_id) != removed_forms.end()) {
@@ -435,7 +419,9 @@ void AutofillDriverIOS::UpdateLastInteractedFormFromFieldDataManager() {
 
   // Update the snapshot of the last interacted form with the data in
   // FieldDataManager.
-  for (auto& field : last_interacted_form_->form_data.fields) {
+  std::vector<FormFieldData> fields =
+      last_interacted_form_->form_data.ExtractFields();
+  for (auto& field : fields) {
     const auto& field_id = field.renderer_id();
     if (!field_data_manager->HasFieldData(field_id)) {
       continue;
@@ -444,6 +430,7 @@ void AutofillDriverIOS::UpdateLastInteractedFormFromFieldDataManager() {
     field.set_properties_mask(
         field_data_manager->GetFieldPropertiesMask(field_id));
   }
+  last_interacted_form_->form_data.set_fields(std::move(fields));
 }
 
 void AutofillDriverIOS::RecordFormRemoval(bool submission_detected,
@@ -461,7 +448,7 @@ void AutofillDriverIOS::RecordFormRemoval(bool submission_detected,
     CHECK(last_interacted_form_);
     base::UmaHistogramBoolean(
         /*name=*/kFormlessSubmissionAfterFormRemovalHistogram,
-        /*sample=*/!last_interacted_form_->form_data.renderer_id);
+        /*sample=*/!last_interacted_form_->form_data.renderer_id());
   }
 }
 

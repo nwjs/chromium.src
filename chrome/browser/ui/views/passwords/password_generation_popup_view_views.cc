@@ -266,8 +266,9 @@ class NudgePasswordButtons : public views::View {
         base::BindRepeating(&NudgePasswordButtons::CancelButtonPressed,
                             base::Unretained(this)),
         cancel_button_label);
-    cancel_button->SetAccessibleRole(ax::mojom::Role::kListBoxOption);
-    cancel_button->SetAccessibleName(cancel_button_label);
+    cancel_button->GetViewAccessibility().SetRole(
+        ax::mojom::Role::kListBoxOption);
+    cancel_button->GetViewAccessibility().SetName(cancel_button_label);
     cancel_button->GetViewAccessibility().SetDescription(help_text);
     cancel_button_ = AddChildView(std::move(cancel_button));
 
@@ -281,8 +282,9 @@ class NudgePasswordButtons : public views::View {
                             base::Unretained(this)),
         accept_button_label);
     accept_button->SetStyle(ui::ButtonStyle::kProminent);
-    accept_button->SetAccessibleRole(ax::mojom::Role::kListBoxOption);
-    accept_button->SetAccessibleName(
+    accept_button->GetViewAccessibility().SetRole(
+        ax::mojom::Role::kListBoxOption);
+    accept_button->GetViewAccessibility().SetName(
         base::JoinString({accept_button_label, controller_->password()}, u" "));
     accept_button->GetViewAccessibility().SetDescription(help_text);
     accept_button_ = AddChildView(std::move(accept_button));
@@ -474,14 +476,16 @@ void PasswordGenerationPopupViewViews::GeneratedPasswordBox::Init(
 
 void PasswordGenerationPopupViewViews::GeneratedPasswordBox::OnMouseEntered(
     const ui::MouseEvent& event) {
-  if (controller_)
+  if (controller_) {
     controller_->SetSelected();
+  }
 }
 
 void PasswordGenerationPopupViewViews::GeneratedPasswordBox::OnMouseExited(
     const ui::MouseEvent& event) {
-  if (controller_)
+  if (controller_) {
     controller_->SelectionCleared();
+  }
 }
 
 bool PasswordGenerationPopupViewViews::GeneratedPasswordBox::OnMousePressed(
@@ -491,14 +495,16 @@ bool PasswordGenerationPopupViewViews::GeneratedPasswordBox::OnMousePressed(
 
 void PasswordGenerationPopupViewViews::GeneratedPasswordBox::OnMouseReleased(
     const ui::MouseEvent& event) {
-  if (event.IsOnlyLeftMouseButton() && controller_)
+  if (event.IsOnlyLeftMouseButton() && controller_) {
     controller_->PasswordAccepted();
+  }
 }
 
 void PasswordGenerationPopupViewViews::GeneratedPasswordBox::OnGestureEvent(
     ui::GestureEvent* event) {
-  if (!controller_)
+  if (!controller_) {
     return;
+  }
   switch (event->type()) {
     case ui::ET_GESTURE_TAP_DOWN:
       controller_->SetSelected();
@@ -716,8 +722,9 @@ gfx::Size PasswordGenerationPopupViewViews::CalculatePreferredSize(
 
 PasswordGenerationPopupView* PasswordGenerationPopupView::Create(
     base::WeakPtr<PasswordGenerationPopupController> controller) {
-  if (!controller->container_view())
+  if (!controller->container_view()) {
     return nullptr;
+  }
 
   views::Widget* observing_widget =
       views::Widget::GetTopLevelWidgetForNativeView(

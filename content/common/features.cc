@@ -116,6 +116,15 @@ BASE_FEATURE(kDataUrlsHaveStableNonce,
              "DataUrlsHaveStableNonce",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables deferring the creation of the speculative RFH when the navigation
+// starts. The creation of a speculative RFH consumes about 2ms and is blocking
+// the network request. With this feature the creation will be deferred until
+// the browser initializes the network request. The speculative RFH will be
+// created while the network service is sending the request in parallel.
+BASE_FEATURE(kDeferSpeculativeRFHCreation,
+             "DeferSpeculativeRFHCreation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, main frame data: URLs use the serialized nonce from the origin
 // as the site URL. Otherwise, use the entire data: URL as the site URL.
 // Note: This feature is dependent on kDataUrlsHaveStableNonce. If that flag
@@ -189,6 +198,19 @@ BASE_FEATURE(kFedCmSameSiteNone,
              "FedCmSameSiteNone",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables installed web app matching for getInstalledRelatedApps API.
+BASE_FEATURE(kFilterInstalledAppsWebAppMatching,
+             "FilterInstalledAppsWebAppMatching",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN)
+// Enables installed windows app matching for getInstalledRelatedApps API.
+// Note: This is enabled by default as a kill switch, since the functionality
+// was already implemented but without a related feature flag.
+BASE_FEATURE(kFilterInstalledAppsWinMatching,
+             "FilterInstalledAppsWinMatching",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN)
+
 // If enabled, limits the number of FLEDGE auctions that can be run between page
 // load and unload -- any attempt to run more than this number of auctions will
 // fail (return null to JavaScript).
@@ -209,6 +231,25 @@ BASE_FEATURE(kFledgeUseInterestGroupCache,
 BASE_FEATURE(kFledgeDelayPostAuctionInterestGroupUpdate,
              "FledgeDelayPostAuctionInterestGroupUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables multi-threaded seller worklet.
+BASE_FEATURE(kFledgeSellerWorkletThreadPool,
+             "FledgeSellerWorkletThreadPool",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// The number of seller worklet threads.
+const base::FeatureParam<int> kFledgeSellerWorkletThreadPoolSize{
+    &kFledgeSellerWorkletThreadPool, "seller_worklet_thread_pool_size", 1};
+
+// This is a kill switch for focusing the RenderWidgetHostViewAndroid on
+// ActionDown on every touch sequence if not focused already, please see
+// b/340824076. We are adding this to confirm the hypothesis that root view,
+// RWHVA, is always focused.
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kFocusRenderWidgetHostViewAndroidOnActionDown,
+             "FocusRenderWidgetHostViewAndroidOnActionDown",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 // Enables fixes for matching src: local() for web fonts correctly against full
 // font name or postscript name. Rolling out behind a flag, as enabling this
@@ -287,17 +328,12 @@ BASE_FEATURE(kIOSurfaceCapturer,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// Enables the TC39 Array grouping proposal.
-BASE_FEATURE(kJavaScriptArrayGrouping,
-             "JavaScriptArrayGrouping",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Feature that controls whether WebContentsOcclusionChecker should handle
 // occlusion notifications.
 #if BUILDFLAG(IS_MAC)
 BASE_FEATURE(kMacWebContentsOcclusion,
              "MacWebContentsOcclusion",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // If this feature is enabled, media-device enumerations use a cache that is
@@ -340,10 +376,6 @@ BASE_FEATURE(kPermissionsPolicyVerificationInContent,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-// Preload cookie database on NetworkContext creation.
-BASE_FEATURE(kPreloadCookies,
-             "PreloadCookies",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 // Preloading holdback feature disables preloading (e.g., preconnect, prefetch,
 // and prerender) on all predictors. This is useful in comparing the impact of
 // blink::features::kPrerender2 experiment with and without them.
@@ -442,6 +474,10 @@ BASE_FEATURE(kRunStableVideoDecoderFactoryProcessServiceOnIOThread,
 // crbug.com/1472634 for more details.
 BASE_FEATURE(kServiceWorkerAutoPreload,
              "ServiceWorkerAutoPreload",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kServiceWorkerAvoidMainThreadForInitialization,
+             "ServiceWorkerAvoidMainThreadForInitialization",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // (crbug.com/1371756): When enabled, the static routing API starts

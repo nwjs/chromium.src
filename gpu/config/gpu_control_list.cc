@@ -206,7 +206,7 @@ bool GpuControlList::Version::Contains(const std::string& version_string,
         return false;
       return Version::Compare(version, ref_version2, style) <= 0;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
   }
 }
@@ -372,8 +372,7 @@ bool GpuControlList::More::Contains(const GPUInfo& gpu_info) const {
     return false;
   }
   if (gpu_count.IsSpecified()) {
-    size_t count = gpu_info.secondary_gpus.size() + 1;
-    if (!gpu_count.Contains(std::to_string(count))) {
+    if (!gpu_count.Contains(std::to_string(gpu_info.GpuCount()))) {
       return false;
     }
   }

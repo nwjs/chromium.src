@@ -84,7 +84,6 @@ import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.profiles.ProfileManager;
-import org.chromium.chrome.browser.single_tab.SingleTabSwitcherMediator;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
@@ -211,7 +210,7 @@ public class StartSurfaceTest {
         onViewWaiting(withId(R.id.primary_tasks_surface_view));
         onViewWaiting(withId(R.id.search_box_text));
         onViewWaiting(withId(R.id.mv_tiles_container)).check(matches(isDisplayed()));
-        onViewWaiting(withId(R.id.tab_switcher_module_container)).check(matches(isDisplayed()));
+        onViewWaiting(withId(R.id.single_tab_view)).check(matches(isDisplayed()));
         onView(withId(R.id.tasks_surface_body)).check(matches(isDisplayed()));
 
         // TODO(crbug.com/40128588): fix toolbar to make incognito switch part of the view.
@@ -248,7 +247,6 @@ public class StartSurfaceTest {
         onViewWaiting(withId(R.id.primary_tasks_surface_view));
         onViewWaiting(withId(R.id.search_box_text));
         onView(withId(R.id.mv_tiles_container)).check(matches(isDisplayed()));
-        onView(withId(R.id.tab_switcher_module_container)).check(matches(isDisplayed()));
         onView(withId(R.id.single_tab_view)).check(matches(isDisplayed()));
         onView(withId(R.id.tasks_surface_body)).check(matches(isDisplayed()));
 
@@ -275,6 +273,7 @@ public class StartSurfaceTest {
     @MediumTest
     @Feature({"StartSurface"})
     @CommandLineFlags.Add({START_SURFACE_TEST_SINGLE_ENABLED_PARAMS})
+    @DisabledTest(message = "crbug.com/340955569")
     public void testShow_SingleAsHomepage_FromResumeShowStart() throws Exception {
         if (!mImmediateReturn) {
             StartSurfaceTestUtils.pressHomePageButton(mActivityTestRule.getActivity());
@@ -455,12 +454,6 @@ public class StartSurfaceTest {
 
         // Histograms should be only recorded when StartSurface is shown immediately after
         // launch.
-        Assert.assertEquals(
-                expectedRecordCount,
-                RecordHistogram.getHistogramTotalCountForTesting(
-                        StartSurfaceConfiguration.getHistogramName(
-                                SingleTabSwitcherMediator.SINGLE_TAB_TITLE_AVAILABLE_TIME_UMA)));
-
         Assert.assertEquals(
                 expectedRecordCount,
                 RecordHistogram.getHistogramTotalCountForTesting(
@@ -982,9 +975,8 @@ public class StartSurfaceTest {
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @EnableFeatures({ChromeFeatureList.SURFACE_POLISH + "<Study"})
     @CommandLineFlags.Add({START_SURFACE_TEST_SINGLE_ENABLED_PARAMS})
-    public void testStartSurfaceBackgroundColorAfterPolish() {
+    public void testStartSurfaceBackgroundColor() {
         if (!mImmediateReturn) return;
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         StartSurfaceTestUtils.waitForStartSurfaceVisible(
@@ -994,7 +986,7 @@ public class StartSurfaceTest {
         onViewWaiting(withId(R.id.tab_switcher_toolbar));
         onViewWaiting(withId(R.id.search_box_text)).check(matches(isDisplayed()));
         onViewWaiting(withId(R.id.mv_tiles_container)).check(matches(isDisplayed()));
-        onViewWaiting(withId(R.id.tab_switcher_module_container)).check(matches(isDisplayed()));
+        onViewWaiting(withId(R.id.single_tab_view)).check(matches(isDisplayed()));
         onViewWaiting(withId(R.id.tasks_surface_body));
 
         View startSurfaceView =
@@ -1027,8 +1019,7 @@ public class StartSurfaceTest {
     @LargeTest
     @Feature({"StartSurface"})
     @CommandLineFlags.Add({START_SURFACE_TEST_SINGLE_ENABLED_PARAMS})
-    @EnableFeatures({ChromeFeatureList.SURFACE_POLISH})
-    public void testFakeOmniboxPolish() {
+    public void testFakeOmnibox() {
         if (!mImmediateReturn) {
             StartSurfaceTestUtils.pressHomePageButton(mActivityTestRule.getActivity());
         }
@@ -1038,8 +1029,7 @@ public class StartSurfaceTest {
         onViewWaiting(withId(R.id.primary_tasks_surface_view));
         assertEquals(
                 cta.getResources()
-                        .getDimensionPixelSize(
-                                org.chromium.chrome.R.dimen.ntp_search_box_height_polish),
+                        .getDimensionPixelSize(org.chromium.chrome.R.dimen.ntp_search_box_height),
                 cta.findViewById(org.chromium.chrome.R.id.search_box).getLayoutParams().height);
     }
 

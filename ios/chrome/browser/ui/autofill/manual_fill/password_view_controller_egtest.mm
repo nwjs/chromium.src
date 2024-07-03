@@ -17,6 +17,7 @@
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/browser/ui/passwords/bottom_sheet/password_suggestion_bottom_sheet_app_interface.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_constants.h"
+#import "ios/chrome/browser/ui/settings/password/password_details/password_details_table_view_constants.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_egtest_utils.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_ui_features.h"
 #import "ios/chrome/browser/ui/settings/password/password_settings_app_interface.h"
@@ -1118,8 +1119,16 @@ void CheckKeyboardIsUpAndNotCovered() {
   [[EarlGrey selectElementWithMatcher:OverflowMenuEditAction()]
       performAction:grey_tap()];
 
-  // TODO(crbug.com/326413057): Check that the password details opened in search
-  // mode.
+  // Edit the username.
+  [[EarlGrey selectElementWithMatcher:grey_text(base::SysUTF8ToNSString(
+                                          kExampleUsername))]
+      performAction:grey_replaceText(@"new username")];
+
+  // Tap Done Button.
+  [[EarlGrey selectElementWithMatcher:NavigationBarDoneButton()]
+      performAction:grey_tap()];
+
+  // TODO(crbug.com/332956674): Check that the updated suggestion is visible.
 }
 
 // Tests that tapping the "Autofill Form" button fills the password form with

@@ -27,10 +27,12 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "base/types/optional_ref.h"
 #include "cc/benchmarks/micro_benchmark_controller_impl.h"
 #include "cc/cc_export.h"
 #include "cc/input/actively_scrolling_type.h"
 #include "cc/input/browser_controls_offset_manager_client.h"
+#include "cc/input/browser_controls_offset_tags_info.h"
 #include "cc/input/input_handler.h"
 #include "cc/input/scrollbar_animation_controller.h"
 #include "cc/layers/layer_collections.h"
@@ -88,6 +90,7 @@ class ImageAnimationController;
 class ImageDecodeCache;
 class LCDTextMetricsReporter;
 class LatencyInfoSwapPromiseMonitor;
+class LayerContext;
 class LayerImpl;
 class LayerTreeFrameSink;
 class LayerTreeImpl;
@@ -122,6 +125,7 @@ class LayerTreeHostImplClient {
   // LayerTreeHostImpl's SetNeedsRedraw() and SetNeedsOneBeginImplFrame().
   virtual void SetNeedsRedrawOnImplThread() = 0;
   virtual void SetNeedsOneBeginImplFrameOnImplThread() = 0;
+  virtual void SetNeedsUpdateDisplayTreeOnImplThread() = 0;
   virtual void SetNeedsCommitOnImplThread() = 0;
   virtual void SetNeedsPrepareTilesOnImplThread() = 0;
   virtual void SetVideoNeedsBeginFrames(bool needs_begin_frames) = 0;
@@ -143,9 +147,9 @@ class LayerTreeHostImplClient {
 
   virtual void NeedsImplSideInvalidation(
       bool needs_first_draw_on_activation) = 0;
-  // Called when a requested image decode completes.
-  virtual void NotifyImageDecodeRequestFinished() = 0;
 
+  virtual void NotifyImageDecodeRequestFinished(int request_id,
+                                                bool decode_succeeded) = 0;
   virtual void NotifyTransitionRequestFinished(uint32_t sequence_id) = 0;
 
   // Called when a presentation time is requested. |frame_token| identifies
@@ -384,9 +388,12 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   LayerTreeHostImpl& GetImplDeprecated() override;
   const LayerTreeHostImpl& GetImplDeprecated() const override;
   void SetDeferBeginMainFrame(bool defer_begin_main_frame) const override;
-  void UpdateBrowserControlsState(BrowserControlsState constraints,
-                                  BrowserControlsState current,
-                                  bool animate) override;
+  void UpdateBrowserControlsState(
+      BrowserControlsState constraints,
+      BrowserControlsState current,
+      bool animate,
+      base::optional_ref<const BrowserControlsOffsetTagsInfo> offset_tags_info)
+      override;
   bool HasScrollLinkedAnimation(ElementId for_scroller) const override;
 
   void DetachInputDelegateAndRenderFrameObserver();
@@ -479,14 +486,13 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // If there is no damage, returns `std::nullopt`; otherwise, returns
   // information about the submitted frame including submit time and a set of
   // `EventMetrics` for the frame.
-  struct SubmitInfo {
-    base::TimeTicks time;
-    EventMetricsSet events_metrics;
-  };
   virtual std::optional<SubmitInfo> DrawLayers(FrameData* frame);
 
   // Must be called if and only if PrepareToDraw was called.
   void DidDrawAllLayers(const FrameData& frame);
+
+  // Pushes differential updates to the display tree via a LayerContext.
+  void UpdateDisplayTree(FrameData& frame);
 
   const LayerTreeSettings& settings() const { return settings_; }
 
@@ -649,6 +655,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   virtual void DidFinishImplFrame(const viz::BeginFrameArgs& args);
   void DidNotProduceFrame(const viz::BeginFrameAck& ack,
                           FrameSkippedReason reason);
+  void OnBeginImplFrameDeadline();
   void DidModifyTilePriorities();
   // Requests that we do not produce frames until the new viz::LocalSurfaceId
   // has been activated.
@@ -690,12 +697,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   ActivelyScrollingType GetActivelyScrollingType() const;
   bool IsCurrentScrollMainRepainted() const;
   bool ScrollAffectsScrollHandler() const;
-  bool CurrentScrollCheckerboardsDueToNoRecording() const {
-    return current_scroll_did_checkerboard_large_area_;
-  }
-  void SetCurrentScrollCheckerboardsDueToNoRecording() {
-    current_scroll_did_checkerboard_large_area_ = true;
-  }
   void SetExternalPinchGestureActive(bool active);
   void set_force_smooth_wheel_scrolling_for_testing(bool enabled) {
     GetInputHandler().set_force_smooth_wheel_scrolling_for_testing(enabled);
@@ -706,6 +707,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   void SetNeedsOneBeginImplFrame();
   void SetNeedsRedraw();
+  void SetNeedsUpdateDisplayTree();
 
   ManagedMemoryPolicy ActualManagedMemoryPolicy() const;
 
@@ -950,6 +952,12 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   BeginFrameTracker current_begin_frame_tracker_;
 
  private:
+  // Holds image decode cache instance. It can either be a shared cache or
+  // a cache create by this instance. Which is used depends on the settings.
+  class ImageDecodeCacheHolder;
+
+  void UpdateChildLocalSurfaceId();
+
   void CollectScrollbarUpdatesForCommit(
       CompositorCommitData* commit_data) const;
 
@@ -1015,11 +1023,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   void NotifyLatencyInfoSwapPromiseMonitors();
 
- private:
-  // Holds image decode cache instance. It can either be a shared cache or
-  // a cache create by this instance. Which is used depends on the settings.
-  class ImageDecodeCacheHolder;
-
   void SetMemoryPolicyImpl(const ManagedMemoryPolicy& policy);
   void SetContextVisibility(bool is_visible);
 
@@ -1061,11 +1064,19 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // Returns whether the LayerTreeHostImpl is running on a renderer process.
   bool RunningOnRendererProcess() const;
 
+  // Flags the tree as needing either a redraw or a display tree updating,
+  // depending on whether or not it has a display tree.
+  void SetNeedsRedrawOrUpdateDisplayTree();
+
+  // Returns the most up to date display color spaces.
+  gfx::DisplayColorSpaces GetDisplayColorSpaces() const;
+
   // Once bound, this instance owns the InputHandler. However, an InputHandler
   // need not be bound so this should be null-checked before dereferencing.
   std::unique_ptr<InputDelegateForCompositor> input_delegate_;
 
   const LayerTreeSettings settings_;
+  const bool use_layer_context_for_display_;
 
   // This is set to true only if:
   //  . The compositor is running single-threaded (i.e. there is no separate
@@ -1092,6 +1103,11 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // A pointer used for communicating with and submitting output to the display
   // compositor.
   raw_ptr<LayerTreeFrameSink> layer_tree_frame_sink_ = nullptr;
+
+  // Valid when we have a LayerTreeFrameSink and
+  // `use_layer_context_for_display_` is true. This object pushes updates to a
+  // remote display tree.
+  std::unique_ptr<LayerContext> layer_context_;
 
   // The following scoped variables must not outlive the
   // |layer_tree_frame_sink_|.
@@ -1289,11 +1305,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // sophisticated since so it's not clear how much value it's still providing.
   bool scroll_affects_scroll_handler_ = false;
 
-  // Whether at least 30% of the viewport at the time of draw was
-  // checkerboarded during a scroll. This bit can get set during a scroll and
-  // is sticky for the duration of the scroll.
-  bool current_scroll_did_checkerboard_large_area_ = false;
-
   // Provides support for PaintWorklets which depend on input properties that
   // are being animated by the compositor (aka 'animated' PaintWorklets).
   // Responsible for storing animated custom property values and for
@@ -1328,6 +1339,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   // See `CommitState::screenshot_destination_token`.
   base::UnguessableToken screenshot_destination_;
+
+  float top_controls_visible_height_ = 0.f;
 
   // Must be the last member to ensure this is destroyed first in the
   // destruction order and invalidates all weak pointers.

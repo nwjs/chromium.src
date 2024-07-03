@@ -18,6 +18,7 @@
 
 namespace webnn::dml {
 
+class BufferImplDml;
 class CommandQueue;
 
 // CommandRecorder is mainly responsible for the initialization and execution of
@@ -130,12 +131,25 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) CommandRecorder final {
       const std::optional<DML_BINDING_DESC>& persistent_resource_binding,
       const std::optional<DML_BINDING_DESC>& temporary_resource_binding);
 
+  CommandQueue* command_queue() const { return command_queue_.get(); }
+
+  // Called when a WebNNBuffer requires tracking of GPU progress
+  // because a recorded command will modify the data which could be accessed
+  // by the CPU. The last submission fence will be updated during
+  // recording to ensure the CPU can safely use the buffer.
+  void OnBufferAccessed(BufferImplDml* buffer);
+
  private:
   CommandRecorder(
       scoped_refptr<CommandQueue> command_queue,
       Microsoft::WRL::ComPtr<IDMLDevice> dml_device,
       Microsoft::WRL::ComPtr<ID3D12CommandAllocator> command_allocator,
       Microsoft::WRL::ComPtr<IDMLCommandRecorder> command_recorder);
+
+  // Records execution of a dispatchable object (an operator initializer, or a
+  // compiled operator) onto a command list.
+  void RecordDispatch(IDMLDispatchable* dispatchable,
+                      IDMLBindingTable* binding_table);
 
   bool is_open_ = false;
   // The first call to `CloseAndExecute()` sets the first submitted fence value.

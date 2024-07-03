@@ -254,7 +254,7 @@ bool ChromeExtensionsBrowserClient::IsValidContext(void* context) {
   DCHECK(context);
   if (!g_browser_process) {
     LOG(ERROR) << "Unexpected null g_browser_process";
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return false;
   }
   return g_browser_process->profile_manager() &&
@@ -647,7 +647,7 @@ void ChromeExtensionsBrowserClient::AttachExtensionTaskManagerTag(
       return;
 
     case mojom::ViewType::kInvalid:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 }

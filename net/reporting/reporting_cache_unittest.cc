@@ -62,10 +62,10 @@ class ReportingCacheTest : public ReportingTestBase,
  protected:
   ReportingCacheTest() {
     // This is a private API of the reporting service, so no need to test the
-    // case kPartitionNelAndReportingByNetworkIsolationKey is disabled - the
+    // case kPartitionConnectionsByNetworkIsolationKey is disabled - the
     // feature is only applied at the entry points of the service.
     feature_list_.InitAndEnableFeature(
-        features::kPartitionNelAndReportingByNetworkIsolationKey);
+        features::kPartitionConnectionsByNetworkIsolationKey);
 
     ReportingPolicy policy;
     policy.max_report_count = 5;
@@ -74,10 +74,12 @@ class ReportingCacheTest : public ReportingTestBase,
     policy.max_group_staleness = base::Days(3);
     UsePolicy(policy);
 
-    if (GetParam())
-      store_ = std::make_unique<MockPersistentReportingStore>();
-
-    UseStore(store_.get());
+    std::unique_ptr<MockPersistentReportingStore> store;
+    if (GetParam()) {
+      store = std::make_unique<MockPersistentReportingStore>();
+    }
+    store_ = store.get();
+    UseStore(std::move(store));
 
     context()->AddCacheObserver(&observer_);
   }
@@ -229,7 +231,7 @@ class ReportingCacheTest : public ReportingTestBase,
       ReportingEndpointGroupKey(kOtherNak_, kOrigin2_, kGroup2_);
 
   TestReportingCacheObserver observer_;
-  std::unique_ptr<MockPersistentReportingStore> store_;
+  raw_ptr<MockPersistentReportingStore> store_;
 };
 
 // Note: These tests exercise both sides of the cache (reports and clients),

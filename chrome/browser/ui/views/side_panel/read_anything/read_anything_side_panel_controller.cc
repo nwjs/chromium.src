@@ -11,7 +11,7 @@
 #include "chrome/browser/language/language_model_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/side_panel/read_anything/read_anything_tab_helper.h"
+#include "chrome/browser/ui/views/side_panel/read_anything/read_anything_tab_helper.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_container_view.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_controller.h"
@@ -79,6 +79,11 @@ void ReadAnythingSidePanelController::InitModelWithUserPrefs() {
           ->GetPrefs()
           ->GetBoolean(prefs::kAccessibilityReadAnythingLinksEnabled);
 
+  bool prefs_images_enabled =
+      Profile::FromBrowserContext(web_contents_->GetBrowserContext())
+          ->GetPrefs()
+          ->GetBoolean(prefs::kAccessibilityReadAnythingImagesEnabled);
+
   read_anything::mojom::Colors prefs_colors =
       static_cast<read_anything::mojom::Colors>(
           Profile::FromBrowserContext(web_contents_->GetBrowserContext())
@@ -102,6 +107,7 @@ void ReadAnythingSidePanelController::InitModelWithUserPrefs() {
       /* font name = */ prefs_font_name,
       /* font scale = */ prefs_font_scale,
       /* links enabled = */ prefs_links_enabled,
+      /* images_enabled = */ prefs_images_enabled,
       /* colors = */ prefs_colors,
       /* line spacing = */ prefs_line_spacing,
       /* letter spacing = */ prefs_letter_spacing);
@@ -127,9 +133,6 @@ void ReadAnythingSidePanelController::CreateAndRegisterEntry() {
 
   auto side_panel_entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::Id::kReadAnything,
-      l10n_util::GetStringUTF16(IDS_READING_MODE_TITLE),
-      ui::ImageModel::FromVectorIcon(kMenuBookChromeRefreshIcon,
-                                     ui::kColorIcon),
       base::BindRepeating(&ReadAnythingSidePanelController::CreateContainerView,
                           base::Unretained(this)));
   side_panel_entry->AddObserver(this);

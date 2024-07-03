@@ -35,6 +35,7 @@ class TestAXMediaAppUntrustedHandler : public AXMediaAppUntrustedHandler {
  public:
   TestAXMediaAppUntrustedHandler(
       content::BrowserContext& context,
+      gfx::NativeWindow native_window,
       mojo::PendingRemote<media_app_ui::mojom::OcrUntrustedPage> page);
   TestAXMediaAppUntrustedHandler(const TestAXMediaAppUntrustedHandler&) =
       delete;
@@ -84,6 +85,8 @@ class TestAXMediaAppUntrustedHandler : public AXMediaAppUntrustedHandler {
   }
 
   void DisableStatusNodesForTesting() { has_landmark_node_ = false; }
+
+  void DisablePostamblePageForTesting() { has_postamble_page_ = false; }
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
   void CreateFakeOpticalCharacterRecognizerForTesting(bool return_empty);

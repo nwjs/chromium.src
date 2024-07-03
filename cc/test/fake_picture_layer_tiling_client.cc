@@ -84,12 +84,9 @@ FakePictureLayerTilingClient::GetPaintWorkletRecords() const {
   return paint_worklet_records_;
 }
 
-bool FakePictureLayerTilingClient::ScrollInteractionInProgress() const {
-  return false;
-}
-bool FakePictureLayerTilingClient::CurrentScrollCheckerboardsDueToNoRecording()
+ScrollOffsetMap FakePictureLayerTilingClient::GetRasterInducingScrollOffsets()
     const {
-  return false;
+  return ScrollOffsetMap();
 }
 
 void FakePictureLayerTilingClient::OnTilesAdded() {}

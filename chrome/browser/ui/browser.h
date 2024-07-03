@@ -19,6 +19,8 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
+#include "base/scoped_observation_traits.h"
 #include "base/supports_user_data.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
@@ -36,6 +38,7 @@
 #include "chrome/browser/ui/unload_controller.h"
 #include "components/paint_preview/buildflags/buildflags.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "components/saved_tab_groups/saved_tab_group_model_observer.h"
 #include "components/sessions/core/session_id.h"
 #include "components/translate/content/browser/content_translate_driver.h"
 #include "components/zoom/zoom_observer.h"
@@ -58,6 +61,7 @@
 
 class BackgroundContents;
 class BreadcrumbManagerBrowserAgent;
+class BrowserActions;
 class BrowserContentSettingBubbleModelDelegate;
 class BrowserInstantController;
 class BrowserSyncedWindowDelegate;
@@ -79,6 +83,7 @@ class TabMenuModelDelegate;
 
 namespace tab_groups {
 class DeletionDialogController;
+class SavedTabGroupModel;
 }
 
 namespace extensions {
@@ -137,6 +142,7 @@ enum class BrowserClosingStatus {
 // scoped to an instance of this class, usually via direct or indirect ownership
 // of a std::unique_ptr. See BrowserWindowFeatures and TabFeatures.
 class Browser : public TabStripModelObserver,
+                public tab_groups::SavedTabGroupModelObserver,
                 public WebContentsCollection::Observer,
                 public content::WebContentsDelegate,
                 public ChromeWebModalDialogManagerDelegate,
@@ -552,6 +558,8 @@ class Browser : public TabStripModelObserver,
     return tab_menu_model_delegate_.get();
   }
 
+  BrowserActions* browser_actions() const { return browser_actions_.get(); }
+
   chrome::BrowserCommandController* command_controller() {
     return command_controller_.get();
   }
@@ -811,6 +819,11 @@ class Browser : public TabStripModelObserver,
                               int index) override;
   void TabStripEmpty() override;
 
+  // Overridden from tab_groups::SavedTabGroupModelObserver:
+  void SavedTabGroupAddedLocally(const base::Uuid& guid) override;
+  void SavedTabGroupRemovedLocally(
+      const tab_groups::SavedTabGroup* removed_group) override;
+
   // Overridden from content::WebContentsDelegate:
   void ActivateContents(content::WebContents* contents) override;
   void SetTopControlsShownRatio(content::WebContents* web_contents,
@@ -825,10 +838,9 @@ class Browser : public TabStripModelObserver,
   void SetFocusToLocationBar() override;
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
       content::WebContents* source,
-      const content::NativeWebKeyboardEvent& event) override;
-  bool HandleKeyboardEvent(
-      content::WebContents* source,
-      const content::NativeWebKeyboardEvent& event) override;
+      const input::NativeWebKeyboardEvent& event) override;
+  bool HandleKeyboardEvent(content::WebContents* source,
+                           const input::NativeWebKeyboardEvent& event) override;
   bool PreHandleGestureEvent(content::WebContents* source,
                              const blink::WebGestureEvent& event) override;
   bool CanDragEnter(content::WebContents* source,
@@ -851,7 +863,7 @@ class Browser : public TabStripModelObserver,
   content::PictureInPictureResult EnterPictureInPicture(
       content::WebContents* web_contents) override;
   void ExitPictureInPicture() override;
-  bool IsBackForwardCacheSupported() override;
+  bool IsBackForwardCacheSupported(content::WebContents& web_contents) override;
   content::PreloadingEligibility IsPrerender2Supported(
       content::WebContents& web_contents) override;
   void UpdateInspectedWebContentsIfNecessary(
@@ -919,6 +931,8 @@ class Browser : public TabStripModelObserver,
   views::WebView* GetWebView() override;
   void OpenURL(const GURL& gurl, WindowOpenDisposition disposition) override;
   const SessionID& GetSessionID() override;
+  tabs::TabInterface* GetActiveTabInterface() override;
+  BrowserWindowFeatures& GetFeatures() override;
 
  private:
   int last_to_different_document_ = -1;
@@ -1046,13 +1060,6 @@ class Browser : public TabStripModelObserver,
   content::JavaScriptDialogManager* GetJavaScriptDialogManager(
       content::WebContents* source) override;
   bool GuestSaveFrame(content::WebContents* guest_web_contents) override;
-#if BUILDFLAG(IS_MAC)
-  std::unique_ptr<content::ColorChooser> OpenColorChooser(
-      content::WebContents* web_contents,
-      SkColor color,
-      const std::vector<blink::mojom::ColorSuggestionPtr>& suggestions)
-      override;
-#endif  // BUILDFLAG(IS_MAC)
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
                       scoped_refptr<content::FileSelectListener> listener,
                       const blink::mojom::FileChooserParams& params) override;
@@ -1469,6 +1476,8 @@ class Browser : public TabStripModelObserver,
   std::unique_ptr<extensions::BrowserExtensionWindowController>
       extension_window_controller_;
 
+  std::unique_ptr<BrowserActions> browser_actions_;
+
   std::unique_ptr<chrome::BrowserCommandController> command_controller_;
 
   // Dialog controller that handles the showing of the deletion dialog.
@@ -1488,6 +1497,12 @@ class Browser : public TabStripModelObserver,
       breadcrumb_manager_browser_agent_;
 
   std::unique_ptr<ScopedKeepAlive> keep_alive_;
+
+  // Observe saved tab group model events for normal browser type to
+  // update the session restore metadata with the correct saved group ID.
+  base::ScopedObservation<tab_groups::SavedTabGroupModel,
+                          tab_groups::SavedTabGroupModelObserver>
+      saved_tab_group_observation_{this};
 
   WarnBeforeClosingCallback warn_before_closing_callback_;
 

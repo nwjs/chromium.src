@@ -186,7 +186,8 @@ void SliderTest::SetUp() {
   default_locale_ = base::i18n::GetConfiguredLocale();
 
   views::Widget::InitParams init_params(
-      CreateParams(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS));
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   views::Widget::InitParams::TYPE_WINDOW_FRAMELESS));
   init_params.bounds = gfx::Rect(size);
 
   widget_ = std::make_unique<Widget>();
@@ -268,14 +269,12 @@ TEST_P(SliderTest, AccessibleRole) {
   ui::AXNodeData data;
   slider()->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.role, ax::mojom::Role::kSlider);
-  EXPECT_EQ(slider()->GetAccessibleRole(), ax::mojom::Role::kSlider);
 
-  slider()->SetAccessibleRole(ax::mojom::Role::kMeter);
+  slider()->GetViewAccessibility().SetRole(ax::mojom::Role::kMeter);
 
   data = ui::AXNodeData();
   slider()->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.role, ax::mojom::Role::kMeter);
-  EXPECT_EQ(slider()->GetAccessibleRole(), ax::mojom::Role::kMeter);
 }
 
 // No touch on desktop Mac. Tracked in http://crbug.com/445520.

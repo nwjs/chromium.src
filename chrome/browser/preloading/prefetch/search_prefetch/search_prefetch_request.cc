@@ -13,6 +13,7 @@
 #include "base/check.h"
 #include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -49,6 +50,7 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "base/check_is_test.h"
 #include "chrome/browser/android/omnibox/geolocation_header.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -114,7 +116,6 @@ const char* SearchPrefetchStatusToString(SearchPrefetchStatus status) {
       return "PrerenderActivated";
   }
 }
-
 }  // namespace
 
 SearchPrefetchRequest::SearchPrefetchRequest(
@@ -271,6 +272,7 @@ bool SearchPrefetchRequest::StartPrefetchRequest(Profile* profile) {
     TRACE_EVENT0(
         "loading",
         "SearchPrefetchRequest::StartPrefetchRequest.ExecuteThrottles");
+
     for (auto& throttle : throttles) {
       CheckForCancelledOrPausedDelegate cancel_or_pause_delegate;
       throttle->set_delegate(&cancel_or_pause_delegate);
@@ -281,7 +283,6 @@ bool SearchPrefetchRequest::StartPrefetchRequest(Profile* profile) {
             "SearchPrefetchRequest::StartPrefetchRequest.WillStartRequest");
         throttle->WillStartRequest(resource_request.get(), &should_defer);
       }
-
       // Make sure throttles are deleted before |cancel_or_pause_delegate| in
       // case they call into the delegate in the destructor.
       throttle.reset();
@@ -370,7 +371,7 @@ void SearchPrefetchRequest::MaybeStartPrerenderSearchResult(
       return;
     case SearchPrefetchStatus::kPrefetchServedForRealNavigation:
     case SearchPrefetchStatus::kPrerenderActivated:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   // maintain a weak ptr so that this can cancel prerendering when

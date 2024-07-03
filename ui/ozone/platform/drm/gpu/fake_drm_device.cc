@@ -58,6 +58,10 @@ const std::map<uint32_t, std::string> kConnectorRequiredPropertyNames = {
     {kEdidBlobPropId, "EDID"},
 };
 
+const std::map<uint32_t, std::string> kConnectorOptionalPropertyNames = {
+    {kTileBlobPropId, "TILE"},
+};
+
 const std::map<uint32_t, std::string> kPlaneRequiredPropertyNames = {
     // Add all required properties.
     {kPlaneCrtcId, "CRTC_ID"},
@@ -174,6 +178,8 @@ void FakeDrmDevice::ResetStateWithAllProperties() {
   // tests will append the property to the planes on a case-by-case basis.
   drm_state_.property_names.insert(kCrtcOptionalPropertyNames.begin(),
                                    kCrtcOptionalPropertyNames.end());
+  drm_state_.property_names.insert(kConnectorOptionalPropertyNames.begin(),
+                                   kConnectorOptionalPropertyNames.end());
 }
 
 FakeDrmDevice::FakeDrmState& FakeDrmDevice::ResetStateWithDefaultObjects(
@@ -649,9 +655,15 @@ ScopedDrmPropertyPtr FakeDrmDevice::GetProperty(uint32_t id) const {
   return property;
 }
 
-bool FakeDrmDevice::SetProperty(uint32_t connector_id,
-                                uint32_t property_id,
-                                uint64_t value) {
+bool FakeDrmDevice::SetConnectorProperty(uint32_t connector_id,
+                                         uint32_t property_id,
+                                         uint64_t value) {
+  return true;
+}
+
+bool FakeDrmDevice::AddAndCommitObjectProperty(uint32_t connector_id,
+                                               uint32_t property_id,
+                                               uint64_t value) {
   return true;
 }
 

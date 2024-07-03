@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if defined(UNSAFE_BUFFERS_BUILD)
+// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
+// then remove this pragma.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "ui/views/controls/label.h"
 
 #include <stddef.h>
@@ -114,8 +120,14 @@ void Label::SetText(const std::u16string& new_text) {
   full_text_->SetText(new_text);
   ClearDisplayText();
 
-  if (GetAccessibleName().empty() || GetAccessibleName() == current_text) {
-    SetAccessibleName(new_text);
+  if (GetViewAccessibility().GetCachedName().empty() ||
+      GetViewAccessibility().GetCachedName() == current_text) {
+    if (new_text.empty()) {
+      SetAccessibleName(new_text,
+                        ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
+    } else {
+      SetAccessibleName(new_text);
+    }
   }
 
   OnPropertyChanged(&full_text_ + kLabelText,
@@ -145,9 +157,9 @@ void Label::SetTextContext(int text_context) {
   if (GetWidget())
     UpdateColorsFromTheme();
 
-  SetAccessibleRole(text_context_ == style::CONTEXT_DIALOG_TITLE
-                        ? ax::mojom::Role::kTitleBar
-                        : ax::mojom::Role::kStaticText);
+  GetViewAccessibility().SetRole(text_context_ == style::CONTEXT_DIALOG_TITLE
+                                     ? ax::mojom::Role::kTitleBar
+                                     : ax::mojom::Role::kStaticText);
 
   OnPropertyChanged(&text_context_, kPropertyEffectsPreferredSizeChanged);
 }
@@ -1000,11 +1012,24 @@ void Label::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   // If the accessible name changed since the last time we computed the text
   // offsets, we need to recompute them.
   if (::ui::AXPlatform::GetInstance().IsUiaProviderEnabled() &&
-      ax_name_used_to_compute_offsets_ != GetAccessibleName()) {
+      ax_name_used_to_compute_offsets_ !=
+          GetViewAccessibility().GetCachedName()) {
     GetViewAccessibility().ClearTextOffsets();
     ax_name_used_to_compute_offsets_.clear();
+
+    // TODO(crbug.com/325137417): When this function is only used to initialize
+    // the cache with these values, refactor this part to not rely on the cache
+    // as it will cause a chicken and egg situation. For now, this is necessary
+    // to keep the text offsets up to date.
     if (RefreshAccessibleTextOffsets()) {
-      ax_name_used_to_compute_offsets_ = GetAccessibleName();
+      ax_name_used_to_compute_offsets_ = GetViewAccessibility().GetCachedName();
+      node_data->AddIntListAttribute(
+          ax::mojom::IntListAttribute::kCharacterOffsets,
+          GetViewAccessibility().GetCharacterOffsets());
+      node_data->AddIntListAttribute(ax::mojom::IntListAttribute::kWordStarts,
+                                     GetViewAccessibility().GetWordStarts());
+      node_data->AddIntListAttribute(ax::mojom::IntListAttribute::kWordEnds,
+                                     GetViewAccessibility().GetWordEnds());
     }
   }
 #endif  // BUILDFLAG(SUPPORTS_AX_TEXT_OFFSETS)
@@ -1202,10 +1227,11 @@ void Label::Init(const std::u16string& text,
   UpdateFullTextElideBehavior();
   full_text_->SetDirectionalityMode(directionality_mode);
 
-  SetAccessibilityProperties(text_context_ == style::CONTEXT_DIALOG_TITLE
-                                 ? ax::mojom::Role::kTitleBar
-                                 : ax::mojom::Role::kStaticText,
-                             text);
+  GetViewAccessibility().SetProperties(
+      text_context_ == style::CONTEXT_DIALOG_TITLE
+          ? ax::mojom::Role::kTitleBar
+          : ax::mojom::Role::kStaticText,
+      text);
 
   SetText(text);
 

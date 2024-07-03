@@ -26,8 +26,8 @@ import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.toolbar.top.ToolbarPhone;
-import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient.IntentOrigin;
-import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient.SearchType;
+import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.IntentOrigin;
+import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.SearchType;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityPreferencesManager;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.ui.base.WindowAndroid;
@@ -62,7 +62,7 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
                 ToolbarPhone.createModernLocationBarBackground(getContext());
         backgroundDrawable.setTint(
                 ChromeColors.getSurfaceColor(
-                        getContext(), R.dimen.omnibox_suggestion_bg_elevation_modern));
+                        getContext(), R.dimen.omnibox_suggestion_bg_elevation));
         backgroundDrawable.setCornerRadius(
                 getResources()
                         .getDimensionPixelSize(R.dimen.omnibox_suggestion_bg_round_corner_radius));
@@ -149,7 +149,7 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
         } else if (searchType == SearchType.LENS) {
             runGoogleLens();
         }
-        focusTextBox();
+        requestOmniboxFocus();
         mInteractionFromWidget = false;
     }
 
@@ -180,7 +180,7 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
     }
 
     /** Focus the Omnibox and present the cached suggestions. */
-    void focusTextBox() {
+    void requestOmniboxFocus() {
         mUrlBar.post(
                 () -> {
                     if (mUrlCoordinator == null || mAutocompleteCoordinator == null) {
@@ -190,6 +190,10 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
                     mUrlBar.requestFocus();
                     mUrlCoordinator.setKeyboardVisibility(true, false);
                 });
+    }
+
+    void clearOmniboxFocus() {
+        mUrlBar.post(() -> mUrlBar.clearFocus());
     }
 
     @Override

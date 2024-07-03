@@ -69,7 +69,22 @@ void TestPaymentsAutofillClient::ConfirmUploadIbanToCloud(
   legal_message_lines_ = std::move(legal_message_lines);
   offer_to_save_iban_bubble_was_shown_ = should_show_prompt;
 }
+
+bool TestPaymentsAutofillClient::CloseWebauthnDialog() {
+  return true;
+}
+#else   // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+void TestPaymentsAutofillClient::ConfirmAccountNameFixFlow(
+    base::OnceCallback<void(const std::u16string&)> callback) {
+  credit_card_name_fix_flow_bubble_was_shown_ = true;
+  std::move(callback).Run(std::u16string(u"Gaia Name"));
+}
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
+TestPaymentsNetworkInterface*
+TestPaymentsAutofillClient::GetPaymentsNetworkInterface() {
+  return payments_network_interface_.get();
+}
 
 void TestPaymentsAutofillClient::ShowAutofillProgressDialog(
     AutofillProgressDialogType autofill_progress_dialog_type,
@@ -83,11 +98,6 @@ void TestPaymentsAutofillClient::CloseAutofillProgressDialog(
   if (no_user_perceived_authentication_callback) {
     std::move(no_user_perceived_authentication_callback).Run();
   }
-}
-
-TestPaymentsNetworkInterface*
-TestPaymentsAutofillClient::GetPaymentsNetworkInterface() {
-  return payments_network_interface_.get();
 }
 
 void TestPaymentsAutofillClient::ShowAutofillErrorDialog(
@@ -145,6 +155,42 @@ TestPaymentsAutofillClient::GetRiskBasedAuthenticator() {
         std::make_unique<TestCreditCardRiskBasedAuthenticator>(&client_.get());
   }
   return risk_based_authenticator_.get();
+}
+
+void TestPaymentsAutofillClient::ShowMandatoryReauthOptInPrompt(
+    base::OnceClosure accept_mandatory_reauth_callback,
+    base::OnceClosure cancel_mandatory_reauth_callback,
+    base::RepeatingClosure close_mandatory_reauth_callback) {
+  mandatory_reauth_opt_in_prompt_was_shown_ = true;
+}
+
+MockIbanManager* TestPaymentsAutofillClient::GetIbanManager() {
+  if (!mock_iban_manager_) {
+    mock_iban_manager_ = std::make_unique<testing::NiceMock<MockIbanManager>>(
+        client_->GetPersonalDataManager());
+  }
+  return mock_iban_manager_.get();
+}
+
+MockIbanAccessManager* TestPaymentsAutofillClient::GetIbanAccessManager() {
+  if (!mock_iban_access_manager_) {
+    mock_iban_access_manager_ =
+        std::make_unique<testing::NiceMock<MockIbanAccessManager>>(
+            &client_.get());
+  }
+  return mock_iban_access_manager_.get();
+}
+
+void TestPaymentsAutofillClient::ShowMandatoryReauthOptInConfirmation() {
+  mandatory_reauth_opt_in_prompt_was_reshown_ = true;
+}
+
+bool TestPaymentsAutofillClient::GetMandatoryReauthOptInPromptWasShown() {
+  return mandatory_reauth_opt_in_prompt_was_shown_;
+}
+
+bool TestPaymentsAutofillClient::GetMandatoryReauthOptInPromptWasReshown() {
+  return mandatory_reauth_opt_in_prompt_was_reshown_;
 }
 
 void TestPaymentsAutofillClient::set_virtual_card_enrollment_manager(

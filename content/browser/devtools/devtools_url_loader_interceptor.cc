@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/devtools/devtools_url_loader_interceptor.h"
 
 #include <memory>
@@ -1295,7 +1300,7 @@ void InterceptionJob::ProcessSetCookies(const net::HttpResponseHeaders& headers,
   while (headers.EnumerateHeader(&iter, name, &cookie_line)) {
     std::unique_ptr<net::CanonicalCookie> cookie = net::CanonicalCookie::Create(
         create_loader_params_->request.url, cookie_line, now, server_time,
-        std::nullopt, /*block_truncated=*/true, net::CookieSourceType::kOther,
+        std::nullopt, net::CookieSourceType::kOther,
         /*status=*/nullptr);
     if (cookie)
       cookies.emplace_back(std::move(cookie));

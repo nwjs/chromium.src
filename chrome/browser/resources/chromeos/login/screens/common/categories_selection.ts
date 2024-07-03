@@ -38,7 +38,7 @@ export const CategoriesScreenElementBase =
           MultiStepBehaviorInterface,
     };
 
-enum CaegoriesStep {
+enum CategoriesStep {
   LOADING = 'loading',
   OVERVIEW = 'overview',
 }
@@ -49,6 +49,7 @@ enum CaegoriesStep {
 enum UserAction {
   SKIP = 'skip',
   NEXT = 'next',
+  LOADED = 'loaded',
 }
 
 interface CategoriesScreenData {
@@ -76,12 +77,12 @@ export class CategoriesScreenElement extends CategoriesScreenElementBase {
   private numberOfSelectedCategories: number;
 
   override get UI_STEPS() {
-    return CaegoriesStep;
+    return CategoriesStep;
   }
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
   override defaultUIStep() {
-    return CaegoriesStep.LOADING;
+    return CategoriesStep.LOADING;
   }
 
   override ready(): void {
@@ -92,6 +93,7 @@ export class CategoriesScreenElement extends CategoriesScreenElementBase {
   override get EXTERNAL_API(): string[] {
     return [
       'setCategoriesData',
+      'setOverviewStep',
     ];
   }
 
@@ -100,10 +102,29 @@ export class CategoriesScreenElement extends CategoriesScreenElementBase {
     return OobeUiState.ONBOARDING;
   }
 
+  override onBeforeShow(): void {
+    this.setUIStep(CategoriesStep.LOADING);
+  }
+
+
+  onBeforeHide(): void {
+    this.shadowRoot!.querySelector<OobeCategoriesList>(
+                        '#categoriesList')!.reset();
+  }
+
   setCategoriesData(categoriesData: CategoriesScreenData): void {
     assert('categories' in categoriesData);
     this.shadowRoot!.querySelector<OobeCategoriesList>('#categoriesList')!
           .init(categoriesData['categories']);
+  }
+
+  setOverviewStep(): void {
+    this.setUIStep(CategoriesStep.OVERVIEW);
+    const categoriesList =
+        this.shadowRoot?.querySelector<HTMLElement>('#categoriesList');
+    if (categoriesList instanceof HTMLElement) {
+      categoriesList.focus();
+    }
   }
 
   /**
@@ -122,12 +143,7 @@ export class CategoriesScreenElement extends CategoriesScreenElementBase {
    * Handles event when contents in the webview is generated.
    */
   private onFullyLoaded(): void {
-    this.setUIStep(CaegoriesStep.OVERVIEW);
-    const categoriesList =
-        this.shadowRoot?.querySelector<HTMLElement>('#categoriesList');
-    if (categoriesList instanceof HTMLElement) {
-      categoriesList.focus();
-    }
+    this.userActed(UserAction.LOADED);
   }
 
   private onNextClicked(): void {

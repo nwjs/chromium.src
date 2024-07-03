@@ -5,6 +5,7 @@
 #include "ash/system/input_device_settings/input_device_settings_metrics_manager.h"
 
 #include <cstdint>
+#include <iterator>
 #include <optional>
 #include <string_view>
 
@@ -21,16 +22,20 @@
 #include "ash/system/input_device_settings/input_device_settings_pref_names.h"
 #include "ash/system/input_device_settings/input_device_settings_utils.h"
 #include "ash/system/input_device_settings/settings_updated_metrics_info.h"
+#include "base/containers/contains.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/json/values_util.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
 #include "components/prefs/pref_service.h"
 #include "ui/events/ash/keyboard_capability.h"
+#include "ui/events/ash/keyboard_info_metrics.h"
+#include "ui/events/ash/mojom/modifier_key.mojom-shared.h"
 #include "ui/events/ash/mojom/six_pack_shortcut_modifier.mojom-shared.h"
 #include "ui/events/devices/device_data_manager.h"
 #include "ui/events/devices/keyboard_device.h"
@@ -64,6 +69,8 @@ static constexpr struct {
     {"Escape", ui::mojom::ModifierKey::kEscape},
     {"Backspace", ui::mojom::ModifierKey::kBackspace},
     {"Assistant", ui::mojom::ModifierKey::kAssistant},
+    {"Function", ui::mojom::ModifierKey::kFunction},
+    {"RightAlt", ui::mojom::ModifierKey::kRightAlt},
 };
 
 // The modifier hash is made up of `kNumModifiers` blocks of
@@ -83,12 +90,18 @@ static constexpr struct {
 // | 3     | kCapsLock               | [12, 15]  |
 // | 4     | kEscape                 | [16, 19]  |
 // | 5     | kBackspace              | [20, 23]  |
-// | 6     | kAssistant              | [24, 27]  |
+// | 6     | kAssistant | kRightAlt  | [24, 27]  |
+// | 7     | kFunction               | [28, 31]  |
 
 // Each modifier key will have 9 actions which requires 4 bits to encode.
 constexpr int kModifierHashWidth = 4;
 constexpr int kMaxModifierValue = (1 << kModifierHashWidth) - 1;
-constexpr int kNumModifiers = std::size(kModifierNames);
+
+// Remove Function and RightAlt for regular keyboards.
+constexpr int kNumModifiers = std::size(kModifierNames) - 2;
+// Remove RightAlt for split modifier keyboard since it has the same domcode as
+// Assistant.
+constexpr int kSplitModifierNumModifiers = std::size(kModifierNames) - 1;
 
 // Verify that the number of modifiers we are trying to hash together into a
 // 32-bit int will fit without any overflow or UB.
@@ -110,11 +123,27 @@ constexpr int32_t PrecalculateDefaultModifierHash() {
 }
 constexpr int32_t kDefaultModifierHash = PrecalculateDefaultModifierHash();
 
+constexpr uint32_t PrecalculateSplitModifierDefaultModifierHash() {
+  uint32_t hash = 0;
+  for (ssize_t i = kSplitModifierNumModifiers - 1u; i >= 0; i--) {
+    hash <<= kModifierHashWidth;
+    if (kModifierNames[i].modifier_key == ui::mojom::ModifierKey::kAssistant) {
+      hash += static_cast<int>(ui::mojom::ModifierKey::kRightAlt);
+    } else {
+      hash += static_cast<int>(kModifierNames[i].modifier_key);
+    }
+  }
+  return hash;
+}
+constexpr uint32_t kSplitModifierDefaultModifierHash =
+    PrecalculateSplitModifierDefaultModifierHash();
+
 std::string GetKeyboardMetricsPrefix(const mojom::Keyboard& keyboard) {
   if (!keyboard.is_external) {
     return "ChromeOS.Settings.Device.Keyboard.Internal.";
-  } else if (keyboard.meta_key == mojom::MetaKey::kLauncher ||
-             keyboard.meta_key == mojom::MetaKey::kSearch) {
+  } else if (keyboard.meta_key == ui::mojom::MetaKey::kLauncherRefresh ||
+             keyboard.meta_key == ui::mojom::MetaKey::kLauncher ||
+             keyboard.meta_key == ui::mojom::MetaKey::kSearch) {
     return "ChromeOS.Settings.Device.Keyboard.ExternalChromeOS.";
   } else {
     return "ChromeOS.Settings.Device.Keyboard.External.";
@@ -131,14 +160,13 @@ ui::mojom::ModifierKey GetModifierRemappingTo(
   return modifier_key;
 }
 
-std::optional<std::string> GetModifierKeyName(
-    ui::mojom::ModifierKey modifier_key) {
-  for (ssize_t i = kNumModifiers - 1; i >= 0; i--) {
-    if (kModifierNames[i].modifier_key == modifier_key) {
-      return std::make_optional<std::string>(kModifierNames[i].key_name);
+std::string GetModifierKeyName(ui::mojom::ModifierKey modifier_key) {
+  for (const auto& modifier : kModifierNames) {
+    if (modifier.modifier_key == modifier_key) {
+      return modifier.key_name;
     }
   }
-  return std::nullopt;
+  NOTREACHED_NORETURN() << "MODIFIER KEY: " << (int)modifier_key;
 }
 
 int GetNumberOfNonDefaultRemappings(
@@ -227,7 +255,7 @@ std::string GetSixPackKeyMetricName(const std::string& prefix,
 void RecordKeyboardNumberOfKeysRemapped(const mojom::Keyboard& keyboard) {
   base::flat_map<ui::mojom::ModifierKey, ui::mojom::ModifierKey>
       default_remappings;
-  if (keyboard.meta_key == mojom::MetaKey::kCommand) {
+  if (keyboard.meta_key == ui::mojom::MetaKey::kCommand) {
     default_remappings[ui::mojom::ModifierKey::kControl] =
         ui::mojom::ModifierKey::kMeta;
     default_remappings[ui::mojom::ModifierKey::kMeta] =
@@ -447,6 +475,122 @@ std::optional<ui::KeyboardDevice> FindKeyboardWithId(int device_id) {
   return *iter;
 }
 
+std::optional<uint32_t> CountNumberOfDevicesUsedInLast28Days(
+    std::string_view pref_name) {
+  constexpr base::TimeDelta k28Days = base::Days(28);
+
+  PrefService* pref_service =
+      Shell::Get()->session_controller()->GetActivePrefService();
+  // Pref service can be null in tests.
+  if (!pref_service) {
+    return std::nullopt;
+  }
+
+  uint32_t num_devices_used = 0;
+  const base::Value::Dict& devices_dict = pref_service->GetDict(pref_name);
+  for (const auto device_entry : devices_dict) {
+    const auto* device = device_entry.second.GetIfDict();
+    if (!device) {
+      continue;
+    }
+
+    const auto* last_updated_value = device->Find(prefs::kLastUpdatedKey);
+    if (!last_updated_value) {
+      continue;
+    }
+
+    const auto last_updated_time = base::ValueToTime(*last_updated_value);
+    if (!last_updated_time) {
+      continue;
+    }
+
+    if (base::Time::Now() - *last_updated_time <= k28Days) {
+      num_devices_used++;
+    }
+  }
+
+  return num_devices_used;
+}
+
+void RecordNumberOfMiceUsedInLast28Days() {
+  if (auto num_devices = CountNumberOfDevicesUsedInLast28Days(
+          prefs::kMouseDeviceSettingsDictPref);
+      num_devices) {
+    base::UmaHistogramCounts100(
+        "ChromeOS.Settings.Device.Mouse.External.NumConnectedLast28Days",
+        *num_devices);
+  }
+}
+
+void RecordNumberOfKeyboardsUsedInLast28Days() {
+  if (auto num_devices = CountNumberOfDevicesUsedInLast28Days(
+          prefs::kKeyboardDeviceSettingsDictPref);
+      num_devices) {
+    base::UmaHistogramCounts100(
+        "ChromeOS.Settings.Device.Keyboard.External.NumConnectedLast28Days",
+        *num_devices);
+  }
+}
+
+void RecordNumberOfTouchpadsUsedInLast28Days() {
+  if (auto num_devices = CountNumberOfDevicesUsedInLast28Days(
+          prefs::kTouchpadDeviceSettingsDictPref);
+      num_devices) {
+    base::UmaHistogramCounts100(
+        "ChromeOS.Settings.Device.Touchpad.External.NumConnectedLast28Days",
+        *num_devices);
+  }
+}
+
+void RecordKeyPresenseMetrics(const mojom::Keyboard& keyboard) {
+  // Only record for the internal keyboard.
+  if (keyboard.is_external) {
+    return;
+  }
+
+  // For each modifier key, record only what the key is _remapped_ to. So
+  // iterate through each modifier key and check if the key is remapped to
+  // something else. Then record what the key is remapped to.
+  for (const auto& modifier_key : keyboard.modifier_keys) {
+    auto remapped_modifier_iter =
+        keyboard.settings->modifier_remappings.find(modifier_key);
+    const auto remapped_to_key =
+        (remapped_modifier_iter != keyboard.settings->modifier_remappings.end())
+            ? remapped_modifier_iter->second
+            : modifier_key;
+
+    // Skip keys remapped to void since its as though that key does not exist at
+    // all.
+    if (remapped_to_key == ui::mojom::ModifierKey::kVoid) {
+      continue;
+    }
+
+    // Record what the key is remapped to and note whether it is via a remapping
+    // or the default value for the key.
+    base::UmaHistogramEnumeration(
+        base::StrCat({"ChromeOS.Inputs.KeyUsage.Internal.",
+                      GetModifierKeyName(remapped_to_key)}),
+        (modifier_key == remapped_to_key)
+            ? ui::KeyUsageCategory::kPhysicallyPresent
+            : ui::KeyUsageCategory::kVirtuallyPresent);
+  }
+
+  const auto* top_row_action_keys =
+      Shell::Get()->keyboard_capability()->GetTopRowActionKeys(keyboard.id);
+  if (!top_row_action_keys) {
+    return;
+  }
+
+  for (const auto& top_row_action_key : *top_row_action_keys) {
+    // All top row keys are physically present, no way to virtually remap to
+    // them.
+    base::UmaHistogramEnumeration(
+        base::StrCat({"ChromeOS.Inputs.KeyUsage.Internal.",
+                      GetTopRowActionKeyName(top_row_action_key)}),
+        ui::KeyUsageCategory::kPhysicallyPresent);
+  }
+}
+
 }  // namespace
 
 InputDeviceSettingsMetricsManager::InputDeviceSettingsMetricsManager() =
@@ -456,6 +600,12 @@ InputDeviceSettingsMetricsManager::~InputDeviceSettingsMetricsManager() =
 
 void InputDeviceSettingsMetricsManager::RecordKeyboardInitialMetrics(
     const mojom::Keyboard& keyboard) {
+  // Record this metric every time a mouse is plugged/unplugged to account for
+  // if a user session lasts for >28 days.
+  if (keyboard.is_external) {
+    RecordNumberOfKeyboardsUsedInLast28Days();
+  }
+
   // Only record the metrics once for each keyboard.
   const auto account_id =
       Shell::Get()->session_controller()->GetActiveAccountId();
@@ -482,23 +632,22 @@ void InputDeviceSettingsMetricsManager::RecordKeyboardInitialMetrics(
 
   // Record metrics for modifier remappings.
   for (const auto modifier_key : keyboard.modifier_keys) {
-    // TODO(b/329330990): Remove after updating modifier names map.
-    if (features::IsModifierSplitEnabled()) {
-      break;
-    }
-
     const auto modifier_name = GetModifierKeyName(modifier_key);
-    CHECK(modifier_name.has_value());
     const auto key_remapped_to =
         GetModifierRemappingTo(*keyboard.settings, modifier_key);
     const std::string modifier_remapping_metrics =
-        base::StrCat({keyboard_metrics_prefix, "Modifiers.", *modifier_name,
+        base::StrCat({keyboard_metrics_prefix, "Modifiers.", modifier_name,
                       "RemappedTo.Initial"});
     base::UmaHistogramEnumeration(modifier_remapping_metrics, key_remapped_to);
   }
 
   // Record remapping metrics when keyboard is initialized.
-  RecordModifierRemappingHash(keyboard);
+  if (base::Contains(keyboard.modifier_keys,
+                     ui::mojom::ModifierKey::kRightAlt)) {
+    RecordSplitModifierRemappingHash(keyboard);
+  } else {
+    RecordModifierRemappingHash(keyboard);
+  }
   RecordKeyboardNumberOfKeysRemapped(keyboard);
   if (ShouldRecordSixPackKeyMetrics(keyboard)) {
     RecordSixPackKeyInfo(keyboard, ui::VKEY_DELETE, /*is_initial_value=*/true);
@@ -515,6 +664,7 @@ void InputDeviceSettingsMetricsManager::RecordKeyboardInitialMetrics(
     base::UmaHistogramEnumeration(keyboard_metrics_prefix + "F12.Initial",
                                   keyboard.settings->f12.value());
   }
+  RecordKeyPresenseMetrics(keyboard);
 }
 
 void InputDeviceSettingsMetricsManager::RecordKeyboardChangedMetrics(
@@ -539,13 +689,7 @@ void InputDeviceSettingsMetricsManager::RecordKeyboardChangedMetrics(
 
   // Record metrics for modifier remappings.
   for (const auto modifier_key : keyboard.modifier_keys) {
-    // TODO(b/329330990): Remove after updating modifier names map.
-    if (features::IsModifierSplitEnabled()) {
-      break;
-    }
-
     const auto modifier_name = GetModifierKeyName(modifier_key);
-    CHECK(modifier_name.has_value());
     const auto key_remapped_to_before =
         GetModifierRemappingTo(old_settings, modifier_key);
     const auto key_remapped_to =
@@ -553,7 +697,7 @@ void InputDeviceSettingsMetricsManager::RecordKeyboardChangedMetrics(
     // Only emit the metric if the modifier remapping is changed.
     if (key_remapped_to_before != key_remapped_to) {
       const std::string modifier_remapping_metrics =
-          base::StrCat({keyboard_metrics_prefix, "Modifiers.", *modifier_name,
+          base::StrCat({keyboard_metrics_prefix, "Modifiers.", modifier_name,
                         "RemappedTo.Changed"});
       base::UmaHistogramEnumeration(modifier_remapping_metrics,
                                     key_remapped_to);
@@ -620,6 +764,10 @@ void InputDeviceSettingsMetricsManager::RecordKeyboardNumberOfKeysReset(
 
 void InputDeviceSettingsMetricsManager::RecordMouseInitialMetrics(
     const mojom::Mouse& mouse) {
+  // Record this metric every time a mouse is plugged/unplugged to account for
+  // if a user session lasts for >28 days.
+  RecordNumberOfMiceUsedInLast28Days();
+
   // Only record the metrics once for each mouse.
   const auto account_id =
       Shell::Get()->session_controller()->GetActiveAccountId();
@@ -798,6 +946,12 @@ void InputDeviceSettingsMetricsManager::RecordPointingStickChangedMetrics(
 
 void InputDeviceSettingsMetricsManager::RecordTouchpadInitialMetrics(
     const mojom::Touchpad& touchpad) {
+  // Record this metric every time a mouse is plugged/unplugged to account for
+  // if a user session lasts for >28 days.
+  if (touchpad.is_external) {
+    RecordNumberOfTouchpadsUsedInLast28Days();
+  }
+
   // Only record the metrics once for each Touchpad.
   const auto account_id =
       Shell::Get()->session_controller()->GetActiveAccountId();
@@ -1001,6 +1155,37 @@ void InputDeviceSettingsMetricsManager::RecordModifierRemappingHash(
   if (hash != kDefaultModifierHash) {
     const std::string metrics =
         base::StrCat({GetKeyboardMetricsPrefix(keyboard), "Modifiers.Hash"});
+    base::UmaHistogramSparse(metrics, static_cast<int>(hash));
+  }
+}
+
+void InputDeviceSettingsMetricsManager::RecordSplitModifierRemappingHash(
+    const mojom::Keyboard& keyboard) {
+  // Compute hash by left-shifting by `kModifierHashWidth` and then inserting
+  // the modifier value from prefs at into the lowest `kModifierHashWidth` bits.
+  uint32_t hash = 0;
+  for (ssize_t i = kSplitModifierNumModifiers - 1u; i >= 0; i--) {
+    const auto modifier_key = kModifierNames[i].modifier_key;
+    auto iter = keyboard.settings->modifier_remappings.find(modifier_key);
+    const auto remapped_key_value =
+        iter == keyboard.settings->modifier_remappings.end()
+            ? static_cast<uint32_t>(modifier_key)
+            : static_cast<uint32_t>(iter->second);
+
+    // Check that shifting and adding value will not overflow `hash`.
+    DCHECK(remapped_key_value <= kMaxModifierValue && remapped_key_value >= 0);
+    DCHECK(hash < (1u << ((sizeof(uint32_t) * 8u) - kModifierHashWidth)));
+
+    hash <<= kModifierHashWidth;
+    hash += static_cast<uint32_t>(remapped_key_value);
+  }
+
+  // If the computed hash matches the hash when settings are in a default state,
+  // the metric should not be published.
+  if (hash != kSplitModifierDefaultModifierHash) {
+    const std::string metrics =
+        "ChromeOS.Settings.Device.Keyboard.InternalSplitModifier.Modifiers."
+        "Hash";
     base::UmaHistogramSparse(metrics, static_cast<int>(hash));
   }
 }

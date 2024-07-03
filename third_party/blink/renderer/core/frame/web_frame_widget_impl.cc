@@ -42,9 +42,11 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "base/types/optional_ref.h"
 #include "build/build_config.h"
 #include "cc/animation/animation_host.h"
 #include "cc/base/features.h"
+#include "cc/input/browser_controls_offset_tags_info.h"
 #include "cc/trees/compositor_commit_data.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/swap_promise.h"
@@ -100,6 +102,7 @@
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/html/html_plugin_element.h"
+#include "third_party/blink/renderer/core/html/plugin_document.h"
 #include "third_party/blink/renderer/core/input/context_menu_allowed_scope.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/input/touch_action_util.h"
@@ -110,6 +113,7 @@
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_shift_tracker.h"
 #include "third_party/blink/renderer/core/layout/layout_text.h"
+#include "third_party/blink/renderer/core/loader/anchor_element_interaction_tracker.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/interactive_detector.h"
 #include "third_party/blink/renderer/core/page/context_menu_controller.h"
@@ -1150,7 +1154,7 @@ WebInputEventResult WebFrameWidgetImpl::HandleGestureEvent(
           frame->GetEventHandler().HandleGestureEvent(targeted_event);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   DidHandleGestureEvent(event);
   return event_result;
@@ -1303,8 +1307,13 @@ void WebFrameWidgetImpl::SendEndOfScrollEvents(
   }
   if (ScrollableArea* scrollable_area =
           ScrollableArea::GetForScrolling(target_node->GetLayoutBox())) {
-    scrollable_area->UpdateSnappedTargetsAndEnqueueSnapChanged();
+    scrollable_area->UpdateSnappedTargetsAndEnqueueScrollSnapChange();
     scrollable_area->SetImplSnapStrategy(nullptr);
+  }
+
+  if (auto* anchor_element_interaction_tracker =
+          target_node->GetDocument().GetAnchorElementInteractionTracker()) {
+    anchor_element_interaction_tracker->OnScrollEnd();
   }
 
   if (RuntimeEnabledFeatures::ScrollEndEventsEnabled()) {
@@ -1324,7 +1333,7 @@ void WebFrameWidgetImpl::SendEndOfScrollEvents(
   }
 }
 
-void WebFrameWidgetImpl::SendSnapChangingEventIfNeeded(
+void WebFrameWidgetImpl::SendScrollSnapChangingEventIfNeeded(
     const cc::CompositorCommitData& commit_data) {
   Node* target_node = View()->FindNodeFromScrollableCompositorElementId(
       commit_data.scroll_latched_element_id);
@@ -1334,7 +1343,7 @@ void WebFrameWidgetImpl::SendSnapChangingEventIfNeeded(
   if (ScrollableArea* scrollable_area =
           ScrollableArea::GetForScrolling(target_node->GetLayoutBox())) {
     scrollable_area->SetImplSnapStrategy(commit_data.snap_strategy->Clone());
-    scrollable_area->EnqueueSnapChangingEventFromImplIfNeeded();
+    scrollable_area->EnqueueScrollSnapChangingEventFromImplIfNeeded();
   }
 }
 
@@ -1350,7 +1359,7 @@ void WebFrameWidgetImpl::UpdateCompositorScrollState(
     return;
 
   if (commit_data.snap_strategy) {
-    SendSnapChangingEventIfNeeded(commit_data);
+    SendScrollSnapChangingEventIfNeeded(commit_data);
   }
 
   if (!commit_data.overscroll_delta.IsZero()) {
@@ -1894,10 +1903,12 @@ const cc::LayerTreeSettings* WebFrameWidgetImpl::GetLayerTreeSettings() {
 void WebFrameWidgetImpl::UpdateBrowserControlsState(
     cc::BrowserControlsState constraints,
     cc::BrowserControlsState current,
-    bool animate) {
+    bool animate,
+    base::optional_ref<const cc::BrowserControlsOffsetTagsInfo>
+        offset_tags_info) {
   DCHECK(View()->does_composite());
-  widget_base_->LayerTreeHost()->UpdateBrowserControlsState(constraints,
-                                                            current, animate);
+  widget_base_->LayerTreeHost()->UpdateBrowserControlsState(
+      constraints, current, animate, offset_tags_info);
 }
 
 void WebFrameWidgetImpl::SetHaveScrollEventHandlers(bool has_handlers) {
@@ -2058,7 +2069,7 @@ void WebFrameWidgetImpl::PointerLockMouseEvent(
       // because pointer lost messaging happens on separate mojo channel.
       return;
     default:
-      NOTREACHED() << input_event.GetType();
+      NOTREACHED_IN_MIGRATION() << input_event.GetType();
   }
 
   if (GetPage()) {
@@ -2162,22 +2173,37 @@ std::optional<gfx::Point> WebFrameWidgetImpl::GetAndResetContextMenuLocation() {
   return std::move(host_context_menu_location_);
 }
 
+double WebFrameWidgetImpl::GetZoomLevel() {
+  return zoom_level_;
+}
+
 void WebFrameWidgetImpl::SetZoomLevel(double zoom_level) {
   // Override the zoom level with the testing one if necessary.
   if (zoom_level_for_testing_ != -INFINITY)
     zoom_level = zoom_level_for_testing_;
 
+  zoom_level = View()->ClampZoomLevel(zoom_level);
   // Set the layout shift exclusion window for the zoom level change.
-  if (View()->ZoomLevel() != zoom_level)
+  if (zoom_level_ != zoom_level) {
     NotifyZoomLevelChanged(LocalRootImpl()->GetFrame());
+  }
+  zoom_level_ = zoom_level;
+  double zoom_factor = View()->SetMainFrameZoomLevel(zoom_level_);
+  if (auto* local_frame = LocalRootImpl()->GetFrame()) {
+    if (Document* document = local_frame->GetDocument()) {
+      auto* plugin_document = DynamicTo<PluginDocument>(document);
+      if (!plugin_document || !plugin_document->GetPluginView()) {
+        local_frame->SetPageZoomFactor(zoom_factor);
+      }
+    }
 
-  View()->SetZoomLevel(zoom_level);
-
-  // Part of the UpdateVisualProperties dance we send the zoom level to
-  // RemoteFrames that are below the local root for this widget.
-  ForEachRemoteFrameControlledByWidget([zoom_level](RemoteFrame* remote_frame) {
-    remote_frame->ZoomLevelChanged(zoom_level);
-  });
+    // Part of the UpdateVisualProperties dance we send the zoom level to
+    // RemoteFrames that are below the local root for this widget.
+    ForEachRemoteFrameControlledByWidget(
+        [zoom_level](RemoteFrame* remote_frame) {
+          remote_frame->ZoomLevelChanged(zoom_level);
+        });
+  }
 }
 
 void WebFrameWidgetImpl::SetAutoResizeMode(bool auto_resize,
@@ -2362,6 +2388,13 @@ void WebFrameWidgetImpl::SetCompositorVisible(bool visible) {
   widget_base_->SetCompositorVisible(visible);
 }
 
+void WebFrameWidgetImpl::WarmUpCompositor() {
+  // TODO(crbug.com/41496019): See if `widget_base_` is unexpectedly null in
+  // this code path.
+  CHECK(widget_base_);
+  widget_base_->WarmUpCompositor();
+}
+
 gfx::Size WebFrameWidgetImpl::Size() {
   return size_.value_or(gfx::Size());
 }
@@ -2411,7 +2444,8 @@ void WebFrameWidgetImpl::BeginMainFrame(base::TimeTicks last_frame_time) {
   // purpose of animation frame timing, this is the desired time to start
   // rendering, equivalent to the time when a work task is posted.
   if (animation_frame_timing_monitor_) {
-    animation_frame_timing_monitor_->BeginMainFrame(last_frame_time);
+    animation_frame_timing_monitor_->BeginMainFrame(
+        last_frame_time, *LocalRootImpl()->GetFrame()->DomWindow());
   }
 
   // Dirty bit on MouseEventManager is not cleared in OOPIFs after scroll
@@ -2976,7 +3010,7 @@ WebInputEventResult WebFrameWidgetImpl::HandleCapturedMouseEvent(
       event_type = event_type_names::kMouseup;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   WebMouseEvent transformed_event =
@@ -3875,7 +3909,7 @@ void WebFrameWidgetImpl::SetHasPointerRawUpdateEventHandlers(
     bool has_handlers) {
   widget_base_->widget_input_handler_manager()
       ->input_event_queue()
-      ->HasPointerRawUpdateEventHandlers(has_handlers);
+      ->SetHasPointerRawUpdateEventHandlers(has_handlers);
 }
 
 void WebFrameWidgetImpl::SetNeedsLowLatencyInput(bool needs_low_latency) {
@@ -4948,9 +4982,15 @@ bool WebFrameWidgetImpl::HasPendingPageScaleAnimation() {
   return LayerTreeHost()->HasPendingPageScaleAnimation();
 }
 
-void WebFrameWidgetImpl::SetSourceURLForCompositor(ukm::SourceId source_id,
-                                                   const KURL& url) {
+void WebFrameWidgetImpl::UpdateNavigationStateForCompositor(
+    ukm::SourceId source_id,
+    const KURL& url) {
   LayerTreeHost()->SetSourceURL(source_id, GURL(url));
+  DocumentLoader* loader =
+      local_root_->GetFrame()->Loader().GetDocumentLoader();
+  CHECK(loader->GetHistoryItem());
+  LayerTreeHost()->SetPrimaryMainFrameItemSequenceNumber(
+      loader->GetHistoryItem()->ItemSequenceNumber());
 }
 
 base::ReadOnlySharedMemoryRegion
@@ -5068,8 +5108,10 @@ void WebFrameWidgetImpl::NotifyZoomLevelChanged(LocalFrame* root) {
         // this histogrm should only include samples at 100% zoom factor.
         UMA_HISTOGRAM_CUSTOM_EXACT_LINEAR(
             "Accessibility.Android.PageZoom.MainFrameZoomFactor",
-            blink::PageZoomLevelToZoomFactor(View()->ZoomLevel()) * 100, 50,
-            300, 52);
+            PageZoomLevelToZoomFactor(
+                View()->MainFrameWidget()->GetZoomLevel()) *
+                100,
+            50, 300, 52);
       }
 #endif
     }

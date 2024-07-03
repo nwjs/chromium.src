@@ -60,6 +60,7 @@ import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.tab.TabUtils.UseDesktopUserAgentCaller;
 import org.chromium.chrome.browser.ui.native_page.FrozenNativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.chrome.browser.ui.native_page.NativePage.SmoothTransitionDelegate;
 import org.chromium.components.autofill.AutofillFeatures;
 import org.chromium.components.autofill.AutofillProvider;
 import org.chromium.components.autofill.AutofillSelectionActionMenuDelegate;
@@ -71,13 +72,12 @@ import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.ChildProcessImportance;
-import org.chromium.content_public.browser.ContentFeatureList;
-import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
+import org.chromium.content_public.browser.back_forward_transition.AnimationStage;
 import org.chromium.content_public.browser.navigation_controller.UserAgentOverrideOption;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.ui.base.PageTransition;
@@ -256,6 +256,8 @@ class TabImpl implements Tab {
 
     private String mPendingNativePageHost;
 
+    private SmoothTransitionDelegate mNativePageSmoothTransitionDelegate;
+
     /**
      * Creates an instance of a {@link TabImpl}. Package-private. Use {@link TabBuilder} to create
      * an instance.
@@ -295,6 +297,12 @@ class TabImpl implements Tab {
 
                     @Override
                     public void onViewDetachedFromWindow(View view) {
+                        if (mNativePageSmoothTransitionDelegate != null
+                                && isNativePage()
+                                && getNativePage().getView() == view) {
+                            mNativePageSmoothTransitionDelegate.cancel();
+                            mNativePageSmoothTransitionDelegate = null;
+                        }
                         mIsViewAttachedToWindow = false;
                         updateInteractableState();
                     }
@@ -674,7 +682,10 @@ class TabImpl implements Tab {
 
     @Override
     public void freezeAndAppendPendingNavigation(LoadUrlParams params, @Nullable String title) {
-        assert isHidden();
+        assert isHidden() : "Should only freeze and apprend a navigation to a tab that is hidden.";
+        // If the native page is not already torn down make sure we remove it so it isn't visible if
+        // this tab is foregrounded again in the current session.
+        hideNativePage(/* notify= */ false, /* postHideTask= */ null);
         WebContentsState oldWebContentsState = TabStateExtractor.getWebContentsState(this);
         WebContents oldWebContents = mWebContents;
         destroyWebContents(false);
@@ -699,11 +710,11 @@ class TabImpl implements Tab {
                         params.getInitiatorOrigin(),
                         isIncognito());
         mUrl = new GURL(mWebContentsState.getVirtualUrlFromState());
-        notifyFaviconChanged();
         while (observers.hasNext()) {
             observers.next().onUrlUpdated(this);
         }
         observers.rewind();
+        notifyFaviconChanged();
         updateTitle(title);
 
         while (observers.hasNext()) {
@@ -731,11 +742,6 @@ class TabImpl implements Tab {
             return true;
         }
 
-        // If desktop mode window setting is enabled, move switchUserAgentIfNeeded() from
-        // loadIfNeeded() to restoreIfNeeded(); to avoid reload without explicit user intent.
-        if (!ContentFeatureMap.isEnabled(ContentFeatureList.REQUEST_DESKTOP_SITE_WINDOW_SETTING)) {
-            switchUserAgentIfNeeded(UseDesktopUserAgentCaller.LOAD_IF_NEEDED + caller);
-        }
         restoreIfNeeded(caller);
         return true;
     }
@@ -866,6 +872,7 @@ class TabImpl implements Tab {
             // If the NativePage was frozen while in the background (see NativePageAssassin),
             // recreate the NativePage now.
             NativePage nativePage = getNativePage();
+            PdfUtils.recordIsPdfFrozen(nativePage);
             if (nativePage != null && nativePage.isFrozen()) {
                 maybeShowNativePage(nativePage.getUrl(), true, PdfUtils.getPdfInfo(nativePage));
             }
@@ -1241,10 +1248,37 @@ class TabImpl implements Tab {
         }
     }
 
+    void handleBackForwardTransitionUiChanged() {
+        // Start the cross-fade animation after the invoking animation is done.
+        switch (getWebContents().getCurrentBackForwardTransitionStage()) {
+            case AnimationStage.NONE:
+                // Native animator is destroy before animation is done.
+                if (mNativePageSmoothTransitionDelegate != null) {
+                    mNativePageSmoothTransitionDelegate.cancel();
+                    mNativePageSmoothTransitionDelegate = null;
+                }
+                return;
+            case AnimationStage.OTHER:
+                if (mNativePageSmoothTransitionDelegate != null) {
+                    mNativePageSmoothTransitionDelegate.start(
+                            () -> {
+                                getWebContents().onContentForNavigationEntryShown();
+                                notifyContentChanged();
+                            });
+                    mNativePageSmoothTransitionDelegate = null;
+                }
+                return;
+            case AnimationStage.INVOKE_ANIMATION:
+                // invoking animation is in-progress. Wait for it to be finished.
+                return;
+        }
+    }
+
     // Forwarded from TabWebContentsObserver.
 
     /**
      * Called when a page has started loading.
+     *
      * @param validatedUrl URL being loaded.
      */
     void didStartPageLoad(GURL validatedUrl) {
@@ -1699,6 +1733,14 @@ class TabImpl implements Tab {
                                 .getView()
                                 .addOnAttachStateChangeListener(mAttachStateChangeListener);
                     }
+                    if (isDisplayingBackForwardAnimation()) {
+                        assert ChromeFeatureList.isEnabled(
+                                        ChromeFeatureList.BACK_FORWARD_TRANSITIONS)
+                                : "Must not draw bf screenshot if back forward transition is"
+                                        + " disabled";
+                        mNativePageSmoothTransitionDelegate = mNativePage.enableSmoothTransition();
+                        mNativePageSmoothTransitionDelegate.prepare();
+                    }
                     pushNativePageStateToNavigationEntry();
 
                     if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) {
@@ -1710,11 +1752,16 @@ class TabImpl implements Tab {
 
     /**
      * Hide and destroy the native page if it was being shown.
+     *
      * @param notify {@code true} to trigger {@link #onContentChanged} event.
-     * @param postHideTask {@link Runnable} task to run before actually destroying the
-     *        native page. This is necessary to keep the tasks to perform in order.
+     * @param postHideTask {@link Runnable} task to run before actually destroying the native page.
+     *     This is necessary to keep the tasks to perform in order.
      */
     private void hideNativePage(boolean notify, Runnable postHideTask) {
+        if (mNativePageSmoothTransitionDelegate != null) {
+            mNativePageSmoothTransitionDelegate.cancel();
+            mNativePageSmoothTransitionDelegate = null;
+        }
         NativePage previousNativePage = mNativePage;
         if (mNativePage != null) {
             if (!mNativePage.isFrozen()) {
@@ -1803,13 +1850,9 @@ class TabImpl implements Tab {
             }
 
             if (mWebContents != null) {
-                // If desktop mode window setting is enabled, move switchUserAgentIfNeeded() from
-                // loadIfNeeded() to restoreIfNeeded(); to avoid reload without explicit user
-                // intent.
-                if (ContentFeatureMap.isEnabled(
-                        ContentFeatureList.REQUEST_DESKTOP_SITE_WINDOW_SETTING)) {
-                    switchUserAgentIfNeeded(UseDesktopUserAgentCaller.LOAD_IF_NEEDED + caller);
-                }
+                // Invoke switchUserAgentIfNeeded() from restoreIfNeeded() instead of loadIfNeeded()
+                // to avoid reload without explicit user intent.
+                switchUserAgentIfNeeded(UseDesktopUserAgentCaller.LOAD_IF_NEEDED + caller);
                 mWebContents.getNavigationController().loadIfNecessary();
             }
             mIsBeingRestored = true;
@@ -2166,6 +2209,12 @@ class TabImpl implements Tab {
     public void setTabLaunchType(@TabLaunchType int launchType) {
         assert mLaunchType == TabLaunchType.UNSET;
         mLaunchType = launchType;
+    }
+
+    @Override
+    public boolean isDisplayingBackForwardAnimation() {
+        if (getWebContents() == null) return false;
+        return getWebContents().getCurrentBackForwardTransitionStage() != AnimationStage.NONE;
     }
 
     /**

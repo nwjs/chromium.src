@@ -6,6 +6,7 @@
 #define COMPONENTS_VISITEDLINK_BROWSER_PARTITIONED_VISITEDLINK_WRITER_H_
 
 #include <map>
+#include <set>
 
 #include "base/memory/read_only_shared_memory_region.h"
 #include "components/visitedlink/common/visitedlink_common.h"
@@ -64,7 +65,8 @@ class PartitionedVisitedLinkWriter : public VisitedLinkCommon {
                                VisitedLinkDelegate* delegate);
 
   // This constructor is used by unit tests.
-  PartitionedVisitedLinkWriter(VisitedLinkDelegate* delegate,
+  PartitionedVisitedLinkWriter(std::unique_ptr<Listener> listener,
+                               VisitedLinkDelegate* delegate,
                                bool suppress_build,
                                int32_t default_table_size);
 
@@ -123,6 +125,16 @@ class PartitionedVisitedLinkWriter : public VisitedLinkCommon {
 
   // Returns the number non-null hashes in the table for testing verification.
   int32_t GetUsedCount() const { return used_items_; }
+
+  // Returns the listener.
+  PartitionedVisitedLinkWriter::Listener* GetListener() const {
+    return listener_.get();
+  }
+
+  // Returns the hashtable stored in memory.
+  const base::MappedReadOnlyRegion& GetMappedTableMemoryForTesting() {
+    return mapped_table_memory_;
+  }
 #endif
 
  private:
@@ -257,6 +269,9 @@ class PartitionedVisitedLinkWriter : public VisitedLinkCommon {
   // Client owns the delegate and is responsible for it being valid through
   // the lifetime this PartitionedVisitedLinkWriter.
   raw_ptr<VisitedLinkDelegate> delegate_;
+
+  // VisitedLinkEventListener to handle incoming events.
+  std::unique_ptr<Listener> listener_;
 
   // Contains every per-origin salt used in creating the hashtable. Callers
   // should only access on the main (UI) thread.

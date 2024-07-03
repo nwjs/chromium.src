@@ -114,21 +114,48 @@
     margin-top: auto;
     width: 14px;
   }
+
+  cr-icon-button {
+    --cr-icon-button-fill-color: var(--color-new-tab-page-primary-foreground);
+    --cr-icon-button-hover-background-color:
+            var(--color-new-tab-page-active-background);
+    display: none;
+    justify-content: flex-end;
+    margin-left: auto;
+    margin-right: 16px;
+  }
+
+  .tab:hover cr-icon-button {
+      display: block;
+  }
+
+  #see-more-button-container {
+    color: var(--color-new-tab-page-link);
+    font-size: 13px;
+    line-height: 20px;
+    margin: 0 0 8px 8px;
+    padding: 8px 16px 8px 16px;
+    width: fit-content;
+  }
+
+  #see-more-button {
+    text-decoration: none;
+  }
 </style>
 <ntp-module-header-v2
     id="moduleHeaderElementV2"
-    header-text="[[i18n('modulesTabResumptionTitle')]]"
+    header-text="[[i18n('modulesMostRelevantTabResumptionTitle')]]"
     menu-item-groups="[[getMenuItemGroups_()]]"
     more-actions-text="[[i18nRecursive('',
                                   'modulesMoreActions',
                                   'modulesTabResumptionTitle')]]"
     on-disable-button-click="onDisableButtonClick_"
-    on-dismiss-button-click="onDismissButtonClick_"
+    on-dismiss-button-click="onDismissAllButtonClick_"
     on-info-button-click="onInfoButtonClick_"
     on-menu-button-click="onMenuButtonClick_">
 </ntp-module-header-v2>
 <div id="tabs">
-  <template id="tabRepeat" is="dom-repeat" items="[[tabs]]">
+  <template id="tabRepeat" is="dom-repeat" items="[[getVisibleTabs_()]]">
     <a class="tab" href="[[item.url.url]]" on-click="onTabClick_">
       <div id="hover-layer"></div>
       <page-favicon class="icon" url="[[item.url]]"
@@ -140,20 +167,31 @@
           <iron-icon class="tab-device" hidden="[[!shouldShowDeviceIcon_]]"
                      icon="[[computeIcon_(item)]]"></iron-icon>
           <div class="tab-domain">[[computeDomain_(item)]]</div>
-          <span class="dot" hidden="[[shouldShowDeviceIcon_]]">
+          <span class="dot" hidden="[[!computeShouldShowDeviceName_(item)]]">
             &nbsp&#8226&nbsp</span>
-          <div class="tab-device" hidden="[[shouldShowDeviceIcon_]]">
+          <div class="tab-device"
+               hidden="[[!computeShouldShowDeviceName_(item)]]">
             [[computeDeviceName_(item)]]
           </div>
-          <span class="dot" hidden="[[!shouldShowReason_]]">
+          <span class="dot">
             &nbsp&#8226&nbsp</span>
-          <span class="tab-reason" hidden="[[!shouldShowReason_]]">
-            </span>
+          <span class="tab-reason">
+            [[item.relativeTimeText]]
+          </span>
         </div>
       </div>
+      <cr-icon-button iron-icon="modules:done" on-click="onDismissButtonClick_"
+                      title="$i18n{modulesHistoryDoneButton}">
+      </cr-icon-button>
     </a>
   </template>
 </div>
+<div id="see-more-button-container">
+  <a id="see-more-button" href="chrome://history/syncedTabs">
+    $i18n{modulesMostRelevantTabResumptionSeeMore}
+  </a>
+</div>
+
 <cr-lazy-render id="infoDialogRender">
   <template>
     <ntp-info-dialog

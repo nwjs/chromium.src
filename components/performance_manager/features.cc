@@ -15,13 +15,9 @@
 
 namespace performance_manager::features {
 
-BASE_FEATURE(kRunOnMainThread,
-             "RunPerformanceManagerOnMainThread",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kRunOnMainThreadSync,
              "RunPerformanceManagerOnMainThreadSync",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kBackgroundTabLoadingFromPerformanceManager,
@@ -85,6 +81,14 @@ BASE_FEATURE(kPerformanceIntervention,
              "PerformanceIntervention",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kPerformanceInterventionUI,
+             "PerformanceInterventionUI",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<base::TimeDelta> kInterventionButtonTimeout{
+    &kPerformanceInterventionUI, "intervention_button_timeout",
+    base::Seconds(10)};
+
 const base::FeatureParam<base::TimeDelta> kCPUTimeOverThreshold{
     &kPerformanceIntervention, "cpu_time_over_threshold", base::Seconds(60)};
 const base::FeatureParam<base::TimeDelta> kCPUSampleFrequency{
@@ -128,8 +132,8 @@ BASE_FEATURE(kPMProcessPriorityPolicy,
              "PMProcessPriorityPolicy",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::FeatureParam<bool> kBoostChildFrames{&kPMProcessPriorityPolicy,
-                                                 "boost_child_frames", true};
+const base::FeatureParam<bool> kInheritParentPriority{
+    &kPMProcessPriorityPolicy, "inherit_parent_priority", true};
 
 const base::FeatureParam<bool> kDownvoteAdFrames{&kPMProcessPriorityPolicy,
                                                  "downvote_ad_frames", false};
@@ -156,6 +160,17 @@ const base::FeatureParam<base::TimeDelta> kDelayBeforeLogging{
 
 const base::FeatureParam<int> kThresholdChromeCPUPercent{
     &kCPUInterventionEvaluationLogging, "threshold_chrome_cpu_percent", 25};
+
+BASE_FEATURE(kCPUMeasurementInFreezingPolicy,
+             "CPUMeasurementInFreezingPolicy",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Note: This param is associated with `kCPUMeasurementInFreezingPolicy` instead
+// of `kFreezingOnBatterySaver`, to allow retrieving the value without
+// activating the `kFreezingOnBatterySaver` feature.
+const base::FeatureParam<double> kFreezingOnBatterySaverHighCPUProportion{
+    &kCPUMeasurementInFreezingPolicy,
+    "freezing_on_battery_saver_high_cpu_proportion", 0.25};
 
 BASE_FEATURE(kFreezingOnBatterySaver,
              "FreezingOnBatterySaver",

@@ -143,7 +143,7 @@ void URLDataManagerBackend::UpdateWebUIDataSource(
     const base::Value::Dict& update) {
   auto it = data_sources_.find(source_name);
   if (it == data_sources_.end() || !it->second->IsWebUIDataSourceImpl()) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
   static_cast<WebUIDataSourceImpl*>(it->second.get())
@@ -276,7 +276,7 @@ bool URLDataManagerBackend::CheckURLIsValid(const GURL& url) {
           SchemeIsInSchemes(url.scheme(), additional_schemes)));
 
   if (!url.is_valid()) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return false;
   }
 

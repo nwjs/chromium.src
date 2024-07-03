@@ -709,7 +709,7 @@ std::u16string ContentAnalysisDialog::GetCancelButtonText() const {
 
   switch (dialog_state_) {
     case State::SUCCESS:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       [[fallthrough]];
     case State::PENDING:
       text_id = IDS_DEEP_SCANNING_DIALOG_CANCEL_UPLOAD_BUTTON;
@@ -757,7 +757,7 @@ ui::ColorId ContentAnalysisDialog::GetSideImageBackgroundColor() const {
 
   switch (dialog_state_) {
     case State::PENDING:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       [[fallthrough]];
     case State::SUCCESS:
       return ui::kColorAccent;
@@ -1024,6 +1024,9 @@ void ContentAnalysisDialog::UpdateDialogMessage(std::u16string new_message) {
     message_->SetText(new_message);
     AddLinksToDialogMessage();
     message_->GetViewAccessibility().AnnounceText(std::move(new_message));
+    if (has_learn_more_url()) {
+      AddLearnMoreLinkToDialog();
+    }
   } else {
     message_->SetText(new_message);
     message_->GetViewAccessibility().AnnounceText(std::move(new_message));

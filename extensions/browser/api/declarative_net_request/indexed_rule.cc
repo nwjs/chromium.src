@@ -408,7 +408,7 @@ uint8_t GetActionTypePriority(dnr_api::RuleActionType action_type) {
     case dnr_api::RuleActionType::kNone:
       break;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return 0;
 }
 
@@ -763,8 +763,7 @@ ParseResult IndexedRule::CreateIndexedRule(dnr_api::Rule parsed_rule,
     }
   }
 
-  if (base::FeatureList::IsEnabled(
-          extensions_features::kDeclarativeNetRequestResponseHeaderMatching)) {
+  if (IsResponseHeaderMatchingEnabled()) {
     if (parsed_rule.condition.response_headers) {
       if (parsed_rule.condition.response_headers->empty()) {
         return ParseResult::ERROR_EMPTY_RESPONSE_HEADER_MATCHING_LIST;

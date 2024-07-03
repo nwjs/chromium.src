@@ -226,12 +226,12 @@ inline unsigned CSSSelector::SpecificityForOneSelector() const {
       return kTagSpecificity;
     case kInvalidList:
     case kPagePseudoClass:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return 0;
     case kUnknown:
       return 0;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return 0;
 }
 
@@ -255,7 +255,7 @@ unsigned CSSSelector::SpecificityForPage() const {
             s += 1;
             break;
           default:
-            NOTREACHED();
+            NOTREACHED_IN_MIGRATION();
         }
         break;
       default:
@@ -285,8 +285,8 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
       return kPseudoIdScrollbar;
     case kPseudoScrollMarker:
       return kPseudoIdScrollMarker;
-    case kPseudoScrollMarkers:
-      return kPseudoIdScrollMarkers;
+    case kPseudoScrollMarkerGroup:
+      return kPseudoIdScrollMarkerGroup;
     case kPseudoScrollbarButton:
       return kPseudoIdScrollbarButton;
     case kPseudoScrollbarCorner:
@@ -438,7 +438,7 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
       return kPseudoIdNone;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return kPseudoIdNone;
 }
 
@@ -561,7 +561,7 @@ const static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"root", CSSSelector::kPseudoRoot},
     {"scope", CSSSelector::kPseudoScope},
     {"scroll-marker", CSSSelector::kPseudoScrollMarker},
-    {"scroll-markers", CSSSelector::kPseudoScrollMarkers},
+    {"scroll-marker-group", CSSSelector::kPseudoScrollMarkerGroup},
     {"search-text", CSSSelector::kPseudoSearchText},
     {"select-fallback-button", CSSSelector::kPseudoSelectFallbackButton},
     {"select-fallback-button-icon",
@@ -673,7 +673,7 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
   }
 
   if ((match->type == CSSSelector::kPseudoScrollMarker ||
-       match->type == CSSSelector::kPseudoScrollMarkers) &&
+       match->type == CSSSelector::kPseudoScrollMarkerGroup) &&
       !RuntimeEnabledFeatures::CSSPseudoScrollMarkersEnabled()) {
     return CSSSelector::kPseudoUnknown;
   }
@@ -786,7 +786,7 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoScrollbarTrack:
     case kPseudoScrollbarTrackPiece:
     case kPseudoScrollMarker:
-    case kPseudoScrollMarkers:
+    case kPseudoScrollMarkerGroup:
     case kPseudoSelectFallbackButton:
     case kPseudoSelectFallbackButtonIcon:
     case kPseudoSelectFallbackButtonText:
@@ -1076,7 +1076,7 @@ bool CSSSelector::SerializeSimpleSelector(StringBuilder& builder) const {
         builder.Append('&');
         break;
       case kPseudoRelativeAnchor:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         return false;
       case kPseudoActiveViewTransitionType: {
         CHECK(!IdentList().empty());
@@ -1259,7 +1259,7 @@ String CSSSelector::SelectorText() const {
         break;
       case kSubSelector:
       case kScopeActivation:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
       case kShadowPart:
       case kUAShadow:
@@ -1276,7 +1276,7 @@ String CSSSelector::SelectorText() const {
         return "~ " + builder.ReleaseString() + result;
     }
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return String();
 }
 
@@ -1342,7 +1342,7 @@ static bool ValidateSubSelector(const CSSSelector* selector) {
     case CSSSelector::kPseudoClass:
       break;
     case CSSSelector::kInvalidList:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   switch (selector->GetPseudoType()) {
@@ -1668,7 +1668,7 @@ CSSSelector::RelationType ConvertRelationToRelative(
     case CSSSelector::kIndirectAdjacent:
       return CSSSelector::kRelativeIndirectAdjacent;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return {};
   }
 }

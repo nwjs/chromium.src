@@ -11,6 +11,7 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
@@ -45,7 +46,10 @@ class Profile;
 class GPMEnclaveController : AuthenticatorRequestDialogModel::Observer,
                              EnclaveManager::Observer {
  public:
+  static constexpr base::TimeDelta kDownloadAccountStateTimeout =
+      base::Seconds(1);
   struct DownloadedAccountState;
+  enum class EnclaveUserVerificationMethod;
 
   enum class AccountState {
     // There isn't a primary account, or enclave support is disabled.
@@ -236,6 +240,9 @@ class GPMEnclaveController : AuthenticatorRequestDialogModel::Observer,
   bool pin_is_arbitrary_ = false;
   std::optional<std::string> pin_;
   std::vector<sync_pb::WebauthnCredentialSpecifics> creds_;
+
+  // The user verification that will be performed for this request.
+  std::optional<EnclaveUserVerificationMethod> uv_method_;
 
   std::optional<bool> is_active_ = false;
 

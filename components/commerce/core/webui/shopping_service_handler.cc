@@ -191,10 +191,55 @@ shopping_service::mojom::ProductSpecificationsPtr ProductSpecsToMojo(
     product_ptr->product_cluster_id = product.product_cluster_id;
     product_ptr->title = product.title;
     product_ptr->image_url = product.image_url;
-    product_ptr->summary = product.summary;
+
+    // Top-level product summaries.
+    for (const auto& summary : product.summary) {
+      auto desc_text_ptr =
+          shopping_service::mojom::ProductSpecificationsDescriptionText::New();
+      desc_text_ptr->text = summary.text;
+      desc_text_ptr->url = summary.url;
+      product_ptr->summary.push_back(std::move(desc_text_ptr));
+    }
 
     for (const auto& [dimen_id, value] : product.product_dimension_values) {
-      product_ptr->product_dimension_values[dimen_id] = value;
+      auto value_ptr =
+          shopping_service::mojom::ProductSpecificationsValue::New();
+
+      // Summaries for the dimension as a whole.
+      for (const auto& summary : value.summary) {
+        auto desc_text_ptr = shopping_service::mojom::
+            ProductSpecificationsDescriptionText::New();
+        desc_text_ptr->text = summary.text;
+        desc_text_ptr->url = summary.url;
+        value_ptr->summary.push_back(std::move(desc_text_ptr));
+      }
+
+      for (const auto& description : value.descriptions) {
+        auto desc_ptr =
+            shopping_service::mojom::ProductSpecificationsDescription::New();
+        desc_ptr->label = description.label;
+        desc_ptr->alt_text = description.alt_text;
+
+        for (const auto& option : description.options) {
+          auto option_ptr =
+              shopping_service::mojom::ProductSpecificationsOption::New();
+
+          for (const auto& description_text : option.descriptions) {
+            auto desc_text_ptr = shopping_service::mojom::
+                ProductSpecificationsDescriptionText::New();
+            desc_text_ptr->text = description_text.text;
+            desc_text_ptr->url = description_text.url;
+            option_ptr->descriptions.push_back(std::move(desc_text_ptr));
+          }
+
+          desc_ptr->options.push_back(std::move(option_ptr));
+        }
+
+        value_ptr->specification_descriptions.push_back(std::move(desc_ptr));
+      }
+
+      product_ptr->product_dimension_values.insert_or_assign(
+          dimen_id, std::move(value_ptr));
     }
 
     specs_ptr->products.push_back(std::move(product_ptr));
@@ -240,6 +285,12 @@ ShoppingServiceHandler::ShoppingServiceHandler(
       delegate_(std::move(delegate)) {
   scoped_subscriptions_observation_.Observe(shopping_service_);
   scoped_bookmark_model_observation_.Observe(bookmark_model_);
+  if (shopping_service_ &&
+      shopping_service_->GetProductSpecificationsService()) {
+    scoped_product_spec_observer_.Observe(
+        shopping_service_->GetProductSpecificationsService());
+  }
+
   // It is safe to schedule updates and observe bookmarks. If the feature is
   // disabled, no new information will be fetched or provided to the frontend.
   shopping_service_->ScheduleSavedProductUpdate();
@@ -686,6 +737,12 @@ void ShoppingServiceHandler::OpenUrlInNewTab(const GURL& url) {
   }
 }
 
+void ShoppingServiceHandler::SwitchToOrOpenTab(const GURL& url) {
+  if (delegate_) {
+    delegate_->SwitchToOrOpenTab(url);
+  }
+}
+
 void ShoppingServiceHandler::ShowFeedback() {
   if (delegate_) {
     delegate_->ShowFeedback();
@@ -755,6 +812,54 @@ void ShoppingServiceHandler::DeleteProductSpecificationsSet(
 
   shopping_service_->GetProductSpecificationsService()
       ->DeleteProductSpecificationsSet(uuid.AsLowercaseString());
+}
+
+void ShoppingServiceHandler::SetNameForProductSpecificationsSet(
+    const base::Uuid& uuid,
+    const std::string& name,
+    SetNameForProductSpecificationsSetCallback callback) {
+  if (!shopping_service_ ||
+      !shopping_service_->GetProductSpecificationsService()) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
+  const auto& set =
+      shopping_service_->GetProductSpecificationsService()->SetName(uuid, name);
+  std::move(callback).Run(ProductSpecsSetToMojo(set.value()));
+}
+
+void ShoppingServiceHandler::SetUrlsForProductSpecificationsSet(
+    const base::Uuid& uuid,
+    const std::vector<GURL>& urls,
+    SetUrlsForProductSpecificationsSetCallback callback) {
+  if (!shopping_service_ ||
+      !shopping_service_->GetProductSpecificationsService()) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
+  // If an url is valid, but longer than mojo can handle, mojo will replace the
+  // url with `GURL().` To avoid passing ShoppingService empty urls, we filter
+  // them out before passing the list to `SetUrls.`
+  std::vector<GURL> valid_urls;
+  for (const auto& url : urls) {
+    if (url.is_valid()) {
+      valid_urls.push_back(url);
+    }
+  }
+  if (valid_urls.size() < 1) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
+  const auto& set =
+      shopping_service_->GetProductSpecificationsService()->SetUrls(uuid,
+                                                                    valid_urls);
+  if (set.has_value()) {
+    std::move(callback).Run(ProductSpecsSetToMojo(set.value()));
+  } else {
+    std::move(callback).Run(nullptr);
+  }
 }
 
 void ShoppingServiceHandler::OnProductSpecificationsSetAdded(

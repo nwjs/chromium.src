@@ -10,7 +10,7 @@
 .card {
   background: var(--cr-card-background-color);
   border-radius: var(--cr-card-border-radius);
-  box-shadow: var(--cr-elevation-3);
+  box-shadow: var(--cr-card-shadow);
 }
 
 h2 {
@@ -38,7 +38,7 @@ hr {
   border: 0;
   height: 1px;
   background: var(--cr-fallback-color-divider);
-  margin: 8px 24px;
+  margin: 0px 24px;
 }
 
 hr:last-of-type {
@@ -46,13 +46,24 @@ hr:last-of-type {
 }
 
 cr-url-list-item {
-  --cr-url-list-item-padding: 6px 24px;
+  --cr-url-list-item-height: auto;
+  --cr-url-list-item-padding: 14px 24px;
+}
+
+cr-url-list-item:has(.source-passage:not([hidden])) {
+  --cr-url-list-item-padding: 14px 24px 6px;
+}
+
+hr:has(+ cr-url-list-item:hover),
+cr-url-list-item:hover + hr {
+  opacity: 0;
 }
 
 .footer {
   display: flex;
   gap: 8px;
   padding: 16px 24px 24px;
+  color: var(--cr-secondary-text-color);
 }
 
 a {
@@ -64,7 +75,7 @@ a {
   font-size: 11px;
   font-style: italic;
   line-height: 16px;
-  padding: var(--cr-url-list-item-padding);
+  padding: 6px 24px 14px;
 }
 
 .source-passage-line {
@@ -99,7 +110,7 @@ a {
         <cr-url-list-item url="[[item.url.url]]" title="[[item.title]]"
             description="[[item.urlForDisplay]]"
             on-click="onResultClick_" on-auxclick="onResultClick_"
-            as-anchor always-show-suffix>
+            as-anchor as-anchor-target="_blank" always-show-suffix>
           <span slot="suffix">[[item.relativeTime]]</span>
           <cr-icon-button slot="suffix" iron-icon="cr:more-vert"
               on-click="onMoreActionsClick_">
@@ -126,14 +137,14 @@ a {
 
 <cr-lazy-render id="sharedMenu">
   <template>
-    <cr-action-menu role-description="$i18n{actionMenuDescription}">
+    <cr-action-menu role-description="[[i18n('actionMenuDescription')]]">
       <button id="moreFromSiteOption" class="dropdown-item"
           on-click="onMoreFromSiteClick_">
-        $i18n{moreFromSite}
+        [[i18n('moreFromSite')]]
       </button>
       <button id="removeFromHistoryOption"
           class="dropdown-item" on-click="onRemoveFromHistoryClick_">
-        $i18n{removeFromHistory}
+        [[i18n('removeFromHistory')]]
       </button>
     </cr-action-menu>
   </template>

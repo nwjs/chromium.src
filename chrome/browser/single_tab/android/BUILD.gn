@@ -43,11 +43,9 @@ android_library("java") {
 android_resources("java_resources") {
   sources = [
     "java/res/drawable/favicon_background.xml",
-    "java/res/drawable/single_tab_background.xml",
     "java/res/drawable/single_tab_card_ripple.xml",
     "java/res/drawable/single_tab_thumbnail_background.xml",
     "java/res/layout/single_tab_module_layout.xml",
-    "java/res/layout/single_tab_view_layout.xml",
 
     #"java/res/values/colors.xml",
     "java/res/values/dimens.xml",
@@ -63,13 +61,13 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/single_tab/SingleTabModuleViewBinderUnitTest.java",
     "junit/src/org/chromium/chrome/browser/single_tab/SingleTabSwitcherMediatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/single_tab/SingleTabSwitcherOnNtpMediatorUnitTest.java",
-    "junit/src/org/chromium/chrome/browser/single_tab/SingleTabViewBinderUnitTest.java",
   ]
 
   deps = [
     ":java",
     ":java_resources",
     "//base:base_java",
+    "//base:base_java_test_support",
     "//base:base_junit_test_support",
     "//chrome/browser/android/lifecycle:java",
     "//chrome/browser/browser_controls/android:java",
@@ -80,7 +78,9 @@ robolectric_library("junit") {
     "//chrome/browser/util:java",
     "//chrome/test/android:chrome_java_unit_test_support",
     "//components/browser_ui/widget/android:java",
+    "//components/embedder_support/android:util_java",
     "//third_party/androidx:androidx_test_runner_java",
+    "//third_party/jni_zero:jni_zero_java",
     "//third_party/junit:junit",
     "//third_party/mockito:mockito_java",
     "//ui/android:ui_java",

@@ -22,6 +22,13 @@ type OcrUntrustedPageInterface =
 type RequestBitmapResponse = import('./media_app_ui_untrusted.mojom-webui.js')
                                  .OcrUntrustedPage_RequestBitmap_ResponseParams;
 
+type MahiUntrustedPageInterface =
+    import('./media_app_ui_untrusted.mojom-webui.js')
+        .MahiUntrustedPageInterface;
+type GetPdfContentResponse =
+    import('./media_app_ui_untrusted.mojom-webui.js')
+        .MahiUntrustedPage_GetPdfContent_ResponseParams;
+
 /**
  * Wraps an HTML File object (or a mock, or media loaded through another means).
  */
@@ -201,6 +208,15 @@ declare interface ClientApiDelegate {
    */
   notifyCurrentFile(name?: string, type?: string): void;
   /**
+   * Notify MediaApp that a file has been opened.
+   */
+  notifyFileOpened(name?: string, type?: string): void;
+  /**
+   * Notify the app that the current file's name has been changed by "Rename"
+   * or "Saved as".
+   */
+  notifyFilenameChanged(name: string): void;
+  /**
    * Attempts to extract a JPEG "preview" from a RAW image file. Throws on any
    * failure. Note this is typically a full-sized preview, not a thumbnail.
    * @return A Blob-backed File with type: image/jpeg.
@@ -247,12 +263,30 @@ declare interface ClientApiDelegate {
    *     is more zoomed in.
    */
   viewportUpdated(viewportBox: RectF, scaleFactor: number): void;
+  /**
+   * Called when the media app finishes loading a PDF file, to notify Mahi about
+   * the refresh availability.
+   */
+  onPdfLoaded(): void;
+  /**
+   * Called when the media app shows a context menu on PDF surface, to notify
+   * Mahi to show its widget card accordingly.
+   * @param anchor The coordinate and size of the context menu to help Mahi
+   *     align the widget.
+   */
+  onPdfContextMenuShow(anchor: RectF): void;
+  /**
+   * Called when the media app hides its context menu from PDF surface, to
+   * notify Mahi to hide its widget card accordingly.
+   */
+  onPdfContextMenuHide(): void;
 }
 
 /**
  * The client Api for interacting with the media app instance.
  */
-declare interface ClientApi extends OcrUntrustedPageInterface {
+declare interface ClientApi extends OcrUntrustedPageInterface,
+                                    MahiUntrustedPageInterface {
   /**
    * Looks up handler(s) and loads media via FileList.
    */
@@ -270,6 +304,15 @@ declare interface ClientApi extends OcrUntrustedPageInterface {
    * If a document is currently loaded, scrolls and zooms to the given viewport.
    */
   setViewport(viewport: RectF): Promise<void>;
+  /**
+   * Gets the text content from the PDF file, truncated if the byte size exceeds
+   * `byteSizeLimit`.
+   */
+  getPdfContent(byteSizeLimit: number): Promise<GetPdfContentResponse>;
+  /**
+   * Hides the context menu from the PDF surface, if currently shown.
+   */
+  hidePdfContextMenu(): Promise<void>;
 }
 
 /**

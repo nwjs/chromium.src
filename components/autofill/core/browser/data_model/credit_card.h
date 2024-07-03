@@ -26,20 +26,6 @@ namespace autofill {
 inline constexpr char16_t kMidlineEllipsisDot[] = u"\u2022\u2060\u2006\u2060";
 inline constexpr char16_t kMidlineEllipsisPlainDot = u'\u2022';
 
-// The string identifiers for credit card icon resources.
-inline constexpr char kAmericanExpressCard[] = "americanExpressCC";
-inline constexpr char kDinersCard[] = "dinersCC";
-inline constexpr char kDiscoverCard[] = "discoverCC";
-inline constexpr char kEloCard[] = "eloCC";
-inline constexpr char kGenericCard[] = "genericCC";
-inline constexpr char kJCBCard[] = "jcbCC";
-inline constexpr char kMasterCard[] = "masterCardCC";
-inline constexpr char kMirCard[] = "mirCC";
-inline constexpr char kTroyCard[] = "troyCC";
-inline constexpr char kUnionPay[] = "unionPayCC";
-inline constexpr char kVerveCard[] = "verveCC";
-inline constexpr char kVisaCard[] = "visaCC";
-
 struct AutofillMetadata;
 
 namespace internal {
@@ -158,7 +144,9 @@ class CreditCard : public AutofillDataModel {
   std::string origin() const { return origin_; }
   void set_origin(const std::string& origin) { origin_ = origin; }
 
-  // Returns a version of |number| that has any separator characters removed.
+  // TODO(b/281812289): Remove this static method when all dependencies switch
+  // to using credit_card_number_validation.h instead of relying on
+  // credit_card.h.
   static const std::u16string StripSeparators(const std::u16string& number);
 
   // The user-visible issuer network of the card, e.g. 'Mastercard'.
@@ -170,14 +158,9 @@ class CreditCard : public AutofillDataModel {
   // Converts icon_str to Suggestion::Icon and calls the method above.
   static int IconResourceId(std::string_view icon_str);
 
-  // Returns the internal representation of card issuer network corresponding to
-  // the given |number|.  The card issuer network is determined purely according
-  // to the Issuer Identification Number (IIN), a.k.a. the "Bank Identification
-  // Number (BIN)", which is parsed from the relevant prefix of the |number|.
-  // This function performs no additional validation checks on the |number|.
-  // Hence, the returned issuer network for both the valid card
-  // "4111-1111-1111-1111" and the invalid card "4garbage" will be Visa, which
-  // has an IIN of 4.
+  // TODO(b/281812289): Remove this static method when all dependencies switch
+  // to using credit_card_number_validation.h instead of relying on
+  // credit_card.h.
   static const char* GetCardNetwork(const std::u16string& number);
 
   // Returns whether the nickname is valid. Note that empty nicknames are valid

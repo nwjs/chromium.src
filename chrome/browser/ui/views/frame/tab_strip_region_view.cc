@@ -9,7 +9,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/frame/window_frame_util.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -97,7 +97,7 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
   SetLayoutManager(std::make_unique<views::FlexLayout>())
       ->SetOrientation(views::LayoutOrientation::kHorizontal);
 
-  SetAccessibleRole(ax::mojom::Role::kTabList);
+  GetViewAccessibility().SetRole(ax::mojom::Role::kTabList);
 
   tab_strip_ = tab_strip.get();
   const Browser* browser = tab_strip_->GetBrowser();
@@ -188,7 +188,7 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
 
     new_tab_button_->SetTooltipText(
         l10n_util::GetStringUTF16(IDS_TOOLTIP_NEW_TAB));
-    new_tab_button_->SetAccessibleName(
+    new_tab_button_->GetViewAccessibility().SetName(
         l10n_util::GetStringUTF16(IDS_ACCNAME_NEWTAB));
 
     // TODO(crbug.com/40118868): Revisit the macro expression once build flag
@@ -211,24 +211,15 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
 
   SetProperty(views::kElementIdentifierKey, kTabStripRegionElementId);
 
-  if (browser && tab_search_container &&
-      !WindowFrameUtil::IsWindowsTabSearchCaptionButtonEnabled(browser) &&
-      !render_tab_search_before_tab_strip_) {
+  if (browser && tab_search_container && !render_tab_search_before_tab_strip_) {
     if (product_specifications_button) {
       product_specifications_button_ =
           AddChildView(std::move(product_specifications_button));
     }
     tab_search_container_ = AddChildView(std::move(tab_search_container));
-    if (features::IsChromeRefresh2023()) {
-      tab_search_container_->SetProperty(
-          views::kMarginsKey,
-          gfx::Insets::TLBR(0, 0, 0, GetLayoutConstant(TAB_STRIP_PADDING)));
-    } else {
-      const gfx::Insets control_padding = gfx::Insets::TLBR(
-          0, 0, 0, GetLayoutConstant(TABSTRIP_REGION_VIEW_CONTROL_PADDING));
-
-      tab_search_container_->SetProperty(views::kMarginsKey, control_padding);
-    }
+    tab_search_container_->SetProperty(
+        views::kMarginsKey,
+        gfx::Insets::TLBR(0, 0, 0, GetLayoutConstant(TAB_STRIP_PADDING)));
   }
 
   UpdateTabStripMargin();

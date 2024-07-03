@@ -388,6 +388,14 @@ class PLATFORM_EXPORT ResourceFetcher
     defer_unused_preload_preloaded_reason_for_testing_ = reason;
   }
 
+  using LcppDeferUnusedPreloadExcludedResourceType =
+      features::LcppDeferUnusedPreloadExcludedResourceType;
+  void SetDeferUnusedPreloadExcludedResourceType(
+      LcppDeferUnusedPreloadExcludedResourceType excluded_resource_type) {
+    defer_unused_preload_excluded_resource_type_for_testing_ =
+        excluded_resource_type;
+  }
+
  private:
   friend class ResourceCacheValidationSuppressor;
   enum class StopFetchingTarget {
@@ -589,8 +597,11 @@ class PLATFORM_EXPORT ResourceFetcher
   void ScheduleLoadingPotentiallyUnusedPreload(Resource*);
   void StartLoadAndFinishIfFailed(Resource*,
                                   bool is_potentially_unused_preload);
+  void ScheduleStartLoadAndFinishIfFailed(Resource* resource,
+                                          bool is_potentially_unused_preload);
 
-  bool IsPotentiallyUnusedPreload(const FetchParameters& params) const;
+  bool IsPotentiallyUnusedPreload(ResourceType type,
+                                  const FetchParameters& params) const;
 
   Member<DetachableResourceFetcherProperties> properties_;
   Member<ResourceLoadObserver> resource_load_observer_;
@@ -704,6 +715,8 @@ class PLATFORM_EXPORT ResourceFetcher
   bool defer_unused_preload_enabled_for_testing_ = false;
   LcppDeferUnusedPreloadPreloadedReason
       defer_unused_preload_preloaded_reason_for_testing_;
+  features::LcppDeferUnusedPreloadExcludedResourceType
+      defer_unused_preload_excluded_resource_type_for_testing_;
 };
 
 class ResourceCacheValidationSuppressor {

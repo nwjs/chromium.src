@@ -59,28 +59,26 @@ PlusAddressServiceFactory::BuildServiceInstanceFor(
       ChromeBrowserState::FromBrowserState(context);
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForBrowserState(browser_state);
+  affiliations::AffiliationService* affiliation_service =
+      IOSChromeAffiliationServiceFactory::GetForBrowserState(context);
 
   std::unique_ptr<plus_addresses::PlusAddressService> plus_address_service =
       std::make_unique<plus_addresses::PlusAddressService>(
-          identity_manager, browser_state->GetPrefs(),
+          identity_manager,
           std::make_unique<plus_addresses::PlusAddressHttpClientImpl>(
               identity_manager, browser_state->GetSharedURLLoaderFactory()),
           ios::WebDataServiceFactory::GetPlusAddressWebDataForBrowserState(
-              browser_state, ServiceAccessType::EXPLICIT_ACCESS));
+              browser_state, ServiceAccessType::EXPLICIT_ACCESS),
+          affiliation_service);
 
   if (base::FeatureList::IsEnabled(
           plus_addresses::features::kPlusAddressAffiliations)) {
-    IOSChromeAffiliationServiceFactory::GetForBrowserState(context)
-        ->RegisterSource(std::make_unique<
-                         plus_addresses::PlusAddressAffiliationSourceAdapter>(
+    affiliation_service->RegisterSource(
+        std::make_unique<plus_addresses::PlusAddressAffiliationSourceAdapter>(
             plus_address_service.get()));
   }
 
   return plus_address_service;
-}
-
-bool PlusAddressServiceFactory::ServiceIsCreatedWithBrowserState() const {
-  return true;
 }
 
 bool PlusAddressServiceFactory::ServiceIsNULLWhileTesting() const {

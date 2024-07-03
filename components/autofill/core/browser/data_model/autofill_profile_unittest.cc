@@ -13,6 +13,7 @@
 #include "base/format_macros.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
@@ -741,6 +742,32 @@ TEST(AutofillProfileTest, CreateInferredLabelsFlattensMultiLineValues) {
   EXPECT_EQ(u"88 Nowhere Ave., Apt. 42", labels[0]);
 }
 
+// Test that `ADDRESS_HOME_LINE2` is used as a differentiating label if
+// necessary.
+TEST(AutofillProfileTest, CreateInferredLabelsDifferentiateByAddressLine2) {
+  base::test::ScopedFeatureList feature_list(
+      features::kAutofillGranularFillingAvailable);
+  std::vector<std::unique_ptr<AutofillProfile>> profiles;
+  profiles.push_back(std::make_unique<AutofillProfile>(
+      i18n_model_definition::kLegacyHierarchyCountryCode));
+  test::SetProfileInfo(profiles[0].get(), "John", "", "Doe", "", "",
+                       "88 Nowhere Ave.", "Apt. 42", "", "", "", "", "");
+  profiles.push_back(std::make_unique<AutofillProfile>(
+      i18n_model_definition::kLegacyHierarchyCountryCode));
+  test::SetProfileInfo(profiles[1].get(), "John", "", "Doe", "", "",
+                       "88 Nowhere Ave.", "Apt. 43", "", "", "", "", "");
+
+  std::vector<std::u16string> labels;
+  AutofillProfile::CreateInferredLabels(
+      ToRawPointerVector(profiles), /*suggested_fields=*/std::nullopt,
+      /*triggering_field_type=*/NAME_FULL, {NAME_FULL},
+      /*minimal_fields_shown=*/1, "en-US", &labels,
+      /*use_improved_labels_order=*/true);
+  ASSERT_EQ(2U, labels.size());
+  EXPECT_EQ(u"88 Nowhere Ave., Apt. 42", labels[0]);
+  EXPECT_EQ(u"88 Nowhere Ave., Apt. 43", labels[1]);
+}
+
 TEST(AutofillProfileTest, IsSubsetOf) {
   AutofillProfileComparator comparator("en-US");
   const AutofillProfile standard_profile = test::StandardProfile();
@@ -1185,9 +1212,6 @@ TEST(AutofillProfileTest, MergeDataFrom_SameProfile) {
 
 // Tests that when merging two profiles, the token quality is merged.
 TEST(AutofillProfileTest, MergeDataFrom_TokenQuality) {
-  base::test::ScopedFeatureList feature{
-      features::kAutofillTrackProfileTokenQuality};
-
   AutofillProfile a(i18n_model_definition::kLegacyHierarchyCountryCode);
   AutofillProfile b((i18n_model_definition::kLegacyHierarchyCountryCode));
   // Set the same state for both profiles. Expect that a's quality will be kept.
@@ -1680,6 +1704,25 @@ TEST(AutofillProfileTest, GetStorableTypeOf) {
   // Test that stored types are returned as-is.
   EXPECT_EQ(profile.GetStorableTypeOf(ADDRESS_HOME_STATE), ADDRESS_HOME_STATE);
   EXPECT_EQ(profile.GetStorableTypeOf(COMPANY_NAME), COMPANY_NAME);
+}
+
+// Tests that `AutofillProfile::RecordUseAndLog()` logs days until first usage.
+TEST(AutofillProfileTest, EmitsDaysUntilFirstUsageProfile) {
+  TestAutofillClock clock;
+  const size_t expect_number_of_days = 237;
+  AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
+  clock.Advance(base::Days(expect_number_of_days));
+
+  base::HistogramTester histogram_tester;
+  profile.RecordAndLogUse();
+  histogram_tester.ExpectUniqueSample("Autofill.DaysUntilFirstUsage.Profile",
+                                      expect_number_of_days, 1);
+
+  profile.RecordAndLogUse();
+  EXPECT_EQ(
+      histogram_tester.GetAllSamples("Autofill.DaysUntilFirstUsage.Profile")
+          .size(),
+      1UL);
 }
 
 enum Expectation { GREATER, LESS };

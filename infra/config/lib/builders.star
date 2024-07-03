@@ -34,7 +34,7 @@ load("./bootstrap.star", "register_bootstrap")
 load("./builder_config.star", "register_builder_config")
 load("./builder_health_indicators.star", "register_health_spec")
 load("./recipe_experiments.star", "register_recipe_experiments_ref")
-load("./sheriff_rotations.star", "register_sheriffed_builder")
+load("./sheriff_rotations.star", "register_gardener_builder")
 load("./description_exceptions.star", "exempted_from_description_builders")
 
 ################################################################################
@@ -95,14 +95,14 @@ os = struct(
     WINDOWS_ANY = os_enum(os_category.WINDOWS, "Windows"),
 )
 
-reclient = struct(
-    instance = struct(
+siso = struct(
+    project = struct(
         DEFAULT_TRUSTED = "rbe-chromium-trusted",
         TEST_TRUSTED = "rbe-chromium-trusted-test",
         DEFAULT_UNTRUSTED = "rbe-chromium-untrusted",
         TEST_UNTRUSTED = "rbe-chromium-untrusted-test",
     ),
-    jobs = struct(
+    remote_jobs = struct(
         DEFAULT = 250,
         LOW_JOBS_FOR_CI = 80,
         HIGH_JOBS_FOR_CI = 500,
@@ -118,10 +118,10 @@ def _rotation(name):
         value = [name],
     )
 
-# Sheriff rotations that a builder can be added to (only takes effect on trunk)
+# Gardener rotations that a builder can be added to (only takes effect on trunk)
 # New rotations can be added, but won't automatically show up in SoM without
 # changes to SoM code.
-sheriff_rotations = struct(
+gardener_rotations = struct(
     ANDROID = _rotation("android"),
     ANGLE = _rotation("angle"),
     CHROMIUM = _rotation("chromium"),
@@ -238,7 +238,6 @@ _VALID_REPROXY_ENV_PREFIX_LIST = ["RBE_", "GLOG_", "GOMA_"]
 
 def _reclient_property(*, instance, service, jobs, rewrapper_env, profiler_service, publish_trace, cache_silo, ensure_verified, bootstrap_env, scandeps_server, disable_bq_upload):
     reclient = {}
-    instance = defaults.get_value("reclient_instance", instance)
     if not instance:
         return None
     reclient["instance"] = instance
@@ -331,7 +330,7 @@ defaults = args.defaults(
     os = None,
     pool = None,
     skip_profile_upload = False,
-    sheriff_rotations = None,
+    gardener_rotations = None,
     xcode = None,
     ssd = args.COMPUTE,
     coverage_gs_bucket = None,
@@ -346,7 +345,6 @@ defaults = args.defaults(
     resultdb_enable = True,
     resultdb_bigquery_exports = [],
     resultdb_index_by_timestamp = False,
-    reclient_instance = None,
     reclient_service = None,
     reclient_jobs = None,
     reclient_rewrapper_env = None,
@@ -358,19 +356,22 @@ defaults = args.defaults(
     reclient_ensure_verified = None,
     reclient_disable_bq_upload = None,
     siso_enabled = None,
+    siso_project = None,
     siso_configs = ["builder"],
     siso_enable_cloud_profiler = True,
     siso_enable_cloud_trace = True,
     siso_experiments = [],
     siso_remote_jobs = None,
     health_spec = None,
+    builder_config_settings = None,
 
     # Variables for modifying builder characteristics in a shadow bucket
     shadow_builderless = None,
     shadow_free_space = args.COMPUTE,  # None will clear the non-shadow dimension, so use args.COMPUTE as the default
     shadow_pool = None,
     shadow_service_account = None,
-    shadow_reclient_instance = None,
+    shadow_siso_project = None,
+    shadow_properties = {},
 
     # Provide vars for bucket and executable so users don't have to
     # unnecessarily make wrapper functions
@@ -403,10 +404,10 @@ def builder(
         builder_group = args.DEFAULT,
         builder_spec = None,
         mirrors = None,
-        builder_config_settings = None,
+        builder_config_settings = args.DEFAULT,
         pool = args.DEFAULT,
         ssd = args.DEFAULT,
-        sheriff_rotations = None,
+        gardener_rotations = None,
         xcode = args.DEFAULT,
         console_view_entry = None,
         list_view = args.DEFAULT,
@@ -422,7 +423,6 @@ def builder(
         resultdb_enable = args.DEFAULT,
         resultdb_bigquery_exports = args.DEFAULT,
         resultdb_index_by_timestamp = args.DEFAULT,
-        reclient_instance = args.DEFAULT,
         reclient_service = args.DEFAULT,
         reclient_jobs = args.DEFAULT,
         reclient_rewrapper_env = args.DEFAULT,
@@ -434,6 +434,7 @@ def builder(
         reclient_ensure_verified = None,
         reclient_disable_bq_upload = None,
         siso_enabled = args.DEFAULT,
+        siso_project = args.DEFAULT,
         siso_configs = args.DEFAULT,
         siso_enable_cloud_profiler = args.DEFAULT,
         siso_enable_cloud_trace = args.DEFAULT,
@@ -445,7 +446,8 @@ def builder(
         shadow_free_space = args.DEFAULT,
         shadow_pool = args.DEFAULT,
         shadow_service_account = args.DEFAULT,
-        shadow_reclient_instance = args.DEFAULT,
+        shadow_siso_project = args.DEFAULT,
+        shadow_properties = args.DEFAULT,
         gn_args = None,
         targets = None,
         targets_settings = None,
@@ -548,7 +550,7 @@ def builder(
             If True, emits a 'ssd:1' dimension. If False, emits a 'ssd:0'
             parameter. By default, considered False if builderless is considered
             True and otherwise None.
-        sheriff_rotations: A string or list of strings identifying the sheriff
+        gardener_rotations: A string or list of strings identifying the gardener
             rotations that the builder should be included in. Will be merged
             with the module-level default.
         xcode: a member of the `xcode` enum indicating the xcode version the
@@ -607,8 +609,6 @@ def builder(
             timestamp, i.e. for purposes of retrieving a test's history. If
             false, the results will not be searchable by timestamp on ResultDB's
             test history api.
-        reclient_instance: a string indicating the GCP project hosting the RBE
-            instance for re-client to use.
         reclient_service: a string indicating the RBE service to dial via gRPC.
             By default, this is "remotebuildexecution.googleapis.com:443" (set
             in the reclient recipe module). Has no effect if reclient_instance
@@ -636,6 +636,8 @@ def builder(
             BigQuery after each build
         siso_enabled: If True, $build/siso properties will be set, and Siso will
             be used at compile step.
+        siso_project: a string indicating the GCP project hosting the RBE
+            instance and Cloud logging/trace/profile for Siso to use.
         siso_configs: a list of siso configs to enable. available values are defined in
             //build/config/siso/config.star.
         siso_enable_cloud_profiler: If True, enable cloud profiler in siso.
@@ -659,10 +661,12 @@ def builder(
             set to use this alternate pool instead.
         shadow_service_account: If set, then led builds created for this builder
             will use this service account instead.
-        shadow_reclient_instance: If set, then led builds for this builder will
-            use this as the reclient instance instead of reclient_instance. The
-            other reclient_* values will continue to be used for the shadow
-            build.
+        shadow_siso_project: If set, then led builds for this builder will
+            use the RBE and other cloud instances of this project instead of the
+            ones of siso_project. The other reclient, siso values will continue
+            to be used for the shadow build.
+        shadow_properties: If set, the led builds created for this Builder will
+            override the top-level input properties with the same keys.
         gn_args: If set, the GN args config to use for the builder. It can be
             set to the name of a predeclared config or an unnamed
             gn_args.config declaration for an unphased config. A builder can use
@@ -691,16 +695,13 @@ def builder(
 
     if builder_spec and mirrors:
         fail("Only one of builder_spec or mirrors can be set")
-    if builder_config_settings and not (builder_spec or mirrors):
-        fail("builder_config_settings can only be set if builder_spec or " +
-             "mirrors is set")
 
     dimensions = {}
 
     properties = kwargs.pop("properties", {})
-    if "sheriff_rotations" in properties:
-        fail('Setting "sheriff_rotations" property is not supported: ' +
-             "use sheriff_rotations instead")
+    if "gardener_rotations" in properties:
+        fail('Setting "gardener_rotations" property is not supported: ' +
+             "use gardener_rotations instead")
     if "$build/code_coverage" in properties:
         fail('Setting "$build/code_coverage" property is not supported: ' +
              "use coverage_gs_bucket, use_clang_coverage, use_java_coverage, " +
@@ -714,7 +715,7 @@ def builder(
              "use use_pgo and skip_profile_upload instead")
     properties = dict(properties)
 
-    shadow_properties = {}
+    shadow_properties = dict(defaults.get_value("shadow_properties", shadow_properties))
 
     # bucket might be the args.COMPUTE sentinel value if the caller didn't set
     # bucket in some way, which will result in a weird fully-qualified builder
@@ -773,9 +774,11 @@ def builder(
     if pool:
         dimensions["pool"] = pool
 
-    sheriff_rotations = defaults.get_value("sheriff_rotations", sheriff_rotations, merge = args.MERGE_LIST)
-    if sheriff_rotations:
-        properties["sheriff_rotations"] = sheriff_rotations
+    gardener_rotations = defaults.get_value("gardener_rotations", gardener_rotations, merge = args.MERGE_LIST)
+    if gardener_rotations:
+        # TODO(343503161): Remove gardener_rotations after SoM is updated.
+        properties["sheriff_rotations"] = gardener_rotations
+        properties["gardener_rotations"] = gardener_rotations
 
     ssd = defaults.get_value("ssd", ssd)
     if ssd == args.COMPUTE:
@@ -812,8 +815,10 @@ def builder(
     if reclient_scandeps_server == args.COMPUTE:
         reclient_scandeps_server = True
 
+    rbe_project = defaults.get_value("siso_project", siso_project)
+    shadow_rbe_project = defaults.get_value("shadow_siso_project", shadow_siso_project)
     reclient = _reclient_property(
-        instance = reclient_instance,
+        instance = rbe_project,
         service = reclient_service,
         jobs = reclient_jobs,
         rewrapper_env = reclient_rewrapper_env,
@@ -825,12 +830,9 @@ def builder(
         ensure_verified = reclient_ensure_verified,
         disable_bq_upload = reclient_disable_bq_upload,
     )
-    rbe_project = None
-    shadow_rbe_project = None
     if reclient != None:
         properties["$build/reclient"] = reclient
-        rbe_project = reclient["instance"]
-        shadow_reclient_instance = defaults.get_value("shadow_reclient_instance", shadow_reclient_instance)
+        shadow_reclient_instance = shadow_rbe_project
         shadow_reclient = _reclient_property(
             instance = shadow_reclient_instance,
             service = reclient_service,
@@ -942,12 +944,16 @@ def builder(
     if builder == None:
         return None
 
-    register_sheriffed_builder(bucket, name, sheriff_rotations)
+    register_gardener_builder(bucket, name, gardener_rotations)
 
     register_recipe_experiments_ref(bucket, name, executable)
 
     additional_exclusions = register_gn_args(builder_group, bucket, name, gn_args, use_siso)
 
+    builder_config_settings = defaults.get_value(
+        "builder_config_settings",
+        builder_config_settings,
+    )
     register_builder_config(
         bucket,
         name,
@@ -1035,6 +1041,6 @@ builders = struct(
     cpu = cpu,
     defaults = defaults,
     os = os,
-    sheriff_rotations = sheriff_rotations,
+    gardener_rotations = gardener_rotations,
     free_space = free_space,
 )

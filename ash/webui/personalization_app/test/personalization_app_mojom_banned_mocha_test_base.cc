@@ -114,10 +114,12 @@ class MockSeaPenProvider
                   ::ash::personalization_app::mojom::SeaPenProvider> receiver),
               (override));
   bool IsEligibleForSeaPen() override { return true; }
+  bool IsEligibleForSeaPenTextInput() override { return true; }
   // ::ash::personalization_app::mojom::SeaPenProvider:
   MOCK_METHOD(void,
-              SearchWallpaper,
-              (const mojom::SeaPenQueryPtr, SearchWallpaperCallback callback),
+              GetSeaPenThumbnails,
+              (const mojom::SeaPenQueryPtr,
+               GetSeaPenThumbnailsCallback callback),
               (override));
   MOCK_METHOD(void,
               SelectSeaPenThumbnail,
@@ -128,8 +130,8 @@ class MockSeaPenProvider
               (uint32_t id, SelectRecentSeaPenImageCallback),
               (override));
   MOCK_METHOD(void,
-              GetRecentSeaPenImages,
-              (GetRecentSeaPenImagesCallback),
+              GetRecentSeaPenImageIds,
+              (GetRecentSeaPenImageIdsCallback),
               (override));
   MOCK_METHOD(void,
               GetRecentSeaPenImageThumbnail,
@@ -209,6 +211,7 @@ class MockPersonalizationAppWallpaperProvider
                   ash::personalization_app::mojom::WallpaperProvider> receiver),
               (override));
   bool IsEligibleForGooglePhotos() override { return true; }
+  bool IsManagedSeaPenEnabled() override { return true; }
   void GetWallpaperAsJpegBytes(
       content::WebUIDataSource::GotDataCallback callback) override {
     std::move(callback).Run(base::MakeRefCounted<base::RefCountedBytes>());

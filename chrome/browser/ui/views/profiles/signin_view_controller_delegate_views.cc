@@ -127,14 +127,11 @@ class WidgetAutoResizingLayout : public views::FillLayout {
 std::unique_ptr<views::WebView>
 SigninViewControllerDelegateViews::CreateSyncConfirmationWebView(
     Browser* browser,
-    bool is_signin_intercept) {
+    SyncConfirmationStyle style,
+    bool is_sync_promo) {
   GURL url = GURL(chrome::kChromeUISyncConfirmationURL);
-  if (is_signin_intercept) {
-    url = AppendSyncConfirmationQueryParams(
-        url, SyncConfirmationStyle::kSigninInterceptModal);
-  }
   return CreateDialogWebView(
-      browser, url,
+      browser, AppendSyncConfirmationQueryParams(url, style, is_sync_promo),
       GetSyncConfirmationDialogPreferredHeight(browser->profile()),
       kSyncConfirmationDialogWidth, InitializeSigninWebDialogUI(true));
 }
@@ -196,7 +193,8 @@ SigninViewControllerDelegateViews::CreateManagedUserNoticeConfirmationWebView(
     bool is_oidc_account,
     bool profile_creation_required_by_policy,
     bool show_link_data_option,
-    signin::SigninChoiceCallback callback) {
+    signin::SigninChoiceCallback process_user_choice_callback,
+    base::OnceClosure done_callback) {
   bool enable_updated_dialog = base::FeatureList::IsEnabled(
       features::kEnterpriseUpdatedProfileCreationScreen);
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -227,7 +225,7 @@ SigninViewControllerDelegateViews::CreateManagedUserNoticeConfirmationWebView(
           ? ManagedUserProfileNoticeUI::ScreenType::kEnterpriseOIDC
           : ManagedUserProfileNoticeUI::ScreenType::kEnterpriseAccountCreation,
       account_info, profile_creation_required_by_policy, show_link_data_option,
-      std::move(callback));
+      std::move(process_user_choice_callback), std::move(done_callback));
 
   return web_view;
 }
@@ -280,7 +278,7 @@ bool SigninViewControllerDelegateViews::HandleContextMenu(
 
 bool SigninViewControllerDelegateViews::HandleKeyboardEvent(
     content::WebContents* source,
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   // If this is a MODAL_TYPE_CHILD, then GetFocusManager() will return the focus
   // manager of the parent window, which has registered accelerators, and the
   // accelerators will fire. If this is a MODAL_TYPE_WINDOW, then this will have
@@ -469,10 +467,11 @@ END_METADATA
 SigninViewControllerDelegate*
 SigninViewControllerDelegate::CreateSyncConfirmationDelegate(
     Browser* browser,
-    bool is_signin_intercept) {
+    SyncConfirmationStyle style,
+    bool is_sync_promo) {
   return new SigninViewControllerDelegateViews(
       SigninViewControllerDelegateViews::CreateSyncConfirmationWebView(
-          browser, is_signin_intercept),
+          browser, style, is_sync_promo),
       browser, ui::MODAL_TYPE_WINDOW, true, false);
 }
 
@@ -520,13 +519,15 @@ SigninViewControllerDelegate::CreateManagedUserNoticeDelegate(
     bool is_oidc_account,
     bool profile_creation_required_by_policy,
     bool show_link_data_option,
-    signin::SigninChoiceCallback callback) {
+    signin::SigninChoiceCallback process_user_choice_callback,
+    base::OnceClosure done_callback) {
   return new SigninViewControllerDelegateViews(
       SigninViewControllerDelegateViews::
           CreateManagedUserNoticeConfirmationWebView(
               browser, account_info, is_oidc_account,
               profile_creation_required_by_policy, show_link_data_option,
-              std::move(callback)),
+              std::move(process_user_choice_callback),
+              std::move(done_callback)),
       browser, ui::MODAL_TYPE_WINDOW, true, false);
 }
 #endif

@@ -57,7 +57,6 @@ DataSharingService::PeopleGroupActionFailure StatusToPeopleGroupActionFailure(
       // absl::StatusCode should always have "default:" in `switch()`.
       return DataSharingService::PeopleGroupActionFailure::kPersistentFailure;
   }
-  NOTREACHED_NORETURN();
 }
 
 DataSharingService::PeopleGroupActionOutcome StatusToPeopleGroupActionOutcome(
@@ -66,12 +65,13 @@ DataSharingService::PeopleGroupActionOutcome StatusToPeopleGroupActionOutcome(
     return DataSharingService::PeopleGroupActionOutcome::kSuccess;
   }
   switch (StatusToPeopleGroupActionFailure(status)) {
+    case DataSharingService::PeopleGroupActionFailure::kUnknown:
+      return DataSharingService::PeopleGroupActionOutcome::kUnknown;
     case DataSharingService::PeopleGroupActionFailure::kPersistentFailure:
       return DataSharingService::PeopleGroupActionOutcome::kPersistentFailure;
     case DataSharingService::PeopleGroupActionFailure::kTransientFailure:
       return DataSharingService::PeopleGroupActionOutcome::kTransientFailure;
   }
-  NOTREACHED_NORETURN();
 }
 
 }  // namespace
@@ -81,11 +81,13 @@ DataSharingServiceImpl::DataSharingServiceImpl(
     signin::IdentityManager* identity_manager,
     syncer::OnceModelTypeStoreFactory model_type_store_factory,
     version_info::Channel channel,
-    std::unique_ptr<DataSharingSDKDelegate> sdk_delegate)
+    std::unique_ptr<DataSharingSDKDelegate> sdk_delegate,
+    std::unique_ptr<DataSharingUIDelegate> ui_delegate)
     : data_sharing_network_loader_(
           std::make_unique<DataSharingNetworkLoaderImpl>(url_loader_factory,
                                                          identity_manager)),
-      sdk_delegate_(std::move(sdk_delegate)) {
+      sdk_delegate_(std::move(sdk_delegate)),
+      ui_delegate_(std::move(ui_delegate)) {
   auto change_processor =
       std::make_unique<syncer::ClientTagBasedModelTypeProcessor>(
           syncer::COLLABORATION_GROUP,
@@ -270,8 +272,8 @@ void DataSharingServiceImpl::OnGroupsUpdated(
     const std::vector<std::string>& updated_group_ids,
     const std::vector<std::string>& deleted_group_ids) {
   // TODO(crbug.com/301390275): get rid of this method and corresponding
-  // asynchronous logic. Once caching is supported, observers should be notified
-  // upon cache updates instead.
+  // asynchronous logic. Once caching is supported, observers should be
+  // notified upon cache updates instead.
   if (!sdk_delegate_) {
     return;
   }
@@ -309,10 +311,10 @@ void DataSharingServiceImpl::OnGroupsUpdated(
 }
 
 void DataSharingServiceImpl::OnDataLoaded() {
-  // TODO(crbug.com/301390275): once caching is supported, this method should be
-  // removed and ReadAllGroups() should read cached groups instead. Right now it
-  // will read no groups before collaboration group data is loaded and we need
-  // to issue another read afterwards and notify observers.
+  // TODO(crbug.com/301390275): once caching is supported, this method should
+  // be removed and ReadAllGroups() should read cached groups instead. Right
+  // now it will read no groups before collaboration group data is loaded and
+  // we need to issue another read afterwards and notify observers.
   if (!sdk_delegate_) {
     return;
   }
@@ -477,7 +479,10 @@ bool DataSharingServiceImpl::ShouldInterceptNavigationForShareURL(
 
 void DataSharingServiceImpl::HandleShareURLNavigationIntercepted(
     const GURL& url) {
-  NOTIMPLEMENTED();
+  if (!ui_delegate_) {
+    return;
+  }
+  ui_delegate_->HandleShareURLIntercepted(url);
 }
 
 }  // namespace data_sharing

@@ -12,6 +12,7 @@
 #include "base/types/cxx23_to_underlying.h"
 #include "chrome/browser/ash/input_method/editor_consent_enums.h"
 #include "chrome/browser/ash/input_method/editor_context.h"
+#include "chrome/browser/ash/input_method/editor_geolocation_mock_provider.h"
 #include "chrome/browser/ash/input_method/editor_identity_utils.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -40,6 +41,7 @@ using ::testing::TestWithParam;
 
 const char kAllowedTestCountry[] = "au";
 const char kDeniedTestCountry[] = "br";
+const char kUsEngineId[] = "xkb:us::eng";
 
 const char kAllowedTestUrl[] = "https://allowed.testurl.com/allowed/path";
 
@@ -192,7 +194,8 @@ TEST_P(EditorSwitchAvailabilityTest, TestEditorAvailability) {
   FakeSystem system;
   FakeEditorContextObserver context_observer;
   FakeEditorSwitchObserver switch_observer;
-  EditorContext context(&context_observer, &system, test_case.country_code);
+  EditorGeolocationMockProvider geolocation_provider(test_case.country_code);
+  EditorContext context(&context_observer, &system, &geolocation_provider);
   EditorSwitch editor_switch(/*observer=*/&switch_observer,
                              /*profile=*/&profile,
                              /*context=*/&context);
@@ -238,11 +241,12 @@ INSTANTIATE_TEST_SUITE_P(
             .consent_status = ConsentStatus::kApproved,
             .num_chars_selected = 0,
             .expected_editor_mode = EditorMode::kBlocked,
-            .expected_editor_opportunity_mode = EditorOpportunityMode::kNone,
+            .expected_editor_opportunity_mode =
+                EditorOpportunityMode::kInvalidInput,
             .expected_blocked_reasons =
                 {EditorBlockedReason::kBlockedByInputType},
         },
-        {.test_name = "DoNotTriggerFeatureOnWorkspaceForNonGooglerAccount",
+        {.test_name = "TriggersFeatureOnWorkspaceForNonGooglerAccount",
          .additional_enabled_flags = {},
          .email = "testuser@gmail.com",
          .active_engine_id = "xkb:us::eng",
@@ -255,11 +259,10 @@ INSTANTIATE_TEST_SUITE_P(
          .user_pref = true,
          .consent_status = ConsentStatus::kApproved,
          .num_chars_selected = 0,
-         .expected_editor_mode = EditorMode::kBlocked,
+         .expected_editor_mode = EditorMode::kWrite,
          .expected_editor_opportunity_mode = EditorOpportunityMode::kWrite,
-         .expected_blocked_reasons = {EditorBlockedReason::kBlockedByUrl}},
-        {.test_name = "DoNotTriggerFeatureOnWorkspaceForGooglerAccountWithou"
-                      "tOrcaOnWorkspaceFlag",
+         .expected_blocked_reasons = {}},
+        {.test_name = "TriggerFeatureOnWorkspaceForGooglerAccount",
          .additional_enabled_flags = {},
          .email = "testuser@google.com",
          .active_engine_id = "xkb:us::eng",
@@ -272,34 +275,16 @@ INSTANTIATE_TEST_SUITE_P(
          .user_pref = true,
          .consent_status = ConsentStatus::kApproved,
          .num_chars_selected = 0,
-         .expected_editor_mode = EditorMode::kBlocked,
+         .expected_editor_mode = EditorMode::kWrite,
          .expected_editor_opportunity_mode = EditorOpportunityMode::kWrite,
-         .expected_blocked_reasons = {EditorBlockedReason::kBlockedByUrl}},
-        {.test_name =
-             "DoNotTriggerFeatureOnDemoWorkspaceAppsForNonGooglerAccount",
+         .expected_blocked_reasons = {}},
+        {.test_name = "TriggerFeatureOnDemoWorkspaceAppsForNonGooglerAccount",
          .additional_enabled_flags = {},
          .email = "testuser@gmail.com",
          .active_engine_id = "xkb:us::eng",
          .locale = "en-us",
          .url = "",
          .app_id = extension_misc::kGoogleDocsDemoAppId,
-         .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = chromeos::AppType::BROWSER,
-         .is_in_tablet_mode = false,
-         .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
-         .user_pref = true,
-         .consent_status = ConsentStatus::kApproved,
-         .num_chars_selected = 0,
-         .expected_editor_mode = EditorMode::kBlocked,
-         .expected_editor_opportunity_mode = EditorOpportunityMode::kWrite,
-         .expected_blocked_reasons = {EditorBlockedReason::kBlockedByApp}},
-        {.test_name = "TriggerFeatureOnWorkspaceForGooglerAccountWithOrcaOnW"
-                      "orkspaceFlag",
-         .additional_enabled_flags = {features::kOrcaOnWorkspace},
-         .email = "testuser@google.com",
-         .active_engine_id = "xkb:us::eng",
-         .locale = "en-us",
-         .url = "https://mail.google.com/mail",
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
          .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
@@ -536,7 +521,8 @@ TEST_P(EditorSwitchTriggerTest, TestEditorMode) {
   FakeSystem system;
   FakeEditorContextObserver context_observer;
   FakeEditorSwitchObserver switch_observer;
-  EditorContext context(&context_observer, &system, kAllowedTestCountry);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedTestCountry);
+  EditorContext context(&context_observer, &system, &geolocation_provider);
   EditorSwitch editor_switch(/*observer=*/&switch_observer,
                              /*profile=*/profile.get(),
                              /*context=*/&context);
@@ -564,6 +550,86 @@ TEST_P(EditorSwitchTriggerTest, TestEditorMode) {
 
   EXPECT_THAT(editor_switch.GetBlockedReasons(),
               testing::ElementsAreArray(test_case.expected_blocked_reasons));
+}
+
+using DenylistTestCase = std::pair<std::string, EditorMode>;
+
+using EditorSwitchDenylistTest = TestWithParam<DenylistTestCase>;
+
+INSTANTIATE_TEST_SUITE_P(
+    EditorSwitchDenylist,
+    EditorSwitchDenylistTest,
+    testing::ValuesIn<DenylistTestCase>({
+        {"https://calendar.google.com", EditorMode::kBlocked},
+        {"https://calendar.google.com/c/1234", EditorMode::kBlocked},
+        {"https://docs.google.com", EditorMode::kBlocked},
+        {"https://docs.google.com/drawings/1234", EditorMode::kBlocked},
+        {"https://docs.google.com/document/1234", EditorMode::kBlocked},
+        {"https://docs.google.com/forms/1234", EditorMode::kBlocked},
+        {"https://docs.google.com/presentation/1234", EditorMode::kBlocked},
+        {"https://docs.google.com/spreadsheet/1234", EditorMode::kBlocked},
+        {"https://docs.google.com/videos/1234", EditorMode::kBlocked},
+        {"https://drive.google.com", EditorMode::kBlocked},
+        {"https://drive.google.com/1234", EditorMode::kBlocked},
+        {"https://keep.google.com", EditorMode::kBlocked},
+        {"https://keep.google.com/1234", EditorMode::kBlocked},
+        {"https://mail.google.com/chat", EditorMode::kBlocked},
+        {"https://mail.google.com/mail", EditorMode::kBlocked},
+        {"https://meet.google.com", EditorMode::kBlocked},
+        {"https://meet.google.com/1234", EditorMode::kBlocked},
+        {"https://script.google.com", EditorMode::kBlocked},
+        {"https://script.google.com/1234", EditorMode::kBlocked},
+        {"https://sites.google.com", EditorMode::kBlocked},
+        {"https://sites.google.com/view/test-page", EditorMode::kBlocked},
+        {"https://sites.google.com/1234", EditorMode::kBlocked},
+        {"https://outlook.com", EditorMode::kRewrite},
+        {"https://whatsapp.com", EditorMode::kRewrite},
+        {"https://x.com", EditorMode::kRewrite},
+        {"https://linkedin.com", EditorMode::kRewrite},
+    }));
+
+TEST_P(EditorSwitchDenylistTest, IsBlockedWhenVisitingUrlInDenylist) {
+  const DenylistTestCase& test_case = GetParam();
+  const std::string& test_url = std::get<0>(test_case);
+  const EditorMode& expected_mode = std::get<1>(test_case);
+  content::BrowserTaskEnvironment task_environment;
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{chromeos::features::kOrca,
+                            chromeos::features::kFeatureManagementOrca,
+                            chromeos::features::kOrcaInternationalize},
+      /*disabled_features=*/{ash::features::kOrcaUseAccountCapabilities,
+                             ash::features::kOrcaOnWorkspace});
+  ScopedBrowserLocale browser_locale("en");
+
+  std::unique_ptr<TestingProfile> profile =
+      CreateTestingProfile("testuser@gmail.com");
+  FakeSystem system;
+  FakeEditorContextObserver context_observer;
+  FakeEditorSwitchObserver switch_observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedTestCountry);
+  EditorContext context(&context_observer, &system, &geolocation_provider);
+  EditorSwitch editor_switch(/*observer=*/&switch_observer,
+                             /*profile=*/profile.get(),
+                             /*context=*/&context);
+
+  auto mock_notifier = net::test::MockNetworkChangeNotifier::Create();
+  profile->GetProfilePolicyConnector()->OverrideIsManagedForTesting(false);
+  mock_notifier->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_WIFI);
+
+  profile->GetPrefs()->SetBoolean(prefs::kOrcaEnabled, true);
+  profile->GetPrefs()->SetInteger(
+      prefs::kOrcaConsentStatus, base::to_underlying(ConsentStatus::kApproved));
+  context.OnTabletModeUpdated(false);
+  context.OnActivateIme(kUsEngineId);
+  context.OnInputContextUpdated(
+      TextInputMethod::InputContext(ui::TEXT_INPUT_TYPE_TEXT),
+      CreateFakeTextFieldContextualInfo(chromeos::AppType::BROWSER, test_url,
+                                        ""));
+  context.OnTextSelectionLengthChanged(10);
+
+  EXPECT_TRUE(editor_switch.IsAllowedForUse());
+  EXPECT_EQ(editor_switch.GetEditorMode(), expected_mode);
 }
 
 using InputMethodTestCase = std::pair<std::string, EditorMode>;
@@ -629,7 +695,8 @@ TEST_P(EditorSwitchEnglishOnlyTest, EditorIsEnabledForEnglishInputMethodsOnly) {
   FakeSystem system;
   FakeEditorContextObserver context_observer;
   FakeEditorSwitchObserver switch_observer;
-  EditorContext context(&context_observer, &system, kAllowedTestCountry);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedTestCountry);
+  EditorContext context(&context_observer, &system, &geolocation_provider);
   EditorSwitch editor_switch(/*observer=*/&switch_observer,
                              /*profile=*/profile.get(),
                              /*context=*/&context);
@@ -716,7 +783,8 @@ TEST_P(EditorSwitchInternationalizeTest,
   FakeSystem system;
   FakeEditorContextObserver context_observer;
   FakeEditorSwitchObserver switch_observer;
-  EditorContext context(&context_observer, &system, kAllowedTestCountry);
+  EditorGeolocationMockProvider geolocation_provider(kAllowedTestCountry);
+  EditorContext context(&context_observer, &system, &geolocation_provider);
   EditorSwitch editor_switch(/*observer=*/&switch_observer,
                              /*profile=*/profile.get(),
                              /*context=*/&context);

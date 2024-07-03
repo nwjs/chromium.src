@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">hori argi</translation>
 <translation id="1056898198331236512">Abisua</translation>
 <translation id="1059913517121127803">Ezin izan da hasi eskaneatzen</translation>
+<translation id="1061864016440983342">Erabili kokapenik gabe</translation>
 <translation id="1062823486781306604"><ph name="COUNT" /> elementutatik <ph name="INDEX" />garrena, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">suebakia hauteman da</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Ezarpen gehiago</translation>
 <translation id="2082932131694554252">Esleitutako teklatuko tekla</translation>
 <translation id="2085089206770112532">Pantailaren distira jaisteko tekla</translation>
+<translation id="2086091080968010660">Baliteke orduaren araberako aldaketak zehatzak ez izatea. Eman sistemaren kokapena erabiltzeko baimena ezarpenetan.</translation>
 <translation id="2102231663024125441">Testua editatzea</translation>
 <translation id="2105810540595158374">Gailua bideo-jokoen kontrolagailu bat da.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, <ph name="MILESTONE_VERSION" /> bertsioa</translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Editatu APNaren xehetasunak</translation>
 <translation id="2195732836444333448">Zerbitzua lanpetuta dago. Itzuli hemendik gutxira.</translation>
 <translation id="2201758491318984023">Bizikleta</translation>
-<translation id="2203222757805818543"><ph name="SUNRISE" />-<ph name="SUNSET" /> tarterako dago ezarrita oraingo programazioa. Modu ilunaren programazioa automatikoki eguneratzeko, <ph name="BEGIN_LINK" />eman kokapena erabiltzeko baimena<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">Ur termaleko iturburu</translation>
 <translation id="2203642483788377106">Labar</translation>
 <translation id="2208388655216963643">inpresionista</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Leheneratu balio lehenetsiak</translation>
 <translation id="2286454467119466181">Arrunta</translation>
 <translation id="2287186687001756809">Ez dago irudirik. Argazkiak gehitzeko, joan <ph name="LINK" /> helbidera.</translation>
+<translation id="2294577623958216786">Oraingo programa <ph name="SUNRISE" />-<ph name="SUNSET" /> tartean ezarrita dago. Egunsentia eta ilunabarra automatikoki eguneratzeko, eman sistemaren kokapena erabiltzeko baimena.</translation>
 <translation id="2305172810646967500">Beltz</translation>
 <translation id="2307344026739914387">Erabili une honetako gako parea</translation>
 <translation id="2308243864813041101">Eguneratzen jarraitzeko, deskonektatu <ph name="DEVICE_NAME" /> gailuaren USB kablea</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">Hondarrezko duna</translation>
 <translation id="2619761439309613843">Freskatu egunero</translation>
 <translation id="2620436844016719705">Sistema</translation>
+<translation id="2637303424821734920">DESAKTIBATUTA. Tokiko eguraldia bistaratzeko, <ph name="BEGIN_LINK" />eman sistemaren kokapena erabiltzeko baimena<ph name="END_LINK" />.</translation>
 <translation id="2638662041295312666">Saioa hasteko irudia</translation>
 <translation id="2640549051766135490"><ph name="TITLE" /> (<ph name="DESC" />) albuma hautatu da</translation>
 <translation id="2645380101799517405">Kontrolatzeko aukerak</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Atzeko planoa</translation>
 <translation id="3027578600144895987">Itxi kamera</translation>
 <translation id="3031560714565892478">Gailua bideokamera bat da.</translation>
+<translation id="3051968340259309715">Zure kokapena zehazteko Kokapen-zehaztasuna erabiltzeko baimena ematen die sistemaren zerbitzuei. Kokapen-zehaztasuna ezarpenak hari gabeko seinaleak (adibidez, wifi bidezko sarbide-puntuak, sare mugikorren dorreak eta GPSa) gailuaren sentsoreen datuekin batera (esaterako, abiadura-neurgailua eta giroskopioa) erabiltzen ditu gailuaren kokapena estimatzeko. Kokapena desaktibatzeko, joan Ezarpenak &gt; Pribatutasuna eta segurtasuna &gt; Pribatutasun-ezarpenak &gt; Kokapena erabiltzeko baimena atalera. <ph name="LINK_BEGIN" />Lortu informazio gehiago<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Amaiera-puntua</translation>
 <translation id="3060579846059757016">Eskemak</translation>
+<translation id="3061850252076394168">gaitu hautatuz ozen irakurtzeko eginbidea</translation>
 <translation id="3069085583900247081">Probak huts egin du</translation>
 <translation id="3078740164268491126">Mahaia</translation>
 <translation id="3081652522083185657">argi</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Ezin izan da ebatzi ostalari bat ere</translation>
 <translation id="4593212453765072419">Proxy-autentifikazioa behar da</translation>
 <translation id="4609350030397390689">Teklatuaren distira jaisteko tekla</translation>
-<translation id="4617553623719764431">Eguraldia ez da bistaratzen, zure kokapena ez dakielako. Tokiko eguraldia bistaratzeko, <ph name="BEGIN_LINK" />eman kokapena erabiltzeko baimena<ph name="END_LINK" />.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" /> (<ph name="CREATION_TIME" />) - <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" /> orri Sakatu Sartu inprimatze-lana bertan behera uzteko.</translation>
 <translation id="463791356324567266">Eskaneatzeko prozesua bertan behera uzten…</translation>
 <translation id="4646949265910132906">Wifi-konexio segurua</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Exekutatu</translation>
 <translation id="4987769320337599931">Suebakia</translation>
 <translation id="4988526792673242964">Orriak</translation>
+<translation id="4989542687859782284">Erabilgarri ez daudenak</translation>
 <translation id="4999333166442584738">Ezkutatu txostena</translation>
 <translation id="500920857929044050">Gelditu proba</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">teklatuaren distira</translation>
 <translation id="6412715219990689313">Teklatu integratua</translation>
 <translation id="6417265370957905582">Google-ren Laguntzailea</translation>
+<translation id="6419454453018688975">Aktibatu sistemaren kokapena erabiltzeko baimena</translation>
 <translation id="6423239382391657905">VPN irekia</translation>
-<translation id="6438073885402882007">Sistemaren zerbitzuei zure kokapena erabiltzeko baimena emango zaie. Gailuaren kokapena zehazteko, wifi-sarea, sare mugikorrak, sentsoreak eta antzeko iturburuak erabiltzen ditu kokapenaren eginbideak. <ph name="LINK_BEGIN" />Lortu informazio gehiago<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Ahula (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Joan kontuaren ezarpenetara</translation>
 <translation id="6462978824459367242">APNa gehitzeko botoia gaitu da</translation>

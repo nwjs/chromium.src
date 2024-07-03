@@ -13,7 +13,6 @@
 #include "components/autofill/core/browser/filling_product.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
-#include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/version_info/channel.h"
@@ -70,14 +69,6 @@ AutofillClient::GetAutofillMlPredictionModelHandler() {
   return nullptr;
 }
 
-IbanManager* AutofillClient::GetIbanManager() {
-  return nullptr;
-}
-
-IbanAccessManager* AutofillClient::GetIbanAccessManager() {
-  return nullptr;
-}
-
 AutofillComposeDelegate* AutofillClient::GetComposeDelegate() {
   return nullptr;
 }
@@ -115,48 +106,13 @@ profile_metrics::BrowserProfileType AutofillClient::GetProfileType() const {
 FastCheckoutClient* AutofillClient::GetFastCheckoutClient() {
   return nullptr;
 }
-void AutofillClient::ShowVirtualCardEnrollDialog(
-    const VirtualCardEnrollmentFields& virtual_card_enrollment_fields,
-    base::OnceClosure accept_virtual_card_callback,
-    base::OnceClosure decline_virtual_card_callback) {
-}
 
 payments::MandatoryReauthManager*
 AutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
   return nullptr;
 }
 
-void AutofillClient::ShowMandatoryReauthOptInPrompt(
-    base::OnceClosure accept_mandatory_reauth_callback,
-    base::OnceClosure cancel_mandatory_reauth_callback,
-    base::RepeatingClosure close_mandatory_reauth_callback) {}
-
-void AutofillClient::ShowMandatoryReauthOptInConfirmation() {}
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-void AutofillClient::HideVirtualCardEnrollBubbleAndIconIfVisible() {
-}
-
-void AutofillClient::ShowWebauthnOfferDialog(
-    WebauthnDialogCallback offer_dialog_callback) {
-}
-
-void AutofillClient::ShowWebauthnVerifyPendingDialog(
-    WebauthnDialogCallback verify_pending_dialog_callback) {
-}
-
-void AutofillClient::UpdateWebauthnOfferDialogWithError() {
-}
-
-bool AutofillClient::CloseWebauthnDialog() {
-  return false;
-}
-
-#else
-void AutofillClient::ConfirmAccountNameFixFlow(
-    base::OnceCallback<void(const std::u16string&)> callback) {
-}
-
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 void AutofillClient::ConfirmExpirationDateFixFlow(
     const CreditCard& card,
     base::OnceCallback<void(const std::u16string&, const std::u16string&)>
@@ -188,18 +144,6 @@ bool AutofillClient::ShowTouchToFillIban(
     base::WeakPtr<TouchToFillDelegate> delegate,
     base::span<const autofill::Iban> ibans_to_suggest) {
   return false;
-}
-
-void AutofillClient::UpdateOfferNotification(
-    const AutofillOfferData* offer,
-    const OfferNotificationOptions& options) {
-}
-
-void AutofillClient::DismissOfferNotification() {
-}
-
-void AutofillClient::OnVirtualCardDataAvailable(
-    const VirtualCardManualFallbackBubbleOptions& options) {
 }
 
 LogManager* AutofillClient::GetLogManager() const {
@@ -254,6 +198,13 @@ void AutofillClient::set_test_addresses(
 
 base::span<const AutofillProfile> AutofillClient::GetTestAddresses() const {
   return {};
+}
+
+AutofillClient::PasswordFormType AutofillClient::ClassifyAsPasswordForm(
+    AutofillManager& manager,
+    FormGlobalId form_id,
+    FieldGlobalId field_id) const {
+  return PasswordFormType::kNoPasswordForm;
 }
 
 }  // namespace autofill

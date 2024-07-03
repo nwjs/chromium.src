@@ -66,6 +66,7 @@
 #include "components/sync/test/fake_server.h"
 #include "components/sync/test/fake_server_http_post_provider.h"
 #include "components/sync/test/fake_server_network_resources.h"
+#include "components/sync/test/test_sync_service.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -230,34 +231,40 @@ class PasswordManagerAndroidUtilTest : public testing::Test {
 
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringFalseWhenNotSyncingAndSplitStoresOff) {
-  EXPECT_FALSE(
-      ShouldUseUpmWiring(/*is_pwd_sync_enabled=*/false, pref_service()));
+  syncer::TestSyncService sync_service;
+  sync_service.SetSignedOut();
+
+  EXPECT_FALSE(ShouldUseUpmWiring(&sync_service, pref_service()));
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringFalseWhenNotSyncingAndSplitStoresMigrationPending) {
+  syncer::TestSyncService sync_service;
+  sync_service.SetSignedOut();
   pref_service()->SetInteger(
       password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores,
       static_cast<int>(
           password_manager::prefs::UseUpmLocalAndSeparateStoresState::
               kOffAndMigrationPending));
 
-  EXPECT_FALSE(
-      ShouldUseUpmWiring(/*is_pwd_sync_enabled=*/false, pref_service()));
+  EXPECT_FALSE(ShouldUseUpmWiring(&sync_service, pref_service()));
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringTrueWhenNotSyncingAndSplitStoresOn) {
+  syncer::TestSyncService sync_service;
+  sync_service.SetSignedOut();
   pref_service()->SetInteger(
       password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores,
       static_cast<int>(kOn));
 
-  EXPECT_TRUE(
-      ShouldUseUpmWiring(/*is_pwd_sync_enabled=*/false, pref_service()));
+  EXPECT_TRUE(ShouldUseUpmWiring(&sync_service, pref_service()));
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringTrueWhenNotSyncingAndSplitStoresEnabledAndUnenrolled) {
+  syncer::TestSyncService sync_service;
+  sync_service.SetSignedOut();
   pref_service()->SetInteger(
       password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores,
       static_cast<int>(kOn));
@@ -266,32 +273,59 @@ TEST_F(PasswordManagerAndroidUtilTest,
       password_manager::prefs::kUnenrolledFromGoogleMobileServicesDueToErrors,
       true);
 
-  EXPECT_TRUE(
-      ShouldUseUpmWiring(/*is_pwd_sync_enabled=*/false, pref_service()));
+  EXPECT_TRUE(ShouldUseUpmWiring(&sync_service, pref_service()));
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringFalseWhenSyncingAndUnenrolled) {
+  syncer::TestSyncService sync_service;
+  sync_service.SetSignedInWithSyncFeatureOn();
   pref_service()->SetBoolean(
       password_manager::prefs::kUnenrolledFromGoogleMobileServicesDueToErrors,
       true);
 
-  EXPECT_FALSE(
-      ShouldUseUpmWiring(/*is_pwd_sync_enabled=*/true, pref_service()));
+  EXPECT_FALSE(ShouldUseUpmWiring(&sync_service, pref_service()));
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringTrueWhenSyncingAndSplitStoresDisabled) {
-  EXPECT_TRUE(ShouldUseUpmWiring(/*is_pwd_sync_enabled=*/true, pref_service()));
+  syncer::TestSyncService sync_service;
+  sync_service.SetSignedInWithSyncFeatureOn();
+
+  EXPECT_TRUE(ShouldUseUpmWiring(&sync_service, pref_service()));
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringTrueWhenSyncingAndSplitStoresEnabled) {
+  syncer::TestSyncService sync_service;
+  sync_service.SetSignedInWithSyncFeatureOn();
   pref_service()->SetInteger(
       password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores,
       static_cast<int>(kOn));
 
-  EXPECT_TRUE(ShouldUseUpmWiring(/*is_pwd_sync_enabled=*/true, pref_service()));
+  EXPECT_TRUE(ShouldUseUpmWiring(&sync_service, pref_service()));
+}
+
+TEST_F(PasswordManagerAndroidUtilTest,
+       ShouldUseUpmWiringTrueWhenSignedInWithoutSyncAndSplitStoresDisabled) {
+  syncer::TestSyncService sync_service;
+  sync_service.SetSignedInWithoutSyncFeature();
+  pref_service()->SetInteger(
+      password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores,
+      static_cast<int>(kOff));
+
+  EXPECT_TRUE(ShouldUseUpmWiring(&sync_service, pref_service()));
+}
+
+TEST_F(PasswordManagerAndroidUtilTest,
+       ShouldUseUpmWiringTrueWhenSignedInWithoutSyncAndSplitStoresEnabled) {
+  syncer::TestSyncService sync_service;
+  sync_service.SetSignedInWithoutSyncFeature();
+  pref_service()->SetInteger(
+      password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores,
+      static_cast<int>(kOn));
+
+  EXPECT_TRUE(ShouldUseUpmWiring(&sync_service, pref_service()));
 }
 
 TEST_F(
@@ -931,12 +965,15 @@ TEST_F(PasswordManagerAndroidUtilTest,
       password_manager::kLoginDataForAccountFileName)));
 }
 
+// TODO: crbug.com/40265507 - Clean up when M4 feature flag is removed.
 TEST_F(PasswordManagerAndroidUtilTest,
        SetUsesSplitStoresAndUPMForLocal_SyncingButUnenrolled) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList enable_local_upm(
-      password_manager::features::
-          kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration);
+  base::test::ScopedFeatureList enable_local_upm;
+  enable_local_upm.InitWithFeatures(
+      {password_manager::features::
+           kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration},
+      {password_manager::features::kUnifiedPasswordManagerSyncOnlyInGMSCore});
   SetPasswordSyncEnabledPref(true);
   pref_service()->SetInteger(
       password_manager::prefs::kCurrentMigrationVersionToGoogleMobileServices,
@@ -969,12 +1006,15 @@ TEST_F(PasswordManagerAndroidUtilTest,
       "PasswordManager.LocalUpmActivationStatus", kOff, 1);
 }
 
+// TODO: crbug.com/40265507 - Clean up when M4 feature flag is removed.
 TEST_F(PasswordManagerAndroidUtilTest,
        SetUsesSplitStoresAndUPMForLocal_SyncingButInitialMigrationNotFinished) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList enable_local_upm(
-      password_manager::features::
-          kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration);
+  base::test::ScopedFeatureList enable_local_upm;
+  enable_local_upm.InitWithFeatures(
+      {password_manager::features::
+           kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration},
+      {password_manager::features::kUnifiedPasswordManagerSyncOnlyInGMSCore});
   SetPasswordSyncEnabledPref(true);
   ASSERT_EQ(pref_service()->GetInteger(
                 password_manager::prefs::
@@ -1296,9 +1336,11 @@ class UsesSplitStoresAndUPMForLocalTest : public ::testing::Test {
             profile->GetPrefs());
     auto is_db_empty_cb =
         base::BindPostTaskToCurrentDefault(base::BindRepeating(
-            &password_manager::SetEmptyStorePref, profile->GetPrefs(),
+            &password_manager::IntermediateCallbackForSettingPrefs,
             profile_backend->AsWeakPtr(),
-            password_manager::prefs::kEmptyProfileStoreLoginDatabase));
+            base::BindRepeating(
+                &password_manager::SetEmptyStorePref, profile->GetPrefs(),
+                password_manager::prefs::kEmptyProfileStoreLoginDatabase)));
     login_db_ptr->SetIsEmptyCb(std::move(is_db_empty_cb));
     ProfilePasswordStoreFactory::GetInstance()->SetTestingFactory(
         profile,

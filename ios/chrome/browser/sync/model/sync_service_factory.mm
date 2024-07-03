@@ -26,6 +26,7 @@
 #import "components/sync_device_info/device_info_tracker.h"
 #import "components/sync_device_info/local_device_info_provider.h"
 #import "components/sync_preferences/pref_service_syncable.h"
+#import "components/variations/service/google_groups_updater_service.h"
 #import "ios/chrome/browser/bookmarks/model/account_bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/account_bookmark_sync_service_factory.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_undo_service_factory.h"
@@ -41,7 +42,9 @@
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_receiver_service_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_sender_service_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
+#import "ios/chrome/browser/plus_addresses/model/plus_address_setting_service_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_model_factory.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
@@ -108,13 +111,12 @@ std::unique_ptr<KeyedService> BuildSyncService(web::BrowserState* context) {
         DeviceInfoSyncServiceFactory::GetForBrowserState(browser_state);
 
     if (history_service && device_info_sync_service) {
-      PrefService* local_state = GetApplicationContext()->GetLocalState();
-      CHECK(local_state);
+      PrefService* pref_service = browser_state->GetPrefs();
 
-      int display_count = local_state->GetInteger(
+      const int display_count = pref_service->GetInteger(
           prefs::kIosSyncSegmentsNewTabPageDisplayCount);
 
-      int display_limit = history::kMaxNumNewTabPageDisplays.Get();
+      const int display_limit = history::kMaxNumNewTabPageDisplays.Get();
 
       history_service->SetCanAddForeignVisitsToSegmentsOnBackend(display_count <
                                                                  display_limit);
@@ -139,6 +141,12 @@ std::unique_ptr<KeyedService> BuildSyncService(web::BrowserState* context) {
 
   SendTabToSelfSyncServiceFactory::GetForBrowserState(browser_state)
       ->OnSyncServiceInitialized(sync_service.get());
+
+  if (GoogleGroupsUpdaterService* groups_updater_service =
+          GoogleGroupsUpdaterServiceFactory::GetForBrowserState(
+              browser_state)) {
+    groups_updater_service->OnSyncServiceInitialized(sync_service.get());
+  }
 
   return sync_service;
 }
@@ -198,9 +206,6 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(data_sharing::DataSharingServiceFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
   DependsOn(SendTabToSelfSyncServiceFactory::GetInstance());
-  // Sync needs this service to still be present when the sync engine is
-  // disabled, so that preferences can be cleared.
-  DependsOn(GoogleGroupsUpdaterServiceFactory::GetInstance());
   DependsOn(ios::AboutSigninInternalsFactory::GetInstance());
   DependsOn(ios::AccountBookmarkModelFactory::GetInstance());
   DependsOn(ios::AccountBookmarkSyncServiceFactory::GetInstance());
@@ -220,10 +225,12 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(IOSTrustedVaultServiceFactory::GetInstance());
   DependsOn(IOSUserEventServiceFactory::GetInstance());
   DependsOn(ModelTypeStoreServiceFactory::GetInstance());
+  DependsOn(PlusAddressSettingServiceFactory::GetInstance());
   DependsOn(ReadingListModelFactory::GetInstance());
   DependsOn(SessionSyncServiceFactory::GetInstance());
   DependsOn(SupervisedUserSettingsServiceFactory::GetInstance());
   DependsOn(SyncInvalidationsServiceFactory::GetInstance());
+  DependsOn(tab_groups::TabGroupSyncServiceFactory::GetInstance());
 }
 
 SyncServiceFactory::~SyncServiceFactory() {}

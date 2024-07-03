@@ -124,7 +124,7 @@ String ClientNavigationReasonToProtocol(ClientNavigationReason reason) {
     case ClientNavigationReason::kReload:
       return ReasonEnum::Reload;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   return ReasonEnum::Reload;
 }
@@ -315,7 +315,7 @@ static void MaybeEncodeTextContent(const String& text_content,
                                   base64_encoded);
   }
 
-  const SharedBuffer::DeprecatedFlatData flat_buffer(std::move(buffer));
+  const SegmentedBuffer::DeprecatedFlatData flat_buffer(buffer.get());
   return MaybeEncodeTextContent(
       text_content, flat_buffer.Data(),
       base::checked_cast<wtf_size_t>(flat_buffer.size()), result,
@@ -330,8 +330,8 @@ KURL InspectorPageAgent::UrlWithoutFragment(const KURL& url) {
 }
 
 // static
-bool InspectorPageAgent::SharedBufferContent(
-    scoped_refptr<const SharedBuffer> buffer,
+bool InspectorPageAgent::SegmentedBufferContent(
+    const SegmentedBuffer* buffer,
     const String& mime_type,
     const String& text_encoding_name,
     String* result,
@@ -344,7 +344,7 @@ bool InspectorPageAgent::SharedBufferContent(
       CreateResourceTextDecoder(mime_type, text_encoding_name);
   WTF::TextEncoding encoding(text_encoding_name);
 
-  const SharedBuffer::DeprecatedFlatData flat_buffer(std::move(buffer));
+  const SegmentedBuffer::DeprecatedFlatData flat_buffer(buffer);
   if (decoder) {
     text_content = decoder->Decode(flat_buffer.Data(), flat_buffer.size());
     text_content = text_content + decoder->Flush();
@@ -374,7 +374,7 @@ bool InspectorPageAgent::CachedResourceContent(const Resource* cached_resource,
     if (!buffer)
       return false;
 
-    const SharedBuffer::DeprecatedFlatData flat_buffer(std::move(buffer));
+    const SegmentedBuffer::DeprecatedFlatData flat_buffer(buffer.get());
     *result = Base64Encode(base::as_bytes(
         base::make_span(flat_buffer.Data(), flat_buffer.size())));
     *base64_encoded = true;
@@ -406,8 +406,8 @@ bool InspectorPageAgent::CachedResourceContent(const Resource* cached_resource,
       if (text_encoding_name.empty() &&
           cached_resource->GetType() != blink::ResourceType::kRaw)
         text_encoding_name = "WinLatin1";
-      return InspectorPageAgent::SharedBufferContent(
-          cached_resource->ResourceBuffer(),
+      return InspectorPageAgent::SegmentedBufferContent(
+          cached_resource->ResourceBuffer().get(),
           cached_resource->GetResponse().MimeType(), text_encoding_name, result,
           base64_encoded);
   }
@@ -895,7 +895,10 @@ protocol::Response InspectorPageAgent::getPermissionsPolicyState(
   auto feature_states = std::make_unique<
       protocol::Array<protocol::Page::PermissionsPolicyFeatureState>>();
 
-  for (const auto& entry : blink::GetDefaultFeatureNameMap()) {
+  bool is_isolated_context =
+      frame->DomWindow() && frame->DomWindow()->IsIsolatedContext();
+  for (const auto& entry :
+       blink::GetDefaultFeatureNameMap(is_isolated_context)) {
     const String& feature_name = entry.key;
     const mojom::blink::PermissionsPolicyFeature feature = entry.value;
 
@@ -908,7 +911,8 @@ protocol::Response InspectorPageAgent::getPermissionsPolicyState(
     std::unique_ptr<protocol::Page::PermissionsPolicyFeatureState>
         feature_state =
             protocol::Page::PermissionsPolicyFeatureState::create()
-                .setFeature(blink::PermissionsPolicyFeatureToProtocol(feature))
+                .setFeature(blink::PermissionsPolicyFeatureToProtocol(
+                    feature, frame->DomWindow()))
                 .setAllowed(!locator.has_value())
                 .build();
 

@@ -474,7 +474,7 @@ BASE_FEATURE(kContextMenuSaveVideoFrameAs,
 // Enables the "Search Video Frame with <Search Provider>" context menu item.
 BASE_FEATURE(kContextMenuSearchForVideoFrame,
              "ContextMenuSearchForVideoFrame",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
 // If echo cancellation for a mic signal is requested, mix and cancel all audio
@@ -595,7 +595,7 @@ BASE_FEATURE(kMemoryPressureBasedSourceBufferGC,
 // image.
 BASE_FEATURE(kUseWritePixelsYUV,
              "UseWritePixelsYUV",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables creating single shared image and mailbox for multi-planar formats for
 // hardware video decoders.
@@ -608,17 +608,6 @@ BASE_FEATURE(kUseMultiPlaneFormatForHardwareVideo,
 BASE_FEATURE(kUseMultiPlaneFormatForSoftwareVideo,
              "UseMultiPlaneFormatForSoftwareVideo",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable binding multiple shared images to a single GpuMemoryBuffer for video
-// frames created by video capture.
-BASE_FEATURE(kMultiPlaneVideoCaptureSharedImages,
-             "MultiPlaneVideoCaptureSharedImages",
-#if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
 
 // Controls whether the Mirroring Service will fetch, analyze, and store
 // information on the quality of the session using RTCP logs.
@@ -871,21 +860,10 @@ BASE_FEATURE(kVideoBlitColorAccuracy,
              "video-blit-color-accuracy",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_APPLE)
-// Use VideoToolbox for AV1 hardware decoding.
-// Owner: dalecurtis@chromium.org, sandersd@chromium.org
-// Expiry: When enabled by default for a full release cycle
-BASE_FEATURE(kVideoToolboxAv1Decoding,
-             "VideoToolboxAv1Decoding",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Use the new VideoToolboxVideoDecoder for hardware decoding.
-// Owner: sandersd@chromium.org
-// Expiry: When VTVideoDecodeAccelerator is deleted
-BASE_FEATURE(kVideoToolboxVideoDecoder,
-             "VideoToolboxVideoDecoder",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_APPLE)
+// Displays a minimize button on video picture-in-picture windows.
+BASE_FEATURE(kVideoPictureInPictureMinimizeButton,
+             "VideoPictureInPictureMinimizeButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // A video encoder is allowed to drop a frame in cast mirroring.
 BASE_FEATURE(kCastVideoEncoderFrameDrop,
@@ -925,6 +903,13 @@ const base::FeatureParam<std::string> kMediaFoundationClearKeyCdmPathForTesting{
 BASE_FEATURE(kOnDeviceWebSpeech,
              "OnDeviceWebSpeech",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Enables Lacros Chrome to use the Ash Chrome Widevine CDM.
+BASE_FEATURE(kLacrosUseAshWidevine,
+             "LacrosUseAshWidevine",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 // Enables the Live Caption feature on supported devices.
 BASE_FEATURE(kLiveCaption, "LiveCaption", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1346,7 +1331,7 @@ BASE_FEATURE(kMediaFoundationVideoCapture,
 // please use IsMediaFoundationD3D11VideoCaptureEnabled() instead.
 BASE_FEATURE(kMediaFoundationD3D11VideoCapture,
              "MediaFoundationD3D11VideoCapture",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable zero-copy based on MediaFoundation video capture with D3D11.
 BASE_FEATURE(kMediaFoundationD3D11VideoCaptureZeroCopy,
@@ -1778,14 +1763,6 @@ BASE_FEATURE(kLibaomUseChromeThreads,
              "LibaomUseChromeThreads",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) && BUILDFLAG(IS_CHROMEOS)
-// Allows demuxing of AVI and decoding of MPEG4 streams. These should not be
-// allowed through the web in Chrome, but may be enabled by the local file app.
-BASE_FEATURE(kCrOSLegacyMediaFormats,
-             "CrOSLegacyMediaFormats",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 #if BUILDFLAG(IS_WIN)
 // Controls whether to use D3D12 video decoder instead of D3D11 when supported.
 BASE_FEATURE(kD3D12VideoDecoder,
@@ -1860,13 +1837,7 @@ bool IsVideoCaptureAcceleratedJpegDecodingEnabled() {
 }
 
 bool IsMultiPlaneFormatForHardwareVideoEnabled() {
-#if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
   return true;
-#else
-  return
-      base::FeatureList::IsEnabled(kUseMultiPlaneFormatForHardwareVideo);
-#endif
 }
 
 bool IsMultiPlaneFormatForSoftwareVideoEnabled() {
@@ -1878,8 +1849,7 @@ bool IsMultiPlaneFormatForSoftwareVideoEnabled() {
 }
 
 bool IsWritePixelsYUVEnabled() {
-  return IsMultiPlaneFormatForHardwareVideoEnabled() &&
-         base::FeatureList::IsEnabled(kUseWritePixelsYUV);
+  return base::FeatureList::IsEnabled(kUseWritePixelsYUV);
 }
 
 #if BUILDFLAG(IS_WIN)

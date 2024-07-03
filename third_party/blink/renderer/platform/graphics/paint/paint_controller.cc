@@ -123,13 +123,15 @@ void PaintController::RecordScrollHitTestData(
     const DisplayItemClient& client,
     DisplayItem::Type type,
     const TransformPaintPropertyNode* scroll_translation,
-    const gfx::Rect& rect,
-    cc::HitTestOpaqueness hit_test_opaqueness) {
+    const gfx::Rect& scroll_hit_test_rect,
+    cc::HitTestOpaqueness hit_test_opaqueness,
+    const gfx::Rect& scrolling_contents_cull_rect) {
   PaintChunk::Id id(client.Id(), type, current_fragment_);
   CheckNewChunkId(id);
   ValidateNewChunkClient(client);
-  paint_chunker_.CreateScrollHitTestChunk(id, client, scroll_translation, rect,
-                                          hit_test_opaqueness);
+  paint_chunker_.CreateScrollHitTestChunk(
+      id, client, scroll_translation, scroll_hit_test_rect, hit_test_opaqueness,
+      scrolling_contents_cull_rect);
   CheckNewChunk();
 }
 
@@ -291,7 +293,7 @@ bool PaintController::UseCachedSubsequenceIfPossible(
     // created multiple subsequences. If DCHECK_IS_ON(), then we should have
     // encountered the DCHECK at the end of EndSubsequence() during the previous
     // paint.
-    DUMP_WILL_BE_NOTREACHED_NORETURN();
+    DUMP_WILL_BE_NOTREACHED();
     return false;
   }
 
@@ -412,7 +414,7 @@ void PaintController::CheckNewItem(DisplayItem& display_item) {
                              return index < chunk.end_index;
                            });
       DCHECK_NE(chunk, chunks.end());
-      NOTREACHED()
+      NOTREACHED_IN_MIGRATION()
           << "DisplayItem "
           << display_item.AsDebugString(*new_paint_artifact_).Utf8()
           << " (index="
@@ -480,7 +482,7 @@ void PaintController::CheckNewChunkId(const PaintChunk::Id& id) {
   auto it = new_paint_chunk_id_index_map_.find(id.AsHashKey());
   if (it != new_paint_chunk_id_index_map_.end()) {
     ShowDebugData();
-    DUMP_WILL_BE_NOTREACHED_NORETURN()
+    DUMP_WILL_BE_NOTREACHED()
         << "New paint chunk id " << id.ToString(*new_paint_artifact_)
         << " is already used by a previous chuck "
         << new_paint_artifact_->GetPaintChunks()[it->value].ToString(

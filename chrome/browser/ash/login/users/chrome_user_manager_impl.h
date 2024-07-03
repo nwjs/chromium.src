@@ -55,18 +55,6 @@ class ChromeUserManagerImpl
 
   // UserManager implementation:
   void Shutdown() override;
-  void SaveUserOAuthStatus(
-      const AccountId& account_id,
-      user_manager::User::OAuthTokenStatus oauth_token_status) override;
-  void SaveUserDisplayName(const AccountId& account_id,
-                           const std::u16string& display_name) override;
-  bool IsGuestSessionAllowed() const override;
-  bool IsGaiaUserAllowed(const user_manager::User& user) const override;
-  bool IsUserAllowed(const user_manager::User& user) const override;
-  void AsyncRemoveCryptohome(const AccountId& account_id) const override;
-  bool IsDeprecatedSupervisedAccountId(
-      const AccountId& account_id) const override;
-  bool IsValidDefaultUserImageId(int image_index) const override;
 
   // DeviceSettingsService::Observer:
   void OwnershipStatusChanged() override;
@@ -91,13 +79,7 @@ class ChromeUserManagerImpl
 
  protected:
   void LoadDeviceLocalAccounts(std::set<AccountId>* users_set) override;
-  void NotifyOnLogin() override;
   void RemoveNonCryptohomeData(const AccountId& account_id) override;
-  void RemoveUserInternal(const AccountId& account_id,
-                          user_manager::UserRemovalReason reason) override;
-  bool IsDeviceLocalAccountMarkedForRemoval(
-      const AccountId& account_id) const override;
-  bool IsEphemeralAccountIdByPolicy(const AccountId& account_id) const override;
 
  private:
   friend class UserManagerTest;
@@ -178,8 +160,6 @@ class ChromeUserManagerImpl
       profile_observations_;
 
   base::RepeatingClosure remove_non_cryptohome_data_barrier_;
-
-  std::unique_ptr<MountPerformer> mount_performer_;
 
   base::WeakPtrFactory<ChromeUserManagerImpl> weak_factory_{this};
 };

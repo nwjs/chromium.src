@@ -110,6 +110,8 @@ const char* const kNonUpdatedHeaderPrefixes[] = {
   "x-webkit-"
 };
 
+constexpr char kActivateStorageAccessHeader[] = "activate-storage-access";
+
 bool ShouldUpdateHeader(std::string_view name) {
   for (const auto* header : kNonUpdatedHeaders) {
     if (base::EqualsCaseInsensitiveASCII(name, header))
@@ -153,7 +155,7 @@ int ParseStatus(std::string_view status, std::string& append_to) {
   if (first_non_digit == status.begin()) {
     DVLOG(1) << "missing response status number; assuming 200";
     append_to.append(" 200");
-    return net::HTTP_OK;
+    return HTTP_OK;
   }
 
   append_to.push_back(' ');
@@ -416,8 +418,8 @@ void HttpResponseHeaders::Persist(base::Pickle* pickle,
 }
 
 void HttpResponseHeaders::Update(const HttpResponseHeaders& new_headers) {
-  DCHECK(new_headers.response_code() == net::HTTP_NOT_MODIFIED ||
-         new_headers.response_code() == net::HTTP_PARTIAL_CONTENT);
+  DCHECK(new_headers.response_code() == HTTP_NOT_MODIFIED ||
+         new_headers.response_code() == HTTP_PARTIAL_CONTENT);
 
   // Copy up to the null byte.  This just copies the status line.
   std::string new_raw_headers(raw_headers_.c_str());
@@ -859,7 +861,7 @@ void HttpResponseHeaders::ParseStatusLine(
   if (p == line_end) {
     DVLOG(1) << "missing response status; assuming 200 OK";
     raw_headers_.append(" 200 OK");
-    response_code_ = net::HTTP_OK;
+    response_code_ = HTTP_OK;
     return;
   }
 
@@ -1093,15 +1095,22 @@ bool HttpResponseHeaders::IsRedirect(std::string* location) const {
   return true;
 }
 
+bool HttpResponseHeaders::HasStorageAccessRetryHeader() const {
+  return HasHeaderValue(kActivateStorageAccessHeader, "retry");
+}
+
+bool HttpResponseHeaders::HasStorageAccessLoadHeader() const {
+  return HasHeaderValue(kActivateStorageAccessHeader, "load");
+}
+
 // static
 bool HttpResponseHeaders::IsRedirectResponseCode(int response_code) {
   // Users probably want to see 300 (multiple choice) pages, so we don't count
   // them as redirects that need to be followed.
-  return (response_code == net::HTTP_MOVED_PERMANENTLY ||
-          response_code == net::HTTP_FOUND ||
-          response_code == net::HTTP_SEE_OTHER ||
-          response_code == net::HTTP_TEMPORARY_REDIRECT ||
-          response_code == net::HTTP_PERMANENT_REDIRECT);
+  return (response_code == HTTP_MOVED_PERMANENTLY ||
+          response_code == HTTP_FOUND || response_code == HTTP_SEE_OTHER ||
+          response_code == HTTP_TEMPORARY_REDIRECT ||
+          response_code == HTTP_PERMANENT_REDIRECT);
 }
 
 // From RFC 2616 section 13.2.4:
@@ -1229,9 +1238,9 @@ HttpResponseHeaders::GetFreshnessLifetimes(const Time& response_time) const {
   // https://datatracker.ietf.org/doc/draft-reschke-http-status-308/ is an
   // experimental RFC that adds 308 permanent redirect as well, for which "any
   // future references ... SHOULD use one of the returned URIs."
-  if ((response_code_ == net::HTTP_OK ||
-       response_code_ == net::HTTP_NON_AUTHORITATIVE_INFORMATION ||
-       response_code_ == net::HTTP_PARTIAL_CONTENT) &&
+  if ((response_code_ == HTTP_OK ||
+       response_code_ == HTTP_NON_AUTHORITATIVE_INFORMATION ||
+       response_code_ == HTTP_PARTIAL_CONTENT) &&
       !must_revalidate) {
     // TODO(darin): Implement a smarter heuristic.
     Time last_modified_value;
@@ -1245,10 +1254,10 @@ HttpResponseHeaders::GetFreshnessLifetimes(const Time& response_time) const {
   }
 
   // These responses are implicitly fresh (unless otherwise overruled):
-  if (response_code_ == net::HTTP_MULTIPLE_CHOICES ||
-      response_code_ == net::HTTP_MOVED_PERMANENTLY ||
-      response_code_ == net::HTTP_PERMANENT_REDIRECT ||
-      response_code_ == net::HTTP_GONE) {
+  if (response_code_ == HTTP_MULTIPLE_CHOICES ||
+      response_code_ == HTTP_MOVED_PERMANENTLY ||
+      response_code_ == HTTP_PERMANENT_REDIRECT ||
+      response_code_ == HTTP_GONE) {
     lifetimes.freshness = base::TimeDelta::Max();
     lifetimes.staleness = base::TimeDelta();  // It should never be stale.
     return lifetimes;

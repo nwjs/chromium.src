@@ -54,6 +54,14 @@ class CampaignsManagerClient {
   // Returns application locale.
   virtual const std::string& GetApplicationLocale() const = 0;
 
+  // Returns user selected locale.
+  virtual const std::string& GetUserLocale() const = 0;
+
+  // Returns the permanent country code stored for this client.
+  // Country code is in the format of lowercase ISO 3166-1 alpha-2.
+  // Example: `us`, `br`, `in`.
+  virtual const std::string GetCountryCode() const = 0;
+
   // Get demo mode app component version.
   virtual const base::Version& GetDemoModeAppVersion() const = 0;
 
@@ -63,13 +71,14 @@ class CampaignsManagerClient {
   virtual ActionMap GetCampaignsActions() = 0;
 
   // Register sythetical trial for current session.
-  virtual void RegisterSyntheticFieldTrial(std::optional<int> study_id,
-                                           int campaign_id) const = 0;
+  virtual void RegisterSyntheticFieldTrial(
+      const std::string& trial_name,
+      const std::string& group_name) const = 0;
 
   // Proxy to Feature Engagement methods.
   virtual void ClearConfig(
       const std::map<std::string, std::string>& params) = 0;
-  virtual void NotifyEvent(const std::string& event) = 0;
+  virtual void RecordEvent(const std::string& event) = 0;
   virtual bool WouldTriggerHelpUI(
       const std::map<std::string, std::string>& params) = 0;
   // Returns the IdentityManager for the active user profile.

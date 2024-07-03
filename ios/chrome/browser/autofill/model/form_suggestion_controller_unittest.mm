@@ -16,11 +16,15 @@
 #import "components/autofill/ios/form_util/form_activity_observer_bridge.h"
 #import "components/autofill/ios/form_util/form_activity_params.h"
 #import "components/autofill/ios/form_util/test_form_activity_tab_helper.h"
+#import "components/plus_addresses/features.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
+#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state_manager.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/ui/autofill/form_input_accessory/form_input_accessory_consumer.h"
 #import "ios/chrome/browser/ui/autofill/form_input_accessory/form_input_accessory_mediator.h"
 #import "ios/chrome/browser/ui/autofill/form_input_accessory/form_suggestion_view.h"
+#import "ios/chrome/test/testing_application_context.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/test/fakes/fake_navigation_context.h"
 #import "ios/web/public/test/fakes/fake_web_frame.h"
@@ -165,6 +169,12 @@ class FormSuggestionControllerTest : public PlatformTest {
   void SetUp() override {
     PlatformTest::SetUp();
 
+    TestChromeBrowserState::Builder test_cbs_builder;
+    browser_state_manager_ = std::make_unique<TestChromeBrowserStateManager>(
+        test_cbs_builder.Build());
+    TestingApplicationContext::GetGlobal()->SetChromeBrowserStateManager(
+        browser_state_manager_.get());
+
     fake_web_state_.SetWebViewProxy(mock_web_view_proxy_);
   }
 
@@ -218,6 +228,8 @@ class FormSuggestionControllerTest : public PlatformTest {
     [accessory_mediator_ injectWebState:&fake_web_state_];
     [accessory_mediator_ injectProvider:suggestion_controller_];
   }
+
+  std::unique_ptr<TestChromeBrowserStateManager> browser_state_manager_;
 
   // The FormSuggestionController under test.
   FormSuggestionController* suggestion_controller_;
@@ -519,6 +531,45 @@ TEST_F(FormSuggestionControllerTest, CopyAndAdjustSuggestions) {
       [suggestion_controller_ copyAndAdjustSuggestions:suggestions];
   EXPECT_TRUE(adjusted_suggestions.count);
   EXPECT_TRUE(adjusted_suggestions[0].icon);
+}
+
+// Tests that plus address suggestions always have an icon when the features are
+// enabled.
+TEST_F(FormSuggestionControllerTest, CopyAndAdjustPlusAddressSuggestions) {
+  base::test::ScopedFeatureList feature_list;
+
+  std::vector<base::test::FeatureRef> enabled_features;
+  enabled_features.push_back(plus_addresses::features::kPlusAddressesEnabled);
+  enabled_features.push_back(plus_addresses::features::kPlusAddressUIRedesign);
+
+  feature_list.InitWithFeatures(enabled_features, {});
+
+  SetUpController(@[ [TestSuggestionProvider providerWithSuggestions] ]);
+
+  NSMutableArray<FormSuggestion*>* suggestions = [NSMutableArray array];
+  FormSuggestion* suggestion = [FormSuggestion
+      suggestionWithValue:@""
+       displayDescription:nil
+                     icon:nil
+              popupItemId:autofill::SuggestionType::kCreateNewPlusAddress
+        backendIdentifier:nil
+           requiresReauth:NO];
+  [suggestions addObject:suggestion];
+
+  suggestion = [FormSuggestion
+      suggestionWithValue:@""
+       displayDescription:nil
+                     icon:nil
+              popupItemId:autofill::SuggestionType::kFillExistingPlusAddress
+        backendIdentifier:nil
+           requiresReauth:NO];
+  [suggestions addObject:suggestion];
+
+  NSArray<FormSuggestion*>* adjusted_suggestions =
+      [suggestion_controller_ copyAndAdjustSuggestions:suggestions];
+  EXPECT_EQ(adjusted_suggestions.count, suggestions.count);
+  EXPECT_TRUE(adjusted_suggestions[0].icon);
+  EXPECT_TRUE(adjusted_suggestions[1].icon);
 }
 
 }  // namespace

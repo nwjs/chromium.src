@@ -77,6 +77,7 @@ struct SyncConfirmationTestParam {
   AccountManagementStatus account_management_status =
       AccountManagementStatus::kNonManaged;
   SyncConfirmationStyle sync_style = SyncConfirmationStyle::kWindow;
+  bool is_sync_promo = false;
   MinorModeRestrictions minor_mode_restrictions;
 };
 
@@ -101,8 +102,6 @@ const SyncConfirmationTestParam kWindowTestParams[] = {
     {.pixel_test_param = {.test_suffix = "ManagedAccount"},
      .account_management_status = AccountManagementStatus::kManaged},
 #endif
-    {.pixel_test_param = {.test_suffix = "CR2023",
-                          .use_chrome_refresh_2023_style = true}},
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
     // Restricted mode is only implemented for these platforms.
@@ -122,22 +121,24 @@ const SyncConfirmationTestParam kDialogTestParams[] = {
 // The sign-in intercept feature isn't enabled on Lacros.
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)
     {.pixel_test_param = {.test_suffix = "SigninInterceptStyle"},
-     .sync_style = SyncConfirmationStyle::kSigninInterceptModal},
+     .sync_style = SyncConfirmationStyle::kSigninInterceptModal,
+     .is_sync_promo = true},
 #endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
     {.pixel_test_param = {.test_suffix = "DarkTheme", .use_dark_theme = true},
      .sync_style = SyncConfirmationStyle::kDefaultModal},
     {.pixel_test_param = {.test_suffix = "Rtl",
                           .use_right_to_left_language = true},
      .sync_style = SyncConfirmationStyle::kDefaultModal},
+    {.pixel_test_param = {.test_suffix = "Promo"},
+     .sync_style = SyncConfirmationStyle::kDefaultModal,
+     .is_sync_promo = true},
+
 // TODO(crbug.com/336964850): this test is flaky on windows.
 #if !BUILDFLAG(IS_WIN)
     {.pixel_test_param = {.test_suffix = "ManagedAccount"},
      .account_management_status = AccountManagementStatus::kManaged,
      .sync_style = SyncConfirmationStyle::kDefaultModal},
 #endif
-    {.pixel_test_param = {.test_suffix = "CR2023",
-                          .use_chrome_refresh_2023_style = true},
-     .sync_style = SyncConfirmationStyle::kDefaultModal},
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
     // Restricted mode is only implemented for these platforms.
@@ -156,7 +157,8 @@ const SyncConfirmationTestParam kDialogTestParams[] = {
 GURL BuildSyncConfirmationWindowURL() {
   std::string url_string = chrome::kChromeUISyncConfirmationURL;
   return AppendSyncConfirmationQueryParams(GURL(url_string),
-                                           SyncConfirmationStyle::kWindow);
+                                           SyncConfirmationStyle::kWindow,
+                                           /*is_sync_promo=*/true);
 }
 
 // Creates a step to represent the sync-confirmation.
@@ -263,7 +265,14 @@ class SyncConfirmationUIWindowPixelTest
   base::test::ScopedFeatureList scoped_feature_list;
 };
 
-IN_PROC_BROWSER_TEST_P(SyncConfirmationUIWindowPixelTest, InvokeUi_default) {
+// TODO(crbug.com/40261456): Enable once `VerifyUi()` is non-flaky.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_InvokeUi_default DISABLED_InvokeUi_default
+#else
+#define MAYBE_InvokeUi_default InvokeUi_default
+#endif  // BUILDFLAG(IS_WIN)
+IN_PROC_BROWSER_TEST_P(SyncConfirmationUIWindowPixelTest,
+                       MAYBE_InvokeUi_default) {
   ShowAndVerifyUi();
 }
 
@@ -294,9 +303,8 @@ class SyncConfirmationUIDialogPixelTest
                       signin::ConsentLevel::kSignin,
                       GetParam().minor_mode_restrictions.capability);
     auto url = GURL(chrome::kChromeUISyncConfirmationURL);
-    if (GetParam().sync_style == SyncConfirmationStyle::kSigninInterceptModal) {
-      url = AppendSyncConfirmationQueryParams(url, GetParam().sync_style);
-    }
+    url = AppendSyncConfirmationQueryParams(url, GetParam().sync_style,
+                                            GetParam().is_sync_promo);
     content::TestNavigationObserver observer(url);
     observer.StartWatchingNewWebContents();
 
@@ -309,7 +317,8 @@ class SyncConfirmationUIDialogPixelTest
 
     auto* controller = browser()->signin_view_controller();
     controller->ShowModalSyncConfirmationDialog(
-        GetParam().sync_style == SyncConfirmationStyle::kSigninInterceptModal);
+        GetParam().sync_style == SyncConfirmationStyle::kSigninInterceptModal,
+        GetParam().is_sync_promo);
     widget_waiter.WaitIfNeededAndGet();
     observer.Wait();
   }

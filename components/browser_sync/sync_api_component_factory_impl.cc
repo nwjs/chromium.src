@@ -40,6 +40,7 @@
 #include "components/password_manager/core/browser/sharing/password_sender_service.h"
 #include "components/password_manager/core/browser/sync/password_model_type_controller.h"
 #include "components/plus_addresses/features.h"
+#include "components/plus_addresses/settings/plus_address_setting_service.h"
 #include "components/plus_addresses/webdata/plus_address_webdata_service.h"
 #include "components/power_bookmarks/core/power_bookmark_features.h"
 #include "components/power_bookmarks/core/power_bookmark_service.h"
@@ -47,6 +48,7 @@
 #include "components/reading_list/core/reading_list_model.h"
 #include "components/send_tab_to_self/send_tab_to_self_model_type_controller.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
+#include "components/signin/public/base/gaia_id_hash.h"
 #include "components/supervised_user/core/common/buildflags.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/legacy_directory_deletion.h"
@@ -182,6 +184,7 @@ SyncApiComponentFactoryImpl::SyncApiComponentFactoryImpl(
     power_bookmarks::PowerBookmarkService* power_bookmark_service,
     supervised_user::SupervisedUserSettingsService*
         supervised_user_settings_service,
+    plus_addresses::PlusAddressSettingService* plus_address_setting_service,
     const scoped_refptr<plus_addresses::PlusAddressWebDataService>&
         plus_address_webdata_service,
     commerce::ProductSpecificationsService* product_specifications_service,
@@ -203,6 +206,7 @@ SyncApiComponentFactoryImpl::SyncApiComponentFactoryImpl(
       account_bookmark_sync_service_(account_bookmark_sync_service),
       power_bookmark_service_(power_bookmark_service),
       supervised_user_settings_service_(supervised_user_settings_service),
+      plus_address_setting_service_(plus_address_setting_service),
       plus_address_webdata_service_(plus_address_webdata_service),
       product_specifications_service_(product_specifications_service),
       data_sharing_service_(data_sharing_service) {
@@ -364,12 +368,13 @@ SyncApiComponentFactoryImpl::CreateCommonModelTypeControllers(
     }
   }
 
-  if (!disabled_types.Has(syncer::COMPARE) && product_specifications_service_ &&
-      base::FeatureList::IsEnabled(commerce::kProductSpecificationsSync)) {
+  if (!disabled_types.Has(syncer::PRODUCT_COMPARISON) &&
+      product_specifications_service_ &&
+      base::FeatureList::IsEnabled(commerce::kProductSpecifications)) {
     syncer::ModelTypeControllerDelegate* delegate =
         product_specifications_service_->GetSyncControllerDelegate().get();
     controllers.push_back(std::make_unique<ModelTypeController>(
-        syncer::COMPARE,
+        syncer::PRODUCT_COMPARISON,
         std::make_unique<syncer::ForwardingModelTypeControllerDelegate>(
             delegate),
         /*delegate_for_transport_mode= */
@@ -455,6 +460,20 @@ SyncApiComponentFactoryImpl::CreateCommonModelTypeControllers(
         plus_address_webdata_service_->GetSyncControllerDelegate(),
         /*delegate_for_transport_mode=*/
         plus_address_webdata_service_->GetSyncControllerDelegate()));
+  }
+
+  // `plus_address_setting_service_` is null on iOS WebView.
+  if (!disabled_types.Has(syncer::PLUS_ADDRESS_SETTING) &&
+      plus_address_setting_service_ &&
+      base::FeatureList::IsEnabled(
+          plus_addresses::features::kPlusAddressesEnabled) &&
+      base::FeatureList::IsEnabled(syncer::kSyncPlusAddressSetting)) {
+    controllers.push_back(std::make_unique<syncer::ModelTypeController>(
+        syncer::PLUS_ADDRESS_SETTING,
+        /*delegate_for_full_sync_mode=*/
+        plus_address_setting_service_->GetSyncControllerDelegate(),
+        /*delegate_for_transport_mode=*/
+        plus_address_setting_service_->GetSyncControllerDelegate()));
   }
 
   if (!disabled_types.Has(syncer::PREFERENCES)) {
@@ -614,6 +633,7 @@ SyncApiComponentFactoryImpl::CreateDataTypeManager(
 std::unique_ptr<syncer::SyncEngine>
 SyncApiComponentFactoryImpl::CreateSyncEngine(
     const std::string& name,
+    const signin::GaiaIdHash& gaia_id_hash,
     syncer::SyncInvalidationsService* sync_invalidation_service) {
   return std::make_unique<syncer::SyncEngineImpl>(
       name, sync_invalidation_service,
@@ -621,31 +641,29 @@ SyncApiComponentFactoryImpl::CreateSyncEngine(
           sync_client_->GetDeviceInfoSyncService()->GetDeviceInfoTracker(),
           base::DefaultClock::GetInstance()),
       std::make_unique<syncer::SyncTransportDataPrefs>(
-          sync_client_->GetPrefService()),
+          sync_client_->GetPrefService(), gaia_id_hash),
       sync_client_->GetModelTypeStoreService()->GetSyncDataPath(),
-      engines_and_directory_deletion_thread_,
-      base::BindRepeating(&syncer::SyncClient::OnLocalSyncTransportDataCleared,
-                          base::Unretained(sync_client_)));
+      engines_and_directory_deletion_thread_);
 }
 
-bool SyncApiComponentFactoryImpl::HasTransportDataIncludingFirstSync() {
+bool SyncApiComponentFactoryImpl::HasTransportDataIncludingFirstSync(
+    const signin::GaiaIdHash& gaia_id_hash) {
   syncer::SyncTransportDataPrefs sync_transport_data_prefs(
-      sync_client_->GetPrefService());
+      sync_client_->GetPrefService(), gaia_id_hash);
   // NOTE: Keep this logic consistent with how SyncEngineImpl reports
   // is-first-sync.
   return !sync_transport_data_prefs.GetLastSyncedTime().is_null();
 }
 
-void SyncApiComponentFactoryImpl::ClearAllTransportData() {
-  syncer::SyncTransportDataPrefs sync_transport_data_prefs(
-      sync_client_->GetPrefService());
-
+void SyncApiComponentFactoryImpl::CleanupOnDisableSync() {
+  PrefService* pref_service = sync_client_->GetPrefService();
   // Clearing the Directory via DeleteLegacyDirectoryFilesAndNigoriStorage()
   // means there's IO involved which may be considerable overhead if
   // triggered consistently upon browser startup (which is the case for
   // certain codepaths such as the user being signed out). To avoid that, prefs
   // are used to determine whether it's worth it.
-  if (!sync_transport_data_prefs.GetCacheGuid().empty()) {
+  if (syncer::SyncTransportDataPrefs::HasCurrentSyncingGaiaId(pref_service)) {
+    syncer::SyncTransportDataPrefs::ClearCurrentSyncingGaiaId(pref_service);
     engines_and_directory_deletion_thread_->PostTask(
         FROM_HERE,
         base::BindOnce(
@@ -653,8 +671,14 @@ void SyncApiComponentFactoryImpl::ClearAllTransportData() {
             sync_client_->GetModelTypeStoreService()->GetSyncDataPath()));
   }
 
-  sync_transport_data_prefs.ClearAll();
-  sync_client_->OnLocalSyncTransportDataCleared();
+  syncer::SyncTransportDataPrefs::ClearAllLegacy(pref_service);
+}
+
+void SyncApiComponentFactoryImpl::ClearTransportDataForAccount(
+    const signin::GaiaIdHash& gaia_id_hash) {
+  syncer::SyncTransportDataPrefs prefs(sync_client_->GetPrefService(),
+                                       gaia_id_hash);
+  prefs.ClearForCurrentAccount();
 }
 
 std::unique_ptr<syncer::ModelTypeControllerDelegate>

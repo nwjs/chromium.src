@@ -41,7 +41,7 @@ NavigationThrottle::ThrottleCheckResult ExecuteNavigationEvent(
     NavigationThrottleRunner::Event event) {
   switch (event) {
     case NavigationThrottleRunner::Event::NoEvent:
-      DUMP_WILL_BE_NOTREACHED_NORETURN();
+      DUMP_WILL_BE_NOTREACHED();
       return NavigationThrottle::CANCEL_AND_IGNORE;
     case NavigationThrottleRunner::Event::WillStartRequest:
       return throttle->WillStartRequest();
@@ -54,14 +54,14 @@ NavigationThrottle::ThrottleCheckResult ExecuteNavigationEvent(
     case NavigationThrottleRunner::Event::WillCommitWithoutUrlLoader:
       return throttle->WillCommitWithoutUrlLoader();
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return NavigationThrottle::CANCEL_AND_IGNORE;
 }
 
 const char* GetEventName(NavigationThrottleRunner::Event event) {
   switch (event) {
     case NavigationThrottleRunner::Event::NoEvent:
-      DUMP_WILL_BE_NOTREACHED_NORETURN();
+      DUMP_WILL_BE_NOTREACHED();
       return "";
     case NavigationThrottleRunner::Event::WillStartRequest:
       return "NavigationThrottle::WillStartRequest";
@@ -74,14 +74,14 @@ const char* GetEventName(NavigationThrottleRunner::Event event) {
     case NavigationThrottleRunner::Event::WillCommitWithoutUrlLoader:
       return "NavigationThrottle::WillCommitWithoutUrlLoader";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "";
 }
 
 const char* GetEventNameForHistogram(NavigationThrottleRunner::Event event) {
   switch (event) {
     case NavigationThrottleRunner::Event::NoEvent:
-      DUMP_WILL_BE_NOTREACHED_NORETURN();
+      DUMP_WILL_BE_NOTREACHED();
       return "";
     case NavigationThrottleRunner::Event::WillStartRequest:
       return "WillStartRequest";
@@ -94,7 +94,7 @@ const char* GetEventNameForHistogram(NavigationThrottleRunner::Event event) {
     case NavigationThrottleRunner::Event::WillCommitWithoutUrlLoader:
       return "WillCommitWithoutUrlLoader";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "";
 }
 

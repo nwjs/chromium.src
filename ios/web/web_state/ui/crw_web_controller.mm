@@ -666,7 +666,17 @@ char const kFullScreenStateHistogram[] = "IOS.Fullscreen.State";
                  navigationItem:(web::NavigationItem*)item
        navigationInitiationType:(web::NavigationInitiationType)type
                  hasUserGesture:(BOOL)hasUserGesture {
-  WKNavigation* navigation = [self.webView goToBackForwardListItem:wk_item];
+  WKNavigation* navigation;
+  // Where possible, call `goBack` or `goForward` since WebKit has logic
+  // specific to those functions for skipping over maliciously-added items. See
+  // crbug.com/40072465 for an example.
+  if (wk_item == self.webView.backForwardList.backItem) {
+    navigation = [self.webView goBack];
+  } else if (wk_item == self.webView.backForwardList.forwardItem) {
+    navigation = [self.webView goForward];
+  } else {
+    navigation = [self.webView goToBackForwardListItem:wk_item];
+  }
 
   GURL URL = net::GURLWithNSURL(wk_item.URL);
 
@@ -1101,14 +1111,6 @@ char const kFullScreenStateHistogram[] = "IOS.Fullscreen.State";
 
     DCHECK_EQ(documentOrigin, committedOrigin)
         << "Old and new URL detection system have a mismatch";
-
-    ukm::SourceId sourceID = ukm::ConvertToSourceId(
-        context->GetNavigationId(), ukm::SourceIdType::NAVIGATION_ID);
-    if (sourceID != ukm::kInvalidSourceId) {
-      ukm::builders::IOS_URLMismatchInLegacyAndSlimNavigationManager(sourceID)
-          .SetHasMismatch(documentOrigin != committedOrigin)
-          .Record(ukm::UkmRecorder::Get());
-    }
   }
 }
 
@@ -1338,7 +1340,7 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
     case WKFullscreenStateNotInFullscreen:
       return CrFullscreenState::kNotInFullScreen;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return CrFullscreenState::kNotInFullScreen;
   }
 }

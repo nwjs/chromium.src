@@ -32,6 +32,8 @@ declare namespace chrome {
     let fontName: string;
     let fontSize: number;
     let linksEnabled: boolean;
+    let imagesEnabled: boolean;
+    let imagesFeatureEnabled: boolean;
     let foregroundColor: number;
     let backgroundColor: number;
     let lineSpacing: number;
@@ -166,6 +168,9 @@ declare namespace chrome {
     // Called when a user toggles links via the webui toolbar.
     function onLinksEnabledToggled(): void;
 
+    // Called when a user toggles images via the webui toolbar.
+    function onImagesEnabledToggled(): void;
+
     // Called when the letter spacing is changed via the webui toolbar.
     function onStandardLetterSpacing(): void;
     function onWideLetterSpacing(): void;
@@ -209,9 +214,14 @@ declare namespace chrome {
     function onSelectionChange(
         anchorNodeId: number, anchorOffset: number, focusNodeId: number,
         focusOffset: number): void;
+
     // Called when a user collapses the selection. This is usually accomplished
     // by clicking.
     function onCollapseSelection(): void;
+
+    // Called when we are restarting read aloud after we've already started
+    // playing speech.
+    function onRestartReadAloud(): void;
 
     // Set the content. Used by tests only.
     // SnapshotLite is a data structure which resembles an AXTreeUpdate. E.g.:
@@ -262,6 +272,9 @@ declare namespace chrome {
 
     // Redraws links when the enabled state changes.
     function updateLinks(): void;
+
+    // Redraws images when the enabled state changes.
+    function updateImages(): void;
 
     // Updates an images src attribute with a data url. The data url must have
     // been requested first.

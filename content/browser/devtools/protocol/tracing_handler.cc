@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/devtools/protocol/tracing_handler.h"
 
 #include <algorithm>
@@ -199,6 +204,7 @@ void FillFrameData(base::trace_event::TracedValue* data,
   data->SetString("url", std::move(trimmed_url));
   data->SetString("name", frame_host->GetFrameName());
   data->SetBoolean("isOutermostMainFrame", frame_host->IsOutermostMainFrame());
+  data->SetBoolean("isInPrimaryMainFrame", frame_host->IsInPrimaryMainFrame());
   if (frame_host->GetParent()) {
     data->SetString(
         "parent", frame_host->GetParent()->GetDevToolsFrameToken().ToString());
@@ -875,8 +881,8 @@ void TracingHandler::AttemptAdoptStartupSession(
   if (session_for_process_filter_) {
     return;
   }
-  auto* startup_config = tracing::TraceStartupConfig::GetInstance();
-  if (!startup_config->AttemptAdoptBySessionOwner(
+  auto& startup_config = tracing::TraceStartupConfig::GetInstance();
+  if (!startup_config.AttemptAdoptBySessionOwner(
           tracing::TraceStartupConfig::SessionOwner::kDevToolsTracingHandler)) {
     return;
   }
@@ -886,7 +892,7 @@ void TracingHandler::AttemptAdoptStartupSession(
   proto_format_ = proto_format;
 
   base::trace_event::TraceConfig browser_config =
-      tracing::TraceStartupConfig::GetInstance()->GetTraceConfig();
+      tracing::TraceStartupConfig::GetInstance().GetTraceConfig();
   perfetto::TraceConfig perfetto_config = CreatePerfettoConfiguration(
       browser_config, return_as_stream_, proto_format_);
 
@@ -1175,7 +1181,7 @@ void TracingHandler::FrameDeleted(int frame_tree_node_id) {
 
 // static
 bool TracingHandler::IsStartupTracingActive() {
-  return ::tracing::TraceStartupConfig::GetInstance()->IsEnabled();
+  return ::tracing::TraceStartupConfig::GetInstance().IsEnabled();
 }
 
 // static

@@ -17,6 +17,7 @@
 #include "mojo/public/cpp/bindings/struct_traits.h"
 #include "mojo/public/cpp/bindings/union_traits.h"
 #include "services/viz/public/mojom/compositing/internal/singleplanar_format.mojom.h"
+#include "ui/gfx/buffer_types.h"
 #include "ui/gfx/geometry/size.h"
 
 namespace viz {
@@ -315,6 +316,9 @@ class SinglePlaneFormat {
       kRGB_565,       kBGR_565,      kETC1,         kR_8,     kRG_88,
       kLUMINANCE_F16, kRGBA_F16,     kR_16,         kRG_1616, kRGBX_8888,
       kBGRX_8888,     kRGBA_1010102, kBGRA_1010102, kR_F16};
+
+  static COMPONENT_EXPORT(VIZ_SHARED_IMAGE_FORMAT) SharedImageFormat
+      FromBufferFormat(gfx::BufferFormat format);
 };
 
 // Constants for legacy single-plane representations of multiplanar formats.
@@ -363,6 +367,22 @@ inline constexpr SharedImageFormat kP010 =
                                   SharedImageFormat::ChannelFormat::k10);
 // NOTE: These formats do not have an equivalent BufferFormat as they are not
 // used with GpuMemoryBuffers.
+inline constexpr SharedImageFormat kNV16 =
+    SharedImageFormat::MultiPlane(SharedImageFormat::PlaneConfig::kY_UV,
+                                  SharedImageFormat::Subsampling::k422,
+                                  SharedImageFormat::ChannelFormat::k8);
+inline constexpr SharedImageFormat kNV24 =
+    SharedImageFormat::MultiPlane(SharedImageFormat::PlaneConfig::kY_UV,
+                                  SharedImageFormat::Subsampling::k444,
+                                  SharedImageFormat::ChannelFormat::k8);
+inline constexpr SharedImageFormat kP210 =
+    SharedImageFormat::MultiPlane(SharedImageFormat::PlaneConfig::kY_UV,
+                                  SharedImageFormat::Subsampling::k422,
+                                  SharedImageFormat::ChannelFormat::k10);
+inline constexpr SharedImageFormat kP410 =
+    SharedImageFormat::MultiPlane(SharedImageFormat::PlaneConfig::kY_UV,
+                                  SharedImageFormat::Subsampling::k444,
+                                  SharedImageFormat::ChannelFormat::k10);
 inline constexpr SharedImageFormat kI420 =
     SharedImageFormat::MultiPlane(SharedImageFormat::PlaneConfig::kY_U_V,
                                   SharedImageFormat::Subsampling::k420,

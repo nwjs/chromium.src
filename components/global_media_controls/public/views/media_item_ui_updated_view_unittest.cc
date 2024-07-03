@@ -5,6 +5,7 @@
 #include "components/global_media_controls/public/views/media_item_ui_updated_view.h"
 
 #include "components/global_media_controls/public/test/mock_media_item_ui_device_selector.h"
+#include "components/global_media_controls/public/test/mock_media_item_ui_footer.h"
 #include "components/global_media_controls/public/test/mock_media_item_ui_observer.h"
 #include "components/global_media_controls/public/views/media_progress_view.h"
 #include "components/media_message_center/mock_media_notification_item.h"
@@ -19,6 +20,7 @@
 namespace global_media_controls {
 
 using ::global_media_controls::test::MockMediaItemUIDeviceSelector;
+using ::global_media_controls::test::MockMediaItemUIFooter;
 using ::global_media_controls::test::MockMediaItemUIObserver;
 using ::media_message_center::test::MockMediaNotificationItem;
 using ::media_session::mojom::MediaSessionAction;
@@ -43,13 +45,14 @@ class MediaItemUIUpdatedViewTest : public views::ViewsTestBase {
     views::ViewsTestBase::SetUp();
 
     item_ = std::make_unique<NiceMock<MockMediaNotificationItem>>();
-    widget_ = CreateTestWidget();
+    widget_ =
+        CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
     auto device_selector =
         std::make_unique<NiceMock<MockMediaItemUIDeviceSelector>>();
     device_selector_ = device_selector.get();
     view_ = widget_->SetContentsView(std::make_unique<MediaItemUIUpdatedView>(
         kTestId, item_->GetWeakPtr(), media_message_center::MediaColorTheme(),
-        std::move(device_selector)));
+        std::move(device_selector), /*footer_view=*/nullptr));
 
     observer_ = std::make_unique<NiceMock<MockMediaItemUIObserver>>();
     view_->AddObserver(observer_.get());
@@ -118,6 +121,15 @@ TEST_F(MediaItemUIUpdatedViewTest, ProgressViewCheck) {
                          ui::DomKey::ARROW_RIGHT,  ui::EventTimeForNow()};
   EXPECT_CALL(item(), SeekTo(testing::_));
   view()->OnKeyPressed(key_event);
+}
+
+TEST_F(MediaItemUIUpdatedViewTest, OnMousePressed) {
+  ui::MouseEvent mouse_event(ui::ET_MOUSE_PRESSED, gfx::Point(), gfx::Point(),
+                             ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                             0);
+  EXPECT_CALL(observer(),
+              OnMediaItemUIClicked(kTestId, /*activate_original_media=*/true));
+  view()->OnMousePressed(mouse_event);
 }
 
 TEST_F(MediaItemUIUpdatedViewTest,
@@ -275,6 +287,130 @@ TEST_F(MediaItemUIUpdatedViewTest, DeviceSelectorViewCheck) {
             views::InkDrop::Get(view()->GetStartCastingButtonForTesting())
                 ->GetInkDrop()
                 ->GetTargetInkDropState());
+}
+
+TEST_F(MediaItemUIUpdatedViewTest, FooterViewCheck) {
+  EnableAllMediaActions();
+  auto* pip_button = view()->GetMediaActionButtonForTesting(
+      MediaSessionAction::kEnterPictureInPicture);
+  EXPECT_TRUE(pip_button->GetVisible());
+
+  auto footer_view = std::make_unique<NiceMock<MockMediaItemUIFooter>>();
+  auto* footer_ptr = footer_view.get();
+  view()->UpdateFooterView(std::move(footer_view));
+  EXPECT_FALSE(pip_button->GetVisible());
+  EXPECT_EQ(footer_ptr, view()->GetFooterForTesting());
+}
+
+TEST_F(MediaItemUIUpdatedViewTest, DragProgressForPlayingMedia) {
+  EnableAllMediaActions();
+  media_session::MediaPosition media_position(
+      /*playback_rate=*/1, /*duration=*/base::Seconds(10),
+      /*position=*/base::Seconds(5), /*end_of_media=*/false);
+  view()->UpdateWithMediaPosition(media_position);
+  auto* progress_view = view()->GetProgressViewForTesting();
+
+  // Starts dragging the progress view should pause the media.
+  gfx::Point point(progress_view->width() / 2, progress_view->height() / 2);
+  ui::MouseEvent pressed_event(ui::ET_MOUSE_PRESSED, point, point,
+                               ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                               ui::EF_LEFT_MOUSE_BUTTON);
+  EXPECT_CALL(item(), SeekTo(testing::_));
+  EXPECT_CALL(item(),
+              OnMediaSessionActionButtonPressed(MediaSessionAction::kPause));
+  progress_view->OnMousePressed(pressed_event);
+
+  // Starts dragging should hide these media action buttons.
+  EXPECT_FALSE(IsMediaActionButtonVisible(MediaSessionAction::kPreviousTrack));
+  EXPECT_FALSE(IsMediaActionButtonVisible(MediaSessionAction::kNextTrack));
+  EXPECT_FALSE(IsMediaActionButtonVisible(MediaSessionAction::kSeekForward));
+  EXPECT_FALSE(IsMediaActionButtonVisible(MediaSessionAction::kSeekBackward));
+
+  // Ends dragging the progress view should resume the media.
+  ui::MouseEvent released_event = ui::MouseEvent(
+      ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(), ui::EventTimeForNow(),
+      ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  EXPECT_CALL(item(), SeekTo(testing::_));
+  EXPECT_CALL(item(),
+              OnMediaSessionActionButtonPressed(MediaSessionAction::kPlay));
+  progress_view->OnMouseReleased(released_event);
+
+  // Ends dragging should show these media action buttons.
+  EXPECT_TRUE(IsMediaActionButtonVisible(MediaSessionAction::kPreviousTrack));
+  EXPECT_TRUE(IsMediaActionButtonVisible(MediaSessionAction::kNextTrack));
+  EXPECT_TRUE(IsMediaActionButtonVisible(MediaSessionAction::kSeekForward));
+  EXPECT_TRUE(IsMediaActionButtonVisible(MediaSessionAction::kSeekBackward));
+}
+
+TEST_F(MediaItemUIUpdatedViewTest, DragProgressForPausedMedia) {
+  EnableAllMediaActions();
+  media_session::MediaPosition media_position(
+      /*playback_rate=*/0, /*duration=*/base::Seconds(10),
+      /*position=*/base::Seconds(5), /*end_of_media=*/false);
+  view()->UpdateWithMediaPosition(media_position);
+  auto* progress_view = view()->GetProgressViewForTesting();
+
+  // Starts dragging the progress view.
+  gfx::Point point(progress_view->width() / 2, progress_view->height() / 2);
+  ui::MouseEvent pressed_event(ui::ET_MOUSE_PRESSED, point, point,
+                               ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                               ui::EF_LEFT_MOUSE_BUTTON);
+  EXPECT_CALL(item(), SeekTo(testing::_));
+  EXPECT_CALL(item(), OnMediaSessionActionButtonPressed(testing::_)).Times(0);
+  progress_view->OnMousePressed(pressed_event);
+
+  // Starts dragging should hide these media action buttons.
+  EXPECT_FALSE(IsMediaActionButtonVisible(MediaSessionAction::kPreviousTrack));
+  EXPECT_FALSE(IsMediaActionButtonVisible(MediaSessionAction::kNextTrack));
+  EXPECT_FALSE(IsMediaActionButtonVisible(MediaSessionAction::kSeekForward));
+  EXPECT_FALSE(IsMediaActionButtonVisible(MediaSessionAction::kSeekBackward));
+
+  // Ends dragging the progress view.
+  ui::MouseEvent released_event = ui::MouseEvent(
+      ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(), ui::EventTimeForNow(),
+      ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  EXPECT_CALL(item(), SeekTo(testing::_));
+  EXPECT_CALL(item(), OnMediaSessionActionButtonPressed(testing::_)).Times(0);
+  progress_view->OnMouseReleased(released_event);
+
+  // Ends dragging should show these media action buttons.
+  EXPECT_TRUE(IsMediaActionButtonVisible(MediaSessionAction::kPreviousTrack));
+  EXPECT_TRUE(IsMediaActionButtonVisible(MediaSessionAction::kNextTrack));
+  EXPECT_TRUE(IsMediaActionButtonVisible(MediaSessionAction::kSeekForward));
+  EXPECT_TRUE(IsMediaActionButtonVisible(MediaSessionAction::kSeekBackward));
+}
+
+TEST_F(MediaItemUIUpdatedViewTest, TimestampLabelsCheck) {
+  // The timestamp labels should be hidden initially.
+  EXPECT_FALSE(view()->GetCurrentTimestampLabelForTesting()->GetVisible());
+  EXPECT_FALSE(view()->GetDurationTimestampLabelForTesting()->GetVisible());
+
+  media_session::MediaPosition media_position(
+      /*playback_rate=*/0, /*duration=*/base::Seconds(10),
+      /*position=*/base::Seconds(5), /*end_of_media=*/false);
+  view()->UpdateWithMediaPosition(media_position);
+  auto* progress_view = view()->GetProgressViewForTesting();
+
+  // Starts dragging the progress view should show the timestamp labels.
+  gfx::Point point(progress_view->width() / 2, progress_view->height() / 2);
+  ui::MouseEvent pressed_event(ui::ET_MOUSE_PRESSED, point, point,
+                               ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                               ui::EF_LEFT_MOUSE_BUTTON);
+  EXPECT_CALL(item(), SeekTo(testing::_));
+  progress_view->OnMousePressed(pressed_event);
+  EXPECT_TRUE(view()->GetCurrentTimestampLabelForTesting()->GetVisible());
+  EXPECT_TRUE(view()->GetDurationTimestampLabelForTesting()->GetVisible());
+  EXPECT_EQ(u"0:05", view()->GetCurrentTimestampLabelForTesting()->GetText());
+  EXPECT_EQ(u"0:10", view()->GetDurationTimestampLabelForTesting()->GetText());
+
+  // Ends dragging the progress view should hide the timestamp labels.
+  ui::MouseEvent released_event = ui::MouseEvent(
+      ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(), ui::EventTimeForNow(),
+      ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  EXPECT_CALL(item(), SeekTo(testing::_));
+  progress_view->OnMouseReleased(released_event);
+  EXPECT_FALSE(view()->GetCurrentTimestampLabelForTesting()->GetVisible());
+  EXPECT_FALSE(view()->GetDurationTimestampLabelForTesting()->GetVisible());
 }
 
 }  // namespace global_media_controls

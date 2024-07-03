@@ -112,7 +112,6 @@ class ASH_EXPORT WallpaperControllerImpl
   // non-production members i.e. in tests.
   explicit WallpaperControllerImpl(
       std::unique_ptr<WallpaperPrefManager> pref_manager,
-      std::unique_ptr<OnlineWallpaperVariantInfoFetcher> fetcher,
       std::unique_ptr<WallpaperImageDownloader> image_downloader);
 
   WallpaperControllerImpl(const WallpaperControllerImpl&) = delete;
@@ -236,9 +235,6 @@ class ASH_EXPORT WallpaperControllerImpl
 
   // WallpaperController:
   void SetClient(WallpaperControllerClient* client) override;
-  WallpaperDragDropDelegate* GetDragDropDelegate() override;
-  void SetDragDropDelegate(
-      std::unique_ptr<WallpaperDragDropDelegate> delegate) override;
   void SetDriveFsDelegate(
       std::unique_ptr<WallpaperDriveFsDelegate> drivefs_delegate) override;
   void Init(const base::FilePath& user_data,
@@ -326,6 +322,8 @@ class ASH_EXPORT WallpaperControllerImpl
   bool IsWallpaperControlledByPolicy(
       const AccountId& account_id) const override;
   std::optional<WallpaperInfo> GetActiveUserWallpaperInfo() const override;
+  std::optional<WallpaperInfo> GetWallpaperInfoForAccountId(
+      const AccountId& account_id) const override;
   void SetDailyRefreshCollectionId(const AccountId& account_id,
                                    const std::string& collection_id) override;
   std::string GetDailyRefreshCollectionId(
@@ -333,6 +331,7 @@ class ASH_EXPORT WallpaperControllerImpl
   void UpdateDailyRefreshWallpaper(
       RefreshWallpaperCallback callback = base::DoNothing()) override;
   void SyncLocalAndRemotePrefs(const AccountId& account_id) override;
+  const AccountId& CurrentAccountId() const override;
 
   // WindowTreeHostManager::Observer:
   void OnDisplayConfigurationChanged() override;
@@ -774,10 +773,6 @@ class ASH_EXPORT WallpaperControllerImpl
   // Manages interactions with relevant preferences.
   std::unique_ptr<WallpaperPrefManager> pref_manager_;
 
-  // The delegate for drag-and-drop events over the wallpaper.
-  // NOTE: May be `nullptr` when drag-and-drop related features are disabled.
-  std::unique_ptr<WallpaperDragDropDelegate> drag_drop_delegate_;
-
   std::unique_ptr<WallpaperDriveFsDelegate> drivefs_delegate_;
 
   // Asynchronous task to extract colors from the wallpaper.
@@ -788,7 +783,7 @@ class ASH_EXPORT WallpaperControllerImpl
   std::unique_ptr<WallpaperWindowStateManager> window_state_manager_;
 
   // Delegate to resolve online wallpaper variants.
-  std::unique_ptr<OnlineWallpaperVariantInfoFetcher> variant_info_fetcher_;
+  OnlineWallpaperVariantInfoFetcher variant_info_fetcher_;
 
   // Manages the state of wallpaper blur.
   const std::unique_ptr<WallpaperBlurManager> blur_manager_;
@@ -798,7 +793,7 @@ class ASH_EXPORT WallpaperControllerImpl
   std::optional<WallpaperCalculatedColors> calculated_colors_;
 
   // Account id of the current user.
-  AccountId current_user_;
+  AccountId current_account_id_;
 
   // Cached wallpapers of users.
   CustomWallpaperMap wallpaper_cache_map_;

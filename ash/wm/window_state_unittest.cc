@@ -87,7 +87,8 @@ class WindowStateTest : public AshTestBase {
  public:
   WindowStateTest() {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kFasterSplitScreenSetup,
+        /*enabled_features=*/{features::kSnapGroup,
+                              features::kFasterSplitScreenSetup,
                               features::kOsSettingsRevampWayfinding},
         /*disabled_features=*/{});
   }
@@ -290,12 +291,14 @@ TEST_F(WindowStateTest, CanTransitionToPipWindow) {
 TEST_F(WindowStateTest, PipWindowIsSetBeforeWidgetDeactivate) {
   // Make `background_widget` to trigger shelf visibility change after
   // entering PIP.
-  auto background_widget = CreateTestWidget();
+  auto background_widget =
+      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
   auto* window_state = WindowState::Get(background_widget->GetNativeWindow());
   const WMEvent enter_fullscreen(WM_EVENT_FULLSCREEN);
   window_state->OnWMEvent(&enter_fullscreen);
 
-  auto pip_widget = CreateTestWidget();
+  auto pip_widget =
+      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
   auto* pip_window_state = WindowState::Get(pip_widget->GetNativeWindow());
   const WMEvent enter_pip(WM_EVENT_PIP);
 

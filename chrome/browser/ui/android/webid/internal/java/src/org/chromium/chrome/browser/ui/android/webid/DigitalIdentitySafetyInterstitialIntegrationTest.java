@@ -5,7 +5,9 @@
 package org.chromium.chrome.browser.ui.android.webid;
 
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
@@ -31,11 +33,13 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.CriteriaNotSatisfiedException;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.webid.DigitalIdentityProvider;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.content_public.browser.ContentFeatureList;
-import org.chromium.content_public.browser.test.util.DigitalCredentialProviderUtils;
+import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.DigitalCredentialProviderUtils.MockIdentityCredentialsDelegate;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
@@ -64,9 +68,12 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
         private String mSearchParagraph1;
         private boolean mWasDialogShown;
         private boolean mWasAnyDialogShown;
+        private boolean mPressButtonOnShow;
+        private PropertyModel mDialogPropertyModel;
 
-        public ModalDialogButtonPresser(String searchParagraph1) {
+        public ModalDialogButtonPresser(String searchParagraph1, boolean pressButtonOnShow) {
             mSearchParagraph1 = searchParagraph1;
+            mPressButtonOnShow = pressButtonOnShow;
         }
 
         private boolean wasAnyDialogShown() {
@@ -77,6 +84,10 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
             return mWasDialogShown;
         }
 
+        public PropertyModel getDialogPropertyModel() {
+            return mDialogPropertyModel;
+        }
+
         @Override
         public void onDialogAdded(PropertyModel model) {
             mWasAnyDialogShown = true;
@@ -84,9 +95,11 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
             CharSequence paragraph1 = model.get(ModalDialogProperties.MESSAGE_PARAGRAPH_1);
             if (paragraph1 != null && mSearchParagraph1.equals(paragraph1.toString())) {
                 mWasDialogShown = true;
-
-                model.get(ModalDialogProperties.CONTROLLER)
-                        .onClick(model, ModalDialogProperties.ButtonType.POSITIVE);
+                mDialogPropertyModel = model;
+                if (mPressButtonOnShow) {
+                    model.get(ModalDialogProperties.CONTROLLER)
+                            .onClick(model, ModalDialogProperties.ButtonType.POSITIVE);
+                }
             }
         }
     }
@@ -114,6 +127,10 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
             return mPromise;
         }
 
+        public boolean hasPromiseToFulfill() {
+            return mPromise != null;
+        }
+
         public void fulfillPromise() {
             mPromise.fulfill("token".getBytes());
         }
@@ -138,12 +155,11 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
     public void setUp() {
         mActivityTestRule.getEmbeddedTestServerRule().setServerUsesHttps(true);
         mTestServer = mActivityTestRule.getTestServer();
-        DigitalCredentialProviderUtils.setDelegateForTesting(
-                new ReturnTokenIdentityCredentialsDelegate());
+        DigitalIdentityProvider.setDelegateForTesting(new ReturnTokenIdentityCredentialsDelegate());
 
         mActivityTestRule.startMainActivityWithURL(mTestServer.getURL(TEST_PAGE));
 
-        mModalDialogManager = mActivityTestRule.getActivity().getModalDialogManager();
+        mModalDialogManager = getActivity().getModalDialogManager();
     }
 
     @After
@@ -154,6 +170,10 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
                         mModalDialogManager.removeObserver(mModalDialogObserver);
                     });
         }
+    }
+
+    private ChromeTabbedActivity getActivity() {
+        return mActivityTestRule.getActivity();
     }
 
     /** Wait till the <textarea> on the test page has the passed-in text content. */
@@ -185,40 +205,40 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
         FeatureList.setTestValues(testValues);
     }
 
-    public void addModalDialogObserver(int expectedInterstitialParagraph1ResourceId) {
-        String pageUrl = mTestServer.getURL(TEST_PAGE);
-        Origin pageOrigin = Origin.create(new GURL(pageUrl));
+    public void addModalDialogObserver(
+            int expectedInterstitialParagraph1ResourceId, boolean pressButtonOnShow) {
         String expectedDialogText = null;
         if (expectedInterstitialParagraph1ResourceId >= 0) {
             expectedDialogText =
-                    mActivityTestRule
-                            .getActivity()
+                    getActivity()
                             .getString(
                                     expectedInterstitialParagraph1ResourceId,
-                                    pageOrigin.getScheme()
-                                            + "://"
-                                            + pageOrigin.getHost()
-                                            + ":"
-                                            + pageOrigin.getPort());
+                                    getPageOriginString());
         }
 
-        mModalDialogObserver = new ModalDialogButtonPresser(expectedDialogText);
+        mModalDialogObserver = new ModalDialogButtonPresser(expectedDialogText, pressButtonOnShow);
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModalDialogManager.addObserver(mModalDialogObserver);
                 });
     }
 
+    private String getPageOriginString() {
+        String pageUrl = mTestServer.getURL(TEST_PAGE);
+        Origin pageOrigin = Origin.create(new GURL(pageUrl));
+        return pageOrigin.getScheme() + "://" + pageOrigin.getHost() + ":" + pageOrigin.getPort();
+    }
+
     public void checkDigitalIdentityRequestWithDialogFieldTrialParam(
             String dialogParamValue,
-            String jsMethodToCall,
+            String nodeIdToClick,
             int expectedInterstitialParagraph1ResourceId)
             throws TimeoutException {
         setFieldTrialParam(dialogParamValue);
-        addModalDialogObserver(expectedInterstitialParagraph1ResourceId);
+        addModalDialogObserver(
+                expectedInterstitialParagraph1ResourceId, /* pressButtonOnShow= */ true);
 
-        JavaScriptUtils.executeJavaScriptAndWaitForResult(
-                mActivityTestRule.getWebContents(), jsMethodToCall);
+        DOMUtils.clickNode(mActivityTestRule.getWebContents(), nodeIdToClick);
 
         waitTillLogTextAreaHasTextContent("\"token\"");
 
@@ -242,7 +262,7 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
         checkDigitalIdentityRequestWithDialogFieldTrialParam(
                 DigitalIdentitySafetyInterstitialBridge
                         .DIGITAL_IDENTITY_LOW_RISK_DIALOG_PARAM_VALUE,
-                "requestAgeOnly()",
+                "request_age_only_button",
                 R.string.digital_identity_interstitial_low_risk_dialog_text);
     }
 
@@ -258,7 +278,7 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
         checkDigitalIdentityRequestWithDialogFieldTrialParam(
                 DigitalIdentitySafetyInterstitialBridge
                         .DIGITAL_IDENTITY_HIGH_RISK_DIALOG_PARAM_VALUE,
-                "requestAgeOnly()",
+                "request_age_only_button",
                 R.string.digital_identity_interstitial_high_risk_dialog_text);
     }
 
@@ -273,7 +293,7 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
         checkDigitalIdentityRequestWithDialogFieldTrialParam(
                 DigitalIdentitySafetyInterstitialBridge
                         .DIGITAL_IDENTITY_HIGH_RISK_DIALOG_PARAM_VALUE,
-                "requestAgeAndName()",
+                "request_age_and_name_button",
                 R.string.digital_identity_interstitial_high_risk_dialog_text);
     }
 
@@ -284,7 +304,7 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
     public void testNoDialogByDefault() throws TimeoutException {
         checkDigitalIdentityRequestWithDialogFieldTrialParam(
                 /* dialogParamValue= */ "",
-                "requestAgeOnly()",
+                "request_age_only_button",
                 /* expectedInterstitialParagraph1ResourceId= */ -1);
     }
 
@@ -299,14 +319,19 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
     public void testNoDialogIfNavigationDuringAndroidOsCall() throws TimeoutException {
         DelayedReturnIdentityCredentialsDelegate delegate =
                 new DelayedReturnIdentityCredentialsDelegate();
-        DigitalCredentialProviderUtils.setDelegateForTesting(delegate);
+        DigitalIdentityProvider.setDelegateForTesting(delegate);
         setFieldTrialParam(
                 DigitalIdentitySafetyInterstitialBridge
                         .DIGITAL_IDENTITY_HIGH_RISK_DIALOG_PARAM_VALUE);
-        addModalDialogObserver(/* expectedInterstitialParagraph1ResourceId= */ -1);
+        addModalDialogObserver(
+                /* expectedInterstitialParagraph1ResourceId= */ -1, /* pressButtonOnShow= */ false);
 
-        JavaScriptUtils.executeJavaScriptAndWaitForResult(
-                mActivityTestRule.getWebContents(), "requestAgeOnly()");
+        DOMUtils.clickNode(mActivityTestRule.getWebContents(), "request_age_only_button");
+
+        CriteriaHelper.pollInstrumentationThread(
+                () -> {
+                    return delegate.hasPromiseToFulfill();
+                });
 
         // Do page navigation during the Android OS call.
         mActivityTestRule.loadUrl(mTestServer.getURL("/chrome/test/data/android/simple.html"));
@@ -319,5 +344,46 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
         // An interstitial should not have been shown.
         assertFalse(mModalDialogObserver.wasAnyDialogShown());
         assertFalse(mModalDialogObserver.wasDialogShown());
+    }
+
+    /**
+     * Test that the interstitial is updated to indicate that the credential request has been
+     * canceled if the page navigates while the interstitial is showing.
+     */
+    @Test
+    @LargeTest
+    @EnableFeatures({
+        "BackForwardCacheMemoryControls",
+        ContentFeatureList.WEB_IDENTITY_DIGITAL_CREDENTIALS
+    })
+    public void testDialogUpdatedIfPageNavigatesWhileDialogIsUp() throws TimeoutException {
+        setFieldTrialParam(
+                DigitalIdentitySafetyInterstitialBridge
+                        .DIGITAL_IDENTITY_HIGH_RISK_DIALOG_PARAM_VALUE);
+        addModalDialogObserver(
+                R.string.digital_identity_interstitial_high_risk_dialog_text,
+                /* pressButtonOnShow= */ false);
+
+        DOMUtils.clickNode(mActivityTestRule.getWebContents(), "request_age_and_name_button");
+        CriteriaHelper.pollInstrumentationThread(
+                () -> {
+                    return mModalDialogObserver.wasDialogShown();
+                });
+        assertNull(
+                mModalDialogObserver
+                        .getDialogPropertyModel()
+                        .get(ModalDialogProperties.MESSAGE_PARAGRAPH_2));
+
+        // Navigating the page should update the interstitial's UI.
+        mActivityTestRule.loadUrl(mTestServer.getURL("/chrome/test/data/android/simple.html"));
+        assertEquals(
+                getActivity()
+                        .getString(
+                                R.string.digital_identity_interstitial_request_aborted_dialog_text,
+                                getPageOriginString()),
+                mModalDialogObserver
+                        .getDialogPropertyModel()
+                        .get(ModalDialogProperties.MESSAGE_PARAGRAPH_2)
+                        .toString());
     }
 }

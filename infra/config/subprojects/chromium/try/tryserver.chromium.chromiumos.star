@@ -6,7 +6,7 @@
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_url.star", "linkify_builder")
-load("//lib/builders.star", "os", "reclient")
+load("//lib/builders.star", "os", "siso")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -21,11 +21,11 @@ try_.defaults.set(
     compilator_cores = 16,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     orchestrator_cores = 2,
-    orchestrator_siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
-    reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
+    orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
     siso_enabled = True,
-    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_project = siso.project.DEFAULT_UNTRUSTED,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
 consoles.list_view(
@@ -119,7 +119,7 @@ try_.orchestrator_builder(
     tryjob = try_.job(
         equivalent_builder = "try/chromeos-amd64-generic-rel-gtest-and-tast",
         equivalent_builder_percentage = 100,
-        equivalent_builder_whitelist = "chromeos-pa-with-chromium-accounts",
+        equivalent_builder_whitelist = "google/chromeos-pa@google.com",
     ),
 )
 
@@ -236,6 +236,24 @@ try_.builder(
     gn_args = "ci/chromeos-arm64-generic-rel",
 )
 
+try_.builder(
+    name = "chromeos-libfuzzer-asan-rel",
+    # TODO(crbug.com/41492669): Can delete this description when it's
+    # automatically generated.
+    description_html = "Trybot of {}.".format(linkify_builder("ci", "Libfuzzer Upload Chrome OS ASan")),
+    executable = "recipe:chromium/fuzz",
+    mirrors = ["ci/Libfuzzer Upload Chrome OS ASan"],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/Libfuzzer Upload Chrome OS ASan",
+            "dcheck_always_on",
+            "no_symbols",
+            "skip_generate_fuzzer_owners",
+        ],
+    ),
+    contact_team_email = "chrome-deet-core@google.com",
+)
+
 try_.orchestrator_builder(
     name = "lacros-amd64-generic-rel-gtest",
     branch_selector = branches.selector.CROS_BRANCHES,
@@ -258,11 +276,10 @@ try_.orchestrator_builder(
     compilator = "lacros-amd64-generic-rel-gtest-compilator",
     contact_team_email = "chrome-desktop-engprod@google.com",
     main_list_view = "try",
-    # TODO(crbug.com/40278121) Enable on CQ.
     tryjob = try_.job(
         equivalent_builder = "try/lacros-amd64-generic-rel-gtest-and-tast",
         equivalent_builder_percentage = 100,
-        equivalent_builder_whitelist = "chromeos-pa-with-chromium-accounts",
+        equivalent_builder_whitelist = "google/chromeos-pa@google.com",
     ),
 )
 
@@ -440,7 +457,7 @@ try_.builder(
     },
     main_list_view = "try",
     siso_enabled = True,
-    siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     tryjob = try_.job(),
 )
 
@@ -608,12 +625,12 @@ try_.builder(
             "release_try_builder",
         ],
     ),
-    reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
+    siso_project = siso.project.DEFAULT_UNTRUSTED,
     tryjob = try_.job(
         location_filters = [
             "chromeos/ash/components/chromebox_for_meetings/.+",
             "chromeos/ash/components/dbus/chromebox_for_meetings/.+",
-            "chromeos/ash/services/chromebox_for_meetings/.+",
+            "chromeos/services/chromebox_for_meetings/.+",
             "chrome/browser/ash/chromebox_for_meetings/.+",
         ],
     ),

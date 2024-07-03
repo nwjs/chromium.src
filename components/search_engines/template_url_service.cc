@@ -42,6 +42,7 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/choice_made_location.h"
+#include "components/search_engines/default_search_manager.h"
 #include "components/search_engines/enterprise_site_search_manager.h"
 #include "components/search_engines/keyword_web_data_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
@@ -776,8 +777,8 @@ void TemplateURLService::Remove(const TemplateURL* template_url) {
     // be hidden by an extension or policy and then deleted. Clean up the user
     // prefs then.
     if (prefs_ && (template_url->sync_guid() ==
-                   GetDefaultSearchProviderPrefValue(*prefs_))) {
-      SetDefaultSearchProviderPrefValue(*prefs_, std::string());
+                   GetDefaultSearchProviderGuidFromPrefs(*prefs_))) {
+      SetDefaultSearchProviderGuidToPrefs(*prefs_, std::string());
     }
 
     UMA_HISTOGRAM_ENUMERATION(kDeleteSyncedEngineHistogramName,
@@ -859,7 +860,6 @@ TemplateURLService::TemplateURLVector TemplateURLService::GetTemplateURLs() {
 std::unique_ptr<search_engines::ChoiceScreenData>
 TemplateURLService::GetChoiceScreenData() {
   OwnedTemplateURLVector owned_template_urls;
-  bool was_current_default_inserted = false;
 
   // We call `GetPrepopulatedEngines` instead of
   // `GetSearchProvidersUsingLoadedEngines` because the latter will return the
@@ -869,10 +869,7 @@ TemplateURLService::GetChoiceScreenData() {
   // handled by `generate_search_engine_icons.py`.
   std::vector<std::unique_ptr<TemplateURLData>> engines =
       TemplateURLPrepopulateData::GetPrepopulatedEngines(
-          prefs_, search_engine_choice_service_,
-          /*default_search_provider_index=*/nullptr,
-          /*include_current_default=*/true, /*template_url_service=*/this,
-          /*was_current_default_inserted=*/&was_current_default_inserted);
+          prefs_, search_engine_choice_service_);
   for (const auto& engine : engines) {
     owned_template_urls.push_back(std::make_unique<TemplateURL>(*engine));
   }
@@ -880,8 +877,20 @@ TemplateURLService::GetChoiceScreenData() {
   return std::make_unique<search_engines::ChoiceScreenData>(
       std::move(owned_template_urls),
       search_engine_choice_service_->GetCountryId(),
-      /*list_is_modified_by_current_default=*/was_current_default_inserted,
       search_terms_data());
+}
+
+TemplateURLService::TemplateURLVector
+TemplateURLService::GetFeaturedEnterpriseSearchEngines() const {
+  TemplateURLVector result;
+  for (const auto& turl : template_urls_) {
+    if (turl->created_by_policy() ==
+            TemplateURLData::CreatedByPolicy::kSiteSearch &&
+        turl->featured_by_policy()) {
+      result.push_back(turl.get());
+    }
+  }
+  return result;
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1298,7 +1307,7 @@ void TemplateURLService::RepairPrepopulatedSearchEngines() {
 
   std::vector<std::unique_ptr<TemplateURLData>> prepopulated_urls =
       TemplateURLPrepopulateData::GetPrepopulatedEngines(
-          prefs_, search_engine_choice_service_, nullptr);
+          prefs_, search_engine_choice_service_);
   DCHECK(!prepopulated_urls.empty());
   ActionsFromCurrentData actions(CreateActionsFromCurrentPrepopulateData(
       &prepopulated_urls, template_urls_, default_search_provider_));
@@ -1343,7 +1352,8 @@ void TemplateURLService::RepairPrepopulatedSearchEngines() {
       // Write the fallback engine's GUID to prefs, which will cause
       // OnDefaultSearchProviderGUIDChanged() to set it as the new
       // user-selected engine.
-      SetDefaultSearchProviderPrefValue(*prefs_, fallback_engine->sync_guid());
+      SetDefaultSearchProviderGuidToPrefs(*prefs_,
+                                          fallback_engine->sync_guid());
     }
   } else {
     // If the default search provider came from a user pref we would have been
@@ -2068,6 +2078,14 @@ void TemplateURLService::Init() {
     pref_change_registrar_.Init(prefs_);
     if (search_engines::IsChoiceScreenFlagEnabled(
             search_engines::ChoicePromo::kAny)) {
+      // We migrate `kSyncedDefaultSearchProviderGUID` to
+      // `kDefaultSearchProviderGUID` if the latter was never set.
+      if (!prefs_->HasPrefPath(prefs::kDefaultSearchProviderGUID)) {
+        prefs_->SetString(
+            prefs::kDefaultSearchProviderGUID,
+            prefs_->GetString(prefs::kSyncedDefaultSearchProviderGUID));
+      }
+
       pref_change_registrar_.Add(
           prefs::kDefaultSearchProviderGUID,
           base::BindRepeating(
@@ -2295,7 +2313,7 @@ void TemplateURLService::UpdateTemplateURLIfPrepopulated(
 
   std::vector<std::unique_ptr<TemplateURLData>> prepopulated_urls =
       TemplateURLPrepopulateData::GetPrepopulatedEngines(
-          prefs, search_engine_choice_service, nullptr);
+          prefs, search_engine_choice_service);
 
   for (const auto& url : prepopulated_urls) {
     if (url->prepopulate_id == prepopulate_id) {
@@ -2315,7 +2333,7 @@ void TemplateURLService::MaybeUpdateDSEViaPrefs(TemplateURL* synced_turl) {
   }
 
   if (prefs_ && (synced_turl->sync_guid() ==
-                 GetDefaultSearchProviderPrefValue(*prefs_))) {
+                 GetDefaultSearchProviderGuidFromPrefs(*prefs_))) {
     default_search_manager_.SetUserSelectedDefaultSearchEngine(
         synced_turl->data(), search_engines::ChoiceMadeLocation::kOther);
   }
@@ -2416,6 +2434,11 @@ bool TemplateURLService::ApplyDefaultSearchChangeNoMetrics(
   base::AutoReset<bool> applying_change(&applying_default_search_engine_change_,
                                         true);
 
+  search_terms_data_->set_search_engine_chosen_in_choice_screen(
+      default_search_manager_
+          .GetChoiceMadeLocationForUserSelectedDefaultSearchEngine() ==
+      search_engines::ChoiceMadeLocation::kChoiceScreen);
+
   if (!loaded_) {
     // Set pre-loading default search provider from the preferences. This is
     // mainly so we can hold ownership until we get to the point where the list
@@ -2509,8 +2532,8 @@ bool TemplateURLService::ApplyDefaultSearchChangeNoMetrics(
           << "Add() to repair the DSE must never fail.";
     }
     if (default_search_provider_ && prefs_) {
-      SetDefaultSearchProviderPrefValue(*prefs_,
-                                        default_search_provider_->sync_guid());
+      SetDefaultSearchProviderGuidToPrefs(
+          *prefs_, default_search_provider_->sync_guid());
     }
   }
 
@@ -2835,7 +2858,7 @@ void TemplateURLService::MergeInSyncTemplateURL(
         sync_turl->IsBetterThanConflictingEngine(conflicting_built_in_turl)) {
       std::string guid = conflicting_built_in_turl->sync_guid();
       if (conflicting_built_in_turl == default_search_provider_) {
-        bool pref_matched = GetDefaultSearchProviderPrefValue(*prefs_) ==
+        bool pref_matched = GetDefaultSearchProviderGuidFromPrefs(*prefs_) ==
                             default_search_provider_->sync_guid();
         // Update the existing engine in-place.
         Update(default_search_provider_, TemplateURL(sync_turl->data()));
@@ -2845,7 +2868,7 @@ void TemplateURLService::MergeInSyncTemplateURL(
         // a new search engine from Sync which just hasn't been added locally
         // yet, so leave it alone in that case.
         if (pref_matched) {
-          SetDefaultSearchProviderPrefValue(
+          SetDefaultSearchProviderGuidToPrefs(
               *prefs_, default_search_provider_->sync_guid());
         }
 
@@ -2890,7 +2913,7 @@ void TemplateURLService::OnDefaultSearchProviderGUIDChanged() {
   base::AutoReset<DefaultSearchChangeOrigin> change_origin(
       &dsp_change_origin_, DSP_CHANGE_SYNC_PREF);
 
-  std::string new_guid = GetDefaultSearchProviderPrefValue(*prefs_);
+  std::string new_guid = GetDefaultSearchProviderGuidFromPrefs(*prefs_);
   if (new_guid.empty()) {
     default_search_manager_.ClearUserSelectedDefaultSearchEngine();
     return;
@@ -2902,7 +2925,9 @@ void TemplateURLService::OnDefaultSearchProviderGUIDChanged() {
     // `OnDefaultSearchProviderGUIDChanged` if we the search engine wasn't
     // modified.
     search_engines::ChoiceMadeLocation choice_location =
-        GetDefaultSearchProvider()->prepopulate_id() == turl->prepopulate_id()
+        GetDefaultSearchProvider() &&
+                GetDefaultSearchProvider()->prepopulate_id() ==
+                    turl->prepopulate_id()
             ? default_search_manager_
                   .GetChoiceMadeLocationForUserSelectedDefaultSearchEngine()
             : search_engines::ChoiceMadeLocation::kOther;

@@ -9,6 +9,7 @@ import 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
 import 'chrome://resources/cr_elements/cr_url_list_item/cr_url_list_item.js';
 import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 import 'chrome://resources/cr_elements/cr_hidden_style.css.js';
+import './images/icons.html.js';
 import './strings.m.js';
 
 import type {BrowserProxy} from 'chrome://resources/cr_components/commerce/browser_proxy.js';
@@ -53,6 +54,11 @@ export class ProductSelectionMenuElement extends PolymerElement {
         value: '',
       },
 
+      excludedUrls: {
+        type: Array,
+        value: () => [],
+      },
+
       sections: Array,
     };
   }
@@ -60,19 +66,20 @@ export class ProductSelectionMenuElement extends PolymerElement {
   private shoppingApi_: BrowserProxy = BrowserProxyImpl.getInstance();
 
   selectedUrl: string;
+  excludedUrls: string[];
   sections: MenuSection[];
 
   async showAt(element: HTMLElement) {
     const openUrlInfos = await this.shoppingApi_.getUrlInfosForOpenTabs();
-    // Filter out URLs that match the selected item.
-    const filteredOpenUrlInfos = openUrlInfos.urlInfos.filter(
-        (urlInfo) => urlInfo.url.url !== this.selectedUrl);
+    const filteredOpenUrlInfos = this.filterUrlInfos_(openUrlInfos.urlInfos);
     const openTabs = this.urlInfosToListEntries_(filteredOpenUrlInfos);
 
     const recentlyViewedUrlInfos =
         await this.shoppingApi_.getUrlInfosForRecentlyViewedTabs();
+    const filteredRecentlyViewedUrlInfos =
+        this.filterUrlInfos_(recentlyViewedUrlInfos.urlInfos);
     const recentlyViewedTabs =
-        this.urlInfosToListEntries_(recentlyViewedUrlInfos.urlInfos);
+        this.urlInfosToListEntries_(filteredRecentlyViewedUrlInfos);
 
     const updatedSections: MenuSection[] = [];
     if (openTabs.length > 0) {
@@ -104,6 +111,13 @@ export class ProductSelectionMenuElement extends PolymerElement {
     this.$.menu.get().close();
   }
 
+  // Filter out URLs that match the selected item or any excluded urls.
+  private filterUrlInfos_(urlInfos: UrlInfo[]) {
+    return urlInfos.filter(
+        (urlInfo) => urlInfo.url.url !== this.selectedUrl &&
+            !this.excludedUrls.includes(urlInfo.url.url));
+  }
+
   private urlInfosToListEntries_(urlInfos: UrlInfo[]) {
     return urlInfos.map(({title, url}) => ({
                           title: title,
@@ -120,6 +134,14 @@ export class ProductSelectionMenuElement extends PolymerElement {
       detail: {
         url: e.model.item.url,
       },
+    }));
+  }
+
+  private onRemoveClick_() {
+    this.close();
+    this.dispatchEvent(new CustomEvent('remove-url', {
+      bubbles: true,
+      composed: true,
     }));
   }
 

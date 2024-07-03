@@ -200,7 +200,8 @@ void Button::SetTooltipText(const std::u16string& tooltip_text) {
     return;
   }
 
-  if (GetAccessibleName().empty() || GetAccessibleName() == tooltip_text_) {
+  if (GetViewAccessibility().GetCachedName().empty() ||
+      GetViewAccessibility().GetCachedName() == tooltip_text_) {
     SetAccessibleName(tooltip_text);
   }
 
@@ -709,7 +710,7 @@ Button::Button(PressedCallback callback)
   // if one hasn't been set.
   InkDrop::Get(ink_drop_view_)->SetBaseColor(gfx::kPlaceholderColor);
 
-  SetAccessibilityProperties(ax::mojom::Role::kButton);
+  GetViewAccessibility().SetProperties(ax::mojom::Role::kButton);
 }
 
 void Button::RequestFocusFromEvent() {

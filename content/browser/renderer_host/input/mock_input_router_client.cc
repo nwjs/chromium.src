@@ -60,7 +60,7 @@ void MockInputRouterClient::ForwardGestureEventWithLatencyInfo(
     const ui::LatencyInfo& latency_info) {
   if (input_router_)
     input_router_->SendGestureEvent(
-        GestureEventWithLatencyInfo(gesture_event, latency_info));
+        input::GestureEventWithLatencyInfo(gesture_event, latency_info));
 
   if (gesture_event.SourceDevice() != blink::WebGestureDevice::kTouchpad)
     return;
@@ -78,7 +78,7 @@ void MockInputRouterClient::ForwardWheelEventWithLatencyInfo(
     const ui::LatencyInfo& latency_info) {
   if (input_router_) {
     input_router_->SendWheelEvent(
-        MouseWheelEventWithLatencyInfo(wheel_event, latency_info));
+        input::MouseWheelEventWithLatencyInfo(wheel_event, latency_info));
   }
 }
 
@@ -115,6 +115,20 @@ MockInputRouterClient::GetAndResetCompositorAllowedTouchAction() {
 
 bool MockInputRouterClient::NeedsBeginFrameForFlingProgress() {
   return false;
+}
+
+bool MockInputRouterClient::ShouldUseMobileFlingCurve() {
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  return true;
+#else
+  return false;
+#endif
+}
+
+gfx::Vector2dF MockInputRouterClient::GetPixelsPerInch(
+    const gfx::PointF& position_in_screen) {
+  return gfx::Vector2dF(input::kDefaultPixelsPerInch,
+                        input::kDefaultPixelsPerInch);
 }
 
 }  // namespace content

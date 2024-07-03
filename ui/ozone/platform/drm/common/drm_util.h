@@ -20,8 +20,10 @@
 #include "ui/display/display_features.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/display/types/display_snapshot.h"
+#include "ui/display/util/edid_parser.h"
 #include "ui/ozone/platform/drm/common/drm_wrapper.h"
 #include "ui/ozone/platform/drm/common/scoped_drm_types.h"
+#include "ui/ozone/platform/drm/common/tile_property.h"
 
 typedef struct _drmModeModeInfo drmModeModeInfo;
 
@@ -91,9 +93,12 @@ constexpr std::
 // used to generate a unique identifier for the display.
 class HardwareDisplayControllerInfo {
  public:
-  HardwareDisplayControllerInfo(ScopedDrmConnectorPtr connector,
-                                ScopedDrmCrtcPtr crtc,
-                                uint8_t index);
+  HardwareDisplayControllerInfo(
+      ScopedDrmConnectorPtr connector,
+      ScopedDrmCrtcPtr crtc,
+      uint8_t index,
+      std::optional<display::EdidParser> edid_parser,
+      std::optional<TileProperty> tile_property = std::nullopt);
 
   HardwareDisplayControllerInfo(const HardwareDisplayControllerInfo&) = delete;
   HardwareDisplayControllerInfo& operator=(
@@ -104,6 +109,12 @@ class HardwareDisplayControllerInfo {
   drmModeConnector* connector() const { return connector_.get(); }
   drmModeCrtc* crtc() const { return crtc_.get(); }
   uint8_t index() const { return index_; }
+  const std::optional<display::EdidParser>& edid_parser() const {
+    return edid_parser_;
+  }
+  const std::optional<TileProperty>& tile_property() const {
+    return tile_property_;
+  }
 
   ScopedDrmConnectorPtr ReleaseConnector() { return std::move(connector_); }
 
@@ -111,6 +122,10 @@ class HardwareDisplayControllerInfo {
   ScopedDrmConnectorPtr connector_;
   ScopedDrmCrtcPtr crtc_;
   uint8_t index_;
+  // This is an optional because reading the EDID can fail.
+  std::optional<display::EdidParser> edid_parser_;
+  // Only populated for tiled displays.
+  std::optional<TileProperty> tile_property_;
 };
 
 using HardwareDisplayControllerInfoList =
@@ -193,6 +208,9 @@ uint64_t GetEnumValueForName(const DrmWrapper& drm,
 
 std::vector<uint64_t> ParsePathBlob(const drmModePropertyBlobRes& path_blob);
 
+std::optional<TileProperty> ParseTileBlob(
+    const drmModePropertyBlobRes& tile_blob);
+
 // Whether or not |drm| supports supplying modifiers for AddFramebuffer2.
 bool IsAddfb2ModifierCapable(const DrmWrapper& drm);
 
@@ -225,8 +243,9 @@ uint64_t GetDrmValueForInternalType(const InternalType& internal_state,
       return property.enums[i].value;
   }
 
-  NOTREACHED() << "Failed to extract DRM value for property '" << property.name
-               << "' and enum '" << drm_enum << "'";
+  NOTREACHED_IN_MIGRATION()
+      << "Failed to extract DRM value for property '" << property.name
+      << "' and enum '" << drm_enum << "'";
   return std::numeric_limits<uint64_t>::max();
 }
 
@@ -254,8 +273,9 @@ const InternalType* GetDrmPropertyCurrentValueAsInternalType(
     }
   }
 
-  NOTREACHED() << "Failed to extract internal value for DRM property '"
-               << property.name << "'";
+  NOTREACHED_IN_MIGRATION()
+      << "Failed to extract internal value for DRM property '" << property.name
+      << "'";
   return nullptr;
 }
 
@@ -293,6 +313,12 @@ std::optional<std::string> GetDrmDriverNameFromPath(
 // system. Uses DMI information to determine what the system is.
 std::vector<const char*> GetPreferredDrmDrivers();
 
+// Given |display_infos|, where each HardwareDisplayControllerInfo can represent
+// a regular display or a tile, consolidate all tiles belonging to the same
+// display into one HardwareDisplayControllerInfo. All non-tile
+// HardwareDisplayControllerInfo will not be altered.
+void ConsolidateTiledDisplayInfo(
+    HardwareDisplayControllerInfoList& display_infos);
 }  // namespace ui
 
 #endif  // UI_OZONE_PLATFORM_DRM_COMMON_DRM_UTIL_H_

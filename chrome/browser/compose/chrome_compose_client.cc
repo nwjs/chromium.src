@@ -147,7 +147,6 @@ void ChromeComposeClient::FieldChangeObserver::SetSkipSuggestionTypeForTest(
 ChromeComposeClient::ChromeComposeClient(content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
       content::WebContentsUserData<ChromeComposeClient>(*web_contents),
-      translate_language_provider_(new TranslateLanguageProvider()),
       profile_(
           Profile::FromBrowserContext(GetWebContents().GetBrowserContext())),
       nudge_tracker_(segmentation_platform::SegmentationPlatformServiceFactory::
@@ -162,8 +161,7 @@ ChromeComposeClient::ChromeComposeClient(content::WebContents* web_contents)
   proactive_nudge_enabled_.Init(prefs::kEnableProactiveNudge, pref_service_);
 
   compose_enabling_ = std::make_unique<ComposeEnabling>(
-      translate_language_provider_.get(), profile_,
-      IdentityManagerFactory::GetForProfileIfExists(profile_),
+      profile_, IdentityManagerFactory::GetForProfileIfExists(profile_),
       OptimizationGuideKeyedServiceFactory::GetForProfile(profile_));
 
   if (GetOptimizationGuide()) {
@@ -206,7 +204,8 @@ void ChromeComposeClient::BindComposeDialog(
     debug_session_ = std::make_unique<ComposeSession>(
         &GetWebContents(), GetModelExecutor(), GetModelQualityLogsUploader(),
         GetSessionId(), GetInnerTextProvider(),
-        autofill::FieldGlobalId{{}, autofill::FieldRendererId(-1)}, this);
+        autofill::FieldGlobalId{{}, autofill::FieldRendererId(-1)},
+        IsPageLanguageSupported(), this);
     debug_session_->set_collect_inner_text(false);
     debug_session_->set_fre_complete(
         pref_service_->GetBoolean(prefs::kPrefHasCompletedComposeFRE));
@@ -404,8 +403,8 @@ void ChromeComposeClient::CreateOrUpdateSession(
     // Now create and set up a new session.
     auto new_session = std::make_unique<ComposeSession>(
         &GetWebContents(), GetModelExecutor(), GetModelQualityLogsUploader(),
-        GetSessionId(), GetInnerTextProvider(), trigger_field.global_id(), this,
-        std::move(callback));
+        GetSessionId(), GetInnerTextProvider(), trigger_field.global_id(),
+        IsPageLanguageSupported(), this, std::move(callback));
     current_session = new_session.get();
     sessions_.insert_or_assign(active_compose_ids_.value().first,
                                std::move(new_session));
@@ -550,6 +549,15 @@ ComposeSession* ChromeComposeClient::GetSessionForActiveComposeField() {
   return nullptr;
 }
 
+bool ChromeComposeClient::IsPageLanguageSupported() {
+  return false;
+#if 0
+  translate::TranslateManager* translate_manager =
+      ChromeTranslateClient::GetManagerFromWebContents(&GetWebContents());
+  return compose_enabling_->IsPageLanguageSupported(translate_manager);
+#endif
+}
+
 bool ChromeComposeClient::GetMSBBStateFromPrefs() {
   std::unique_ptr<unified_consent::UrlKeyedDataCollectionConsentHelper> helper =
       unified_consent::UrlKeyedDataCollectionConsentHelper::
@@ -621,6 +629,10 @@ bool ChromeComposeClient::ShouldTriggerPopup(
   return nudge_tracker_.ProactiveNudgeRequestedForFormField(
       std::move(nudge_signals));
 #endif
+}
+
+bool ChromeComposeClient::IsPopupTimerRunning() {
+  return nudge_tracker_.IsTimerRunning();
 }
 
 void ChromeComposeClient::DisableProactiveNudge() {

@@ -377,6 +377,17 @@ class AddToHomescreenDataFetcherTest
                  favicon_base::GoogleFaviconServerCallback callback),
                 (override));
     MOCK_METHOD(void,
+                GetLargeIconFromCacheFallbackToGoogleServer,
+                (const GURL& page_url,
+                 StandardIconSize min_source_size_in_pixel,
+                 std::optional<StandardIconSize> size_in_pixel_to_resize_to,
+                 NoBigEnoughIconBehavior no_big_enough_icon_behavior,
+                 bool should_trim_page_url_path,
+                 const net::NetworkTrafficAnnotationTag& traffic_annotation,
+                 favicon_base::LargeIconCallback callback,
+                 base::CancelableTaskTracker* tracker),
+                (override));
+    MOCK_METHOD(void,
                 TouchIconFromGoogleServer,
                 (const GURL& icon_url),
                 (override));
@@ -517,8 +528,9 @@ TEST_F(AddToHomescreenDataFetcherTest, InstallableManifest) {
 }
 
 TEST_F(AddToHomescreenDataFetcherTest, ManifestNoNameNoShortName) {
-  scoped_feature_list_.InitAndDisableFeature(
-      features::kUniversalInstallManifest);
+  scoped_feature_list_.InitWithFeatures(
+      {}, {features::kUniversalInstallManifest,
+           features::kUniversalInstallRootScopeNoManifest});
   // Test that when the manifest does not provide either Manifest::short_name
   // nor Manifest::name that:
   //  - The page is not WebAPK compatible.

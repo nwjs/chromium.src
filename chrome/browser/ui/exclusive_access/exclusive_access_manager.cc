@@ -18,7 +18,7 @@
 #include "chrome/browser/ui/exclusive_access/pointer_lock_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_switches.h"
-#include "content/public/common/input/native_web_keyboard_event.h"
+#include "components/input/native_web_keyboard_event.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -155,7 +155,7 @@ void ExclusiveAccessManager::OnTabClosing(WebContents* web_contents) {
 }
 
 bool ExclusiveAccessManager::HandleUserKeyEvent(
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   if (event.windows_key_code != ui::VKEY_ESCAPE) {
     OnUserInput();
     return false;
@@ -163,7 +163,7 @@ bool ExclusiveAccessManager::HandleUserKeyEvent(
 
   if (base::FeatureList::IsEnabled(
           features::kPressAndHoldEscToExitBrowserFullscreen)) {
-    if (event.GetType() == content::NativeWebKeyboardEvent::Type::kKeyUp &&
+    if (event.GetType() == input::NativeWebKeyboardEvent::Type::kKeyUp &&
         esc_key_hold_timer_.IsRunning()) {
       esc_key_hold_timer_.Stop();
       show_exit_bubble_timer_.Stop();
@@ -171,8 +171,9 @@ bool ExclusiveAccessManager::HandleUserKeyEvent(
         controller->HandleUserReleasedEscapeEarly();
       }
     } else if (event.GetType() ==
-                   content::NativeWebKeyboardEvent::Type::kRawKeyDown &&
-               !esc_key_hold_timer_.IsRunning()) {
+                   input::NativeWebKeyboardEvent::Type::kRawKeyDown &&
+               !esc_key_hold_timer_.IsRunning() &&
+               event.GetModifiers() == blink::WebInputEvent::kNoModifiers) {
       esc_key_hold_timer_.Start(
           FROM_HERE, kHoldEscapeTime,
           base::BindOnce(&ExclusiveAccessManager::HandleUserHeldEscape,

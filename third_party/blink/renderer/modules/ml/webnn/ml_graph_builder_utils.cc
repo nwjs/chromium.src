@@ -6,12 +6,15 @@
 
 #include <numeric>
 
+#include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_tester.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_context.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_operand_descriptor.h"
 #include "third_party/blink/renderer/modules/ml/ml.h"
 #include "third_party/blink/renderer/modules/ml/ml_context.h"
+#include "third_party/blink/renderer/modules/ml/webnn/ml_graph_builder.h"
+#include "third_party/blink/renderer/modules/ml/webnn/ml_operand.h"
 
 namespace blink {
 
@@ -21,7 +24,7 @@ MLGraphBuilder* CreateMLGraphBuilder(ExecutionContext* execution_context,
                                      MLContextOptions* options) {
   ML* ml = MakeGarbageCollected<ML>(execution_context);
 
-  ScriptPromiseUntyped promise =
+  ScriptPromise<MLContext> promise =
       ml->createContext(script_state, options, exception_state);
   ScriptPromiseTester tester(script_state, promise);
   tester.WaitUntilSettled();

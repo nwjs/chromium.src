@@ -34,7 +34,7 @@ getNetPrivateRegistryFilter(
   // There are only two network_utils::PrivateRegistryFilter enum entries, so
   // we should never reach this point. However, we must have a default return
   // value to avoid a compiler error.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES;
 }
 
@@ -75,6 +75,8 @@ std::tuple<int, ResourceResponse, scoped_refptr<SharedBuffer>> ParseDataURL(
     return std::make_tuple(result, ResourceResponse(), nullptr);
 
   auto buffer = SharedBuffer::Create(data_string.data(), data_string.size());
+  // The below code is the same as in
+  // `CreateResourceForTransparentPlaceholderImage()`.
   ResourceResponse response;
   response.SetHttpStatusCode(200);
   response.SetHttpStatusText(AtomicString("OK"));

@@ -202,13 +202,6 @@ void PermissionPromptBubbleOneOriginView::RunButtonCallback(int button_id) {
   PermissionPromptBubbleBaseView::RunButtonCallback(button_id);
 }
 
-void PermissionPromptBubbleOneOriginView::ChildPreferredSizeChanged(
-    views::View* child) {
-  if (GetBubbleFrameView()) {
-    SizeToContents();
-  }
-}
-
 void PermissionPromptBubbleOneOriginView::AddRequestLine(
     permissions::PermissionRequest* request,
     std::size_t index) {
@@ -263,7 +256,7 @@ void PermissionPromptBubbleOneOriginView::MaybeAddMediaPreview(
 #if !BUILDFLAG(IS_CHROMEOS)
   // Unit tests call this without initializing `browser_`, but this should not
   // happen in production code.
-  if (!browser_) {
+  if (!browser()) {
     return;
   }
 
@@ -279,7 +272,7 @@ void PermissionPromptBubbleOneOriginView::MaybeAddMediaPreview(
 
   // Check this last, as it queries the origin trials service.
   if (!media_preview_feature::ShouldShowMediaPreview(
-          *browser_->profile(), delegate()->GetRequestingOrigin(),
+          *browser()->profile(), delegate()->GetRequestingOrigin(),
           delegate()->GetEmbeddingOrigin(),
           media_preview_metrics::UiLocation::kPermissionPrompt)) {
     return;
@@ -296,7 +289,7 @@ void PermissionPromptBubbleOneOriginView::MaybeAddMediaPreview(
     OnAudioDevicesChanged(cached_device_info->GetAudioDeviceInfos());
   }
 
-  media_previews_.emplace(browser_, this, index,
+  media_previews_.emplace(browser(), this, index,
                           requested_audio_capture_device_ids,
                           requested_video_capture_device_ids);
 #endif

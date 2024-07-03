@@ -92,19 +92,19 @@ void AddWebContents(Browser* browser,
   bool has_frame = true;
   bool fullscreen = false;
   if (!manifest.empty()) {
-    absl::optional<base::Value> root = base::JSONReader::Read(manifest);
+    std::optional<base::Value> root = base::JSONReader::Read(manifest);
     if (root && root->is_dict()) {
       base::Value::Dict* mnfst = root->GetIfDict();
-      absl::optional<int> width = mnfst->FindInt("width");
+      std::optional<int> width = mnfst->FindInt("width");
       if (width)
         rect.set_width(*width);
-      absl::optional<int> height = mnfst->FindInt("height");
+      std::optional<int> height = mnfst->FindInt("height");
       if (height)
         rect.set_height(*height);
-      absl::optional<int> x = mnfst->FindInt("x");
+      std::optional<int> x = mnfst->FindInt("x");
       if (x)
         rect.set_x(*x);
-      absl::optional<int> y = mnfst->FindInt("y");
+      std::optional<int> y = mnfst->FindInt("y");
       if (y)
         rect.set_y(*y);
       has_frame = mnfst->FindBool("frame").value_or(true);
@@ -143,7 +143,7 @@ void CloseWebContents(Browser* browser,
                       bool add_to_history) {
   int index = browser->tab_strip_model()->GetIndexOfWebContents(contents);
   if (index == TabStripModel::kNoTab) {
-    DUMP_WILL_BE_NOTREACHED_NORETURN()
+    DUMP_WILL_BE_NOTREACHED()
         << "CloseWebContents called for tab not in our strip";
     return;
   }

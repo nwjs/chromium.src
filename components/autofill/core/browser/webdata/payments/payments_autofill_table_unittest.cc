@@ -41,6 +41,7 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_switches.h"
 #include "components/autofill/core/common/autofill_util.h"
+#include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/os_crypt/sync/os_crypt_mocker.h"
 #include "components/webdata/common/web_database.h"
 #include "sql/statement.h"
@@ -80,13 +81,10 @@ class PaymentsAutofillTableTest : public testing::Test {
   time_t GetDateModified(std::string_view table_name,
                          std::string_view column,
                          absl::variant<std::string, int64_t> id) {
-    sql::Statement s(db_->GetSQLConnection()->GetUniqueStatement(
-        base::StrCat({"SELECT ", column, " FROM ", table_name, " WHERE ",
-                      absl::holds_alternative<std::string>(id)
-                          ? "guid"
-                          : "instrument_id",
-                      " = ?"})
-            .c_str()));
+    sql::Statement s(db_->GetSQLConnection()->GetUniqueStatement(base::StrCat(
+        {"SELECT ", column, " FROM ", table_name, " WHERE ",
+         absl::holds_alternative<std::string>(id) ? "guid" : "instrument_id",
+         " = ?"})));
     if (const std::string* guid = absl::get_if<std::string>(&id)) {
       s.BindString(0, *guid);
     } else {
@@ -107,7 +105,7 @@ TEST_F(PaymentsAutofillTableTest, Iban) {
   Iban iban;
   std::string guid = base::Uuid::GenerateRandomV4().AsLowercaseString();
   iban.set_identifier(Iban::Guid(guid));
-  iban.SetRawInfo(IBAN_VALUE, u"IE12 BOFI 9000 0112 3456 78");
+  iban.SetRawInfo(IBAN_VALUE, std::u16string(test::kIbanValue16));
   iban.set_nickname(u"My doctor's IBAN");
 
   EXPECT_TRUE(table_->AddLocalIban(iban));

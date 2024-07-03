@@ -200,12 +200,15 @@ void PositionView(UIView* view, CGPoint point) {
 - (void)didMoveToWindow {
   if (self.window) {
     if (self.theme == GridThemeLight) {
-      UIUserInterfaceStyle previousStyle =
-          self.window.overrideUserInterfaceStyle;
-      self.window.overrideUserInterfaceStyle = UIUserInterfaceStyleUnspecified;
-      self.overrideUserInterfaceStyle =
-          self.window.traitCollection.userInterfaceStyle;
-      self.window.overrideUserInterfaceStyle = previousStyle;
+      if (@available(iOS 17, *)) {
+        [self.window.windowScene
+            registerForTraitChanges:@[ UITraitUserInterfaceStyle.self ]
+                         withTarget:self
+                             action:@selector(interfaceStyleChangedForWindow:
+                                                             traitCollection:)];
+        self.overrideUserInterfaceStyle =
+            self.window.windowScene.traitCollection.userInterfaceStyle;
+      }
     }
   }
 }
@@ -260,19 +263,21 @@ void PositionView(UIView* view, CGPoint point) {
   if (_theme == theme)
     return;
 
-  self.overrideUserInterfaceStyle = (theme == GridThemeDark)
-                                        ? UIUserInterfaceStyleDark
-                                        : UIUserInterfaceStyleUnspecified;
-
   // The light and dark themes have different colored borders based on the
   // theme, regardless of dark mode, so `overrideUserInterfaceStyle` is not
   // enough here.
   switch (theme) {
     case GridThemeLight:
+      if (@available(iOS 17, *)) {
+        // On iOS 17, this is handled when the cell is added to the window.
+      } else {
+        self.overrideUserInterfaceStyle = UIUserInterfaceStyleLight;
+      }
       self.border.layer.borderColor =
           [UIColor colorNamed:kStaticBlue400Color].CGColor;
       break;
     case GridThemeDark:
+      self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
       self.border.layer.borderColor = UIColor.whiteColor.CGColor;
       break;
   }
@@ -622,6 +627,14 @@ void PositionView(UIView* view, CGPoint point) {
              : kGridCellHeaderHeight;
 }
 
+// Callback for the observation of the user interface style trait of the window
+// scene.
+- (void)interfaceStyleChangedForWindow:(UIView*)window
+                       traitCollection:(UITraitCollection*)traitCollection {
+  self.overrideUserInterfaceStyle =
+      self.window.windowScene.traitCollection.userInterfaceStyle;
+}
+
 @end
 
 @implementation GridTransitionCell {
@@ -650,7 +663,7 @@ void PositionView(UIView* view, CGPoint point) {
 
 - (void)setTopCellView:(UIView*)topCellView {
   // The top cell view is `topBar` and can't be changed.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 - (UIView*)topCellView {
@@ -666,7 +679,7 @@ void PositionView(UIView* view, CGPoint point) {
 
 - (void)setMainCellView:(UIView*)mainCellView {
   // The main cell view is the snapshot view and can't be changed.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 - (UIView*)mainCellView {

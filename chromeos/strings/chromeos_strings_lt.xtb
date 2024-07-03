@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastelinės geltonos spalvos</translation>
 <translation id="1056898198331236512">Įspėjimas</translation>
 <translation id="1059913517121127803">Nepavyko pradėti nuskaitymo</translation>
+<translation id="1061864016440983342">Naudoti be vietovės</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> iš <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Aptikta užkarda</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Daugiau nustatymų</translation>
 <translation id="2082932131694554252">Priskirtas klaviatūros klavišas</translation>
 <translation id="2085089206770112532">Sumažinti ekrano šviesumą</translation>
+<translation id="2086091080968010660">Laiku pagrįsti pakeitimai gali būti netikslūs. Įjunkite sistemos prieigą prie vietovės nustatymuose.</translation>
 <translation id="2102231663024125441">Teksto redagavimas</translation>
 <translation id="2105810540595158374">Įrenginys yra žaidimų valdiklis.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, <ph name="MILESTONE_VERSION" /> versija</translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN išsamios informacijos redagavimas</translation>
 <translation id="2195732836444333448">Šiuo metu esame užimti. Pabandykite vėliau.</translation>
 <translation id="2201758491318984023">dviratis</translation>
-<translation id="2203222757805818543">Dabartinis tvarkaraštis nustatytas <ph name="SUNRISE" />–<ph name="SUNSET" />. Kad automatiškai atnaujintumėte tamsaus režimo tvarkaraštį, <ph name="BEGIN_LINK" />įjunkite prieigą prie vietovės<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">karšto vandens šaltinis</translation>
 <translation id="2203642483788377106">uola</translation>
 <translation id="2208388655216963643">impresionizmas</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Atkurti numatytuosius nustatymus</translation>
 <translation id="2286454467119466181">Paprasta</translation>
 <translation id="2287186687001756809">Nėra jokių vaizdų. Jei norite pridėti nuotraukų, eikite adresu <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Dabartinis tvarkaraštis nustatytas į <ph name="SUNRISE" />–<ph name="SUNSET" />. Kad būtų automatiškai atnaujintas saulėlydžio ir saulėtekio tvarkaraštis, įjunkite sistemos prieigą prie vietovės.</translation>
 <translation id="2305172810646967500">juoda</translation>
 <translation id="2307344026739914387">Naudoti dabartinę raktų porą</translation>
 <translation id="2308243864813041101">Jei norite tęsti atnaujinimo procesą, atjunkite „<ph name="DEVICE_NAME" />“ USB laidą</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">smėlio kopa</translation>
 <translation id="2619761439309613843">Atnaujinimas per dieną</translation>
 <translation id="2620436844016719705">Sistema</translation>
+<translation id="2637303424821734920">IŠJUNGTA – kad būtų rodoma vietos orų informacija, <ph name="BEGIN_LINK" />įjunkite sistemos prieigą prie vietovės<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Prisijungimo vaizdas</translation>
 <translation id="2640549051766135490">Pasirinktas albumas „<ph name="TITLE" />“ (<ph name="DESC" />)</translation>
 <translation id="2645380101799517405">Valdikliai</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Fonas</translation>
 <translation id="3027578600144895987">Uždaryti vaizdo kamerą</translation>
 <translation id="3031560714565892478">Įrenginys yra vaizdo kamera.</translation>
+<translation id="3051968340259309715">Tai leidžia sistemos paslaugoms naudoti Vietovės nustatymo tikslumo nustatymą, kad būtų nustatyta jūsų vietovė. Nustatymas „Vietovės nustatymo tikslumas“ naudoja informaciją apie belaidžio ryšio signalus, pvz., „Wi-Fi“ prieigos taškus, mobiliojo ryšio tinklo bokštus ir GPS, taip pat įrenginio jutiklių duomenis, pvz., akcelerometro bei giroskopo, kad nustatytų įrenginio vietovę. Vietovės informaciją galite išjungti skiltyje „Nustatymai“ &gt; „Privatumas ir sauga“ &gt; „Privatumo valdikliai“ &gt; „Prieiga prie vietovės informacijos“. <ph name="LINK_BEGIN" />Sužinokite daugiau<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Galutinis taškas</translation>
 <translation id="3060579846059757016">Kontūrai</translation>
+<translation id="3061850252076394168">įgalinti funkciją „Teksto ištarimas“</translation>
 <translation id="3069085583900247081">Bandymas nepavyko</translation>
 <translation id="3078740164268491126">lentelė</translation>
 <translation id="3081652522083185657">šviesus</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Nepavyko nustatyti jokių prieglobų pavadinimų</translation>
 <translation id="4593212453765072419">Būtina autentifikuoti įgaliotąjį serverį</translation>
 <translation id="4609350030397390689">Sumažinti klaviatūros šviesumą</translation>
-<translation id="4617553623719764431">Orų prognozė nerodoma, nes nežinoma jūsų vietovė. Kad būtų rodomi vietos orai, <ph name="BEGIN_LINK" />įjunkite prieigą prie vietovės<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, „<ph name="PRINTER_NAME" />“, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> iš <ph name="TOTAL_PAGE_NUMBER" /> psl. Paspauskite „Enter“, jei norite atšaukti spausdinimo užduotį.</translation>
 <translation id="463791356324567266">Atšaukiamas nuskaitymas...</translation>
 <translation id="4646949265910132906">Saugus „Wi-Fi“ ryšys</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Vykdyti</translation>
 <translation id="4987769320337599931">Užkarda</translation>
 <translation id="4988526792673242964">Psl.</translation>
+<translation id="4989542687859782284">Nepasiekiama</translation>
 <translation id="4999333166442584738">Slėpti ataskaitą</translation>
 <translation id="500920857929044050">Stabdyti bandymą</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">klaviatūros šviesumas</translation>
 <translation id="6412715219990689313">Įtaisyta klaviatūra</translation>
 <translation id="6417265370957905582">„Google“ padėjėjas</translation>
+<translation id="6419454453018688975">Įjungti sistemos prieigą prie vietovės</translation>
 <translation id="6423239382391657905">Atidaryti virtualųjį privatųjį tinklą</translation>
-<translation id="6438073885402882007">Tai leis sistemos paslaugoms, turinčioms leidimą, naudoti jūsų vietovės informaciją. Vietovės paslauga gali naudoti įvairius šaltinius, pvz., „Wi-Fi“, mobiliojo ryšio tinklus ir jutiklius, kad nustatytų jūsų įrenginio vietovę. <ph name="LINK_BEGIN" />Sužinokite daugiau<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Silpnas (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Eiti į paskyros nustatymus</translation>
 <translation id="6462978824459367242">APN pridėjimo mygtukas dabar įgalintas</translation>

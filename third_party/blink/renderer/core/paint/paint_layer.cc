@@ -159,6 +159,18 @@ PaintLayer* SlowContainingLayer(LayoutObject& layout_object) {
   return nullptr;
 }
 
+std::optional<gfx::SizeF> ComputeFilterViewport(const PaintLayer& layer) {
+  if (const auto* layout_inline =
+          DynamicTo<LayoutInline>(layer.GetLayoutObject())) {
+    return gfx::SizeF(layout_inline->PhysicalLinesBoundingBox().size);
+  }
+  const auto* box = layer.GetLayoutBox();
+  if (box->IsSVGForeignObject()) {
+    return std::nullopt;
+  }
+  return gfx::SizeF(box->Size());
+}
+
 }  // namespace
 
 PaintLayer::PaintLayer(LayoutBoxModelObject* layout_object)
@@ -291,6 +303,7 @@ void PaintLayer::UpdateTransform() {
 }
 
 void PaintLayer::UpdateTransformAfterStyleChange(
+    StyleDifference diff,
     const ComputedStyle* old_style,
     const ComputedStyle& new_style) {
   // It's possible for the old and new style transform data to be equivalent
@@ -299,7 +312,7 @@ void PaintLayer::UpdateTransformAfterStyleChange(
   bool had_transform = Transform();
   bool has_transform = GetLayoutObject().HasTransform();
   if (had_transform == has_transform && old_style &&
-      new_style.TransformDataEquivalent(*old_style)) {
+      !diff.TransformDataChanged()) {
     return;
   }
   bool had_3d_transform = Has3DTransform();
@@ -1020,7 +1033,7 @@ Node* PaintLayer::EnclosingNode() const {
     if (Node* e = r->GetNode())
       return e;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 
@@ -1802,10 +1815,11 @@ PaintLayer* PaintLayer::HitTestChildren(
 void PaintLayer::UpdateFilterReferenceBox() {
   if (!HasFilterThatMovesPixels())
     return;
-  PhysicalRect result = LocalBoundingBoxIncludingSelfPaintingDescendants();
-  gfx::RectF reference_box(result);
+  gfx::RectF reference_box(LocalBoundingBoxIncludingSelfPaintingDescendants());
+  std::optional<gfx::SizeF> viewport(ComputeFilterViewport(*this));
   if (!ResourceInfo() ||
-      ResourceInfo()->FilterReferenceBox() != reference_box) {
+      ResourceInfo()->FilterReferenceBox() != reference_box ||
+      ResourceInfo()->FilterViewport() != viewport) {
     if (GetLayoutObject().GetDocument().Lifecycle().GetState() ==
         DocumentLifecycle::kInPrePaint) {
       GetLayoutObject()
@@ -1814,8 +1828,13 @@ void PaintLayer::UpdateFilterReferenceBox() {
     } else {
       GetLayoutObject().SetNeedsPaintPropertyUpdate();
     }
+    if (ResourceInfo() && ResourceInfo()->FilterViewport() != viewport) {
+      filter_on_effect_node_dirty_ = true;
+    }
   }
-  EnsureResourceInfo().SetFilterReferenceBox(reference_box);
+  auto& resource_info = EnsureResourceInfo();
+  resource_info.SetFilterReferenceBox(reference_box);
+  resource_info.SetFilterViewport(viewport);
 }
 
 gfx::RectF PaintLayer::FilterReferenceBox() const {
@@ -1826,6 +1845,15 @@ gfx::RectF PaintLayer::FilterReferenceBox() const {
   if (ResourceInfo())
     return ResourceInfo()->FilterReferenceBox();
   return gfx::RectF();
+}
+
+std::optional<gfx::SizeF> PaintLayer::FilterViewport() const {
+  DCHECK_GE(GetLayoutObject().GetDocument().Lifecycle().GetState(),
+            DocumentLifecycle::kInPrePaint);
+  if (ResourceInfo()) {
+    return ResourceInfo()->FilterViewport();
+  }
+  return std::nullopt;
 }
 
 gfx::RectF PaintLayer::BackdropFilterReferenceBox() const {
@@ -2000,13 +2028,13 @@ PaintLayer* PaintLayer::EnclosingSelfPaintingLayer() {
   return layer;
 }
 
-void PaintLayer::UpdateFilters(const ComputedStyle* old_style,
+void PaintLayer::UpdateFilters(StyleDifference diff,
+                               const ComputedStyle* old_style,
                                const ComputedStyle& new_style) {
   if (!filter_on_effect_node_dirty_) {
-    filter_on_effect_node_dirty_ =
-        old_style ? old_style->Filter() != new_style.Filter() ||
-                        !old_style->ReflectionDataEquivalent(new_style)
-                  : new_style.HasFilterInducingProperty();
+    filter_on_effect_node_dirty_ = old_style
+                                       ? diff.FilterChanged()
+                                       : new_style.HasFilterInducingProperty();
   }
 
   if (!new_style.HasFilterInducingProperty() &&
@@ -2152,8 +2180,8 @@ void PaintLayer::StyleDidChange(StyleDifference diff,
   if (!old_style || old_style->GetPosition() != new_style.GetPosition())
     MarkAncestorChainForFlagsUpdate();
 
-  UpdateTransformAfterStyleChange(old_style, new_style);
-  UpdateFilters(old_style, new_style);
+  UpdateTransformAfterStyleChange(diff, old_style, new_style);
+  UpdateFilters(diff, old_style, new_style);
   UpdateBackdropFilters(old_style, new_style);
   UpdateClipPath(old_style, new_style);
   UpdateOffsetPath(old_style, new_style);
@@ -2226,7 +2254,7 @@ void PaintLayer::UpdateCompositorFilterOperationsForFilter(
     return;
 
   operations =
-      FilterEffectBuilder(reference_box, zoom,
+      FilterEffectBuilder(reference_box, FilterViewport(), zoom,
                           style.VisitedDependentColor(GetCSSPropertyColor()),
                           style.UsedColorScheme())
           .BuildFilterOperations(filter);
@@ -2270,7 +2298,7 @@ void PaintLayer::UpdateCompositorFilterOperationsForBackdropFilter(
   // bounds with a mirror edge mode, but this is the responsibility of the
   // compositor to apply, regardless of the actual filter operations added here.
   operations =
-      FilterEffectBuilder(reference_box, zoom,
+      FilterEffectBuilder(reference_box, FilterViewport(), zoom,
                           style.VisitedDependentColor(GetCSSPropertyColor()),
                           style.UsedColorScheme(), nullptr, nullptr)
           .BuildFilterOperations(filter_operations);

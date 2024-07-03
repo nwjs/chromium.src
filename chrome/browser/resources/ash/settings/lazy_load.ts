@@ -36,8 +36,9 @@ import './kerberos_page/kerberos_accounts_subpage.js';
 import './os_a11y_page/chromevox_subpage.js';
 import './os_a11y_page/cursor_and_touchpad_page.js';
 import './os_a11y_page/display_and_magnification_subpage.js';
-import './os_a11y_page/facegaze_cursor_subpage.js';
-import './os_a11y_page/facegaze_facial_expression_subpage.js';
+import './os_a11y_page/facegaze_subpage.js';
+import './os_a11y_page/facegaze_actions_card.js';
+import './os_a11y_page/facegaze_cursor_card.js';
 import './os_a11y_page/keyboard_and_text_input_page.js';
 import './os_a11y_page/live_caption_section.js';
 import './os_a11y_page/live_translate_section.js';
@@ -51,6 +52,7 @@ import './os_apps_page/app_management_page/app_management_page.js';
 import './os_apps_page/app_management_page/dom_switch.js';
 import './os_apps_page/app_management_page/main_view.js';
 import './os_apps_page/app_parental_controls/app_parental_controls_subpage.js';
+import './os_apps_page/app_parental_controls/block_app_item.js';
 import './os_search_page/google_assistant_subpage.js';
 import './os_search_page/search_subpage.js';
 import './os_people_page/account_manager_subpage.js';
@@ -147,6 +149,7 @@ export {SmbBrowserProxy, SmbBrowserProxyImpl, SmbMountResult} from 'chrome://res
 export {sanitizeInnerHtml} from 'chrome://resources/js/parse_html_subset.js';
 export {AppLanguageSelectionDialogElement} from './common/app_language_selection_dialog/app_language_selection_dialog.js';
 export {AppLanguageSelectionItemElement} from './common/app_language_selection_dialog/app_language_selection_item.js';
+export {MediaDevicesProxy} from './common/media_devices_proxy.js';
 /**
  * With the optimize_webui() build step, the generated JS files are bundled
  * into a single JS file. The exports below are necessary so they can be
@@ -169,7 +172,6 @@ export {SettingsCrostiniSubpageElement} from './crostini_page/crostini_subpage.j
 export {SettingsDateTimePageElement} from './date_time_page/date_time_page.js';
 export {DateTimeSettingsCardElement} from './date_time_page/date_time_settings_card.js';
 export {TimeZoneAutoDetectMethod} from './date_time_page/date_time_types.js';
-export {TimeZoneBrowserProxy, TimeZoneBrowserProxyImpl} from './date_time_page/timezone_browser_proxy.js';
 export {TimezoneSelectorElement} from './date_time_page/timezone_selector.js';
 export {TimezoneSubpageElement} from './date_time_page/timezone_subpage.js';
 export {CustomizeButtonDropdownItemElement} from './device_page/customize_button_dropdown_item.js';
@@ -228,8 +230,9 @@ export {ChangeDictationLocaleDialog, DictationLocaleOption} from './os_a11y_page
 export {SettingsChromeVoxSubpageElement} from './os_a11y_page/chromevox_subpage.js';
 export {SettingsCursorAndTouchpadPageElement} from './os_a11y_page/cursor_and_touchpad_page.js';
 export {SettingsDisplayAndMagnificationSubpageElement} from './os_a11y_page/display_and_magnification_subpage.js';
-export {SettingsFaceGazeCursorSubpageElement} from './os_a11y_page/facegaze_cursor_subpage.js';
-export {SettingsFaceGazeFacialExpressionSubpageElement} from './os_a11y_page/facegaze_facial_expression_subpage.js';
+export {FaceGazeActionsCardElement} from './os_a11y_page/facegaze_actions_card.js';
+export {FaceGazeCursorCardElement} from './os_a11y_page/facegaze_cursor_card.js';
+export {SettingsFaceGazeSubpageElement} from './os_a11y_page/facegaze_subpage.js';
 export {SettingsKeyboardAndTextInputPageElement} from './os_a11y_page/keyboard_and_text_input_page.js';
 export {SettingsLiveCaptionElement} from './os_a11y_page/live_caption_section.js';
 export {SettingsLiveTranslateElement} from './os_a11y_page/live_translate_section.js';
@@ -239,7 +242,7 @@ export {SettingsSwitchAccessActionAssignmentPaneElement} from './os_a11y_page/sw
 export {SwitchAccessCommand} from './os_a11y_page/switch_access_constants.js';
 export {SettingsSwitchAccessSetupGuideDialogElement} from './os_a11y_page/switch_access_setup_guide_dialog.js';
 export {SettingsSwitchAccessSubpageElement} from './os_a11y_page/switch_access_subpage.js';
-export {PdfOcrUserSelection, ScreenAiInstallStatus, SettingsTextToSpeechSubpageElement} from './os_a11y_page/text_to_speech_subpage.js';
+export {ScreenAiInstallStatus, SettingsTextToSpeechSubpageElement} from './os_a11y_page/text_to_speech_subpage.js';
 export {SettingsTtsVoiceSubpageElement} from './os_a11y_page/tts_voice_subpage.js';
 export {SettingsChannelSwitcherDialogElement} from './os_about_page/channel_switcher_dialog.js';
 export {SettingsConsumerAutoUpdateToggleDialogElement} from './os_about_page/consumer_auto_update_toggle_dialog.js';
@@ -270,6 +273,11 @@ export {AppNotificationRowElement} from './os_apps_page/app_notifications_page/a
 export {SettingsAppNotificationsManagerSubpage} from './os_apps_page/app_notifications_page/app_notifications_manager_subpage.js';
 export {AppNotificationsSubpage} from './os_apps_page/app_notifications_page/app_notifications_subpage.js';
 export {SettingsAppParentalControlsSubpageElement} from './os_apps_page/app_parental_controls/app_parental_controls_subpage.js';
+export {AppSetupPinDialogElement} from './os_apps_page/app_parental_controls/app_setup_pin_dialog.js';
+export {AppSetupPinKeyboardElement} from './os_apps_page/app_parental_controls/app_setup_pin_keyboard.js';
+export {AppVerifyPinDialogElement} from './os_apps_page/app_parental_controls/app_verify_pin_dialog.js';
+export {BlockAppItemElement} from './os_apps_page/app_parental_controls/block_app_item.js';
+export {ParentalControlsDialogAction, ParentalControlsPinDialogError} from './os_apps_page/app_parental_controls/metrics_utils.js';
 export {ManageIsolatedWebAppsSubpageElement} from './os_apps_page/manage_isolated_web_apps_page/manage_isolated_web_apps_subpage.js';
 export {SettingsBluetoothChangeDeviceNameDialogElement} from './os_bluetooth_page/os_bluetooth_change_device_name_dialog.js';
 export {SettingsBluetoothDeviceDetailSubpageElement} from './os_bluetooth_page/os_bluetooth_device_detail_subpage.js';
@@ -328,7 +336,6 @@ export {OsSettingsPrintingPageElement} from './os_printing_page/os_printing_page
 export {computePrinterState, getStatusReasonFromPrinterStatus, PrinterState, PrinterStatus, PrinterStatusReason, PrinterStatusSeverity} from './os_printing_page/printer_status.js';
 export {PrintingSettingsCardElement} from './os_printing_page/printing_settings_card.js';
 export {SettingsManageUsersSubpageElement} from './os_privacy_page/manage_users_subpage.js';
-export {MediaDevicesProxy} from './os_privacy_page/media_devices_proxy.js';
 export {PrivacyHubBrowserProxy, PrivacyHubBrowserProxyImpl} from './os_privacy_page/privacy_hub_browser_proxy.js';
 export {SettingsPrivacyHubCameraSubpage} from './os_privacy_page/privacy_hub_camera_subpage.js';
 export {SettingsPrivacyHubGeolocationAdvancedSubpage} from './os_privacy_page/privacy_hub_geolocation_advanced_subpage.js';

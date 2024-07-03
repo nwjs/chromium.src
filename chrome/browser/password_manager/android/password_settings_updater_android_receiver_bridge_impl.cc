@@ -5,9 +5,11 @@
 #include "chrome/browser/password_manager/android/password_settings_updater_android_receiver_bridge_impl.h"
 
 #include "base/android/jni_android.h"
-#include "chrome/browser/password_manager/android/jni_headers/PasswordSettingsUpdaterReceiverBridge_jni.h"
 #include "chrome/browser/password_manager/android/password_settings_updater_android_receiver_bridge.h"
 #include "components/password_manager/core/browser/password_manager_setting.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "chrome/browser/password_manager/android/jni_headers/PasswordSettingsUpdaterReceiverBridge_jni.h"
 
 namespace password_manager {
 
@@ -56,8 +58,9 @@ void PasswordSettingsUpdaterAndroidReceiverBridgeImpl::OnSettingValueFetched(
     jboolean setting_value,
     jboolean is_part_of_migration) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
-  if (!consumer_)
+  if (!consumer_) {
     return;
+  }
   consumer_->OnSettingValueFetched(static_cast<PasswordManagerSetting>(setting),
                                    setting_value);
 }
@@ -67,8 +70,9 @@ void PasswordSettingsUpdaterAndroidReceiverBridgeImpl::OnSettingValueAbsent(
     jint setting,
     jboolean is_part_of_migration) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
-  if (!consumer_)
+  if (!consumer_) {
     return;
+  }
   consumer_->OnSettingValueAbsent(static_cast<PasswordManagerSetting>(setting));
 }
 

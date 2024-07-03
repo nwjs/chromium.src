@@ -969,6 +969,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({
         "enable-features=AutofillAcrossIframes, AndroidAutofillCancelSessionOnNavigation"
     })
+    @RequiresRestart("crbug.com/344662605")
     public void testCrossFrameCommit() throws Throwable {
         // The only reason we use a <form> inside the iframe is that this makes it easiest to
         // trigger a form submission in that frame.
@@ -1121,6 +1122,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
+    @DisabledTest(message = "https://crbug.com/340928697")
     public void testSwitchFromIFrame() throws Throwable {
         // we intentionally load main frame and iframe from the same URL and make both have the
         // similar form, so the new session is triggered by frame change
@@ -1293,7 +1295,11 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
-    @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
+    // TODO: Run the test with BFCache after relanding crrev.com/c/5434056
+    @CommandLineFlags.Add({
+        "enable-features=AndroidAutofillCancelSessionOnNavigation",
+        "disable-features=WebViewBackForwardCache"
+    })
     public void testNavigationAfterProbableSubmitResultsInSessionCommit() throws Throwable {
         int cnt = 0;
         loadHTML(
@@ -2366,6 +2372,8 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Test
     @SmallTest
     @RequiresRestart("https://crbug.com/1422936")
+    // TODO: Run the test with BFCache after relanding crrev.com/c/5434056
+    @CommandLineFlags.Add({"disable-features=WebViewBackForwardCache"})
     public void testUmaFunnelMetrics() throws Throwable {
         HistogramWatcher.Builder histogramWatcherBuilder = HistogramWatcher.newBuilder();
 
@@ -2423,6 +2431,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
+    @RequiresRestart("crbug.com/344662605")
     public void testPageScrollTriggerViewExitAndEnter() throws Throwable {
         loadHTML(
                 """
@@ -2586,6 +2595,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
+    @RequiresRestart("crbug.com/344662605")
     public void testHideDatalistPopup() throws Throwable {
         final String url = getAbsoluteTestPageUrl("form_with_datalist.html");
         loadUrlSync(url);

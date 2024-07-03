@@ -133,17 +133,16 @@ bool LayoutSVGRoot::IsEmbeddedThroughFrameContainingSVGDocument() const {
 double LayoutSVGRoot::LogicalSizeScaleFactorForPercentageLengths() const {
   NOT_DESTROYED();
   CHECK(IsDocumentElement());
-  if (!GetDocument().IsInOutermostMainFrame()) {
+  if (!GetDocument().IsInOutermostMainFrame() ||
+      GetDocument().GetLayoutView()->ShouldUsePaginatedLayout()) {
     return 1;
   }
-  if (GetDocument().GetLayoutView()->ShouldUsePrintingLayout())
-    return 1;
   // This will return the zoom factor which is different from the typical usage
   // of "zoom factor" in blink (e.g., |LocalFrame::PageZoomFactor()|) which
   // includes CSS zoom and the device scale factor (if use-zoom-for-dsf is
   // enabled). For this special-case, we only want to include the user's zoom
   // factor, as all other types of zoom should not scale a percentage-sized svg.
-  return GetFrame()->GetChromeClient().UserZoomFactor();
+  return GetFrame()->GetChromeClient().UserZoomFactor(GetFrame());
 }
 
 void LayoutSVGRoot::LayoutRoot(const PhysicalRect& content_rect) {
@@ -330,6 +329,8 @@ void LayoutSVGRoot::AddChild(LayoutObject* child, LayoutObject* before_child) {
 void LayoutSVGRoot::RemoveChild(LayoutObject* child) {
   NOT_DESTROYED();
   LayoutReplaced::RemoveChild(child);
+
+  content_.MarkBoundsDirtyFromRemovedChild();
 
   bool had_non_isolated_descendants =
       (child->IsBlendingAllowed() && child->StyleRef().HasBlendMode()) ||

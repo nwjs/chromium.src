@@ -25,6 +25,9 @@ import type {Attachment, DocumentMetadata, ExtendedKeyEvent, Point} from './cons
 import {FittingType, SaveRequestType} from './constants.js';
 import type {MessageData} from './controller.js';
 import {PluginController} from './controller.js';
+// <if expr="enable_pdf_ink2">
+import {PluginControllerEventType} from './controller.js';
+// </if>
 // <if expr="enable_ink">
 import type {ContentController} from './controller.js';
 // </if>
@@ -218,13 +221,6 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       },
       // </if>
 
-      // <if expr="enable_screen_ai_service">
-      pdfOcrEnabled_: {
-        type: Boolean,
-        value: false,
-      },
-      // </if>
-
       printingEnabled_: {
         type: Boolean,
         value: false,
@@ -286,9 +282,6 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   private pdfAnnotationsEnabled_: boolean;
   // <if expr="enable_pdf_ink2">
   private pdfInk2Enabled_: boolean = false;
-  // </if>
-  // <if expr="enable_screen_ai_service">
-  private pdfOcrEnabled_: boolean;
   // </if>
   private pluginController_: PluginController|null = null;
   private printingEnabled_: boolean;
@@ -766,9 +759,6 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     // <if expr="enable_pdf_ink2">
     this.pdfInk2Enabled_ = loadTimeData.getBoolean('pdfInk2Enabled');
     // </if>
-    // <if expr="enable_screen_ai_service">
-    this.pdfOcrEnabled_ = loadTimeData.getBoolean('pdfOcrEnabled');
-    // </if>
     this.printingEnabled_ = loadTimeData.getBoolean('printingEnabled');
     const presetZoomFactors = this.viewport.presetZoomFactors;
     this.zoomBounds_.min = Math.round(presetZoomFactors[0] * 100);
@@ -853,6 +843,12 @@ export class PdfViewerElement extends PdfViewerBaseElement {
             destinationData.page, destinationData.x, destinationData.y,
             destinationData.zoom);
         return;
+      // <if expr="enable_pdf_ink2">
+      case 'finishInkStroke':
+        this.pluginController_!.getEventTarget().dispatchEvent(
+            new CustomEvent(PluginControllerEventType.FINISH_INK_STROKE));
+        return;
+      // </if>
       case 'metadata':
         const metadataData =
             data as unknown as {metadataData: DocumentMetadata};

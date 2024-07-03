@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.facilitated_payments;
 
+import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.ItemType.ADDITIONAL_INFO;
+import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.ItemType.BANK_ACCOUNT;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.ItemType.HEADER;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.SHEET_ITEMS;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.VISIBLE;
@@ -12,11 +14,14 @@ import android.content.Context;
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.components.autofill.payments.BankAccount;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
+
+import java.util.List;
 
 /**
  * Implements the FacilitatedPaymentsPaymentMethodsComponent. It uses a bottom sheet to let the user
@@ -29,17 +34,18 @@ public class FacilitatedPaymentsPaymentMethodsCoordinator
     private PropertyModel mFacilitatedPaymentsPaymentMethodsModel;
 
     @Override
-    public void initialize(Context context, BottomSheetController bottomSheetController) {
+    public void initialize(
+            Context context, BottomSheetController bottomSheetController, Delegate delegate) {
         mFacilitatedPaymentsPaymentMethodsModel = createModel();
-        mMediator.initialize(mFacilitatedPaymentsPaymentMethodsModel);
+        mMediator.initialize(context, mFacilitatedPaymentsPaymentMethodsModel, delegate);
         setUpModelChangeProcessors(
                 mFacilitatedPaymentsPaymentMethodsModel,
                 new FacilitatedPaymentsPaymentMethodsView(context, bottomSheetController));
     }
 
     @Override
-    public void showSheet() {
-        mMediator.showSheet();
+    public boolean showSheet(List<BankAccount> bankAccounts) {
+        return mMediator.showSheet(bankAccounts);
     }
 
     /**
@@ -72,6 +78,14 @@ public class FacilitatedPaymentsPaymentMethodsCoordinator
                 HEADER,
                 FacilitatedPaymentsPaymentMethodsViewBinder::createHeaderItemView,
                 FacilitatedPaymentsPaymentMethodsViewBinder::bindHeaderView);
+        adapter.registerType(
+                BANK_ACCOUNT,
+                BankAccountViewBinder::createBankAccountItemView,
+                BankAccountViewBinder::bindBankAccountItemView);
+        adapter.registerType(
+                ADDITIONAL_INFO,
+                FacilitatedPaymentsPaymentMethodsViewBinder::createAdditionalInfoView,
+                FacilitatedPaymentsPaymentMethodsViewBinder::bindAdditionalInfoView);
         view.getSheetItemListView().setAdapter(adapter);
     }
 

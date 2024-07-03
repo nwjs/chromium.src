@@ -212,11 +212,14 @@ class PasswordManagerClient {
       password_manager::PasswordStoreBackendErrorType error_type);
 
   // Instructs the client to show a keyboard replacing surface UI (e.g.
-  // TouchToFill).
-  virtual bool ShowKeyboardReplacingSurface(
+  // TouchToFill). `shown_cb` will be invoked with whether the view was shown.
+  // TODO(crbug.com/341322405): Make this synchronous again once the account
+  // storage notice is gone.
+  virtual void ShowKeyboardReplacingSurface(
       PasswordManagerDriver* driver,
       const PasswordFillingParams& password_filling_params,
-      bool is_webauthn_form);
+      bool is_webauthn_form,
+      base::OnceCallback<void(bool)> shown_cb);
 #endif
 
   virtual bool CanUseBiometricAuthForFilling(
@@ -293,15 +296,14 @@ class PasswordManagerClient {
   // PasswordForm into which a password was filled: the client may choose to
   // save this to the PasswordStore, for example. |origin| is the origin of the
   // form into which a password was filled. |federated_matches| are the stored
-  // federated matches relevant to the filled form, this argument may be null.
+  // federated matches relevant to the filled form, this argument may be empty.
   // They are never filled, but might be needed in the UI, for example. Default
   // implementation is a noop. |was_autofilled_on_pageload| contains information
   // if password form was autofilled on pageload.
   virtual void PasswordWasAutofilled(
       base::span<const PasswordForm> best_matches,
       const url::Origin& origin,
-      const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>*
-          federated_matches,
+      base::span<const PasswordForm> federated_matches,
       bool was_autofilled_on_pageload);
 
   // Sends username/password from |preferred_match| for filling in the http auth
@@ -409,6 +411,16 @@ class PasswordManagerClient {
   // Return the PasswordProtectionService associated with this instance.
   virtual safe_browsing::PasswordProtectionService*
   GetPasswordProtectionService() const = 0;
+
+  // Maybe triggers a hats survey that measures the user's perception of
+  // Autofill for passwords. When triggering happens, the survey dialog will be
+  // displayed with a 5s delay. This survey should be triggered after form
+  // submissions.
+  // `filling_assistance` will be logged together with the responses as
+  // in-product data and should be a string representation of the
+  // `FillingAssistance` enum, i.e "Manually filled".
+  virtual void TriggerUserPerceptionOfPasswordManagerSurvey(
+      const std::string& filling_assistance);
 
 #if defined(ON_FOCUS_PING_ENABLED)
   // Checks the safe browsing reputation of the webpage when the

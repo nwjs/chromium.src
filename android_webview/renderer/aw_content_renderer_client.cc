@@ -190,8 +190,7 @@ void AwContentRendererClient::
   }
 
   if (base::FeatureList::IsEnabled(
-          features::kWebViewMediaIntegrityApiBlinkExtension) &&
-      !base::FeatureList::IsEnabled(features::kWebViewMediaIntegrityApi)) {
+          features::kWebViewMediaIntegrityApiBlinkExtension)) {
     // Enable the overall android.webview namespace.
     blink::WebRuntimeFeatures::EnableBlinkExtensionWebView(true);
     // Enable the android.webview.getExperimentalMediaIntegrityProvider API.
@@ -227,6 +226,13 @@ uint64_t AwContentRendererClient::VisitedLinkHash(
 bool AwContentRendererClient::IsLinkVisited(uint64_t link_hash) {
   return visited_link_reader_->IsVisited(link_hash);
 }
+
+// Android WebView does not support partitioned :visited links. Since per-origin
+// salts are only used in the partitioned hashtable, AndroidWebView clients do
+// not need to take any action if a per-origin salt is received.
+void AwContentRendererClient::AddOrUpdateVisitedLinkSalt(
+    const url::Origin& origin,
+    uint64_t salt) {}
 
 void AwContentRendererClient::RunScriptsAtDocumentStart(
     content::RenderFrame* render_frame) {

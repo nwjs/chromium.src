@@ -122,7 +122,7 @@ VideoDecoderConfig* CopyConfig(const VideoDecoderConfig& config) {
     auto desc_wrapper = AsSpan<const uint8_t>(config.description());
     if (!desc_wrapper.data()) {
       // Checked by IsValidVideoDecoderConfig.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nullptr;
     }
     DOMArrayBuffer* buffer_copy =
@@ -293,7 +293,7 @@ ScriptPromise<VideoDecoderSupport> VideoDecoder::isConfigSupported(
       IsValidVideoDecoderConfig(*config, &js_error_message /* out */);
   if (!video_type) {
     exception_state.ThrowTypeError(js_error_message);
-    return ScriptPromise<VideoDecoderSupport>();
+    return EmptyPromise();
   }
 
   // Run the "Clone Configuration" algorithm.
@@ -439,7 +439,7 @@ VideoDecoder::MakeMediaVideoDecoderConfigInternal(
   media::VideoType video_type;
   if (!ParseCodecString(config.codec(), video_type, *js_error_message)) {
     // Checked by IsValidVideoDecoderConfig().
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return std::nullopt;
   }
   if (video_type.codec == media::VideoCodec::kUnknown) {
@@ -451,7 +451,7 @@ VideoDecoder::MakeMediaVideoDecoderConfigInternal(
     auto desc_wrapper = AsSpan<const uint8_t>(config.description());
     if (!desc_wrapper.data()) {
       // Checked by IsValidVideoDecoderConfig().
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return std::nullopt;
     }
     if (!desc_wrapper.empty()) {

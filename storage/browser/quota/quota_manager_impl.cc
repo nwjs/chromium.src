@@ -1555,6 +1555,7 @@ void QuotaManagerImpl::DeleteStorageKeyData(
 
   DCHECK(client_types_.contains(type));
   if (client_types_[type].empty()) {
+    std::move(callback).Run(blink::mojom::QuotaStatusCode::kOk);
     return;
   }
   auto buckets_deleter = std::make_unique<BucketSetDataDeleter>(
@@ -1797,7 +1798,7 @@ bool QuotaManagerImpl::ResetUsageTracker(StorageType type) {
       syncable_usage_tracker_ = std::move(usage_tracker);
       return true;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   return true;
 }
@@ -1974,7 +1975,7 @@ UsageTracker* QuotaManagerImpl::GetUsageTracker(StorageType type) const {
       return nullptr;
     case StorageType::kDeprecatedPersistent:
     case StorageType::kUnknown:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   return nullptr;
 }

@@ -32,7 +32,9 @@ function createSampleTab(
         deviceType: DeviceType.kDesktop,
         sessionName: 'Test Device',
         url: {url: 'https://www.foo.com'},
+        urlKey: '',
         title: 'Test Tab Title',
+        timestamp: Date.now(),
         relativeTime: {microseconds: BigInt(0)},
         relativeTimeText: '0 seconds ago',
       },
@@ -179,6 +181,7 @@ suite('NewTabPageModulesTabResumptionModuleTest', () => {
           assertTrue(!!tabElement);
           const waitForUsageEvent =
               eventToPromise('usage', moduleElement);
+          tabElement!.removeAttribute('href');
           tabElement!.click();
           assertEquals(
                 1,

@@ -25,6 +25,8 @@ import org.chromium.base.IntentUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeApplicationImpl;
 import org.chromium.chrome.browser.DeferredStartupHandler;
@@ -64,6 +66,7 @@ import org.chromium.chrome.browser.night_mode.PowerSavingModeMonitor;
 import org.chromium.chrome.browser.night_mode.SystemNightModeMonitor;
 import org.chromium.chrome.browser.page_insights.PageInsightsCoordinator;
 import org.chromium.chrome.browser.profiles.OTRProfileID;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabState;
@@ -105,6 +108,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
     protected FullscreenManager mFullscreenManager;
     protected CustomTabMinimizationManagerHolder mMinimizationManagerHolder;
     protected CustomTabFeatureOverridesManager mFeatureOverridesManager;
+    private boolean mWarmupOnDestroy;
 
     protected @interface PictureInPictureMode {
         int NONE = 0;
@@ -252,11 +256,13 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
             @Nullable
             @Override
             protected OTRProfileID createOffTheRecordProfileID() {
-                if (getIntentDataProvider().isIncognito()) {
+                if (getIntentDataProvider().isIncognitoBranded()) {
                     return OTRProfileID.createUnique("CCT:Incognito");
+                } else if (getIntentDataProvider().isOffTheRecord()) {
+                    return OTRProfileID.createUnique("CCT:Ephemeral");
                 } else {
                     throw new IllegalStateException(
-                            "Attempting to create an incogntio profile in a non-incognito session");
+                            "Attempting to create an OTR profile in a non-OTR session");
                 }
             }
         };
@@ -318,9 +324,9 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
         CustomTabActivityClientConnectionKeeper connectionKeeper =
                 component.resolveConnectionKeeper();
         mNavigationController.setFinishHandler(
-                (reason) -> {
+                (reason, warmupOnFinish) -> {
                     if (reason == USER_NAVIGATION) connectionKeeper.recordClientConnectionStatus();
-                    handleFinishAndClose();
+                    handleFinishAndClose(warmupOnFinish);
                 });
         if (BackPressManager.isEnabled()) {
             mBackPressManager.setFallbackOnBackPressed(this::handleBackPressed);
@@ -331,7 +337,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
 
         BrowserServicesIntentDataProvider intentDataProvider = getIntentDataProvider();
 
-        if (intentDataProvider.isIncognito()) {
+        if (intentDataProvider.isIncognitoBranded()) {
             component.resolveCustomTabIncognitoManager();
         }
 
@@ -410,6 +416,12 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
     }
 
     @Override
+    protected boolean isContextualSearchEnabled() {
+        if (mIntentDataProvider.isAuthView()) return false;
+        return super.isContextualSearchEnabled();
+    }
+
+    @Override
     protected void onDestroyInternal() {
         if (mFullscreenManager != null) {
             mFullscreenManager.removeObserver(mFullscreenObserver);
@@ -420,6 +432,13 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
             if (minimizationManager != null) {
                 minimizationManager.removeObserver(mMinimizationObserver);
             }
+        }
+
+        if (mWarmupOnDestroy) {
+            Profile profile = getProfileProviderSupplier().get().getOriginalProfile();
+            PostTask.postTask(
+                    TaskTraits.UI_DEFAULT,
+                    () -> CustomTabsConnection.createSpareWebContents(profile));
         }
 
         super.onDestroyInternal();
@@ -542,7 +561,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
                 mIntentDataProvider.shouldShowShareMenuItem(),
                 mIntentDataProvider.shouldShowStarButton(),
                 mIntentDataProvider.shouldShowDownloadButton(),
-                mIntentDataProvider.isIncognito(),
+                mIntentDataProvider.isIncognitoBranded(),
                 isMenuIconAtStart,
                 mBaseCustomTabRootUiCoordinator::isPageInsightsHubEnabled,
                 mBaseCustomTabRootUiCoordinator.getReadAloudControllerSupplier(),
@@ -613,7 +632,10 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
      * Internal implementation that finishes the activity and removes the references from Android
      * recents.
      */
-    protected void handleFinishAndClose() {
+    protected void handleFinishAndClose(boolean warmupOnFinish) {
+        // Delay until we're destroyed to avoid jank in the transition animation when closing the
+        // tab.
+        mWarmupOnDestroy = warmupOnFinish;
         Runnable defaultBehavior =
                 () -> {
                     if (useSeparateTask()) {

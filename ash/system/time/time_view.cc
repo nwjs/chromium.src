@@ -42,12 +42,13 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/text_constants.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/fill_layout.h"
-#include "ui/views/layout/flex_layout.h"
+#include "ui/views/layout/flex_layout_view.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
@@ -333,9 +334,10 @@ void TimeView::UpdateTextInternal(const base::Time& now) {
     return;
   }
   const std::u16string friendly_format_date = base::TimeFormatFriendlyDate(now);
-  SetAccessibleName(base::TimeFormatTimeOfDayWithHourClockType(
-                        now, model_->hour_clock_type(), base::kKeepAmPm) +
-                    u", " + friendly_format_date);
+  GetViewAccessibility().SetName(
+      base::TimeFormatTimeOfDayWithHourClockType(now, model_->hour_clock_type(),
+                                                 base::kKeepAmPm) +
+      u", " + friendly_format_date);
 
   switch (type_) {
     case kTime: {
@@ -430,14 +432,14 @@ void TimeView::SetupSubviews(ClockLayout clock_layout) {
   horizontal_time_label_container_ =
       AddChildView(std::move(horizontal_time_label_container));
 
-  auto vertical_time_label_container = std::make_unique<View>();
-  vertical_time_label_container
-      ->SetLayoutManager(std::make_unique<views::FlexLayout>())
-      ->SetOrientation(views::LayoutOrientation::kVertical)
-      .SetMainAxisAlignment(views::LayoutAlignment::kCenter)
-      .SetCrossAxisAlignment(views::LayoutAlignment::kEnd)
-      .SetInteriorMargin(gfx::Insets::TLBR(0, kVerticalClockLeftPadding,
-                                           kVerticalClockMinutesTopOffset, 0));
+  auto vertical_time_label_container =
+      views::Builder<views::FlexLayoutView>()
+          .SetOrientation(views::LayoutOrientation::kVertical)
+          .SetMainAxisAlignment(views::LayoutAlignment::kCenter)
+          .SetCrossAxisAlignment(views::LayoutAlignment::kEnd)
+          .SetInteriorMargin(gfx::Insets::TLBR(
+              0, kVerticalClockLeftPadding, kVerticalClockMinutesTopOffset, 0))
+          .Build();
 
   vertical_label_hours_ = vertical_time_label_container->AddChildView(
       std::make_unique<views::Label>());

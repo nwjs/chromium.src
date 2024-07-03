@@ -44,7 +44,9 @@ class ASH_EXPORT PickerSearchResultsView : public PickerPageView {
   bool MovePseudoFocusDown() override;
   bool MovePseudoFocusLeft() override;
   bool MovePseudoFocusRight() override;
-  void AdvancePseudoFocus(PseudoFocusDirection direction) override;
+  bool AdvancePseudoFocus(PseudoFocusDirection direction) override;
+  bool GainPseudoFocus(PseudoFocusDirection direction) override;
+  void LosePseudoFocus() override;
 
   // Clears the search results.
   void ClearSearchResults();
@@ -88,9 +90,6 @@ class ASH_EXPORT PickerSearchResultsView : public PickerPageView {
 
   raw_ptr<PickerSearchResultsViewDelegate> delegate_;
 
-  // `asset_fetcher` outlives `this`.
-  raw_ptr<PickerAssetFetcher> asset_fetcher_ = nullptr;
-
   // The section list view, contains the section views.
   raw_ptr<PickerSectionListView> section_list_view_ = nullptr;
 
@@ -107,7 +106,7 @@ class ASH_EXPORT PickerSearchResultsView : public PickerPageView {
   // A view for when there are no results.
   raw_ptr<views::View> no_results_view_ = nullptr;
 
-  PickerPreviewBubbleController preview_bubble_controller_;
+  PickerPreviewBubbleController preview_controller_;
 };
 
 }  // namespace ash

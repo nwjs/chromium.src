@@ -418,13 +418,9 @@ void ServiceWorkerContextCore::HasMainFrameWindowClient(
       FROM_HERE, base::BindOnce(std::move(callback), has_main_frame));
 }
 
-base::WeakPtr<ServiceWorkerClient>
+ScopedServiceWorkerClient
 ServiceWorkerContextCore::CreateServiceWorkerClientForWindow(
-    mojo::PendingAssociatedReceiver<blink::mojom::ServiceWorkerContainerHost>
-        host_receiver,
     bool are_ancestors_secure,
-    mojo::PendingAssociatedRemote<blink::mojom::ServiceWorkerContainer>
-        container_remote,
     int frame_tree_node_id) {
   auto client = std::make_unique<ServiceWorkerClient>(
       AsWeakPtr(), are_ancestors_secure, frame_tree_node_id);
@@ -433,24 +429,12 @@ ServiceWorkerContextCore::CreateServiceWorkerClientForWindow(
                       .emplace(weak_client->client_uuid(), std::move(client))
                       .second;
   DCHECK(inserted);
-
-  // Bind the host receiver.
-  ServiceWorkerContainerHostForClient::Create(weak_client,
-                                              std::move(container_remote));
-  container_host_receivers_->Add(&weak_client->container_host(),
-                                 std::move(host_receiver),
-                                 &weak_client->container_host());
-
-  return weak_client;
+  return ScopedServiceWorkerClient(std::move(weak_client));
 }
 
-base::WeakPtr<ServiceWorkerClient>
+ScopedServiceWorkerClient
 ServiceWorkerContextCore::CreateServiceWorkerClientForWorker(
-    mojo::PendingAssociatedReceiver<blink::mojom::ServiceWorkerContainerHost>
-        host_receiver,
     int process_id,
-    mojo::PendingAssociatedRemote<blink::mojom::ServiceWorkerContainer>
-        container_remote,
     ServiceWorkerClientInfo client_info) {
   auto client = std::make_unique<ServiceWorkerClient>(AsWeakPtr(), process_id,
                                                       client_info);
@@ -459,15 +443,15 @@ ServiceWorkerContextCore::CreateServiceWorkerClientForWorker(
                       .emplace(weak_client->client_uuid(), std::move(client))
                       .second;
   DCHECK(inserted);
+  return ScopedServiceWorkerClient(std::move(weak_client));
+}
 
-  // Bind the host receiver.
-  ServiceWorkerContainerHostForClient::Create(weak_client,
-                                              std::move(container_remote));
-  container_host_receivers_->Add(&weak_client->container_host(),
-                                 std::move(host_receiver),
-                                 &weak_client->container_host());
-
-  return weak_client;
+void ServiceWorkerContextCore::BindHost(
+    ServiceWorkerContainerHostForClient& container_host,
+    mojo::PendingAssociatedReceiver<blink::mojom::ServiceWorkerContainerHost>
+        host_receiver) {
+  container_host_receivers_->Add(&container_host, std::move(host_receiver),
+                                 &container_host);
 }
 
 void ServiceWorkerContextCore::UpdateServiceWorkerClientClientID(
@@ -511,8 +495,7 @@ void ServiceWorkerContextCore::OnContainerHostReceiverDisconnected() {
 
   observer_list_->Notify(
       FROM_HERE, &ServiceWorkerContextCoreObserver::OnClientDestroyed,
-      container_host->service_worker_client().ukm_source_id(),
-      container_host->url(),
+      container_host->ukm_source_id(), container_host->url(),
       container_host->service_worker_client().GetClientType());
 
   size_t removed = service_worker_clients_by_uuid_.erase(
@@ -687,8 +670,8 @@ void ServiceWorkerContextCore::NotifyClientIsExecutionReady(
   DCHECK(service_worker_client.is_execution_ready());
   observer_list_->Notify(
       FROM_HERE, &ServiceWorkerContextCoreObserver::OnClientIsExecutionReady,
-      service_worker_client.ukm_source_id(), service_worker_client.url(),
-      service_worker_client.GetClientType());
+      service_worker_client.container_host().ukm_source_id(),
+      service_worker_client.url(), service_worker_client.GetClientType());
 }
 
 bool ServiceWorkerContextCore::MaybeHasRegistrationForStorageKey(
@@ -1366,6 +1349,36 @@ void ServiceWorkerContextCore::DidGetRegisteredStorageKeys(
         "ServiceWorker.Storage.RegisteredStorageKeyCacheInitialization.Time",
         base::TimeTicks::Now() - start_time);
   }
+}
+
+ScopedServiceWorkerClient::ScopedServiceWorkerClient(
+    base::WeakPtr<ServiceWorkerClient> service_worker_client)
+    : service_worker_client_(std::move(service_worker_client)),
+      container_info_(
+          blink::mojom::ServiceWorkerContainerInfoForClient::New()) {
+  ServiceWorkerContainerHostForClient::Create(service_worker_client_,
+                                              container_info_);
+  CHECK(container_info_->host_remote.is_valid());
+  CHECK(container_info_->client_receiver.is_valid());
+}
+ScopedServiceWorkerClient::~ScopedServiceWorkerClient() = default;
+
+ScopedServiceWorkerClient::ScopedServiceWorkerClient(
+    ScopedServiceWorkerClient&& other) = default;
+
+blink::mojom::ServiceWorkerContainerInfoForClientPtr
+ScopedServiceWorkerClient::CommitResponseAndRelease(
+    std::optional<GlobalRenderFrameHostId> rfh_id,
+    const PolicyContainerPolicies& policy_container_policies,
+    mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter,
+    ukm::SourceId ukm_source_id) {
+  if (service_worker_client_) {
+    service_worker_client_->CommitResponse(
+        std::move(rfh_id), policy_container_policies, std::move(coep_reporter),
+        std::move(ukm_source_id));
+  }
+  return std::move(container_info_);
 }
 
 #if !BUILDFLAG(IS_ANDROID)

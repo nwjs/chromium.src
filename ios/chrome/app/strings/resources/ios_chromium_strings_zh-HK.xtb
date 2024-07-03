@@ -75,6 +75,7 @@
 <translation id="2942241131342758843">預設使用 Chromium 來開啟連結、從小工具搜尋，以及在其他應用程式中自動填入密碼</translation>
 <translation id="2977470724722393594">Chromium 已是最新版本</translation>
 <translation id="3044857325852340337">已刪除 Chromium 資料</translation>
+<translation id="3049211156275642309">完成 Chromium 設定</translation>
 <translation id="3078941082359356771">{COUNT,plural, =1{Chromium 可在「新分頁」上追蹤此包裹。}other{Chromium 可在「新分頁」上追蹤這些包裹。}}</translation>
 <translation id="3102849287235003384">如要在所有網站上登出 Google 帳戶，請<ph name="BEGIN_LINK" />登出 Chromium<ph name="END_LINK" />。</translation>
 <translation id="3219277919172823720">在 Chromium 中使用語音搜尋</translation>
@@ -201,7 +202,6 @@
 <translation id="6433172051771630690">可協助你充分運用 Chromium 的各項提示。</translation>
 <translation id="6502321914804101924">你已登出 Chromium</translation>
 <translation id="6563921047760808519">進一步瞭解 <ph name="BEGIN_LINK" />Chromium 如何確保你的資料保密<ph name="END_LINK" /></translation>
-<translation id="6625409903340039086">Chromium 現在支援受管帳戶的使用者政策</translation>
 <translation id="6728350288669261079">在 Chromium 中開啟「設定」。</translation>
 <translation id="6752854822223394465">您的機構正在設定 Chromium…</translation>
 <translation id="6794054469102824109">開啟 Chromium 恐龍遊戲。</translation>
@@ -232,7 +232,6 @@
 <translation id="7395825497086981028">系統會將密碼儲存在 <ph name="EMAIL" /> 的「密碼管理工具」。</translation>
 <translation id="7400689562045506105">隨時隨地使用 Chromium</translation>
 <translation id="7523464085759699266">開啟「關閉 Chromium 時鎖定無痕式分頁」。</translation>
-<translation id="7601597633134889942">前往網站並按一下 Chromium 選單中的「追蹤」</translation>
 <translation id="7674213385180944843">開啟 [設定] &gt; [私隱權] &gt; [相機] &gt; [Chromium]，然後開啟相機。</translation>
 <translation id="7710137812207066069">在 Chromium 中開啟新分頁。</translation>
 <translation id="7747820849741499258">在 Chromium 中搜尋</translation>
@@ -264,6 +263,7 @@
 <translation id="8386869251364507178">Chromium 操作</translation>
 <translation id="8409374867500149834">Chromium 最強大的安全功能可協助防範有害網站</translation>
 <translation id="8458950033462118672">將 Chromium 設定為「預設瀏覽器應用程式」，即可自動以 Chromium 開啟連結。</translation>
+<translation id="8543509361021925846">{THRESHOLD,plural, =1{當 Chromium 閒置 {THRESHOLD} 分鐘後，系統就會執行此操作。系統將刪除你登入時只儲存至此裝置的資料，其中可能包括記錄和密碼。}other{當 Chromium 閒置 {THRESHOLD} 分鐘後，系統就會執行此操作。系統將刪除你登入時只儲存至此裝置的資料，其中可能包括記錄和密碼。}}</translation>
 <translation id="858114650497379505">您可在 iPhone 上的其他應用程式使用您儲存到「密碼管理工具」的密碼。</translation>
 <translation id="8586442755830160949">Copyright <ph name="YEAR" /> The Chromium Authors. 保留所有權利。</translation>
 <translation id="865600487977764604">確保您登入使用 Chromium 的安全，並可提升您在其他 Google 應用程式的安全性。</translation>
@@ -274,6 +274,7 @@
 <translation id="8754966941001340678">Chromium 建議使用強化保護功能</translation>
 <translation id="8759037115129007407">你的家庭成員目前無法接收密碼。請要求他們更新 Chromium 並同步處理密碼。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="8776843108004031667">此帳戶和所有未儲存的資料將從 Chromium 中移除。</translation>
+<translation id="8826789549860004832">如要充分運用 Chromium 的功能，請繼續設定瀏覽器。</translation>
 <translation id="88376265765385899">開啟 Chromium 書籤。</translation>
 <translation id="8860548555286245440">在 Chromium 無痕模式中開啟網址</translation>
 <translation id="8866191443434488382">當你瀏覽網站時，Chromium 會在網站上偵測是否有追蹤號碼，並在「新分頁」顯示包裹最新消息。為提供此功能，系統會將包裹追蹤編號和網站名稱傳送給 Chromium，為所有人改善購物功能。你可隨時在「<ph name="BEGIN_LINK" />包裹追蹤設定<ph name="END_LINK" />」進行更新。</translation>

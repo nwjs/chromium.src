@@ -8,13 +8,12 @@
 #include <utility>
 
 #include "base/containers/contains.h"
-#include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/history/core/browser/url_row.h"
-#include "components/visited_url_ranking/internal/url_visit_util.h"
 #include "components/visited_url_ranking/public/fetch_result.h"
+#include "components/visited_url_ranking/public/url_visit_util.h"
 #include "url/gurl.h"
 
 namespace visited_url_ranking {
@@ -23,7 +22,7 @@ using Source = URLVisit::Source;
 using URLVisitVariant = URLVisitAggregate::URLVisitVariant;
 
 HistoryURLVisitDataFetcher::HistoryURLVisitDataFetcher(
-    base::WeakPtr<history::HistoryService> history_service)
+    history::HistoryService* history_service)
     : history_service_(history_service) {}
 
 HistoryURLVisitDataFetcher::~HistoryURLVisitDataFetcher() = default;
@@ -77,8 +76,14 @@ void HistoryURLVisitDataFetcher::OnGotAnnotatedVisits(
       history.visit_count += 1;
       history.total_foreground_duration +=
           annotated_visit.context_annotations.total_foreground_duration;
-      // TODO(crbug.com/330580109): Add `in_cluster`, dismiss/done `status`
-      // signals.
+
+      if (!history.last_app_id.has_value() &&
+          annotated_visit.visit_row.app_id.has_value()) {
+        history.last_app_id = annotated_visit.visit_row.app_id;
+      }
+
+      // TODO(crbug.com/340885723): Wire `in_cluster` signal.
+      // TODO(crbug.com/340887237): Wire `interaction_state` signal.
     }
   }
 

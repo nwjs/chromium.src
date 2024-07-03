@@ -7,23 +7,21 @@ package org.chromium.chrome.test.transit;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
-import static org.chromium.base.test.transit.ViewElement.scopedViewElement;
+import static org.chromium.base.test.transit.ViewElement.viewElement;
 
 import org.chromium.base.test.transit.Condition;
 import org.chromium.base.test.transit.Elements;
-import org.chromium.base.test.transit.Trip;
 import org.chromium.base.test.transit.ViewElement;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
 
 /** The tab switcher screen showing regular tabs. */
 public class RegularTabSwitcherStation extends TabSwitcherStation {
 
     public static final ViewElement EMPTY_STATE_TEXT =
-            scopedViewElement(withText(R.string.tabswitcher_no_tabs_empty_state));
+            viewElement(withText(R.string.tabswitcher_no_tabs_empty_state));
 
-    public RegularTabSwitcherStation(ChromeTabbedActivityTestRule chromeTabbedActivityTestRule) {
-        super(chromeTabbedActivityTestRule, /* incognito= */ false);
+    public RegularTabSwitcherStation() {
+        super(/* incognito= */ false);
     }
 
     @Override
@@ -42,9 +40,7 @@ public class RegularTabSwitcherStation extends TabSwitcherStation {
     }
 
     public IncognitoTabSwitcherStation selectIncognitoTabList() {
-        IncognitoTabSwitcherStation tabSwitcher =
-                new IncognitoTabSwitcherStation(mChromeTabbedActivityTestRule);
-        return Trip.travelSync(
-                this, tabSwitcher, () -> INCOGNITO_TOGGLE_TAB_BUTTON.perform(click()));
+        IncognitoTabSwitcherStation tabSwitcher = new IncognitoTabSwitcherStation();
+        return travelToSync(tabSwitcher, () -> INCOGNITO_TOGGLE_TAB_BUTTON.perform(click()));
     }
 }

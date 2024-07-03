@@ -57,11 +57,21 @@ class OhttpKeyServiceTest : public ::testing::Test {
   OhttpKeyServiceTest() = default;
 
   void SetUp() override {
-    if (is_feature_enabled_) {
-      feature_list_.InitAndEnableFeature(kHashPrefixRealTimeLookups);
+    std::vector<base::test::FeatureRef> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
+    if (is_hash_prefix_feature_enabled_) {
+      enabled_features.emplace_back(kHashPrefixRealTimeLookups);
     } else {
-      feature_list_.InitAndDisableFeature(kHashPrefixRealTimeLookups);
+      disabled_features.emplace_back(kHashPrefixRealTimeLookups);
     }
+    if (is_fast_key_rotation_enabled_) {
+      enabled_features.emplace_back(
+          kHashPrefixRealTimeLookupsFasterOhttpKeyRotation);
+    } else {
+      disabled_features.emplace_back(
+          kHashPrefixRealTimeLookupsFasterOhttpKeyRotation);
+    }
+    feature_list_.InitWithFeatures(enabled_features, disabled_features);
     RegisterProfilePrefs(pref_service_.registry());
     local_state_.registry()->RegisterStringPref(
         variations::prefs::kVariationsCountry, std::string());
@@ -97,6 +107,8 @@ class OhttpKeyServiceTest : public ::testing::Test {
                     resource_request.url.spec());
           ASSERT_EQ(network::mojom::CredentialsMode::kOmit,
                     resource_request.credentials_mode);
+          ASSERT_EQ(is_fast_key_rotation_enabled_,
+                    resource_request.headers.HasHeader("X-OhttpPublickey-Fst"));
         }));
     test_url_loader_factory_->AddResponse(GetExpectedKeyFetchServerUrl(),
                                           kTestOhttpKey);
@@ -133,7 +145,8 @@ class OhttpKeyServiceTest : public ::testing::Test {
   std::string key_param_;
   base::HistogramTester histogram_tester_;
   std::optional<std::string> country_;
-  bool is_feature_enabled_ = true;
+  bool is_hash_prefix_feature_enabled_ = true;
+  bool is_fast_key_rotation_enabled_ = true;
 
  private:
   hash_realtime_utils::GoogleChromeBrandingPretenderForTesting apply_branding_;
@@ -141,12 +154,19 @@ class OhttpKeyServiceTest : public ::testing::Test {
 
 class OhttpKeyServiceFeatureOffTest : public OhttpKeyServiceTest {
  public:
-  OhttpKeyServiceFeatureOffTest() { is_feature_enabled_ = false; }
+  OhttpKeyServiceFeatureOffTest() { is_hash_prefix_feature_enabled_ = false; }
 };
 
 class OhttpKeyServiceLocationDisabledTest : public OhttpKeyServiceTest {
  public:
   OhttpKeyServiceLocationDisabledTest() { country_ = "cn"; }
+};
+
+class OhttpKeyServiceFastKeyRotationDisabledTest : public OhttpKeyServiceTest {
+ public:
+  OhttpKeyServiceFastKeyRotationDisabledTest() {
+    is_fast_key_rotation_enabled_ = false;
+  }
 };
 
 TEST_F(OhttpKeyServiceTest, GetOhttpKey_Success) {
@@ -609,6 +629,35 @@ TEST_F(OhttpKeyServiceTest, NotifyLookupResponse_Backoff) {
   FastForwardAndVerifyKeyValue(kTestOldOhttpKey);
 }
 
+TEST_F(OhttpKeyServiceTest,
+       NotifyLookupResponse_LogFirstLookupResponseHistogram) {
+  constexpr char kFirstLookupHistogramName[] =
+      "SafeBrowsing.HPRT.OhttpKeyService.FirstLookupResponseCodeFromCurrentKey";
+  SetupOldKeyAndPendingNewKey();
+  task_environment_.RunUntilIdle();
+
+  ohttp_key_service_->NotifyLookupResponse(
+      kTestOldOhttpKey, net::HTTP_UNPROCESSABLE_CONTENT, /*headers=*/nullptr);
+  // Histogram is not logged because it is not a new key.
+  histogram_tester_.ExpectTotalCount(kFirstLookupHistogramName,
+                                     /*expected_count=*/0);
+
+  FastForwardAndVerifyKeyValue(kTestNewOhttpKey);
+
+  ohttp_key_service_->NotifyLookupResponse(kTestNewOhttpKey, net::HTTP_OK,
+                                           CreateSuccessHeaders());
+  histogram_tester_.ExpectUniqueSample(kFirstLookupHistogramName,
+                                       /*sample=*/net::HTTP_OK,
+                                       /*expected_bucket_count=*/1);
+
+  ohttp_key_service_->NotifyLookupResponse(kTestNewOhttpKey, net::HTTP_OK,
+                                           CreateSuccessHeaders());
+  // Histogram is not logged again because it is not the first lookup response
+  // with this key.
+  histogram_tester_.ExpectTotalCount(kFirstLookupHistogramName,
+                                     /*expected_count=*/1);
+}
+
 TEST_F(OhttpKeyServiceTest, Shutdown) {
   base::MockCallback<OhttpKeyService::Callback> response_callback;
   // Pending callbacks should be run during shutdown.
@@ -616,6 +665,16 @@ TEST_F(OhttpKeyServiceTest, Shutdown) {
 
   ohttp_key_service_->GetOhttpKey(response_callback.Get());
   ohttp_key_service_->Shutdown();
+  task_environment_.RunUntilIdle();
+}
+
+TEST_F(OhttpKeyServiceFastKeyRotationDisabledTest, NoFastRotationHeader) {
+  SetupSuccessResponse();
+  base::MockCallback<OhttpKeyService::Callback> response_callback;
+  EXPECT_CALL(response_callback, Run(Optional(std::string(kTestOhttpKey))))
+      .Times(1);
+
+  ohttp_key_service_->GetOhttpKey(response_callback.Get());
   task_environment_.RunUntilIdle();
 }
 

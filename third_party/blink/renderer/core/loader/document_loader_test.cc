@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/containers/span.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/unguessable_token.h"
@@ -26,6 +27,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/url_loader_client.h"
 #include "third_party/blink/renderer/platform/loader/static_data_navigation_body_loader.h"
 #include "third_party/blink/renderer/platform/storage/blink_storage_key.h"
+#include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/url_loader_mock_factory.h"
 #include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
@@ -92,7 +94,9 @@ class BodyLoaderTestDelegate : public URLLoaderTestDelegate {
     return true;
   }
 
-  void Write(const char* data) { body_loader_raw_->Write(data, strlen(data)); }
+  void Write(const char* data) {
+    body_loader_raw_->Write(base::make_span(data, strlen(data)));
+  }
 
   void Finish() { body_loader_raw_->Finish(); }
 
@@ -101,15 +105,47 @@ class BodyLoaderTestDelegate : public URLLoaderTestDelegate {
   StaticDataNavigationBodyLoader* body_loader_raw_;
 };
 
+// To test the abiltity to obtain and store the per-origin salt used in
+// partitioning visited links, we need to override the Platform::Current() used
+// in this test. Our platform will obtain and store the per-origin salt values
+// locally in `salts_`.
+class VisitedLinkSaltPlatform : public TestingPlatformSupport {
+ public:
+  // Override which stores our per-origin salts locally.
+  void AddOrUpdateVisitedLinkSalt(const url::Origin& origin,
+                                  uint64_t salt) override {
+    salts_[origin] = salt;
+  }
+
+  // Test cases can query whether we obtained a salt for a specific origin.
+  std::optional<uint64_t> GetVisitedLinkSaltForOrigin(
+      const url::Origin& origin) {
+    auto it = salts_.find(origin);
+    if (it != salts_.end()) {
+      return it->second;
+    }
+    // We do not have a corresponding salt for this origin.
+    return std::nullopt;
+  }
+
+ private:
+  std::map<url::Origin, uint64_t> salts_;
+};
+
 class DocumentLoaderTest : public testing::TestWithParam<bool> {
  protected:
   void SetUp() override {
-    if (IsThirdPartyStoragePartitioningEnabled()) {
-      scoped_feature_list_.InitAndEnableFeature(
-          net::features::kThirdPartyStoragePartitioning);
+    if (GetParam()) {
+      // Enabled the features.
+      scoped_feature_list_.InitWithFeatures(
+          {net::features::kThirdPartyStoragePartitioning,
+           blink::features::kPartitionVisitedLinkDatabase},
+          {});
     } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          net::features::kThirdPartyStoragePartitioning);
+      // Disables the features.
+      scoped_feature_list_.InitWithFeatures(
+          {}, {net::features::kThirdPartyStoragePartitioning,
+               blink::features::kPartitionVisitedLinkDatabase});
     }
 
     web_view_helper_.Initialize();
@@ -152,8 +188,6 @@ class DocumentLoaderTest : public testing::TestWithParam<bool> {
     url_test_helpers::UnregisterAllURLsAndClearMemoryCache();
   }
 
-  bool IsThirdPartyStoragePartitioningEnabled() const { return GetParam(); }
-
   class ScopedLoaderDelegate {
    public:
     explicit ScopedLoaderDelegate(URLLoaderTestDelegate* delegate) {
@@ -164,6 +198,7 @@ class DocumentLoaderTest : public testing::TestWithParam<bool> {
 
   WebLocalFrameImpl* MainFrame() { return web_view_helper_.LocalMainFrame(); }
 
+  ScopedTestingPlatformSupport<VisitedLinkSaltPlatform> platform_;
   test::TaskEnvironment task_environment_;
   frame_test_helpers::WebViewHelper web_view_helper_;
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -177,11 +212,10 @@ TEST_P(DocumentLoaderTest, SingleChunk) {
   class TestDelegate : public URLLoaderTestDelegate {
    public:
     void DidReceiveData(URLLoaderClient* original_client,
-                        const char* data,
-                        size_t data_length) override {
-      EXPECT_EQ(34u, data_length)
+                        base::span<const char> data) override {
+      EXPECT_EQ(34u, data.size())
           << "foo.html was not served in a single chunk";
-      original_client->DidReceiveData(data, data_length);
+      original_client->DidReceiveDataForTesting(data);
     }
   } delegate;
 
@@ -199,13 +233,12 @@ TEST_P(DocumentLoaderTest, MultiChunkNoReentrancy) {
   class TestDelegate : public URLLoaderTestDelegate {
    public:
     void DidReceiveData(URLLoaderClient* original_client,
-                        const char* data,
-                        size_t data_length) override {
-      EXPECT_EQ(34u, data_length)
+                        base::span<const char> data) override {
+      EXPECT_EQ(34u, data.size())
           << "foo.html was not served in a single chunk";
       // Chunk the reply into one byte chunks.
-      for (size_t i = 0; i < data_length; ++i) {
-        original_client->DidReceiveData(&data[i], 1);
+      for (size_t i = 0; i < data.size(); ++i) {
+        original_client->DidReceiveDataForTesting(data.subspan(i, 1));
       }
     }
   } delegate;
@@ -276,7 +309,7 @@ TEST_P(DocumentLoaderTest, MultiChunkWithReentrancy) {
 
     void DispatchOneByte() {
       char c = data_.TakeFirst();
-      body_loader_->Write(&c, 1);
+      body_loader_->Write(base::make_span(&c, static_cast<size_t>(1)));
     }
 
     bool ServedReentrantly() const { return served_reentrantly_; }
@@ -386,8 +419,7 @@ TEST_P(DocumentLoaderTest, CommitsDeferredOnSameOriginNavigation) {
   const KURL& same_origin_url =
       KURL(NullURL(), "https://www.example.com/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), same_origin_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(same_origin_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   LocalFrame* local_frame =
       To<LocalFrame>(web_view_impl->GetPage()->MainFrame());
@@ -409,8 +441,7 @@ TEST_P(DocumentLoaderTest,
   const KURL& other_origin_url =
       KURL(NullURL(), "https://www.another.com/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), other_origin_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(other_origin_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   LocalFrame* local_frame =
       To<LocalFrame>(web_view_impl->GetPage()->MainFrame());
@@ -432,8 +463,7 @@ TEST_P(DocumentLoaderTest,
   const KURL& other_origin_url =
       KURL(NullURL(), "https://www.another.com/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), other_origin_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(other_origin_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   LocalFrame* local_frame =
       To<LocalFrame>(web_view_impl->GetPage()->MainFrame());
@@ -455,8 +485,7 @@ TEST_P(DocumentLoaderTest,
   const KURL& different_port_url =
       KURL(NullURL(), "https://www.example.com:8080/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), different_port_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(different_port_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   LocalFrame* local_frame =
       To<LocalFrame>(web_view_impl->GetPage()->MainFrame());
@@ -478,8 +507,7 @@ TEST_P(DocumentLoaderTest,
   const KURL& different_port_url =
       KURL(NullURL(), "https://www.example.com:8080/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), different_port_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(different_port_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   LocalFrame* local_frame =
       To<LocalFrame>(web_view_impl->GetPage()->MainFrame());
@@ -496,8 +524,7 @@ TEST_P(DocumentLoaderTest, CommitsNotDeferredOnDataURLNavigation) {
 
   const KURL& data_url = KURL(NullURL(), "data:,Hello%2C%20World!");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), data_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(data_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   LocalFrame* local_frame =
       To<LocalFrame>(web_view_impl->GetPage()->MainFrame());
@@ -518,8 +545,7 @@ TEST_P(DocumentLoaderTest,
 
   const KURL& data_url = KURL(NullURL(), "data:,Hello%2C%20World!");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), data_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(data_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   LocalFrame* local_frame =
       To<LocalFrame>(web_view_impl->GetPage()->MainFrame());
@@ -558,8 +584,7 @@ TEST_P(DocumentLoaderTest, SameOriginNavigation) {
   const KURL& same_origin_url =
       KURL(NullURL(), "https://www.example.com/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), same_origin_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(same_origin_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   params->storage_key = BlinkStorageKey::CreateFirstParty(
       SecurityOrigin::Create(same_origin_url));
@@ -587,8 +612,7 @@ TEST_P(DocumentLoaderTest, SameOriginNavigation_WithStorageAccess) {
   const KURL& same_origin_url =
       KURL(NullURL(), "https://www.example.com/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), same_origin_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(same_origin_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   params->load_with_storage_access = true;
   LocalFrame* local_frame =
@@ -619,8 +643,7 @@ TEST_P(DocumentLoaderTest, CrossOriginNavigation) {
   const KURL& other_origin_url =
       KURL(NullURL(), "https://www.another.com/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), other_origin_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(other_origin_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
   params->storage_key = BlinkStorageKey::CreateFirstParty(
       SecurityOrigin::Create(other_origin_url));
@@ -654,8 +677,7 @@ TEST_P(DocumentLoaderTest, StorageKeyFromNavigationParams) {
   const KURL& other_origin_url =
       KURL(NullURL(), "https://www.another.com/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), other_origin_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(other_origin_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
 
   url::Origin origin;
@@ -682,8 +704,7 @@ TEST_P(DocumentLoaderTest, StorageKeyCrossSiteFromNavigationParams) {
   const KURL& other_origin_url =
       KURL(NullURL(), "https://www.another.com/bar.html");
   std::unique_ptr<WebNavigationParams> params =
-      WebNavigationParams::CreateWithHTMLBufferForTesting(
-          SharedBuffer::Create(), other_origin_url);
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(other_origin_url);
   params->requestor_origin = WebSecurityOrigin::Create(WebURL(requestor_url));
 
   net::SchemefulSite top_level_site =
@@ -861,6 +882,36 @@ TEST_P(DocumentLoaderTest, EmbeddedCredentialsNavigation) {
     EXPECT_EQ(test_case.useCounted,
               document->IsUseCounted(
                   WebFeature::kTopLevelDocumentWithEmbeddedCredentials));
+  }
+}
+
+TEST_P(DocumentLoaderTest, VisitedLinkSalt) {
+  // Generate the constants.
+  const uint64_t kSalt = base::RandUint64();
+  const KURL& kUrl = KURL(NullURL(), "https://www.example.com/foo.html");
+
+  // Load a blank slate.
+  WebViewImpl* web_view_impl =
+      web_view_helper_.InitializeAndLoad("about:blank");
+
+  // Create params for the URL we will navigate to next.
+  std::unique_ptr<WebNavigationParams> params =
+      WebNavigationParams::CreateWithEmptyHTMLForTesting(kUrl);
+  params->visited_link_salt = kSalt;
+
+  // Perform the navigation and provide an empty vector for visited link state.
+  LocalFrame* local_frame =
+      To<LocalFrame>(web_view_impl->GetPage()->MainFrame());
+  local_frame->Loader().CommitNavigation(std::move(params), nullptr);
+
+  // Check if the platform was notified of our salt.
+  std::optional<uint64_t> result_salt =
+      platform_->GetVisitedLinkSaltForOrigin(url::Origin::Create(GURL(kUrl)));
+  ASSERT_EQ(result_salt.has_value(),
+            base::FeatureList::IsEnabled(
+                blink::features::kPartitionVisitedLinkDatabase));
+  if (result_salt.has_value()) {
+    EXPECT_EQ(result_salt.value(), kSalt);
   }
 }
 

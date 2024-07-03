@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if defined(UNSAFE_BUFFERS_BUILD)
+// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
+// then remove this pragma.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "ui/views/color_chooser/color_chooser_view.h"
 
 #include <stdint.h>
@@ -438,11 +444,12 @@ std::unique_ptr<View> ColorChooser::BuildView() {
   auto container = std::make_unique<View>();
   container->SetLayoutManager(std::make_unique<BoxLayout>(
       BoxLayout::Orientation::kHorizontal, gfx::Insets(), kMarginWidth));
-  saturation_value_ = container->AddChildView(
-      std::make_unique<SaturationValueView>(base::BindRepeating(
-          &ColorChooser::OnSaturationValueChosen, this->AsWeakPtr())));
-  hue_ = container->AddChildView(std::make_unique<HueView>(
-      base::BindRepeating(&ColorChooser::OnHueChosen, this->AsWeakPtr())));
+  saturation_value_ =
+      container->AddChildView(std::make_unique<SaturationValueView>(
+          base::BindRepeating(&ColorChooser::OnSaturationValueChosen,
+                              weak_ptr_factory_.GetWeakPtr())));
+  hue_ = container->AddChildView(std::make_unique<HueView>(base::BindRepeating(
+      &ColorChooser::OnHueChosen, weak_ptr_factory_.GetWeakPtr())));
   view->AddChildView(std::move(container));
 
   auto container2 = std::make_unique<View>();
@@ -547,8 +554,8 @@ std::unique_ptr<WidgetDelegate> ColorChooser::MakeWidgetDelegate() {
   delegate->SetContentsView(BuildView());
   delegate->SetInitiallyFocusedView(textfield_);
   delegate->SetModalType(ui::MODAL_TYPE_WINDOW);
-  delegate->RegisterWindowClosingCallback(
-      base::BindOnce(&ColorChooser::OnViewClosing, this->AsWeakPtr()));
+  delegate->RegisterWindowClosingCallback(base::BindOnce(
+      &ColorChooser::OnViewClosing, weak_ptr_factory_.GetWeakPtr()));
 
   return delegate;
 }

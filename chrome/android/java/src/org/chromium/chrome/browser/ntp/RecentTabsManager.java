@@ -10,6 +10,7 @@ import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.invalidation.SessionsInvalidationManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.recent_tabs.ForeignSessionHelper;
@@ -119,7 +120,9 @@ public class RecentTabsManager
 
         mProfileDataCache = ProfileDataCache.createWithDefaultImageSizeAndNoBadge(context);
         AccountPickerBottomSheetStrings bottomSheetStrings =
-                new AccountPickerBottomSheetStrings.Builder(R.string.sign_in_to_chrome).build();
+                new AccountPickerBottomSheetStrings.Builder(
+                                R.string.signin_account_picker_bottom_sheet_title)
+                        .build();
         mSyncPromoController =
                 new SyncPromoController(
                         mProfile,
@@ -433,7 +436,23 @@ public class RecentTabsManager
     }
 
     private @SyncPromoState int calculatePromoState() {
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            // If ReplaceSyncPromosWithSignInPromos is enabled, there's only one promo type.
+            //
+            // TODO(crbug.com/343908771): Revise SyncPromoState after launching
+            //     ReplaceSyncPromosWithSignInPromos.
+            if (!mSyncPromoController.canShowSyncPromo()) {
+                return SyncPromoState.NO_PROMO;
+            }
+            return SyncPromoState.PROMO_FOR_SIGNED_OUT_STATE;
+        }
         if (!mSignInManager.getIdentityManager().hasPrimaryAccount(ConsentLevel.SYNC)) {
+            if (!mSyncPromoController.canShowSyncPromo()) {
+                return SyncPromoState.NO_PROMO;
+            }
+            // TODO(crbug.com/338541375): Move this check inside
+            //  SyncPromoController#canShowSyncPromo().
             if (!mSignInManager.isSyncOptInAllowed()) {
                 return SyncPromoState.NO_PROMO;
             }

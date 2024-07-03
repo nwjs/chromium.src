@@ -9,7 +9,6 @@
 
 #include "ash/api/tasks/fake_tasks_client.h"
 #include "ash/constants/ash_features.h"
-#include "ash/constants/ash_switches.h"
 #include "ash/glanceables/classroom/glanceables_classroom_client.h"
 #include "ash/glanceables/classroom/glanceables_classroom_student_view.h"
 #include "ash/glanceables/classroom/glanceables_classroom_types.h"
@@ -28,7 +27,6 @@
 #include "ash/system/unified/glanceable_tray_bubble.h"
 #include "ash/system/unified/unified_system_tray_bubble.h"
 #include "ash/test/ash_test_base.h"
-#include "base/command_line.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -77,6 +75,7 @@ class TestGlanceablesClassroomClient : public GlanceablesClassroomClient {
   }
 
   // GlanceablesClassroomClient:
+  bool IsDisabledByAdmin() const override { return false; }
   void IsStudentRoleActive(
       GlanceablesClassroomClient::IsRoleEnabledCallback cb) override {
     pending_is_student_role_enabled_callbacks_.push_back(std::move(cb));
@@ -144,10 +143,9 @@ class DateTrayTest
       public testing::WithParamInterface</*glanceables_v2_enabled=*/bool> {
  public:
   DateTrayTest() {
-    scoped_feature_list_.InitWithFeatureState(features::kGlanceablesV2,
-                                              AreGlanceablesV2Enabled());
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kGlanceablesIgnoreEnableMergeRequestBuildFlag);
+    scoped_feature_list_.InitWithFeatureStates(
+        {{features::kGlanceablesV2, AreGlanceablesV2Enabled()},
+         {features::kGlanceablesTimeManagementTasksView, false}});
   }
 
   void SetUp() override {

@@ -38,26 +38,23 @@ public class ForeignSessionSuggestionBackendTest extends TestSupport {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
+        TabResumptionModuleUtils.setFakeCurrentTimeMsForTesting(() -> CURRENT_TIME_MS);
         mSuggestionBackend =
-                new ForeignSessionSuggestionBackend(mForeignSessionHelper, mUrlFilteringDelegate) {
-                    @Override
-                    long getCurrentTimeMs() {
-                        return CURRENT_TIME_MS;
-                    }
-                };
+                new ForeignSessionSuggestionBackend(mForeignSessionHelper, mUrlFilteringDelegate);
     }
 
     @After
     public void tearDown() {
         mSuggestionBackend.destroy();
+        TabResumptionModuleUtils.setFakeCurrentTimeMsForTesting(null);
     }
 
     @Test
     @SmallTest
-    public void testReadCached() {
+    public void testRead() {
         when(mForeignSessionHelper.getForeignSessions()).thenReturn(makeForeignSessionsA());
         mIsCalled = false;
-        mSuggestionBackend.readCached(
+        mSuggestionBackend.read(
                 (List<SuggestionEntry> suggestions) -> {
                     assertSuggestionsEqual(makeForeignSessionSuggestionsA(), suggestions);
                     mIsCalled = true;
@@ -66,7 +63,7 @@ public class ForeignSessionSuggestionBackendTest extends TestSupport {
 
         when(mForeignSessionHelper.getForeignSessions()).thenReturn(makeForeignSessionsB());
         mIsCalled = false;
-        mSuggestionBackend.readCached(
+        mSuggestionBackend.read(
                 (List<SuggestionEntry> suggestions) -> {
                     assertSuggestionsEqual(makeForeignSessionSuggestionsB(), suggestions);
                     mIsCalled = true;
@@ -84,7 +81,7 @@ public class ForeignSessionSuggestionBackendTest extends TestSupport {
         expectedSuggestions.remove(2);
 
         mIsCalled = false;
-        mSuggestionBackend.readCached(
+        mSuggestionBackend.read(
                 (List<SuggestionEntry> suggestions) -> {
                     assertSuggestionsEqual(expectedSuggestions, suggestions);
                     mIsCalled = true;

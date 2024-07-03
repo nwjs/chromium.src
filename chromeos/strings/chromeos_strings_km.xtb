@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">លឿង​ប្រឿងៗ</translation>
 <translation id="1056898198331236512">ការព្រមាន</translation>
 <translation id="1059913517121127803">មិនអាច​ចាប់ផ្ដើម​ស្កេនបានទេ</translation>
+<translation id="1061864016440983342">ប្រើ​ដោយគ្មាន​ទីតាំង</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> នៃ <ph name="COUNT" />, <ph name="NAME" />។</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">បានរកឃើញ​ជញ្ជាំងភ្លើង</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">ការកំណត់ច្រើនទៀត</translation>
 <translation id="2082932131694554252">គ្រាប់ចុច​លើក្ដារចុច​ដែលបាន​ចាត់តាំង</translation>
 <translation id="2085089206770112532">គ្រាប់ចុចព្រួញចុះក្រោមសម្រាប់បន្ថយពន្លឺផ្ទាំងអេក្រង់</translation>
+<translation id="2086091080968010660">ការផ្លាស់ប្ដូរ​ផ្អែកតាម​ពេលវេលា​ប្រហែលជា​មិនត្រឹមត្រូវ​ទេ។ បើក​សិទ្ធិចូលប្រើ​ទីតាំង​ប្រព័ន្ធ​នៅក្នុង​ការកំណត់។</translation>
 <translation id="2102231663024125441">ការកែ​អក្សរ</translation>
 <translation id="2105810540595158374">ឧបករណ៍គឺជាឧបករណ៍បញ្ជាហ្គេម។</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, កំណែ <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">កែព័ត៌មានលម្អិតអំពី APN</translation>
 <translation id="2195732836444333448">យើងជាប់រវល់ហើយនៅពេលនេះ។ ត្រឡប់មកវិញ​ឆាប់ៗនេះ។</translation>
 <translation id="2201758491318984023">កង់</translation>
-<translation id="2203222757805818543">កាលវិភាគបច្ចុប្បន្នត្រូវបានកំណត់ទៅម៉ោង <ph name="SUNRISE" /> - <ph name="SUNSET" />។ ដើម្បីធ្វើបច្ចុប្បន្នភាពកាលវិភាគមុខងារ​ងងឹតដោយស្វ័យប្រវត្តិ សូម<ph name="BEGIN_LINK" />បើកសិទ្ធិចូលប្រើប្រាស់​ទីតាំង<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">ទឹកក្ដៅ​ចេញពី​ក្រោមដី</translation>
 <translation id="2203642483788377106">ច្រាំង​ថ្ម​ចោត</translation>
 <translation id="2208388655216963643">សិល្បករចំណាប់អារម្មណ៍</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">ស្ដារ​លំនាំដើម</translation>
 <translation id="2286454467119466181">ធម្មតា</translation>
 <translation id="2287186687001756809">មិនមាន​រូបភាពទេ។ ដើម្បី​បញ្ចូលរូបថត សូមចូល​ទៅកាន់ <ph name="LINK" /></translation>
+<translation id="2294577623958216786">កាលវិភាគ​បច្ចុប្បន្ន​ត្រូវបាន​កំណត់ទៅម៉ោង <ph name="SUNRISE" />-<ph name="SUNSET" />។ ដើម្បី​ធ្វើបច្ចុប្បន្នភាព​កាលវិភាគ​ថ្ងៃលិច និងថ្ងៃរះ​ដោយស្វ័យប្រវត្តិ សូមបើក​សិទ្ធិចូលប្រើ​ទីតាំង​ប្រព័ន្ធ។</translation>
 <translation id="2305172810646967500">ខ្មៅ</translation>
 <translation id="2307344026739914387">ប្រើគូសោ​បច្ចុប្បន្ន</translation>
 <translation id="2308243864813041101">ដកខ្សែ USB របស់ <ph name="DEVICE_NAME" /> ដើម្បីបន្តដំណើរការដំឡើងកំណែ</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">ផ្នូកខ្សាច់</translation>
 <translation id="2619761439309613843">ការផ្ទុក​ឡើងវិញ​ប្រចាំថ្ងៃ</translation>
 <translation id="2620436844016719705">ប្រព័ន្ធ</translation>
+<translation id="2637303424821734920">បិទ - ដើម្បីបង្ហាញអាកាសធាតុក្នុងតំបន់ សូម<ph name="BEGIN_LINK" />បើកសិទ្ធិចូលប្រើទីតាំងប្រព័ន្ធ<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">រូបភាពចូលគណនី</translation>
 <translation id="2640549051766135490">បានជ្រើសរើស​អាល់ប៊ុម <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">ការបញ្ជា</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">ផ្ទៃខាងក្រោយ</translation>
 <translation id="3027578600144895987">បិទ​កាមេរ៉ា</translation>
 <translation id="3031560714565892478">ឧបករណ៍គឺកាមេរ៉ាវីដេអូ។</translation>
+<translation id="3051968340259309715">ការធ្វើបែបនេះអាចឱ្យសេវាកម្មប្រព័ន្ធប្រើភាពត្រឹមត្រូវនៃទីតាំង ដើម្បីកំណត់ទីតាំងរបស់អ្នក។ ភាពត្រឹមត្រូវនៃទីតាំងប្រើព័ត៌មានអំពីសញ្ញាឥតខ្សែ ដូចជាដុំភ្ជាប់បណ្ដាញឥតខ្សែ Wi-Fi, ប៉មបណ្ដាញ​ចល័ត និង GPS រួមជាមួយនឹងទិន្នន័យសេនស័រឧបករណ៍ ដូចជាឧបករណ៍វាស់​បម្រែបម្រួលល្បឿន និងហ្គីរ៉ូទស្សន៍ ដើម្បីប៉ាន់ស្មានទីតាំងឧបករណ៍។ អ្នកអាចបិទទីតាំងនៅក្នុង ការកំណត់ &gt; ឯកជនភាព និងសុវត្ថិភាព &gt; ការគ្រប់គ្រង​ឯកជនភាព &gt; ការចូលប្រើទីតាំង។ <ph name="LINK_BEGIN" />ស្វែងយល់​បន្ថែម<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">Endpoint</translation>
 <translation id="3060579846059757016">គ្រោង</translation>
+<translation id="3061850252076394168">បើក​មុខងារជ្រើសរើសដើម្បីអាន</translation>
 <translation id="3069085583900247081">ការធ្វើតេស្ត​​មិនបានសម្រេចទេ</translation>
 <translation id="3078740164268491126">តារាង</translation>
 <translation id="3081652522083185657">ភ្លឺ</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">មិនអាចដោះស្រាយម៉ាស៊ីនទាំងអស់បានទេ</translation>
 <translation id="4593212453765072419">តម្រូវ​ឱ្យ​មាន​ការផ្ទៀងផ្ទាត់​ប្រូកស៊ី</translation>
 <translation id="4609350030397390689">គ្រាប់ចុចព្រួញចុះក្រោមសម្រាប់បន្ថយពន្លឺក្ដារចុច</translation>
-<translation id="4617553623719764431">មិនបង្ហាញ​អាកាសធាតុទេ ដោយសារ​មិនស្គាល់​ទីតាំង​របស់អ្នក។ ដើម្បី​បង្ហាញ​អាកាសធាតុ​ក្នុងតំបន់ សូម<ph name="BEGIN_LINK" />បើក​សិទ្ធិចូលប្រើ​ទីតាំង<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> ក្នុង​ចំណោម <ph name="TOTAL_PAGE_NUMBER" />។ ចុច enter ដើម្បីបោះបង់​ការងារបោះពុម្ព។</translation>
 <translation id="463791356324567266">កំពុងបោះបង់ការស្កេន...</translation>
 <translation id="4646949265910132906">ការតភ្ជាប់ WiFi មានសុវត្ថិភាព</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">ដំណើរការ</translation>
 <translation id="4987769320337599931">ជញ្ជាំង​ភ្លើង</translation>
 <translation id="4988526792673242964">ទំព័រ</translation>
+<translation id="4989542687859782284">មិន​អាច​ប្រើ​បាន</translation>
 <translation id="4999333166442584738">លាក់របាយការណ៍</translation>
 <translation id="500920857929044050">បញ្ឈប់​ការធ្វើតេស្ត</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">ពន្លឺ​កា្តរចុច</translation>
 <translation id="6412715219990689313">ក្ដារចុច​ដែលបានភ្ជាប់​មកជាមួយ​ស្រាប់</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
+<translation id="6419454453018688975">បើក​សិទ្ធិចូលប្រើ​ទីតាំង​ប្រព័ន្ធ</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">ការធ្វើបែបនេះអនុញ្ញាតឱ្យសេវាកម្មប្រព័ន្ធដែលមានការអនុញ្ញាតប្រើទីតាំងរបស់អ្នក។ ទីតាំង​អាចប្រើប្រាស់​ប្រភព​ផ្សេងៗ ដូចជា Wi‑Fi, បណ្ដាញ​ទូរសព្ទ​ចល័ត និងសេនស័រ ដើម្បី​ជួយ​ប៉ាន់ស្មាន​ទីតាំង​របស់ឧបករណ៍អ្នក។ <ph name="LINK_BEGIN" />ស្វែងយល់បន្ថែម<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">ខ្សោយ (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">ចូលទៅកាន់ការកំណត់គណនី</translation>
 <translation id="6462978824459367242">ឥឡូវនេះ ប៊ូតុង​បញ្ចូល APN ត្រូវបានបើក</translation>

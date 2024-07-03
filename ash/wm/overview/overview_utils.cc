@@ -18,12 +18,14 @@
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/cleanup_animation_observer.h"
 #include "ash/wm/overview/delayed_animation_observer_impl.h"
+#include "ash/wm/overview/overview_constants.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_focus_cycler_old.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_item.h"
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/overview/scoped_overview_animation_settings.h"
+#include "ash/wm/snap_group/snap_group_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/splitview/split_view_overview_session.h"
 #include "ash/wm/splitview/split_view_types.h"
@@ -92,7 +94,7 @@ void FadeInWidgetToOverview(views::Widget* widget,
   }
 }
 
-void PrepareWidgetForOverviewShutdown(views::Widget* widget) {
+void PrepareWidgetForShutdownAnimation(views::Widget* widget) {
   // The widget should no longer process events at this point.
   widget->SetVisibilityChangedAnimationsEnabled(false);
   widget->widget_delegate()->SetCanActivate(false);
@@ -104,7 +106,7 @@ void PrepareWidgetForOverviewShutdown(views::Widget* widget) {
 
 void FadeOutWidgetFromOverview(std::unique_ptr<views::Widget> widget,
                                OverviewAnimationType animation_type) {
-  PrepareWidgetForOverviewShutdown(widget.get());
+  PrepareWidgetForShutdownAnimation(widget.get());
 
   // The overview controller may be nullptr on shutdown.
   OverviewController* controller = OverviewController::Get();
@@ -151,6 +153,28 @@ gfx::RectF GetUnionScreenBoundsForWindow(aura::Window* window) {
   }
 
   return bounds;
+}
+
+OverviewItemFillMode GetOverviewItemFillMode(const gfx::Size& size) {
+  if (size.width() > size.height() * kExtremeWindowRatioThreshold) {
+    return OverviewItemFillMode::kLetterBoxed;
+  }
+
+  if (size.height() > size.width() * kExtremeWindowRatioThreshold) {
+    return OverviewItemFillMode::kPillarBoxed;
+  }
+
+  return OverviewItemFillMode::kNormal;
+}
+
+OverviewItemFillMode GetOverviewItemFillModeForWindow(aura::Window* window) {
+  SnapGroupController* snap_group_controller = SnapGroupController::Get();
+  if (!snap_group_controller ||
+      !snap_group_controller->GetSnapGroupForGivenWindow(window)) {
+    return GetOverviewItemFillMode(window->bounds().size());
+  }
+
+  return OverviewItemFillMode::kNormal;
 }
 
 void MaximizeIfSnapped(aura::Window* window) {
@@ -236,7 +260,7 @@ gfx::Rect GetGridBoundsInScreen(
       case SplitViewController::State::kBothSnapped:
         // When this function is called, SplitViewController should have
         // already handled the state change.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 
@@ -363,10 +387,9 @@ void MoveFocusToView(OverviewFocusableView* target_view) {
     return;
   }
 
-  auto* focus_cycler_old = overview_session->focus_cycler_old();
-  CHECK(focus_cycler_old);
-
-  focus_cycler_old->MoveFocusToView(target_view);
+  if (auto* focus_cycler_old = overview_session->focus_cycler_old()) {
+    focus_cycler_old->MoveFocusToView(target_view);
+  }
 }
 
 void SetWindowsVisibleDuringItemDragging(const aura::Window::Windows& windows,

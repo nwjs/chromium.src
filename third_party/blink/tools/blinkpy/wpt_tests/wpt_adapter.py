@@ -161,9 +161,9 @@ class WPTAdapter:
                   port_name: Optional[str] = None):
         options, tests = parse_arguments(args)
         cls._ensure_value(options, 'wpt_only', True)
-        # only run virtual tests for content shell
-        cls._ensure_value(options, 'no_virtual_tests',
-                          options.product != 'content_shell')
+        # only run virtual tests for headless shell
+        cls._ensure_value(options, 'no_virtual_tests', options.product
+                          != 'headless_shell')
 
         if options.product in cls.PORT_NAME_BY_PRODUCT:
             port = host.port_factory.get(
@@ -171,7 +171,9 @@ class WPTAdapter:
         else:
             port = host.port_factory.get(port_name, options)
 
-        if options.product in ['chrome', 'headless_shell']:
+        if options.product == 'headless_shell':
+            port.set_option_default('driver_name', port.HEADLESS_SHELL_NAME)
+        elif options.product == 'chrome':
             port.set_option_default('driver_name', port.CHROME_NAME)
         product = make_product(port, options)
         return WPTAdapter(product, port, options, tests)
@@ -256,12 +258,7 @@ class WPTAdapter:
             self._set_up_runner_ssl_options(runner_options)
         self._set_up_runner_debugging_options(runner_options)
         self._set_up_runner_tests(runner_options, tmp_dir)
-
-        for name, value in self.product.product_specific_options().items():
-            self._ensure_value(runner_options, name, value)
-
-        runner_options.webdriver_args.extend(
-            self.product.additional_webdriver_args())
+        self.product.update_runner_options(runner_options)
         return runner_options
 
     @classmethod
@@ -328,14 +325,6 @@ class WPTAdapter:
             'MAP *.test 127.0.0.1, MAP *.test. 127.0.0.1',
             *self.port.additional_driver_flags(),
         ])
-        if self.options.product == 'headless_shell':
-            runner_options.binary_args.extend([
-                '--headless=old',
-                '--enable-bfcache',
-                # `headless_shell` doesn't send the `Accept-Language` header by
-                # default, so set an arbitrary one that some tests expect.
-                '--accept-lang=en-US,en',
-            ])
 
         # Implicitly pass `--enable-blink-features=MojoJS,MojoJSTest` to Chrome.
         runner_options.mojojs_path = self.port.generated_sources_directory()
@@ -350,9 +339,6 @@ class WPTAdapter:
         if self.options.run_wpt_internal:
             runner_options.config = self.finder.path_from_web_tests(
                 'wptrunner.blink.ini')
-
-        if self.options.enable_leak_detection:
-            runner_options.binary_args.append('--enable-leak-detection')
 
         if (self.options.enable_sanitizer
                 or self.options.configuration == 'Debug'):
@@ -476,9 +462,6 @@ class WPTAdapter:
                 'config': {
                     'binary_args': subsuite_args,
                 },
-                'run_info': {
-                    'virtual_suite': subsuite_name,
-                },
                 'include': tests,
             }
             subsuite_json[subsuite_name] = subsuite
@@ -555,7 +538,8 @@ class WPTAdapter:
             runner_options.run_info = tmp_dir
             self._initialize_tmp_dir(tmp_dir, tests_root)
 
-            TestLoader.install(self.port, self._expectations)
+            TestLoader.install(self.port, self._expectations,
+                               runner_options.include)
             stack.enter_context(
                 self.process_and_upload_results(runner_options))
             self.port.setup_test_run()  # Start Xvfb, if necessary.

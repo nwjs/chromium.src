@@ -58,6 +58,11 @@ CGFloat GetFaviconSize() {
 // The UIActions that should be available from the cell's overflow menu button.
 @property(nonatomic, strong) NSArray<UIAction*>* menuActions;
 
+// The part of the cell's accessibility label that is used to indicate the index
+// at which the password represented by this item is positioned in the list of
+// passwords to show.
+@property(nonatomic, strong) NSString* cellIndexAccessibilityLabel;
+
 @end
 
 @implementation ManualFillCredentialItem
@@ -67,7 +72,8 @@ CGFloat GetFaviconSize() {
              isConnectedToNextItem:(BOOL)isConnectedToNextItem
                    contentInjector:
                        (id<ManualFillContentInjector>)contentInjector
-                       menuActions:(NSArray<UIAction*>*)menuActions {
+                       menuActions:(NSArray<UIAction*>*)menuActions
+       cellIndexAccessibilityLabel:(NSString*)cellIndexAccessibilityLabel {
   self = [super initWithType:kItemTypeEnumZero];
   if (self) {
     _credential = credential;
@@ -75,6 +81,7 @@ CGFloat GetFaviconSize() {
     _isConnectedToNextItem = isConnectedToNextItem;
     _contentInjector = contentInjector;
     _menuActions = menuActions;
+    _cellIndexAccessibilityLabel = cellIndexAccessibilityLabel;
     self.cellClass = [ManualFillPasswordCell class];
   }
   return self;
@@ -84,10 +91,11 @@ CGFloat GetFaviconSize() {
            withStyler:(ChromeTableViewStyler*)styler {
   [super configureCell:cell withStyler:styler];
   [cell setUpWithCredential:self.credential
-      isConnectedToPreviousCell:self.isConnectedToPreviousItem
-          isConnectedToNextCell:self.isConnectedToNextItem
-                contentInjector:self.contentInjector
-                    menuActions:self.menuActions];
+        isConnectedToPreviousCell:self.isConnectedToPreviousItem
+            isConnectedToNextCell:self.isConnectedToNextItem
+                  contentInjector:self.contentInjector
+                      menuActions:self.menuActions
+      cellIndexAccessibilityLabel:_cellIndexAccessibilityLabel];
 }
 
 - (const GURL&)faviconURL {
@@ -186,10 +194,11 @@ static const CGFloat kOffsetForConnectedCell = 16;
 }
 
 - (void)setUpWithCredential:(ManualFillCredential*)credential
-    isConnectedToPreviousCell:(BOOL)isConnectedToPreviousCell
-        isConnectedToNextCell:(BOOL)isConnectedToNextCell
-              contentInjector:(id<ManualFillContentInjector>)contentInjector
-                  menuActions:(NSArray<UIAction*>*)menuActions {
+      isConnectedToPreviousCell:(BOOL)isConnectedToPreviousCell
+          isConnectedToNextCell:(BOOL)isConnectedToNextCell
+                contentInjector:(id<ManualFillContentInjector>)contentInjector
+                    menuActions:(NSArray<UIAction*>*)menuActions
+    cellIndexAccessibilityLabel:(NSString*)cellIndexAccessibilityLabel {
   if (self.contentView.subviews.count == 0) {
     [self createViewHierarchy];
   }
@@ -205,10 +214,14 @@ static const CGFloat kOffsetForConnectedCell = 16;
     self.siteNameLabel.hidden = YES;
     self.faviconView.hidden = YES;
   } else {
-    self.siteNameLabel.attributedText =
+    NSAttributedString* attributedText =
         [self createSiteNameLabelAttributedText:credential];
+    self.siteNameLabel.attributedText = attributedText;
     if (IsKeyboardAccessoryUpgradeEnabled()) {
       self.siteNameLabel.numberOfLines = 0;
+      self.accessibilityLabel =
+          [NSString stringWithFormat:@"%@, %@", cellIndexAccessibilityLabel,
+                                     attributedText.string];
     }
     self.siteNameLabel.hidden = NO;
     self.faviconView.hidden = NO;
@@ -234,8 +247,13 @@ static const CGFloat kOffsetForConnectedCell = 16;
 
   // Username chip button.
   if (credential.username.length) {
-    [self.usernameButton setTitle:credential.username
-                         forState:UIControlStateNormal];
+    NSString* username = credential.username;
+    [self.usernameButton setTitle:username forState:UIControlStateNormal];
+    if (IsKeyboardAccessoryUpgradeEnabled()) {
+      self.usernameButton.accessibilityLabel = l10n_util::GetNSStringF(
+          IDS_IOS_MANUAL_FALLBACK_CHIP_ACCESSIBILITY_LABEL,
+          base::SysNSStringToUTF16(username));
+    }
   } else {
     NSString* titleString =
         l10n_util::GetNSString(IDS_IOS_MANUAL_FALLBACK_NO_USERNAME);
@@ -250,8 +268,10 @@ static const CGFloat kOffsetForConnectedCell = 16;
   if (credential.password.length) {
     [self.passwordButton setTitle:kMaskedPasswordTitle
                          forState:UIControlStateNormal];
-    self.passwordButton.accessibilityLabel =
-        l10n_util::GetNSString(IDS_IOS_SETTINGS_PASSWORD_HIDDEN_LABEL);
+    self.passwordButton.accessibilityLabel = l10n_util::GetNSString(
+        IsKeyboardAccessoryUpgradeEnabled()
+            ? IDS_IOS_MANUAL_FALLBACK_PASSWORD_CHIP_ACCESSIBILITY_LABEL
+            : IDS_IOS_SETTINGS_PASSWORD_HIDDEN_LABEL);
     [credentialGroupVerticalLeadChips addObject:self.passwordButton];
     self.passwordButton.hidden = NO;
   } else {

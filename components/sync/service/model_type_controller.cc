@@ -36,7 +36,7 @@ SyncStopMetadataFate TakeStrictestMetadataFate(SyncStopMetadataFate fate1,
     case KEEP_METADATA:
       return fate2;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return KEEP_METADATA;
 }
 
@@ -58,7 +58,7 @@ std::string ModelTypeController::StateToString(State state) {
     case FAILED:
       return "Failed";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "Invalid";
 }
 
@@ -103,15 +103,12 @@ void ModelTypeController::InitModelTypeController(
     //   delegate, see SyncEngineBackend::LoadAndConnectNigoriController().
     // * BOOKMARKS and READING_LIST: Support is WIP.
     // * PASSWORDS: Already supported on desktop; mobile is WIP.
-    // * INCOMING_PASSWORD_SHARING_INVITATION: Depends on PASSWORDS support.
     // * PREFERENCES in all variants: Support is WIP.
     // * History-related types (HISTORY, HISTORY_DELETE_DIRECTIVES, SESSIONS)
     //   are okay to *not* support transport mode.
     // * APPS/APP_SETTINGS: Deprecated and will eventually be removed.
     // * AUTOFILL/AUTOFILL_PROFILE: Semi-deprecated; will eventually be removed
     //   or replaced by CONTACT_INFO.
-    // * AUTOFILL_WALLET_DATA: Can be removed from here once the corresponding
-    //   feature flag has been cleaned up (crbug.com/1413724).
     //
     // Note on ChromeOS-Ash: On this platform, the sync machinery always runs in
     // full-sync mode, never transport-mode. So for data types that only exist
@@ -124,13 +121,10 @@ void ModelTypeController::InitModelTypeController(
         BOOKMARKS,
         PREFERENCES,
         PASSWORDS,
-        INCOMING_PASSWORD_SHARING_INVITATION,
         AUTOFILL_PROFILE,
         AUTOFILL,
-        AUTOFILL_WALLET_DATA,
         AUTOFILL_WALLET_METADATA,
         AUTOFILL_WALLET_OFFER,
-        AUTOFILL_WALLET_USAGE,
         THEMES,
         EXTENSIONS,
         SEARCH_ENGINES,
@@ -151,7 +145,6 @@ void ModelTypeController::InitModelTypeController(
         WORKSPACE_DESK,
         HISTORY,
         PRINTERS_AUTHORIZATION_SERVERS,
-        SAVED_TAB_GROUP,
         POWER_BOOKMARK,
         NIGORI};
     CHECK(kLegacyTypes.Has(type()))
@@ -397,8 +390,8 @@ void ModelTypeController::OnDelegateStarted(
     case MODEL_LOADED:
     case RUNNING:
     case NOT_RUNNING:
-      NOTREACHED() << " type " << ModelTypeToDebugString(type()) << " state "
-                   << StateToString(state_);
+      NOTREACHED_IN_MIGRATION() << " type " << ModelTypeToDebugString(type())
+                                << " state " << StateToString(state_);
   }
 
   TriggerCompletionCallbacks(SyncError());

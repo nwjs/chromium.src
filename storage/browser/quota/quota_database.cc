@@ -209,7 +209,7 @@ QuotaDatabase::~QuotaDatabase() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (db_) {
     db_->reset_error_callback();
-    db_->CommitTransaction();
+    db_->CommitTransactionDeprecated();
   }
 }
 
@@ -863,7 +863,7 @@ QuotaError QuotaDatabase::CorruptForTesting(
 
   if (db_) {
     // Commit the long-running transaction.
-    db_->CommitTransaction();
+    db_->CommitTransactionDeprecated();
     db_->Close();
   }
 
@@ -877,7 +877,7 @@ QuotaError QuotaDatabase::CorruptForTesting(
   }
 
   // Begin a long-running transaction. This matches EnsureOpen().
-  if (!db_->BeginTransaction()) {
+  if (!db_->BeginTransactionDeprecated()) {
     return QuotaError::kDatabaseError;
   }
   return QuotaError::kNone;
@@ -914,9 +914,9 @@ void QuotaDatabase::Commit() {
 
   last_operation_ = "Commit";
   DCHECK_EQ(1, db_->transaction_nesting());
-  db_->CommitTransaction();
+  db_->CommitTransactionDeprecated();
   DCHECK_EQ(0, db_->transaction_nesting());
-  db_->BeginTransaction();
+  db_->BeginTransactionDeprecated();
   DCHECK_EQ(1, db_->transaction_nesting());
 }
 
@@ -988,7 +988,7 @@ QuotaError QuotaDatabase::EnsureOpened() {
 
   // Start a long-running transaction.
   DCHECK_EQ(0, db_->transaction_nesting());
-  db_->BeginTransaction();
+  db_->BeginTransactionDeprecated();
 
   return QuotaError::kNone;
 }
@@ -1144,7 +1144,7 @@ bool QuotaDatabase::CreateTable(const TableSchema& table) {
   std::string sql("CREATE TABLE ");
   sql += table.table_name;
   sql += table.columns;
-  if (!db_->Execute(sql.c_str())) {
+  if (!db_->Execute(sql)) {
     VLOG(1) << "Failed to execute " << sql;
     return false;
   }
@@ -1164,7 +1164,7 @@ bool QuotaDatabase::CreateIndex(const IndexSchema& index) {
   sql += " ON ";
   sql += index.table_name;
   sql += index.columns;
-  if (!db_->Execute(sql.c_str())) {
+  if (!db_->Execute(sql)) {
     VLOG(1) << "Failed to execute " << sql;
     return false;
   }

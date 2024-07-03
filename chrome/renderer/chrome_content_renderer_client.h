@@ -73,7 +73,7 @@ class Extension;
 #endif
 
 namespace subresource_filter {
-class UnverifiedRulesetDealer;
+class SafeBrowsingUnverifiedRulesetDealer;
 }
 
 namespace url {
@@ -163,6 +163,8 @@ class ChromeContentRendererClient
   bool IsPrefetchOnly(content::RenderFrame* render_frame) override;
   uint64_t VisitedLinkHash(std::string_view canonical_url) override;
   bool IsLinkVisited(uint64_t link_hash) override;
+  void AddOrUpdateVisitedLinkSalt(const url::Origin& origin,
+                                  uint64_t salt) override;
   std::unique_ptr<blink::WebPrescientNetworking> CreatePrescientNetworking(
       content::RenderFrame* render_frame) override;
   bool IsExternalPepperPlugin(const std::string& module_name) override;
@@ -290,7 +292,7 @@ class ChromeContentRendererClient
 #if BUILDFLAG(ENABLE_SPELLCHECK)
   std::unique_ptr<SpellCheck> spellcheck_;
 #endif
-  std::unique_ptr<subresource_filter::UnverifiedRulesetDealer>
+  std::unique_ptr<subresource_filter::SafeBrowsingUnverifiedRulesetDealer>
       subresource_filter_ruleset_dealer_;
 #if BUILDFLAG(ENABLE_PLUGINS)
   std::set<std::string> allowed_camera_device_origins_;

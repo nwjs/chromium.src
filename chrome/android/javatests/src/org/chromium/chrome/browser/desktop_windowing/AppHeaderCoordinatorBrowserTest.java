@@ -38,6 +38,7 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
@@ -59,9 +60,9 @@ import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
-import org.chromium.components.browser_ui.widget.InsetObserver;
-import org.chromium.components.browser_ui.widget.InsetsRectProvider;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
+import org.chromium.ui.InsetObserver;
+import org.chromium.ui.InsetsRectProvider;
 import org.chromium.ui.test.util.UiRestriction;
 
 /** Browser test for {@link AppHeaderCoordinator} */
@@ -236,6 +237,7 @@ public class AppHeaderCoordinatorBrowserTest {
     @Test
     @MediumTest
     @EnableFeatures(ChromeFeatureList.ANDROID_HUB)
+    @DisabledTest(message = "Flaky, crbug.com/339854841")
     public void testEnterTabSwitcherInDesktopWindow_HubLayout() {
         ChromeTabbedActivity activity = mActivityTestRule.getActivity();
 
@@ -278,6 +280,7 @@ public class AppHeaderCoordinatorBrowserTest {
     @Test
     @MediumTest
     @EnableFeatures(ChromeFeatureList.ANDROID_HUB)
+    @DisabledTest(message = "Flaky, crbug.com/339854841")
     public void testEnterDesktopWindowWithTabSwitcherActive_HubLayout() {
         ChromeTabbedActivity activity = mActivityTestRule.getActivity();
 
@@ -327,11 +330,10 @@ public class AppHeaderCoordinatorBrowserTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "Flaky, crbug.com/340589545")
     public void testRecreateActivitiesInDesktopWindow() {
         // Assume that the current activity enters desktop windowing mode.
         ChromeTabbedActivity firstActivity = mActivityTestRule.getActivity();
-        AppHeaderUtils.setAppInDesktopWindowForTesting(true);
-        firstActivity = ApplicationTestUtils.recreateActivity(firstActivity);
         triggerDesktopWindowingModeChange(firstActivity, true);
 
         // Create a new (desktop) window, that should gain focus and cause the first activity to
@@ -352,7 +354,8 @@ public class AppHeaderCoordinatorBrowserTest {
 
         // Trigger activity recreation in desktop windowing mode (an app theme change for eg. would
         // trigger this).
-        firstActivity = ApplicationTestUtils.recreateActivity(firstActivity);
+        mActivityTestRule.recreateActivity();
+        firstActivity = mActivityTestRule.getActivity();
         secondActivity = ApplicationTestUtils.recreateActivity(secondActivity);
 
         // Activity recreation will send an #onTopResumedActivityChanged(false) signal as the

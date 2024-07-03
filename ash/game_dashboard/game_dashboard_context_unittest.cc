@@ -41,6 +41,7 @@
 #include "ash/system/unified/feature_tile.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_observer.h"
+#include "ash/wm/snap_group/snap_group_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_state_util.h"
@@ -72,6 +73,10 @@ namespace {
 // Sub-label strings.
 const std::u16string& hidden_label = u"Hidden";
 const std::u16string& visible_label = u"Visible";
+
+// Touch drag constants.
+constexpr base::TimeDelta kTouchDragDuration = base::Milliseconds(200);
+const int kTouchDragSteps = 5;
 
 enum class Movement { kTouch, kMouse };
 
@@ -1550,7 +1555,8 @@ TEST_F(GameDashboardContextTest, GameDashboardButtonFullscreenWithMainMenu) {
   ASSERT_FALSE(button_widget->IsVisible());
 }
 
-TEST_F(GameDashboardContextTest, GameDashboardButtonFullscreen_MouseOver) {
+TEST_F(GameDashboardContextTest,
+       GameDashboardButtonFullscreen_MouseOverAndTouchGesture) {
   // Create an ARC game window.
   SetAppBounds(gfx::Rect(50, 50, 800, 700));
   CreateGameWindow(/*is_arc_window=*/true,
@@ -1585,6 +1591,41 @@ TEST_F(GameDashboardContextTest, GameDashboardButtonFullscreen_MouseOver) {
   // Move mouse to the center of the app, and verify Game Dashboard button
   // widget is not visible.
   event_generator->MoveMouseTo(app_bounds.CenterPoint());
+  ASSERT_FALSE(test_api_->GetGameDashboardButtonWidget()->IsVisible());
+  ASSERT_FALSE(button_widget->IsVisible());
+
+  // Touch drag from top edge of window.
+  event_generator->GestureScrollSequence(app_bounds.top_center(),
+                                         app_bounds.CenterPoint(),
+                                         kTouchDragDuration, kTouchDragSteps);
+  ASSERT_TRUE(button_widget->IsVisible());
+  ASSERT_TRUE(test_api_->GetGameDashboardButtonWidget()->IsVisible());
+
+  // Touch drag to top edge of window.
+  event_generator->GestureScrollSequence(app_bounds.CenterPoint(),
+                                         app_bounds.top_center(),
+                                         kTouchDragDuration, kTouchDragSteps);
+  ASSERT_FALSE(test_api_->GetGameDashboardButtonWidget()->IsVisible());
+  ASSERT_FALSE(button_widget->IsVisible());
+
+  // Re-open the game dashboard button and touch drag to bottom edge of window.
+  event_generator->GestureScrollSequence(app_bounds.top_center(),
+                                         app_bounds.CenterPoint(),
+                                         kTouchDragDuration, kTouchDragSteps);
+  ASSERT_TRUE(button_widget->IsVisible());
+  ASSERT_TRUE(test_api_->GetGameDashboardButtonWidget()->IsVisible());
+
+  event_generator->GestureScrollSequence(app_bounds.CenterPoint(),
+                                         app_bounds.bottom_center(),
+                                         kTouchDragDuration, kTouchDragSteps);
+  ASSERT_FALSE(test_api_->GetGameDashboardButtonWidget()->IsVisible());
+  ASSERT_FALSE(button_widget->IsVisible());
+
+  // Touch drag to bottom edge of window while the game dashboard button is
+  // hidden.
+  event_generator->GestureScrollSequence(app_bounds.CenterPoint(),
+                                         app_bounds.bottom_center(),
+                                         kTouchDragDuration, kTouchDragSteps);
   ASSERT_FALSE(test_api_->GetGameDashboardButtonWidget()->IsVisible());
   ASSERT_FALSE(button_widget->IsVisible());
 }
@@ -1791,6 +1832,51 @@ TEST_F(GameDashboardContextTest, TabNavigationToolbar) {
   // in the toolbar.
   TabNavigateBackward();
   EXPECT_TRUE(test_api_->GetToolbarScreenshotButton()->HasFocus());
+}
+
+class SnapGroupGameDashboardContextTest : public GameDashboardContextTest {
+ public:
+  SnapGroupGameDashboardContextTest()
+      : scoped_feature_list_(features::kSnapGroup) {}
+
+  SnapGroupGameDashboardContextTest(const SnapGroupGameDashboardContextTest&) =
+      delete;
+  SnapGroupGameDashboardContextTest& operator=(
+      const SnapGroupGameDashboardContextTest&) = delete;
+  ~SnapGroupGameDashboardContextTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Tests no crash when the game window in a snap group is fullscreen'ed then
+// forces a work area change. Regression test for http://b/348668590.
+TEST_F(SnapGroupGameDashboardContextTest, NoCrashOnSnapGroupWorkAreaChange) {
+  // Create a snap group with the game window.
+  CreateGameWindow(/*is_arc_window=*/false);
+  std::unique_ptr<aura::Window> w2(AshTestBase::CreateAppWindow());
+
+  WindowState* window_state2 = WindowState::Get(w2.get());
+  const WindowSnapWMEvent secondary_snap_event(
+      WM_EVENT_SNAP_SECONDARY, chromeos::kDefaultSnapRatio,
+      WindowSnapActionSource::kSnapByWindowLayoutMenu);
+  window_state2->OnWMEvent(&secondary_snap_event);
+  EXPECT_TRUE(window_state2->IsSnapped());
+
+  WindowState* window_state1 = WindowState::Get(game_window_.get());
+  const WindowSnapWMEvent primary_snap_event(
+      WM_EVENT_SNAP_PRIMARY, chromeos::kDefaultSnapRatio,
+      WindowSnapActionSource::kSnapByWindowLayoutMenu);
+  window_state1->OnWMEvent(&primary_snap_event);
+  EXPECT_TRUE(window_state1->IsSnapped());
+
+  ASSERT_TRUE(SnapGroupController::Get()->AreWindowsInSnapGroup(
+      game_window_.get(), w2.get()));
+  ASSERT_TRUE(test_api_->GetGameDashboardButtonWidget()->IsVisible());
+
+  // Fullscreen the game window. Test no crash.
+  wm::ActivateWindow(game_window_.get());
+  ToggleFullScreen(window_state1, /*delegate=*/nullptr);
 }
 
 // -----------------------------------------------------------------------------

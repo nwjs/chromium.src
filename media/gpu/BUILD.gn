@@ -235,10 +235,14 @@ component("gpu") {
       "windows/d3d11_vp9_accelerator.h",
       "windows/d3d11_vp9_picture.cc",
       "windows/d3d11_vp9_picture.h",
+      "windows/d3d12_fence.cc",
+      "windows/d3d12_fence.h",
       "windows/d3d12_helpers.cc",
       "windows/d3d12_helpers.h",
       "windows/d3d12_video_decoder_wrapper.cc",
       "windows/d3d12_video_decoder_wrapper.h",
+      "windows/d3d12_video_processor_wrapper.cc",
+      "windows/d3d12_video_processor_wrapper.h",
       "windows/d3d_accelerator.cc",
       "windows/d3d_accelerator.h",
       "windows/d3d_video_decoder_wrapper.cc",
@@ -355,7 +359,6 @@ source_set("common") {
   # TODO(crbug.com/1006266): consider using |use_chromeos_video_acceleration|.
   if (use_v4l2_codec || use_vaapi) {
     sources += [
-      "decode_surface_handler.h",
       "vp8_decoder.cc",
       "vp8_decoder.h",
       "vp8_picture.cc",
@@ -379,6 +382,8 @@ source_set("common") {
 
   if (is_win || use_vaapi) {
     sources += [
+      "av1_builder.cc",
+      "av1_builder.h",
       "h264_builder.cc",
       "h264_builder.h",
       "vp9_svc_layers.cc",
@@ -668,6 +673,7 @@ source_set("unit_tests") {
 
   if (is_win || use_vaapi) {
     sources += [
+      "av1_builder_unittest.cc",
       "h264_builder_unittest.cc",
       "vp9_svc_layers_unittest.cc",
     ]

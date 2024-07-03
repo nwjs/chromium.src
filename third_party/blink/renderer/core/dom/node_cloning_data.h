@@ -6,7 +6,6 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_DOM_NODE_CLONING_DATA_H_
 
 #include "base/containers/enum_set.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_part_root_clone_options.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/child_node_part.h"
 #include "third_party/blink/renderer/core/dom/node.h"
@@ -24,13 +23,10 @@ namespace blink {
 enum class CloneOption {
   kIncludeDescendants,
   kPreserveDOMParts,
-  // TODO(crbug.com/1510466) This flag can be removed once the
-  // ShadowRootClonable flag is enabled by default.
-  kIncludeAllShadowRoots,
 
   // For `CloneOptionSet`.
   kMinValue = kIncludeDescendants,
-  kMaxValue = kIncludeAllShadowRoots,
+  kMaxValue = kPreserveDOMParts,
 };
 
 using CloneOptionSet =
@@ -75,28 +71,9 @@ class CORE_EXPORT NodeCloningData final {
     return *cloned_part_root_stack_.back();
   }
 
-  void SetPartRootCloneOptions(PartRootCloneOptions* options) {
-    if (options && options->hasAttributeValues()) {
-      attribute_values_.clear();
-      for (String value : options->attributeValues()) {
-        attribute_values_.push_back(AtomicString(value));
-      }
-      current_attribute_index_ = 0;
-    }
-  }
-
-  AtomicString NextAttributeValue() {
-    if (current_attribute_index_ >= attribute_values_.size()) {
-      return AtomicString();
-    }
-    return attribute_values_[current_attribute_index_++];
-  }
-
  private:
   CloneOptionSet clone_options_;
   HeapVector<Member<PartRoot>> cloned_part_root_stack_;
-  VectorOf<AtomicString> attribute_values_{};
-  wtf_size_t current_attribute_index_{0};
 };
 
 }  // namespace blink

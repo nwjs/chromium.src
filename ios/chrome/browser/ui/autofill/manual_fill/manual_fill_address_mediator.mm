@@ -4,8 +4,11 @@
 
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_address_mediator.h"
 
+#import "base/i18n/message_formatter.h"
 #import "base/metrics/user_metrics.h"
+#import "base/strings/sys_string_conversions.h"
 #import "components/autofill/core/browser/data_model/autofill_profile.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_model.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -16,8 +19,12 @@
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_address.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_address_cell.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_content_injector.h"
+#import "ios/chrome/browser/ui/menu/browser_action_factory.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
+
+using autofill::AutofillProfile;
 
 namespace manual_fill {
 NSString* const ManageAddressAccessibilityIdentifier =
@@ -27,17 +34,16 @@ NSString* const ManageAddressAccessibilityIdentifier =
 @interface ManualFillAddressMediator ()
 
 // All available addresses.
-@property(nonatomic, strong) NSArray<ManualFillAddress*>* addresses;
+@property(nonatomic, assign) std::vector<const AutofillProfile*> addresses;
 
 @end
 
 @implementation ManualFillAddressMediator
 
-- (instancetype)initWithProfiles:
-    (std::vector<autofill::AutofillProfile*>)profiles {
+- (instancetype)initWithProfiles:(std::vector<const AutofillProfile*>)profiles {
   self = [super init];
   if (self) {
-    _addresses = [ManualFillAddress manualFillAddressesFromProfiles:profiles];
+    _addresses = std::move(profiles);
   }
   return self;
 }
@@ -51,8 +57,8 @@ NSString* const ManageAddressAccessibilityIdentifier =
   [self postActionsToConsumer];
 }
 
-- (void)reloadWithProfiles:(std::vector<autofill::AutofillProfile*>)profiles {
-  self.addresses = [ManualFillAddress manualFillAddressesFromProfiles:profiles];
+- (void)reloadWithProfiles:(std::vector<const AutofillProfile*>)profiles {
+  self.addresses = profiles;
   if (self.consumer) {
     [self postAddressesToConsumer];
     [self postActionsToConsumer];
@@ -67,12 +73,29 @@ NSString* const ManageAddressAccessibilityIdentifier =
     return;
   }
 
+  int addressCount = self.addresses.size();
   NSMutableArray* items =
-      [[NSMutableArray alloc] initWithCapacity:self.addresses.count];
-  for (ManualFillAddress* address in self.addresses) {
-    auto item =
-        [[ManualFillAddressItem alloc] initWithAddress:address
-                                       contentInjector:self.contentInjector];
+      [[NSMutableArray alloc] initWithCapacity:addressCount];
+  for (int i = 0; i < addressCount; i++) {
+    ManualFillAddress* manualFillAddress =
+        [[ManualFillAddress alloc] initWithProfile:*self.addresses[i]];
+
+    NSArray<UIAction*>* menuActions =
+        IsKeyboardAccessoryUpgradeEnabled()
+            ? @[ [self createMenuEditActionForAddress:self.addresses[i]] ]
+            : @[];
+
+    NSString* cellIndexAccessibilityLabel = base::SysUTF16ToNSString(
+        base::i18n::MessageFormatter::FormatWithNamedArgs(
+            l10n_util::GetStringUTF16(
+                IDS_IOS_MANUAL_FALLBACK_ADDRESS_CELL_INDEX),
+            "count", addressCount, "position", i + 1));
+
+    auto item = [[ManualFillAddressItem alloc]
+                    initWithAddress:manualFillAddress
+                    contentInjector:self.contentInjector
+                        menuActions:menuActions
+        cellIndexAccessibilityLabel:cellIndexAccessibilityLabel];
     [items addObject:item];
   }
 
@@ -83,6 +106,7 @@ NSString* const ManageAddressAccessibilityIdentifier =
   if (!self.consumer) {
     return;
   }
+
   NSString* manageAddressesTitle =
       l10n_util::GetNSString(IDS_IOS_MANUAL_FALLBACK_MANAGE_ADDRESSES);
   __weak __typeof(self) weakSelf = self;
@@ -96,6 +120,19 @@ NSString* const ManageAddressAccessibilityIdentifier =
   manageAddressesItem.accessibilityIdentifier =
       manual_fill::ManageAddressAccessibilityIdentifier;
   [self.consumer presentActions:@[ manageAddressesItem ]];
+}
+
+// Creates a UIAction to edit an address from a UIMenu.
+- (UIAction*)createMenuEditActionForAddress:(const AutofillProfile*)address {
+  ActionFactory* actionFactory = [[ActionFactory alloc]
+      initWithScenario:
+          kMenuScenarioHistogramAutofillManualFallbackAddressEntry];
+
+  UIAction* editAction = [actionFactory actionToEditWithBlock:^{
+      // TODO(crbug.com/326413640): Handle tap.
+  }];
+
+  return editAction;
 }
 
 @end

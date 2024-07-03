@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">ፓስቴል ቢጫ</translation>
 <translation id="1056898198331236512">ማስጠንቀቂያ</translation>
 <translation id="1059913517121127803">ቅኝትን መጀመር አልተቻለም</translation>
+<translation id="1061864016440983342">ያለአካባቢ ተጠቀም</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> ከ<ph name="COUNT" />፣ <ph name="NAME" />።</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">ኬላ ተገኝቷል</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">ተጨማሪ ቅንብሮች</translation>
 <translation id="2082932131694554252">የተመደበ የቁልፍ ሰሌዳ ቁልፍ</translation>
 <translation id="2085089206770112532">የማሳያ ብሩህነት መቀነሻ</translation>
+<translation id="2086091080968010660">ጊዜ-ተኮር ለውጦች ትክክለኛ ላይሆኑ ይችላሉ። በቅንብሮች ውስጥ የስርዓት አካባቢ መዳረሻን ያብሩ።</translation>
 <translation id="2102231663024125441">የጽሁፍ አርትዖት</translation>
 <translation id="2105810540595158374">መሣሪያ የጨዋታ መቆጣጠሪያ ነው።</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />፣ ስሪት <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">የኤፒኤን ዝርዝሮችን ያርትዑ</translation>
 <translation id="2195732836444333448">ሙሉ አቅም ላይ ነው። በቅርቡ ተመልሰው ይምጡ።</translation>
 <translation id="2201758491318984023">ብስክሌት</translation>
-<translation id="2203222757805818543">የአሁኑ መርሐግብር ወደ <ph name="SUNRISE" /> - <ph name="SUNSET" /> ተቀናብሯል። የጨለማ ሁነታ መርሐግብርን በራስ-ሰር ለማዘመን <ph name="BEGIN_LINK" />የአካባቢ መዳረሻን ያብሩ<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">ሙቅ የምንጭ ውሃ</translation>
 <translation id="2203642483788377106">የገደል ጫፍ</translation>
 <translation id="2208388655216963643">ኢምፕሬሽኒስት</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">ወደ ነባሪዎች እነበረበት መልስ</translation>
 <translation id="2286454467119466181">ቀላል</translation>
 <translation id="2287186687001756809">ምንም ምስል አልተገኘም። ፎቶዎችን ለማከል ወደ <ph name="LINK" /> ይሂዱ</translation>
+<translation id="2294577623958216786">የአሁኑ መርሐግብር <ph name="SUNRISE" />-<ph name="SUNSET" /> ላይ ተቀናብሯል። የጸሐይ መጥለቂያ እና የጸሐይ መውጫ መርሐግብርን በራስ-ሰር ለማዘመን የስርዓት የአካባቢ መዳረሻን ያብሩ።</translation>
 <translation id="2305172810646967500">ጥቁር</translation>
 <translation id="2307344026739914387">የአሁኑን የቁልፍ ጥምር ይጠቀሙ</translation>
 <translation id="2308243864813041101">የማዘመን ሂደቱን ለመቀጠል የ<ph name="DEVICE_NAME" /> ዩኤስቢ ገመዱን ይንቀሉት</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">የአሸዋ ክምር</translation>
 <translation id="2619761439309613843">ዕለታዊ ዕድሳት</translation>
 <translation id="2620436844016719705">ስርዓት</translation>
+<translation id="2637303424821734920">ጠፍቷል - አካባቢያዊ የአየር ሁኔታን ለማሳየት <ph name="BEGIN_LINK" />የስርዓት አካባቢ መዳረሻን ያብሩ<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">መግቢያ ምስል</translation>
 <translation id="2640549051766135490"><ph name="TITLE" /> <ph name="DESC" /> አልበም ተመርጧል</translation>
 <translation id="2645380101799517405">መቆጣጠሪያዎች</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">ጀርባ</translation>
 <translation id="3027578600144895987">ካሜራን ዝጋ</translation>
 <translation id="3031560714565892478">መሣሪያ የቪዲዮ ካሜራ ነው።</translation>
+<translation id="3051968340259309715">ይህ የሥርዓት አገልግሎቶች አካባቢዎን ለመወሰን የአካባቢ ትክክለኛነትን እንዲጠቀሙ ያስችላቸዋል። የአካባቢ ትክክለኛነት የመሣሪያውን አካባቢ ለመገመት እንደ የWi-Fi መዳረሻ ነጥቦች፣ የተንቀሳቃሽ ስልክ አውታረ መረብ ማማዎች እና ጂፒኤስ ያሉ የገመድ-አልባ ምልክቶች መረጃን እንደ የፍጥነት መለኪያ መሣሪያ እና ጃይሮስኮፕ ካለ የመሣሪያ ዳሳሽ ውሂብ ጋር አብሮ ይጠቀማል። አካባቢን በቅንብሮች &gt; ግላዊነት እና ደህንነት &gt; የግላዊነት መቆጣጠሪያዎች &gt; የአካባቢ መዳረሻ ላይ ማጥፋት ይችላሉ። <ph name="LINK_BEGIN" />የበለጠ ለመረዳት<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> ሚአ</translation>
 <translation id="3056720590588772262">የማለቂያ ነጥብ</translation>
 <translation id="3060579846059757016">መግለጫዎች</translation>
+<translation id="3061850252076394168">ለመናገር ምረጥን ያንቁ</translation>
 <translation id="3069085583900247081">ሙከራ አልተሳካም</translation>
 <translation id="3078740164268491126">ሠንጠረዥ</translation>
 <translation id="3081652522083185657">መብራት</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">ለሁሉም አስተናጋጆች መፍትሔ መስጠት አልተሳካም</translation>
 <translation id="4593212453765072419">የተኪ ማረጋገጥ ያስፈልጋል</translation>
 <translation id="4609350030397390689">የቁልፍ ሰሌዳ ብሩህነት መቀነሻ</translation>
-<translation id="4617553623719764431">አካባቢዎን ስለማያውቅ የአየር ሁኔታ አይታይም። የአካባቢውን የአየር ሁኔታ ለማሳየት <ph name="BEGIN_LINK" />የአካባቢ መዳረሻን ያብሩ<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />፣ <ph name="PRINTER_NAME" />፣ <ph name="CREATION_TIME" />፣ <ph name="PRINTED_PAGE_NUMBER" /> ከ<ph name="TOTAL_PAGE_NUMBER" /> ዉስጥ የሕትመት ሥራን ለመሰረዝ እባክዎ ያስገቡ።</translation>
 <translation id="463791356324567266">መቃኘትን በመሰረዝ ላይ...</translation>
 <translation id="4646949265910132906">ደህንነቱ የተጠበቀ የWiFi ግንኙነት</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">አሂድ</translation>
 <translation id="4987769320337599931">ኬላ</translation>
 <translation id="4988526792673242964">ገፆች</translation>
+<translation id="4989542687859782284">አይገኝም</translation>
 <translation id="4999333166442584738">ሪፖርትን ደብቅ</translation>
 <translation id="500920857929044050">ሙከራን አቁም</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">የቁልፍ ሰሌዳ ብሩህነት</translation>
 <translation id="6412715219990689313">አብሮገነብ ቁልፍሰሌዳ</translation>
 <translation id="6417265370957905582">Google ረዳት</translation>
+<translation id="6419454453018688975">የስርዓት አካባቢ መዳረሻን ያብሩ</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">ይህ ፈቃድ ያላቸው የሥርዓት አገልግሎቶች አካባቢዎን እንዲጠቀሙ ያስችላቸዋል። አካባቢ የመሣሪያዎን አካባቢ ለመገመት እንዲያግዝ እንደ Wi‑Fi፣ የተንቀሳቃሽ ስልክ አውታረ መረቦች እና ዳሳሾች ያሉ ምንጮችን ሊጠቀም ይችላል። <ph name="LINK_BEGIN" />የበለጠ ለመረዳት<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">ደካማ (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">ወደ የመለያ ቅንብሮች ሂድ</translation>
 <translation id="6462978824459367242">ኤፒኤን አክል አዝራር አሁን ነቅቷል</translation>

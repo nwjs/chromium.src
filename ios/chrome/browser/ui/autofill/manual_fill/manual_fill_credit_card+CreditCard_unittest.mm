@@ -7,6 +7,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "components/autofill/core/browser/data_model/credit_card.h"
+#import "components/autofill/core/common/credit_card_network_identifiers.h"
 #import "testing/platform_test.h"
 #import "url/gurl.h"
 
@@ -37,7 +38,8 @@ TEST_F(ManualFillCreditCardFormAutofilliOSTest, CreationUnobfuscated) {
                                 base::SysNSStringToUTF16(expirationYear));
 
   ManualFillCreditCard* manualFillCard =
-      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard];
+      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard
+                                                  icon:nil];
 
   EXPECT_TRUE(manualFillCard);
   EXPECT_TRUE([GUID isEqualToString:manualFillCard.GUID]);
@@ -78,7 +80,8 @@ TEST_F(ManualFillCreditCardFormAutofilliOSTest, CreationObfuscated) {
                                 base::SysNSStringToUTF16(expirationYear));
 
   ManualFillCreditCard* manualFillCard =
-      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard];
+      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard
+                                                  icon:nil];
 
   EXPECT_TRUE(manualFillCard);
   EXPECT_TRUE([GUID isEqualToString:manualFillCard.GUID]);
@@ -106,7 +109,8 @@ TEST_F(ManualFillCreditCardFormAutofilliOSTest, CanFillDirectly) {
   autofillCreditCard.SetNumber(base::SysNSStringToUTF16(number));
 
   ManualFillCreditCard* manualFillCard =
-      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard];
+      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard
+                                                  icon:nil];
 
   EXPECT_TRUE(manualFillCard);
   EXPECT_TRUE(manualFillCard.canFillDirectly);
@@ -125,7 +129,8 @@ TEST_F(ManualFillCreditCardFormAutofilliOSTest, VirtualCardCanNotFillDirectly) {
   autofillCreditCard.SetNumber(base::SysNSStringToUTF16(number));
 
   ManualFillCreditCard* manualFillCard =
-      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard];
+      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard
+                                                  icon:nil];
 
   EXPECT_TRUE(manualFillCard);
   EXPECT_FALSE(manualFillCard.canFillDirectly);
@@ -144,7 +149,8 @@ TEST_F(ManualFillCreditCardFormAutofilliOSTest, MaskedCardCanNotFillDirectly) {
   autofillCreditCard.SetNumber(base::SysNSStringToUTF16(number));
 
   ManualFillCreditCard* manualFillCard =
-      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard];
+      [[ManualFillCreditCard alloc] initWithCreditCard:autofillCreditCard
+                                                  icon:nil];
 
   EXPECT_TRUE(manualFillCard);
   EXPECT_FALSE(manualFillCard.canFillDirectly);

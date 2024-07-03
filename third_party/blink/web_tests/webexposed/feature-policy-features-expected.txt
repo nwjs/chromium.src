@@ -35,7 +35,7 @@ clipboard-read
 clipboard-write
 compute-pressure
 cross-origin-isolated
-direct-sockets
+deferred-fetch
 display-capture
 encrypted-media
 execution-while-not-rendered
@@ -69,16 +69,13 @@ serial
 shared-autofill
 shared-storage
 shared-storage-select-url
-smart-card
 speaker-selection
 storage-access
-sub-apps
 sync-xhr
 unload
 usb
 usb-unrestricted
 vertical-scroll
-web-printing
 window-management
 xr-spatial-tracking
 

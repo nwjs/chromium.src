@@ -8,7 +8,6 @@
 #include <optional>
 
 #include "base/functional/bind.h"
-#include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/single_thread_task_runner.h"
@@ -164,13 +163,14 @@ class VideoDecodeStatsReporterTest : public ::testing::Test {
   // VideoDecodeStatsRecorder. The interceptor serves as a mock recorder to
   // verify reporter/recorder interactions.
   mojo::PendingRemote<media::mojom::VideoDecodeStatsRecorder>
-  SetupRecordInterceptor(RecordInterceptor** interceptor) {
+  SetupRecordInterceptor(RecordInterceptor** interceptor_ptr) {
     // Capture a the interceptor pointer for verifying recorder calls. Lifetime
     // will be managed by the |recorder_remote|.
-    *interceptor = new RecordInterceptor();
+    auto interceptor = std::make_unique<RecordInterceptor>();
+    *interceptor_ptr = interceptor.get();
     mojo::PendingRemote<media::mojom::VideoDecodeStatsRecorder> recorder_remote;
     mojo::MakeSelfOwnedReceiver(
-        base::WrapUnique(*interceptor),
+        std::move(interceptor),
         recorder_remote.InitWithNewPipeAndPassReceiver());
     EXPECT_TRUE(recorder_remote.is_valid());
     return recorder_remote;

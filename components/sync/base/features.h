@@ -46,6 +46,11 @@ BASE_DECLARE_FEATURE(kSyncAutofillWalletCredentialData);
 // TODO(b/322147254): Cleanup when launched.
 BASE_DECLARE_FEATURE(kSyncPlusAddress);
 
+// Controls if the `PlusAddressSettingSyncBridge`, controlling
+// PLUS_ADDRESS_SETTING should be instantiated.
+// TODO(b/342089839): Cleanup when launched.
+BASE_DECLARE_FEATURE(kSyncPlusAddressSetting);
+
 #if BUILDFLAG(IS_CHROMEOS)
 // Whether explicit passphrase sharing between Ash and Lacros is enabled.
 BASE_DECLARE_FEATURE(kSyncChromeOSExplicitPassphraseSharing);
@@ -205,6 +210,10 @@ BASE_DECLARE_FEATURE(kTrustedVaultAutoUpgradeSyntheticFieldTrial);
 // If enabled, WebAPK data will be synced for Backup&Restore purposes.
 BASE_DECLARE_FEATURE(kWebApkBackupAndRestoreBackend);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+// If enabled, SyncTransportDataPrefs are account-keyed (instead of just for the
+// currently-signed-in account).
+BASE_DECLARE_FEATURE(kSyncAccountKeyedTransportPrefs);
 
 }  // namespace syncer
 

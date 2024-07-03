@@ -200,6 +200,9 @@ public @interface FeatureConstants {
     /** An IPH feature to show when the tabstrip shows to explain what each button does. */
     String TAB_GROUPS_TAP_TO_SEE_ANOTHER_TAB_FEATURE = "IPH_TabGroupsTapToSeeAnotherTab";
 
+    /** An IPH feature to show when tab group is synced across devices. */
+    String TAB_GROUP_SYNC_ON_STRIP_FEATURE = "IPH_TabGroupSyncOnStrip";
+
     /** An IPH feature to show on tab switcher cards with multiple tab thumbnails. */
     String TAB_GROUPS_YOUR_TABS_ARE_TOGETHER_FEATURE = "IPH_TabGroupsYourTabsTogether";
 
@@ -208,6 +211,15 @@ public @interface FeatureConstants {
 
     /** An IPH feature to show a card item on grid tab switcher to educate drag-and-drop. */
     String TAB_GROUPS_DRAG_AND_DROP_FEATURE = "IPH_TabGroupsDragAndDrop";
+
+    /** An IPH feature to show a highlight on the toolbar button to show the tab group surface. */
+    String TAB_GROUPS_SURFACE = "IPH_TabGroupsSurface";
+
+    /**
+     * An IPH feature to show a highlight on the toolbar button to show the tab group surface after
+     * hiding a tab group.
+     */
+    String TAB_GROUPS_SURFACE_ON_HIDE = "IPH_TabGroupsSurfaceOnHide";
 
     /**
      * An IPH feature to show a video tutorial card on NTP to educate about an introduction to

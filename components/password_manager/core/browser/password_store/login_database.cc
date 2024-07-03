@@ -16,7 +16,9 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/command_line.h"
 #include "base/containers/flat_map.h"
+#include "base/environment.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -39,6 +41,7 @@
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/password_manager/core/browser/password_manager_switches.h"
 #include "components/password_manager/core/browser/password_store/insecure_credentials_table.h"
 #include "components/password_manager/core/browser/password_store/password_notes_table.h"
 #include "components/password_manager/core/browser/password_store/password_store_change.h"
@@ -212,6 +215,21 @@ enum class LoginDatabaseEncryptionStatus {
   kMaxValue = kEncryptionUnavailable,
 };
 
+// Represents whether undecryptable passwords should be deleted from the login
+// database or the reason if they shouldn't be deleted.
+// Entries should not be renumbered and numeric values should never be
+// reused. Always keep this enum in sync with the corresponding
+// LoginDatabaseShouldDeleteUndecryptablePasswords in enums.xml.
+enum class ShouldDeleteUndecryptablePasswordsResult {
+  kShouldDelete = 0,
+  kUserDataDirEnvVarIsPresent = 1,
+  kUserDataDirSwitchIsPresent = 2,
+  kUserPasswordStoreSwitchIsPresent = 3,
+  kUserEncryptionSelectionSwitchrIsPresent = 4,
+  kEncryptionNotAvailiable = 5,
+  kMaxValue = kEncryptionNotAvailiable,
+};
+
 // Struct to hold table builder for different tables in the LoginDatabase.
 struct SQLTableBuilders {
   raw_ptr<SQLTableBuilder> logins;
@@ -328,14 +346,13 @@ constexpr char kPasswordsSyncEntitiesMetadataTableName[] =
 bool ClearAllSyncMetadata(sql::Database* db, syncer::ModelType model_type) {
   CHECK_EQ(model_type, syncer::PASSWORDS);
   sql::Statement s1(db->GetCachedStatement(
-      SQL_FROM_HERE,
-      base::StringPrintf("DELETE FROM %s", kPasswordsSyncModelMetadataTableName)
-          .c_str()));
+      SQL_FROM_HERE, base::StringPrintf("DELETE FROM %s",
+                                        kPasswordsSyncModelMetadataTableName)));
 
   sql::Statement s2(db->GetCachedStatement(
-      SQL_FROM_HERE, base::StringPrintf("DELETE FROM %s",
-                                        kPasswordsSyncEntitiesMetadataTableName)
-                         .c_str()));
+      SQL_FROM_HERE,
+      base::StringPrintf("DELETE FROM %s",
+                         kPasswordsSyncEntitiesMetadataTableName)));
 
   return s1.Run() && s2.Run();
 }
@@ -645,10 +662,9 @@ bool InsecureCredentialsPostMigrationStepCallback(
         "CREATE INDEX foreign_key_index ON insecure_credentials "
         "(parent_id)";
     sql::Transaction creation_transaction(db);
-    bool table_creation_success = creation_transaction.Begin() &&
-                                  db->Execute(create_table_statement.c_str()) &&
-                                  db->Execute(create_index_statement.c_str()) &&
-                                  creation_transaction.Commit();
+    bool table_creation_success =
+        creation_transaction.Begin() && db->Execute(create_table_statement) &&
+        db->Execute(create_index_statement) && creation_transaction.Commit();
     if (!table_creation_success) {
       LOG(ERROR) << "Failed to create the 'insecure_credentials' table";
       LogDatabaseInitError(INIT_COMPROMISED_CREDENTIALS_ERROR);
@@ -672,7 +688,7 @@ bool InsecureCredentialsPostMigrationStepCallback(
     constexpr char drop_table_statement[] =
         "DROP TABLE compromised_credentials";
     sql::Transaction transaction(db);
-    if (!(transaction.Begin() && db->Execute(insert_statement.c_str()) &&
+    if (!(transaction.Begin() && db->Execute(insert_statement) &&
           db->Execute(drop_table_statement) && transaction.Commit())) {
       return false;
     }
@@ -699,8 +715,8 @@ bool PasswordNotesPostMigrationStepCallback(
         "CREATE INDEX foreign_key_index_notes ON password_notes (parent_id)";
     sql::Transaction transaction(db);
     bool table_creation_success =
-        transaction.Begin() && db->Execute(create_table_statement.c_str()) &&
-        db->Execute(create_index_statement.c_str()) && transaction.Commit();
+        transaction.Begin() && db->Execute(create_table_statement) &&
+        db->Execute(create_index_statement) && transaction.Commit();
     if (!table_creation_success) {
       LOG(ERROR) << "Failed to create the 'password_notes' table";
       LogDatabaseInitError(INIT_PASSWORD_NOTES_ERROR);
@@ -996,6 +1012,59 @@ LoginDatabase::EncryptionResult DecryptPasswordFromStatement(
   return encryption_result;
 }
 
+void RecordShouldDeleteUndecryptablePasswordsMetric(
+    ShouldDeleteUndecryptablePasswordsResult should_delete_status) {
+  base::UmaHistogramEnumeration(
+      "PasswordManager.LoginDatabase.ShouldDeleteUndecryptablePasswords",
+      should_delete_status);
+}
+
+bool ShouldDeleteUndecryptablePasswords() {
+#if BUILDFLAG(IS_LINUX)
+  std::string user_data_dir_string;
+  std::unique_ptr<base::Environment> environment(base::Environment::Create());
+  // On Linux user data directory ca be specified using an env variable. If it
+  // exists, passwords shouldn't be deleted.
+  if (environment->GetVar("CHROME_USER_DATA_DIR", &user_data_dir_string)) {
+    RecordShouldDeleteUndecryptablePasswordsMetric(
+        ShouldDeleteUndecryptablePasswordsResult::kUserDataDirEnvVarIsPresent);
+    return false;
+  }
+#endif  // BUILDFLAG(IS_LINUX)
+
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(password_manager::kUserDataDir)) {
+    RecordShouldDeleteUndecryptablePasswordsMetric(
+        ShouldDeleteUndecryptablePasswordsResult::kUserDataDirSwitchIsPresent);
+    return false;
+  }
+
+#if BUILDFLAG(IS_LINUX)
+  if (command_line->HasSwitch(password_manager::kPasswordStore)) {
+    RecordShouldDeleteUndecryptablePasswordsMetric(
+        ShouldDeleteUndecryptablePasswordsResult::
+            kUserPasswordStoreSwitchIsPresent);
+    return false;
+  }
+  if (command_line->HasSwitch(password_manager::kEnableEncryptionSelection)) {
+    RecordShouldDeleteUndecryptablePasswordsMetric(
+        ShouldDeleteUndecryptablePasswordsResult::
+            kUserEncryptionSelectionSwitchrIsPresent);
+    return false;
+  }
+#endif  // BUILDFLAG(IS_LINUX)
+
+  if (!OSCrypt::IsEncryptionAvailable()) {
+    RecordShouldDeleteUndecryptablePasswordsMetric(
+        ShouldDeleteUndecryptablePasswordsResult::kEncryptionNotAvailiable);
+    return false;
+  }
+
+  RecordShouldDeleteUndecryptablePasswordsMetric(
+      ShouldDeleteUndecryptablePasswordsResult::kShouldDelete);
+  return base::FeatureList::IsEnabled(features::kClearUndecryptablePasswords);
+}
+
 }  // namespace
 
 struct LoginDatabase::PrimaryKeyAndPassword {
@@ -1288,8 +1357,7 @@ PasswordStoreChangeList LoginDatabase::AddLogin(const PasswordForm& form,
 
   PasswordStoreChangeList list;
   DCHECK(!add_statement_.empty());
-  sql::Statement s(
-      db_.GetCachedStatement(SQL_FROM_HERE, add_statement_.c_str()));
+  sql::Statement s(db_.GetCachedStatement(SQL_FROM_HERE, add_statement_));
   BindAddStatement(form_to_add, &s, encrypted_password);
   ScopedDbErrorHandler db_error_handler(&db_);
   const bool success = s.Run();
@@ -1313,8 +1381,7 @@ PasswordStoreChangeList LoginDatabase::AddLogin(const PasswordForm& form,
       GetPrimaryKeyAndPassword(form);
   bool password_changed =
       form_to_add.password_value != old_primary_key_password.decrypted_password;
-  s.Assign(
-      db_.GetCachedStatement(SQL_FROM_HERE, add_replace_statement_.c_str()));
+  s.Assign(db_.GetCachedStatement(SQL_FROM_HERE, add_replace_statement_));
   BindAddStatement(form_to_add, &s, encrypted_password);
   if (s.Run()) {
     form_to_add.in_store = GetStore();
@@ -1375,8 +1442,7 @@ PasswordStoreChangeList LoginDatabase::UpdateLogin(
   }
 #endif
   DCHECK(!update_statement_.empty());
-  sql::Statement s(
-      db_.GetCachedStatement(SQL_FROM_HERE, update_statement_.c_str()));
+  sql::Statement s(db_.GetCachedStatement(SQL_FROM_HERE, update_statement_));
   int next_param = 0;
   s.BindString(next_param++, form.action.spec());
   s.BindBlob(next_param++, encrypted_password);
@@ -1489,8 +1555,7 @@ bool LoginDatabase::RemoveLogin(const PasswordForm& form,
 #endif
   // Remove a login by UNIQUE-constrained fields.
   DCHECK(!delete_statement_.empty());
-  sql::Statement s(
-      db_.GetCachedStatement(SQL_FROM_HERE, delete_statement_.c_str()));
+  sql::Statement s(db_.GetCachedStatement(SQL_FROM_HERE, delete_statement_));
   s.BindString(0, form.url.spec());
   s.BindString16(1, form.username_element);
   s.BindString16(2, form.username_value);
@@ -1532,7 +1597,7 @@ bool LoginDatabase::RemoveLoginByPrimaryKey(FormPrimaryKey primary_key,
 #endif
   DCHECK(!delete_by_id_statement_.empty());
   sql::Statement s2(
-      db_.GetCachedStatement(SQL_FROM_HERE, delete_by_id_statement_.c_str()));
+      db_.GetCachedStatement(SQL_FROM_HERE, delete_by_id_statement_));
   s2.BindInt(0, primary_key.value());
   if (!s2.Run() || db_.GetLastChangeCount() == 0) {
     return false;
@@ -1597,7 +1662,7 @@ bool LoginDatabase::GetAutoSignInLogins(std::vector<PasswordForm>* forms) {
   forms->clear();
 
   sql::Statement s(
-      db_.GetCachedStatement(SQL_FROM_HERE, autosignin_statement_.c_str()));
+      db_.GetCachedStatement(SQL_FROM_HERE, autosignin_statement_));
   FormRetrievalResult result = StatementToForms(&s, nullptr, forms);
   return (result == FormRetrievalResult::kSuccess ||
           result ==
@@ -1707,7 +1772,7 @@ bool LoginDatabase::GetLogins(const PasswordFormDigest& form,
 
   // TODO(nyquist) Consider usage of GetCachedStatement when
   // http://crbug.com/248608 is fixed.
-  sql::Statement s(db_.GetUniqueStatement(sql_query->c_str()));
+  sql::Statement s(db_.GetUniqueStatement(*sql_query));
   s.BindString(0, form.signon_realm);
   int placeholder = 1;
 
@@ -1743,8 +1808,7 @@ bool LoginDatabase::GetLoginsCreatedBetween(const base::Time begin,
   TRACE_EVENT0("passwords", "LoginDatabase::GetLoginsCreatedBetween");
   CHECK(forms);
   CHECK(!created_statement_.empty());
-  sql::Statement s(
-      db_.GetCachedStatement(SQL_FROM_HERE, created_statement_.c_str()));
+  sql::Statement s(db_.GetCachedStatement(SQL_FROM_HERE, created_statement_));
   s.BindTime(0, begin);
   s.BindTime(1, end.is_null() ? base::Time::Max() : end);
 
@@ -1771,7 +1835,7 @@ FormRetrievalResult LoginDatabase::GetLoginsBySignonRealmAndUsername(
   forms->clear();
 
   sql::Statement s(
-      db_.GetCachedStatement(SQL_FROM_HERE, get_statement_username_.c_str()));
+      db_.GetCachedStatement(SQL_FROM_HERE, get_statement_username_));
   s.BindString(0, signon_realm);
   s.BindString16(1, username);
 
@@ -1796,7 +1860,7 @@ bool LoginDatabase::GetAllLoginsWithBlocklistSetting(
   forms->clear();
 
   sql::Statement s(
-      db_.GetCachedStatement(SQL_FROM_HERE, blocklisted_statement_.c_str()));
+      db_.GetCachedStatement(SQL_FROM_HERE, blocklisted_statement_));
   s.BindInt(0, blocklisted ? 1 : 0);
 
   FormRetrievalResult result = StatementToForms(&s, nullptr, forms);
@@ -1903,17 +1967,17 @@ DatabaseCleanupResult LoginDatabase::DeleteUndecryptableLogins() {
 
 bool LoginDatabase::BeginTransaction() {
   TRACE_EVENT0("passwords", "LoginDatabase::BeginTransaction");
-  return db_.BeginTransaction();
+  return db_.BeginTransactionDeprecated();
 }
 
 void LoginDatabase::RollbackTransaction() {
   TRACE_EVENT0("passwords", "LoginDatabase::RollbackTransaction");
-  db_.RollbackTransaction();
+  db_.RollbackTransactionDeprecated();
 }
 
 bool LoginDatabase::CommitTransaction() {
   TRACE_EVENT0("passwords", "LoginDatabase::CommitTransaction");
-  return db_.CommitTransaction();
+  return db_.CommitTransactionDeprecated();
 }
 
 void LoginDatabase::SetIsEmptyCb(IsEmptyCallback is_empty_cb) {
@@ -1940,9 +2004,9 @@ LoginDatabase::SyncMetadataStore::GetAllSyncEntityMetadata(
   CHECK_EQ(model_type, syncer::PASSWORDS);
   auto metadata_batch = std::make_unique<syncer::MetadataBatch>();
   sql::Statement s(db_->GetCachedStatement(
-      SQL_FROM_HERE, base::StringPrintf("SELECT storage_key, metadata FROM %s",
-                                        kPasswordsSyncEntitiesMetadataTableName)
-                         .c_str()));
+      SQL_FROM_HERE,
+      base::StringPrintf("SELECT storage_key, metadata FROM %s",
+                         kPasswordsSyncEntitiesMetadataTableName)));
 
   while (s.Step()) {
     int storage_key_int = s.ColumnInt(0);
@@ -1976,8 +2040,7 @@ LoginDatabase::SyncMetadataStore::GetSyncEntityMetadataForStorageKey(
   sql::Statement s(db_->GetCachedStatement(
       SQL_FROM_HERE,
       base::StringPrintf("SELECT metadata FROM %s WHERE storage_key=?",
-                         kPasswordsSyncEntitiesMetadataTableName)
-          .c_str()));
+                         kPasswordsSyncEntitiesMetadataTableName)));
   s.BindInt(0, storage_key_int);
 
   if (!s.Step()) {
@@ -1996,8 +2059,7 @@ LoginDatabase::SyncMetadataStore::GetModelTypeState(
   sql::Statement s(db_->GetCachedStatement(
       SQL_FROM_HERE,
       base::StringPrintf("SELECT model_metadata FROM %s WHERE id=1",
-                         kPasswordsSyncModelMetadataTableName)
-          .c_str()));
+                         kPasswordsSyncModelMetadataTableName)));
 
   if (!s.Step()) {
     if (s.Succeeded()) {
@@ -2077,8 +2139,7 @@ bool LoginDatabase::SyncMetadataStore::UpdateEntityMetadata(
       SQL_FROM_HERE,
       base::StringPrintf(
           "INSERT OR REPLACE INTO %s (storage_key, metadata) VALUES(?, ?)",
-          kPasswordsSyncEntitiesMetadataTableName)
-          .c_str()));
+          kPasswordsSyncEntitiesMetadataTableName)));
 
   s.BindInt(0, storage_key_int);
   s.BindString(1, encrypted_metadata);
@@ -2123,9 +2184,9 @@ bool LoginDatabase::SyncMetadataStore::ClearEntityMetadata(
   }
 
   sql::Statement s(db_->GetCachedStatement(
-      SQL_FROM_HERE, base::StringPrintf("DELETE FROM %s WHERE storage_key=?",
-                                        kPasswordsSyncEntitiesMetadataTableName)
-                         .c_str()));
+      SQL_FROM_HERE,
+      base::StringPrintf("DELETE FROM %s WHERE storage_key=?",
+                         kPasswordsSyncEntitiesMetadataTableName)));
   s.BindInt(0, storage_key_int);
   if (model_type != syncer::PASSWORDS) {
     return s.Run();
@@ -2165,8 +2226,7 @@ bool LoginDatabase::SyncMetadataStore::UpdateModelTypeState(
       SQL_FROM_HERE,
       base::StringPrintf("INSERT OR REPLACE INTO %s (id, model_metadata) "
                          "VALUES(1, ?)",
-                         kPasswordsSyncModelMetadataTableName)
-          .c_str()));
+                         kPasswordsSyncModelMetadataTableName)));
   s.BindString(0, model_type_state.SerializeAsString());
 
   return s.Run();
@@ -2179,8 +2239,7 @@ bool LoginDatabase::SyncMetadataStore::ClearModelTypeState(
 
   sql::Statement s(db_->GetCachedStatement(
       SQL_FROM_HERE, base::StringPrintf("DELETE FROM %s WHERE id=1",
-                                        kPasswordsSyncModelMetadataTableName)
-                         .c_str()));
+                                        kPasswordsSyncModelMetadataTableName)));
 
   return s.Run();
 }
@@ -2194,9 +2253,9 @@ bool LoginDatabase::SyncMetadataStore::HasUnsyncedPasswordDeletions() {
   TRACE_EVENT0("passwords", "SyncMetadataStore::HasUnsyncedDeletions");
 
   sql::Statement s(db_->GetCachedStatement(
-      SQL_FROM_HERE, base::StringPrintf("SELECT metadata FROM %s",
-                                        kPasswordsSyncEntitiesMetadataTableName)
-                         .c_str()));
+      SQL_FROM_HERE,
+      base::StringPrintf("SELECT metadata FROM %s",
+                         kPasswordsSyncEntitiesMetadataTableName)));
 
   while (s.Step()) {
     std::unique_ptr<sync_pb::EntityMetadata> entity_metadata =
@@ -2217,8 +2276,8 @@ bool LoginDatabase::SyncMetadataStore::HasUnsyncedPasswordDeletions() {
 LoginDatabase::PrimaryKeyAndPassword LoginDatabase::GetPrimaryKeyAndPassword(
     const PasswordForm& form) const {
   DCHECK(!id_and_password_statement_.empty());
-  sql::Statement s(db_.GetCachedStatement(SQL_FROM_HERE,
-                                          id_and_password_statement_.c_str()));
+  sql::Statement s(
+      db_.GetCachedStatement(SQL_FROM_HERE, id_and_password_statement_));
 
   s.BindString(0, form.url.is_valid() ? form.url.spec() : std::string_view());
   s.BindString16(1, form.username_element);
@@ -2246,18 +2305,28 @@ FormRetrievalResult LoginDatabase::StatementToForms(
     std::vector<PasswordForm>* forms) {
   DCHECK(forms);
   forms->clear();
-  bool has_service_failure = false;
+  bool failed = false;
+
+  // Since this member is only used to trigger sync, it should maintain the most
+  // relevant value for the PasswordSyncBridge. Which means if there were no
+  // reads assume that the read was successful and there were no deletions.
+  // Deletion will update this member's value to true, only starting sync can
+  // set it back to false. This way PasswordSyncBridge will always know whether
+  // the sync should happen or no, no matter how many calls happen before that.
+  if (!were_undecryptable_logins_deleted_.has_value()) {
+    were_undecryptable_logins_deleted_ = false;
+  }
+
   while (statement->Step()) {
     std::u16string plaintext_password;
     EncryptionResult result =
         DecryptPasswordFromStatement(*statement, &plaintext_password);
-    if (result == ENCRYPTION_RESULT_SERVICE_FAILURE) {
-      has_service_failure = true;
+    if (result == ENCRYPTION_RESULT_SERVICE_FAILURE ||
+        result == ENCRYPTION_RESULT_ITEM_FAILURE) {
+      failed = true;
       continue;
     }
-    if (result == ENCRYPTION_RESULT_ITEM_FAILURE) {
-      continue;
-    }
+
     DCHECK_EQ(ENCRYPTION_RESULT_SUCCESS, result);
 
     PasswordForm form = GetFormWithoutPasswordFromStatement(*statement);
@@ -2275,12 +2344,20 @@ FormRetrievalResult LoginDatabase::StatementToForms(
   if (!statement->Succeeded()) {
     return FormRetrievalResult::kDbError;
   }
-  if (has_service_failure &&
-      (forms->empty() || !ShouldReturnPartialPasswords())) {
+  if (failed) {
+    if (ShouldDeleteUndecryptablePasswords()) {
+      DatabaseCleanupResult result = DeleteUndecryptableLogins();
+      if (result == DatabaseCleanupResult::kSuccess) {
+        were_undecryptable_logins_deleted_ = true;
+        return FormRetrievalResult::kSuccess;
+      }
+      return FormRetrievalResult::kEncryptionServiceFailure;
+    }
+    if (ShouldReturnPartialPasswords()) {
+      return FormRetrievalResult::kEncryptionServiceFailureWithPartialData;
+    }
+
     return FormRetrievalResult::kEncryptionServiceFailure;
-  }
-  if (has_service_failure) {
-    return FormRetrievalResult::kEncryptionServiceFailureWithPartialData;
   }
   return FormRetrievalResult::kSuccess;
 }

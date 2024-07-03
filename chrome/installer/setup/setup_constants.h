@@ -7,8 +7,6 @@
 #ifndef CHROME_INSTALLER_SETUP_SETUP_CONSTANTS_H_
 #define CHROME_INSTALLER_SETUP_SETUP_CONSTANTS_H_
 
-#include "chrome/installer/setup/buildflags.h"
-
 namespace installer {
 
 extern const wchar_t kChromeArchive[];
@@ -31,18 +29,18 @@ const int kZucchiniErrorOffset = 900;
 // Arguments to --patch switch
 extern const char kCourgette[];
 extern const char kBsdiff[];
-#if BUILDFLAG(ZUCCHINI)
 extern const char kZucchini[];
-#endif  // BUILDFLAG(ZUCCHINI)
 
 namespace switches {
+
+extern const char kCleanupForDowngradeOperation[];
+extern const char kCleanupForDowngradeVersion[];
+
+extern const char kConfigureBrowserInDirectory[];
 
 extern const char kSetDisplayVersionProduct[];
 extern const char kSetDisplayVersionValue[];
 extern const char kStartupEventHandle[];
-
-extern const char kCleanupForDowngradeOperation[];
-extern const char kCleanupForDowngradeVersion[];
 
 }  // namespace switches
 

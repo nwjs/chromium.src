@@ -226,7 +226,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.SitesChannel" enum="BooleanUsage"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>peter@chromium.org</owner>
   <summary>
     Recorded when the Sites channel (which we hope to deprecate) is used as a
@@ -553,12 +553,36 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Notifications.macOS.AppShimProcess.UptimeOnDisconnect"
+    units="ms" expires_after="2025-03-01">
+  <owner>mek@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    The uptime of the notification service in an app shim (PWA) process. Logged
+    when the connection to the service in an app shim process is lost, either on
+    purpose or because the connection was lost unexpectedly.
+  </summary>
+</histogram>
+
+<histogram
+    name="Notifications.macOS.AppShimProcess.UptimeOnUnexpectedDisconnect"
+    units="ms" expires_after="2025-03-01">
+  <owner>mek@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    The uptime of the notification service in an app shim (PWA) process before
+    it got killed unexpectedly (for example crashed). Logged when the connection
+    to the notification service in the app shim process dies, and this wasn't
+    because the user closed the app nor because chrome initiated the disconnect.
+  </summary>
+</histogram>
+
 <histogram name="Notifications.macOS.ServiceProcessKilled" units="ms"
     expires_after="2024-08-07">
   <owner>knollr@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
-    The runtime of the macOS notification service process to display alerts
+    The uptime of the macOS notification service process to display alerts
     before it got killed unexpectedly. Logged when the service process dies.
 
     This histogram was expired between 2022-08-07 and 2023-09-06. Data might be
@@ -571,7 +595,7 @@ chromium-metrics-reviews@google.com.
   <owner>knollr@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
-    The runtime of the macOS notification service process to display alerts.
+    The uptime of the macOS notification service process to display alerts.
     Logged when we close the connection to the service process either on purpose
     or after it got killed unexpectedly.
 
@@ -669,8 +693,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Notifications.Permissions.UNNotification.{Style}.PermissionRequest"
-    enum="UNNotificationPermissionRequestResult" expires_after="M110">
-  <owner>knollr@chromium.org</owner>
+    enum="UNNotificationPermissionRequestResult" expires_after="M134">
+  <owner>mek@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
     The permission request result for sending out UNNotifications through the
@@ -683,8 +707,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Notifications.Permissions.UNNotification.{Style}.PermissionStatus"
-    enum="UNNotificationPermissionStatus" expires_after="M110">
-  <owner>knollr@chromium.org</owner>
+    enum="UNNotificationPermissionStatus" expires_after="M134">
+  <owner>mek@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
     The permission status for sending out UNNotifications through the
@@ -696,8 +720,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Permissions.UNNotification.{Style}.Style"
-    enum="UNNotificationStyle" expires_after="M110">
-  <owner>knollr@chromium.org</owner>
+    enum="UNNotificationStyle" expires_after="M134">
+  <owner>mek@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
     The style of notifications being used for sending out UNNotifications

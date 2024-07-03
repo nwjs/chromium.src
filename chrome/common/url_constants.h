@@ -53,6 +53,12 @@ inline constexpr char kAdvancedProtectionDownloadLearnMoreURL[] =
 inline constexpr char kAppNotificationsBrowserSettingsURL[] =
     "chrome://settings/content/notifications";
 
+// "Learn more" URL for App Parental Controls.
+// char16_t is used here because this constant may be used to set the src
+// attribute of iframe elements.
+inline constexpr char16_t kAppParentalControlsLearnMoreUrl[] =
+    u"https://support.google.com/chromebook?p=local_app_controls";
+
 // "Learn more" URL for Battery Saver Mode.
 inline constexpr char kBatterySaverModeLearnMoreUrl[] =
     "https://support.google.com/chrome?p=chrome_battery_saver";
@@ -284,7 +290,7 @@ inline constexpr char kGoogleAccountActivityControlsURLInPrivacyGuide[] =
 
 // URL of the 'Linked services' section of the privacy settings page.
 inline constexpr char kGoogleAccountLinkedServicesURL[] =
-    "https://myaccount.google.com/linked-services";
+    "https://myaccount.google.com/linked-services?utm_source=chrome_s";
 
 // URL of the Google Account.
 inline constexpr char kGoogleAccountURL[] = "https://myaccount.google.com";
@@ -317,6 +323,10 @@ inline constexpr char16_t kMemorySaverModeTabDiscardingHelpUrl[] =
 inline constexpr char16_t kIncognitoHelpCenterURL[] =
     u"https://support.google.com/chrome?p=incognito";
 
+// The URL for the Help Center page about IP Protection.
+inline constexpr char kIpProtectionHelpCenterURL[] =
+    "https://support.google.com/chrome?p=ip_protection";
+
 // The URL for "Learn more" page for Isolated Web Apps.
 // TODO(crbug.com/40281470): Update this URL with proper user-facing explainer.
 inline constexpr char16_t kIsolatedWebAppsLearnMoreUrl[] =
@@ -330,6 +340,10 @@ inline constexpr char kLearnMoreReportingURL[] =
 // The URL for the Help Center page about managing third-party cookies.
 inline constexpr char kManage3pcHelpCenterURL[] =
     "https://support.google.com/chrome?p=manage_tp_cookies";
+
+// The URL for the tab group sync help center page.
+inline constexpr char kTabGroupsLearnMoreURL[] =
+    "https://support.google.com/chrome?p=desktop_tab_groups";
 
 // The URL for the Learn More page about policies and enterprise enrollment.
 inline constexpr char16_t kManagedUiLearnMoreUrl[] =
@@ -804,6 +818,11 @@ inline constexpr char kSpeakOnMuteDetectionLearnMoreURL[] =
 // hub page.
 inline constexpr char kPrivacyHubGeolocationLearnMoreURL[] =
     "https://support.google.com/chromebook/?p=manage_your_location";
+
+// The URL for the "Learn more" page for the Location Accuracy setting under the
+// privacy hub location subpage.
+inline constexpr char16_t kPrivacyHubGeolocationAccuracyLearnMoreURL[] =
+    u"https://support.google.com/android/?p=location_accuracy";
 
 // The URL for the "Learn more" page for Suggested Content in the privacy page.
 inline constexpr char kSuggestedContentLearnMoreURL[] =

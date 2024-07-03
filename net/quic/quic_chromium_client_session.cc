@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "net/quic/quic_chromium_client_session.h"
 
 #include <memory>
@@ -685,7 +690,7 @@ int QuicChromiumClientSession::StreamRequest::DoLoop(int rv) {
         rv = DoRequestStreamComplete(rv);
         break;
       default:
-        NOTREACHED() << "next_state_: " << next_state_;
+        NOTREACHED_IN_MIGRATION() << "next_state_: " << next_state_;
         break;
     }
   } while (next_state_ != STATE_NONE && next_state_ && rv != ERR_IO_PENDING);
@@ -736,8 +741,8 @@ QuicChromiumClientSession::QuicChromiumPathValidationContext::
         std::unique_ptr<QuicChromiumPacketReader> reader)
     : QuicPathValidationContext(self_address, peer_address),
       network_handle_(network),
-      writer_(std::move(writer)),
-      reader_(std::move(reader)) {}
+      reader_(std::move(reader)),
+      writer_(std::move(writer)) {}
 
 QuicChromiumClientSession::QuicChromiumPathValidationContext::
     ~QuicChromiumPathValidationContext() = default;
@@ -1297,7 +1302,7 @@ bool QuicChromiumClientSession::ShouldCreateOutgoingBidirectionalStream() {
 }
 
 bool QuicChromiumClientSession::ShouldCreateOutgoingUnidirectionalStream() {
-  NOTREACHED() << "Try to create outgoing unidirectional streams";
+  NOTREACHED_IN_MIGRATION() << "Try to create outgoing unidirectional streams";
   return false;
 }
 
@@ -1308,13 +1313,14 @@ bool QuicChromiumClientSession::WasConnectionEverUsed() {
 
 QuicChromiumClientStream*
 QuicChromiumClientSession::CreateOutgoingBidirectionalStream() {
-  NOTREACHED() << "CreateOutgoingReliableStreamImpl should be called directly";
+  NOTREACHED_IN_MIGRATION()
+      << "CreateOutgoingReliableStreamImpl should be called directly";
   return nullptr;
 }
 
 QuicChromiumClientStream*
 QuicChromiumClientSession::CreateOutgoingUnidirectionalStream() {
-  NOTREACHED() << "Try to create outgoing unidirectional stream";
+  NOTREACHED_IN_MIGRATION() << "Try to create outgoing unidirectional stream";
   return nullptr;
 }
 
@@ -1438,7 +1444,7 @@ bool QuicChromiumClientSession::CanPool(
   }
   SSLInfo ssl_info;
   if (!GetSSLInfo(&ssl_info) || !ssl_info.cert.get()) {
-    NOTREACHED() << "QUIC should always have certificates.";
+    NOTREACHED_IN_MIGRATION() << "QUIC should always have certificates.";
     return false;
   }
 
@@ -2093,6 +2099,13 @@ int QuicChromiumClientSession::HandleWriteError(
     }
   }
 
+  // Proxied sessions cannot presently encounter write errors, but in case that
+  // changes, those sessions should not attempt migration when such an error
+  // occurs. The underlying connection to the proxy server may still migrate.
+  if (!session_key_.proxy_chain().is_direct()) {
+    return error_code;
+  }
+
   if (error_code == ERR_MSG_TOO_BIG || session_pool_ == nullptr ||
       !migrate_session_on_network_change_v2_ || !OneRttKeysAvailable()) {
     return error_code;
@@ -2356,6 +2369,11 @@ void QuicChromiumClientSession::OnConnectionMigrationProbeSucceeded(
   DCHECK(writer);
   DCHECK(reader);
 
+  // Writer must be destroyed before reader, since it points to the socket owned
+  // by reader. C++ doesn't have any guarantees about destruction order of
+  // arguments.
+  std::unique_ptr<QuicChromiumPacketWriter> writer_moved = std::move(writer);
+
   net_log_.AddEvent(NetLogEventType::QUIC_SESSION_CONNECTIVITY_PROBING_FINISHED,
                     [&] {
                       return NetLogProbingResultParams(network, &peer_address,
@@ -2373,7 +2391,7 @@ void QuicChromiumClientSession::OnConnectionMigrationProbeSucceeded(
   // that was used for probing.
   static_cast<QuicChromiumPacketWriter*>(connection()->writer())
       ->set_delegate(nullptr);
-  writer->set_delegate(this);
+  writer_moved->set_delegate(this);
 
   // Close streams that are not migratable to the probed |network|.
   ResetNonMigratableStreams();
@@ -2394,7 +2412,7 @@ void QuicChromiumClientSession::OnConnectionMigrationProbeSucceeded(
   // Migrate to the probed socket immediately: socket, writer and reader will
   // be acquired by connection and used as default on success.
   if (!MigrateToSocket(self_address, peer_address, std::move(reader),
-                       std::move(writer))) {
+                       std::move(writer_moved))) {
     LogMigrateToSocketStatus(false);
     net_log_.AddEvent(
         NetLogEventType::QUIC_CONNECTION_MIGRATION_FAILURE_AFTER_PROBING);
@@ -2775,6 +2793,14 @@ void QuicChromiumClientSession::OnPathDegrading() {
   handles::NetworkHandle current_network = GetCurrentNetwork();
   for (auto& observer : connectivity_observer_list_) {
     observer.OnSessionPathDegrading(this, current_network);
+  }
+
+  // Proxied sessions should not attempt migration when the path degrades, as
+  // there is nowhere for such a session to migrate to. If the degradation is
+  // due to degradation of the underlying session, then that session may attempt
+  // migration.
+  if (!session_key_.proxy_chain().is_direct()) {
+    return;
   }
 
   if (!session_pool_ || connection()->multi_port_stats()) {
@@ -3829,6 +3855,10 @@ bool QuicChromiumClientSession::MigrateToSocket(
     const quic::QuicSocketAddress& peer_address,
     std::unique_ptr<QuicChromiumPacketReader> reader,
     std::unique_ptr<QuicChromiumPacketWriter> writer) {
+  // Sessions carried via a proxy should never migrate, and that is ensured
+  // elsewhere (for each possible migration trigger).
+  DCHECK(session_key_.proxy_chain().is_direct());
+
   // TODO(zhongyi): figure out whether we want to limit the number of
   // connection migrations for v2, which includes migration on platform signals,
   // write error events, and path degrading on original network.
@@ -3836,6 +3866,11 @@ bool QuicChromiumClientSession::MigrateToSocket(
       packet_readers_.size() >= kMaxReadersPerQuicSession) {
     HistogramAndLogMigrationFailure(MIGRATION_STATUS_TOO_MANY_CHANGES,
                                     connection_id(), "Too many changes");
+    // Must destroy `writer` before `reader`, as `writer` references the socket
+    // owned by `reader`. Destruction order of parameters is apparently not
+    // specified by the C++ standard, but Clang looks to destroy arguments from
+    // first to last.
+    writer.reset();
     return false;
   }
 
@@ -3889,6 +3924,17 @@ handles::NetworkHandle QuicChromiumClientSession::GetCurrentNetwork() const {
 
 void QuicChromiumClientSession::OnServerPreferredAddressAvailable(
     const quic::QuicSocketAddress& server_preferred_address) {
+  // If this is a proxied connection, we cannot perform any migration, so
+  // ignore the server preferred address.
+  if (!session_key_.proxy_chain().is_direct()) {
+    net_log_.AddEvent(NetLogEventType::QUIC_CONNECTION_MIGRATION_FAILURE, [&] {
+      return NetLogQuicMigrationFailureParams(
+          connection_id(),
+          "Ignored server preferred address received via proxied connection");
+    });
+    return;
+  }
+
   current_migration_cause_ = ON_SERVER_PREFERRED_ADDRESS_AVAILABLE;
 
   net_log_.BeginEvent(

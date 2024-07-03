@@ -83,11 +83,20 @@ blink::FormElementPiiType MapTypePredictionToFormElementPiiType(
 // TODO(crbug.com/40283901): Should an element that IsCheckableElement() also be
 // IsAutofillableInputElement()?
 bool IsFormInteresting(const FormData& form) {
-  return !form.child_frames.empty() ||
+  return !form.child_frames().empty() ||
          base::ranges::any_of(form.fields, std::not_fn(&form_util::IsCheckable),
                               &FormFieldData::form_control_type) ||
          base::ranges::any_of(form.fields, std::not_fn(&std::string::empty),
                               &FormFieldData::autocomplete_attribute);
+}
+
+std::string GetButtonTitlesString(const ButtonTitleList& titles_list) {
+  std::vector<std::string> titles;
+  titles.reserve(titles_list.size());
+  std::transform(
+      titles_list.cbegin(), titles_list.cend(), std::back_inserter(titles),
+      [](const auto& list_item) { return base::UTF16ToUTF8(list_item.first); });
+  return base::JoinString(titles, ",");
 }
 
 }  // namespace
@@ -129,7 +138,7 @@ FormCache::UpdateFormCacheResult FormCache::UpdateFormCache(
     }
 
     num_fields_seen += form.fields.size();
-    num_frames_seen += form.child_frames.size();
+    num_frames_seen += form.child_frames().size();
 
     // Enforce the kMaxExtractableFields limit: ignore all forms after this
     // limit has been reached (i.e., abort parsing).
@@ -140,12 +149,12 @@ FormCache::UpdateFormCacheResult FormCache::UpdateFormCache(
     // Enforce the kMaxExtractableChildFrames limit: ignore the iframes, but
     // do not ignore the fields (i.e., continue parsing).
     if (num_frames_seen > kMaxExtractableChildFrames) {
-      form.child_frames.clear();
+      form.set_child_frames({});
     }
 
     // Store only forms that contain iframes or fields.
     if (IsFormInteresting(form)) {
-      FormRendererId form_id = form.renderer_id;
+      FormRendererId form_id = form.renderer_id();
       DCHECK(extracted_forms_.find(form_id) == extracted_forms_.end());
       auto it = old_extracted_forms.find(form_id);
       if (it == old_extracted_forms.end() ||
@@ -194,7 +203,7 @@ bool FormCache::ShowPredictions(const FormDataPredictions& form,
 
   WebDocument document = frame_->GetDocument();
   WebFormElement form_element =
-      form_util::GetFormByRendererId(form.data.renderer_id);
+      form_util::GetFormByRendererId(form.data.renderer_id());
   std::vector<WebFormControlElement> control_elements =
       form_util::GetAutofillableFormControlElements(document, form_element);
   if (control_elements.size() != form.fields.size()) {
@@ -227,7 +236,8 @@ bool FormCache::ShowPredictions(const FormDataPredictions& form,
       // line wraps which are normalized here.
       base::ReplaceChars(truncated_label, u"\n", u"|", &truncated_label);
 
-      std::string form_id = base::NumberToString(form.data.renderer_id.value());
+      std::string form_id =
+          base::NumberToString(form.data.renderer_id().value());
       std::string field_id_str =
           base::NumberToString(field_data.renderer_id().value());
 
@@ -259,6 +269,13 @@ bool FormCache::ShowPredictions(const FormDataPredictions& form,
           field.host_form_signature,
           "\nalternative form signature: ",
           form.alternative_signature,
+          "\nform name: ",
+          base::UTF16ToUTF8(form.data.name_attribute()),
+          "\nform id: ",
+          base::UTF16ToUTF8(form.data.id_attribute()),
+          "\nform button titles: ",
+          GetButtonTitlesString(form_util::GetButtonTitles(
+              form_element, /*button_titles_cache=*/nullptr)),
           "\nfield frame token: ",
           frame_token.ToString(),
           "\nform renderer id: ",

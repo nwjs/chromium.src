@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">پیسٹل پیلا</translation>
 <translation id="1056898198331236512">وارننگ</translation>
 <translation id="1059913517121127803">اسکین کرنا شروع نہیں کیا جا سکا</translation>
+<translation id="1061864016440983342">مقام کے بغیر استعمال کریں</translation>
 <translation id="1062823486781306604"><ph name="COUNT" />، <ph name="NAME" /> میں سے <ph name="INDEX" /></translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">فائروال کا پتا چلا</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">مزید ترتیبات</translation>
 <translation id="2082932131694554252">کی بورڈ کلید تفویض کی گئی</translation>
 <translation id="2085089206770112532">ڈسپلے کی چمک کم کرنے کی کلید</translation>
+<translation id="2086091080968010660">وقت پر مبنی تبدیلیاں ممکن ہے درست نہ ہوں۔ ترتیبات میں سسٹم کے مقام کی رسائی کو آن کریں۔</translation>
 <translation id="2102231663024125441">ٹیکسٹ میں ترمیم کرنا</translation>
 <translation id="2105810540595158374">آلہ ایک گیم کنٹرولر ہے۔</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />، ورژن <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">‏APN کی تفصیلات میں ترمیم کریں</translation>
 <translation id="2195732836444333448">فی الحال گنجائش نہیں ہے۔ بعد میں واپس آئیں۔</translation>
 <translation id="2201758491318984023">سائیکل</translation>
-<translation id="2203222757805818543">موجودہ شیڈول <ph name="SUNRISE" /> - <ph name="SUNSET" /> پر سیٹ ہے- تاریک وضع شیڈول کو خودکار طور پر اپ ڈیٹ کرنے کے لیے، <ph name="BEGIN_LINK" />مقام تک رسائی کو آن کریں<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">گرم چشمہ</translation>
 <translation id="2203642483788377106">چٹان</translation>
 <translation id="2208388655216963643">تاثُر پسند</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">ڈیفالٹس کو بحال کریں</translation>
 <translation id="2286454467119466181">آسان</translation>
 <translation id="2287186687001756809">کوئی تصویر دستیاب نہیں ہے۔ تصاویر شامل کرنے کے لیے، <ph name="LINK" /> پر جائیں</translation>
+<translation id="2294577623958216786">موجودہ شیڈول <ph name="SUNRISE" />-<ph name="SUNSET" /> پر سیٹ ہے۔ غروب آفتاب اور طلوع آفتاب کے شیڈول کو خودکار طور پر اپ ڈیٹ کرنے کے لیے سسٹم کے مقام کی رسائی کو آن کریں۔</translation>
 <translation id="2305172810646967500">سیاہ</translation>
 <translation id="2307344026739914387">موجودہ کلیدوں کا جوڑا استعمال کریں</translation>
 <translation id="2308243864813041101">‏اپ ڈیٹ ہونے کے عمل کو جاری رکھنے کے لیے <ph name="DEVICE_NAME" /> کے USB کیبل کو ان پلگ کریں</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">ریت کا ٹیلہ</translation>
 <translation id="2619761439309613843">روزانہ ریفریش کریں</translation>
 <translation id="2620436844016719705">سسٹم</translation>
+<translation id="2637303424821734920">آف - مقامی موسم کو ڈسپلے کرنے کے لیے <ph name="BEGIN_LINK" />سسٹم کے مقام کی رسائی کو آن کریں<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">سائن ان کی تصویر</translation>
 <translation id="2640549051766135490">البم <ph name="TITLE" /> <ph name="DESC" /> منتخب کیا گیا</translation>
 <translation id="2645380101799517405">کنٹرولز</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">پس منظر</translation>
 <translation id="3027578600144895987">کیمرا بند کریں</translation>
 <translation id="3031560714565892478">آلہ ایک ویڈیو کیمرا ہے۔</translation>
+<translation id="3051968340259309715">‏آپ کے مقام کا تعین کرنے کیلئے، یہ آپ کی سسٹم سروسز مقام کی درستگی کا استعمال کرنے کی اجازت دیتا ہے۔ آلے کے مقام کا تعین کرنے کیلئے، مقام کی درستگی وائرلیس سگنلز سے متعلق معلومات، جیسے کہ Wi-Fi رسائی پوائنٹس، سیلولر نیٹ ورک ٹاورز اور GPS کے ساتھ ساتھ آلے کے سینسر ڈیٹا، جیسے کہ ایکسلیرومیٹر اور جائرو سکوپ کا استعمال کرتی ہے۔ آپ ترتیبات &gt; رازداری اور سیکیورٹی &gt; رازداری سے متعلق کنٹرولز &gt; مقام تک رسائی میں مقام کو آف کر سکتے ہیں۔ <ph name="LINK_BEGIN" />مزید جانیں<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">اینڈ پوائنٹ</translation>
 <translation id="3060579846059757016">آؤٹ لائنز</translation>
+<translation id="3061850252076394168">سننے کیلئے منتخب کریں کو فعال کریں</translation>
 <translation id="3069085583900247081">ٹیسٹ ناکام ہو گیا</translation>
 <translation id="3078740164268491126">ٹیبل</translation>
 <translation id="3081652522083185657">لائٹ</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">تمام میزبانوں کو حل کرنے میں ناکام</translation>
 <translation id="4593212453765072419">پراکسی کی تصدیق درکار ہے</translation>
 <translation id="4609350030397390689">کی بورڈ کی چمک کم کرنے کی کلید</translation>
-<translation id="4617553623719764431">موسم ڈسپلے نہیں کیا گیا کیونکہ اسے آپ کا مقام معلوم نہیں ہے۔ مقامی موسم ڈسپلے کرنے کے لیے، <ph name="BEGIN_LINK" />مقام تک رسائی کو آن کریں<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576">‏<ph name="DOCUMENT_TITLE" />، <ph name="PRINTER_NAME" />، <ph name="CREATION_TIME" />، <ph name="TOTAL_PAGE_NUMBER" /> میں سے <ph name="PRINTED_PAGE_NUMBER" />۔ براہ کرم پرنٹ جاب منسوخ کرنے کے لیے enter دبائیں۔</translation>
 <translation id="463791356324567266">اسکین کا عمل منسوخ کیا جا رہا ہے...</translation>
 <translation id="4646949265910132906">‏WiFi کنکشن محفوظ کریں</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">چلائیں</translation>
 <translation id="4987769320337599931">فائروال</translation>
 <translation id="4988526792673242964">صفحات</translation>
+<translation id="4989542687859782284">غیر دستیاب</translation>
 <translation id="4999333166442584738">رپورٹ چھپائیں</translation>
 <translation id="500920857929044050">ٹیسٹ روکیں</translation>
 <translation id="5017508259293544172">لیپ</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">کی بورڈ کی چمک</translation>
 <translation id="6412715219990689313">پہلے سے شامل کی بورڈ</translation>
 <translation id="6417265370957905582">‏Google اسسٹنٹ</translation>
+<translation id="6419454453018688975">سسٹم کے مقام کی رسائی کو آن کریں</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">‏یہ سسٹم سروسز کو آپ کا مقام استعمال کرنے کی اجازت دیتا ہے۔ آپ کے آلہ کے مقام کا اندازہ لگانے میں مدد کرنے کے لیے، مقام Wi‑Fi، موبائل نیٹ ورکس اور سینسرز جیسے وسائل کا استعمال کر سکتا ہے۔ <ph name="LINK_BEGIN" />مزید جانیں<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">کمزور (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">اکاؤنٹ کی ترتیبات پر جائیں</translation>
 <translation id="6462978824459367242">‏APN شامل کریں بٹن اب فعال ہے</translation>

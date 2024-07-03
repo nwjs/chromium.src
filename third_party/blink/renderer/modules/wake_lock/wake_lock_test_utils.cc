@@ -218,7 +218,7 @@ void MockPermissionService::RegisterPageEmbeddedPermissionControl(
 void MockPermissionService::RequestPageEmbeddedPermission(
     mojom::blink::EmbeddedPermissionRequestDescriptorPtr permissions,
     RequestPageEmbeddedPermissionCallback) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void MockPermissionService::RequestPermission(
@@ -243,12 +243,12 @@ void MockPermissionService::RequestPermissions(
     Vector<PermissionDescriptorPtr> permissions,
     bool user_gesture,
     mojom::blink::PermissionService::RequestPermissionsCallback) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void MockPermissionService::RevokePermission(PermissionDescriptorPtr permission,
                                              RevokePermissionCallback) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void MockPermissionService::AddPermissionObserver(
@@ -262,14 +262,14 @@ void MockPermissionService::AddPageEmbeddedPermissionObserver(
     PermissionDescriptorPtr permission,
     mojom::blink::PermissionStatus last_known_status,
     mojo::PendingRemote<mojom::blink::PermissionObserver>) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void MockPermissionService::NotifyEventListener(
     PermissionDescriptorPtr permission,
     const String& event_type,
     bool is_added) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 // WakeLockTestingContext
 

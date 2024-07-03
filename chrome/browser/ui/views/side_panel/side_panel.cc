@@ -13,7 +13,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
-#include "chrome/browser/ui/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_background.h"
@@ -161,10 +161,8 @@ class SidePanelBorder : public views::Border {
     // inset is outside the SidePanel itself, but not outside the BorderView. If
     // there is a header we want to increase the top inset to give room for the
     // header to paint on top of the border area.
-    int top_inset = views::Separator::kThickness + header_height_;
-    if (features::IsSidePanelPinningEnabled()) {
-      top_inset -= GetBorderThickness();
-    }
+    int top_inset =
+        views::Separator::kThickness + header_height_ - GetBorderThickness();
     return GetBorderInsets() + gfx::Insets::TLBR(top_inset, 0, 0, 0);
   }
   gfx::Size GetMinimumSize() const override {
@@ -224,11 +222,60 @@ END_METADATA
 
 }  // namespace
 
+// Ensures immediate children of the SidePanel have their layers clipped to
+// their visible bounds to prevent incorrect clipping during animation.
+// TODO: 344626785 - Remove this once WebView layer behavior has been fixed.
+class SidePanel::VisibleBoundsViewClipper : public views::ViewObserver {
+ public:
+  explicit VisibleBoundsViewClipper(SidePanel* side_panel)
+      : side_panel_(side_panel) {
+    view_observations_.AddObservation(side_panel);
+  }
+  VisibleBoundsViewClipper(const VisibleBoundsViewClipper&) = delete;
+  VisibleBoundsViewClipper& operator=(const VisibleBoundsViewClipper&) = delete;
+  ~VisibleBoundsViewClipper() override = default;
+
+  // views::ViewObserver:
+  void OnChildViewAdded(View* observed_view, View* child) override {
+    if (observed_view == side_panel_) {
+      view_observations_.AddObservation(child);
+    }
+  }
+  void OnViewBoundsChanged(views::View* observed_view) override {
+    ui::Layer* layer = observed_view->layer();
+    if (observed_view != side_panel_ && layer) {
+      gfx::Rect clip_bounds = observed_view->GetVisibleBounds();
+      // Let side panel grow slightly taller so that it overlaps the divider
+      // into the toolbar or bookmarks bar above it.
+      // TODO: Explore extending the side panel bounds directly in
+      // BrowserViewLayout.
+      clip_bounds.Inset(
+          gfx::Insets::TLBR(-views::Separator::kThickness, 0, 0, 0));
+      layer->SetClipRect(clip_bounds);
+      layer->SetVisible(clip_bounds.width() != 0);
+    }
+  }
+  void OnViewIsDeleting(views::View* observed_view) override {
+    view_observations_.RemoveObservation(observed_view);
+  }
+
+ private:
+  // Owns this.
+  const raw_ptr<SidePanel> side_panel_;
+
+  base::ScopedMultiSourceObservation<views::View, views::ViewObserver>
+      view_observations_{this};
+};
+
 SidePanel::SidePanel(BrowserView* browser_view,
                      HorizontalAlignment horizontal_alignment)
     : views::AnimationDelegateViews(this),
       browser_view_(browser_view),
       horizontal_alignment_(horizontal_alignment) {
+  if (lens::features::IsLensOverlayEnabled()) {
+    visible_bounds_view_clipper_ =
+        std::make_unique<VisibleBoundsViewClipper>(this);
+  }
   std::unique_ptr<BorderView> border_view =
       std::make_unique<BorderView>(browser_view);
   border_view_ = border_view.get();
@@ -316,10 +363,7 @@ void SidePanel::AddHeaderView(std::unique_ptr<views::View> view) {
   static_cast<BorderView*>(border_view_)->HeaderViewChanged(header_view_);
   // Update the border so that the insets include space for the header to be
   // placed on top of the border.
-  int top_inset = header_view_->height();
-  if (features::IsSidePanelPinningEnabled()) {
-    top_inset -= GetBorderThickness();
-  }
+  int top_inset = header_view_->height() - GetBorderThickness();
   SetBorder(views::CreateEmptyBorder(GetBorderInsets() +
                                      gfx::Insets::TLBR(top_inset, 0, 0, 0)));
 }
@@ -447,7 +491,9 @@ void SidePanel::RecordMetricsIfResized() {
     std::optional<SidePanelEntry::Id> id =
         SidePanelUI::GetSidePanelUIForBrowser(browser_view_->browser())
             ->GetCurrentEntryId();
-    CHECK(id.has_value());
+    if (!id.has_value()) {
+      return;
+    }
     int side_panel_contents_width = width() - GetBorderInsets().width();
     int browser_window_width = browser_view_->width();
     SidePanelUtil::RecordSidePanelResizeMetrics(
@@ -499,10 +545,7 @@ void SidePanel::UpdateVisibility() {
       border_view_->layer()->SetFillsBoundsOpaquely(false);
       if (header_view_) {
         static_cast<BorderView*>(border_view_)->HeaderViewChanged(header_view_);
-        int top_inset = header_view_->height();
-        if (features::IsSidePanelPinningEnabled()) {
-          top_inset -= GetBorderThickness();
-        }
+        int top_inset = header_view_->height() - GetBorderThickness();
         SetBorder(views::CreateEmptyBorder(
             GetBorderInsets() + gfx::Insets::TLBR(top_inset, 0, 0, 0)));
       }

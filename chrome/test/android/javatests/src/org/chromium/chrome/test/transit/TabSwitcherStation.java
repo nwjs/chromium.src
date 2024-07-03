@@ -16,6 +16,7 @@ import static org.hamcrest.CoreMatchers.either;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertTrue;
 
+import static org.chromium.base.test.transit.Condition.whether;
 import static org.chromium.base.test.transit.LogicalElement.uiThreadLogicalElement;
 import static org.chromium.base.test.transit.ViewElement.sharedViewElement;
 
@@ -26,18 +27,16 @@ import androidx.annotation.CallSuper;
 import org.hamcrest.Matcher;
 
 import org.chromium.base.test.transit.ActivityElement;
+import org.chromium.base.test.transit.ConditionStatus;
 import org.chromium.base.test.transit.Elements;
 import org.chromium.base.test.transit.Station;
-import org.chromium.base.test.transit.Trip;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.base.test.util.ViewActionOnDescendant;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.hub.HubFieldTrial;
-import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridView;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ToolbarTestUtils;
 
@@ -94,18 +93,15 @@ public abstract class TabSwitcherStation extends Station {
                                     withParent(instanceOf(TabGridView.class)))),
                     isDisplayed());
 
-    protected final ChromeTabbedActivityTestRule mChromeTabbedActivityTestRule;
     protected final boolean mIsIncognito;
     protected ActivityElement<ChromeTabbedActivity> mActivityElement;
     protected TabModelSelectorCondition mTabModelSelectorCondition;
 
     /** Instantiate one of the subclasses instead. */
-    protected TabSwitcherStation(
-            ChromeTabbedActivityTestRule chromeTabbedActivityTestRule, boolean incognito) {
+    protected TabSwitcherStation(boolean incognito) {
         super();
 
         assert !HubFieldTrial.isHubEnabled();
-        mChromeTabbedActivityTestRule = chromeTabbedActivityTestRule;
         mIsIncognito = incognito;
     }
 
@@ -121,7 +117,9 @@ public abstract class TabSwitcherStation extends Station {
 
         elements.declareLogicalElement(
                 uiThreadLogicalElement(
-                        "LayoutManager is showing TAB_SWITCHER", this::isTabSwitcherLayoutShowing));
+                        "LayoutManager is showing TAB_SWITCHER",
+                        this::isTabSwitcherLayoutShowing,
+                        mActivityElement));
     }
 
     public PageStation openNewTab() {
@@ -129,12 +127,11 @@ public abstract class TabSwitcherStation extends Station {
 
         PageStation page =
                 PageStation.newPageStationBuilder()
-                        .withActivityTestRule(mChromeTabbedActivityTestRule)
                         .withIncognito(mIsIncognito)
                         .withIsOpeningTabs(1)
                         .withIsSelectingTabs(1)
                         .build();
-        return Trip.travelSync(this, page, () -> TOOLBAR_NEW_TAB_BUTTON.perform(click()));
+        return travelToSync(page, () -> TOOLBAR_NEW_TAB_BUTTON.perform(click()));
     }
 
     public <T extends TabSwitcherStation> T closeTabAtIndex(
@@ -153,17 +150,12 @@ public abstract class TabSwitcherStation extends Station {
 
         T tabSwitcher;
         if (landInIncognitoSwitcher) {
-            tabSwitcher =
-                    expectedDestinationType.cast(
-                            new IncognitoTabSwitcherStation(mChromeTabbedActivityTestRule));
+            tabSwitcher = expectedDestinationType.cast(new IncognitoTabSwitcherStation());
         } else {
-            tabSwitcher =
-                    expectedDestinationType.cast(
-                            new RegularTabSwitcherStation(mChromeTabbedActivityTestRule));
+            tabSwitcher = expectedDestinationType.cast(new RegularTabSwitcherStation());
         }
 
-        return Trip.travelSync(
-                this,
+        return travelToSync(
                 tabSwitcher,
                 () ->
                         ViewActionOnDescendant.performOnRecyclerViewNthItemDescendant(
@@ -173,31 +165,19 @@ public abstract class TabSwitcherStation extends Station {
     public PageStation selectTabAtIndex(int index) {
         PageStation page =
                 PageStation.newPageStationBuilder()
-                        .withActivityTestRule(mChromeTabbedActivityTestRule)
                         .withIncognito(mIsIncognito)
                         .withIsOpeningTabs(0)
                         .withIsSelectingTabs(1)
                         .build();
 
-        return Trip.travelSync(
-                this,
+        return travelToSync(
                 page,
                 () ->
                         ViewActionOnDescendant.performOnRecyclerViewNthItemDescendant(
                                 RECYCLER_VIEW.getViewMatcher(), index, TAB_THUMBNAIL, click()));
     }
 
-    private boolean isHubDisabled() {
-        return !HubFieldTrial.isHubEnabled();
-    }
-
-    private boolean isTabSwitcherLayoutShowing() {
-        ChromeTabbedActivity activity = mActivityElement.get();
-        if (activity == null) {
-            return false;
-        }
-        LayoutManager layoutManager = activity.getLayoutManager();
-        // TODO: Use #isLayoutFinishedShowing(LayoutType.TAB_SWITCHER) once available.
-        return layoutManager.isLayoutVisible(LayoutType.TAB_SWITCHER);
+    private ConditionStatus isTabSwitcherLayoutShowing(ChromeTabbedActivity activity) {
+        return whether(activity.getLayoutManager().isLayoutVisible(LayoutType.TAB_SWITCHER));
     }
 }

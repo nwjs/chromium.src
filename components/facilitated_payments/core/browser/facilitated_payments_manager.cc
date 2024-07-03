@@ -8,11 +8,11 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/check_deref.h"
 #include "base/functional/callback_helpers.h"
 #include "components/autofill/core/browser/data_model/bank_account.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
-#include "components/autofill/core/browser/personal_data_manager.h"
-#include "components/facilitated_payments/core/browser/facilitated_payments_api_client.h"
+#include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_client.h"
 #include "components/facilitated_payments/core/browser/network_api/facilitated_payments_network_interface.h"
 #include "components/facilitated_payments/core/features/features.h"
@@ -26,8 +26,8 @@ FacilitatedPaymentsManager::FacilitatedPaymentsManager(
     FacilitatedPaymentsClient* client,
     std::unique_ptr<FacilitatedPaymentsApiClient> api_client,
     optimization_guide::OptimizationGuideDecider* optimization_guide_decider)
-    : driver_(*driver),
-      client_(*client),
+    : driver_(CHECK_DEREF(driver)),
+      client_(CHECK_DEREF(client)),
       api_client_(std::move(api_client)),
       optimization_guide_decider_(optimization_guide_decider),
       initiate_payment_request_details_(
@@ -140,17 +140,7 @@ void FacilitatedPaymentsManager::ProcessPixCodeDetectionResult(
           base::FeatureList::IsEnabled(kEnablePixDetectionOnDomContentLoaded))
       .Record(ukm::UkmRecorder::Get());
 
-  // If a valid PIX code is found, and the user has Google wallet linked PIX
-  // accounts, verify that the payments API is available, and then show the PIX
-  // payment prompt.
-  auto* personal_data_manager = client_->GetPersonalDataManager();
-  if (!personal_data_manager) {
-    Reset();
-    return;
-  }
-  if (result != mojom::PixCodeDetectionResult::kValidPixCodeFound ||
-      !personal_data_manager->payments_data_manager().HasMaskedBankAccounts() ||
-      !base::FeatureList::IsEnabled(kEnablePixPayments)) {
+  if (result != mojom::PixCodeDetectionResult::kValidPixCodeFound) {
     Reset();
     return;
   }
@@ -177,8 +167,20 @@ void FacilitatedPaymentsManager::OnPixCodeValidated(
     return;
   }
 
+  // If a valid PIX code is found, and the user has Google wallet linked PIX
+  // accounts, verify that the payments API is available, and then show the PIX
+  // payment prompt.
+  auto* payments_data_manager = client_->GetPaymentsDataManager();
+  if (!payments_data_manager ||
+      !payments_data_manager->IsFacilitatedPaymentsPixUserPrefEnabled() ||
+      !payments_data_manager->HasMaskedBankAccounts() ||
+      !base::FeatureList::IsEnabled(kEnablePixPayments)) {
+    Reset();
+    return;
+  }
+
   initiate_payment_request_details_->pix_code_ = std::move(pix_code);
-  api_availability_check_latency_ = base::TimeTicks::Now();
+  api_availability_check_start_time_ = base::TimeTicks::Now();
   api_client_->IsAvailable(
       base::BindOnce(&FacilitatedPaymentsManager::OnApiAvailabilityReceived,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -196,20 +198,21 @@ int64_t FacilitatedPaymentsManager::GetPixCodeDetectionLatencyInMillis() const {
 
 void FacilitatedPaymentsManager::OnApiAvailabilityReceived(
     bool is_api_available) {
-  LogIsApiAvailableResult(is_api_available, (base::TimeTicks::Now() -
-                                             api_availability_check_latency_));
+  LogIsApiAvailableResult(
+      is_api_available,
+      (base::TimeTicks::Now() - api_availability_check_start_time_));
   if (!is_api_available) {
     LogPaymentNotOfferedReason(PaymentNotOfferedReason::kApiNotAvailable);
     Reset();
     return;
   }
 
-  // If the personal data manager isn't available, then the flow should have
+  // If the payments data manager isn't available, then the flow should have
   // been abandoned already in `ProcessPixCodeDetectionResult`.
-  CHECK(client_->GetPersonalDataManager());
+  CHECK(client_->GetPaymentsDataManager());
   initiate_payment_request_details_->billing_customer_number_ =
       autofill::payments::GetBillingCustomerId(
-          client_->GetPersonalDataManager());
+          client_->GetPaymentsDataManager());
   // Before showing the payment prompt, load the risk data required for
   // initiating payment request. The risk data is collected once per page load
   // if a PIX code was detected.
@@ -219,12 +222,11 @@ void FacilitatedPaymentsManager::OnApiAvailabilityReceived(
                        weak_ptr_factory_.GetWeakPtr()));
   }
 
-  client_->ShowPixPaymentPrompt(
-      client_->GetPersonalDataManager()
-          ->payments_data_manager()
-          .GetMaskedBankAccounts(),
+  bool promptShown = client_->ShowPixPaymentPrompt(
+      client_->GetPaymentsDataManager()->GetMaskedBankAccounts(),
       base::BindOnce(&FacilitatedPaymentsManager::OnPixPaymentPromptResult,
                      weak_ptr_factory_.GetWeakPtr()));
+  LogFopSelectorShown(promptShown);
 }
 
 void FacilitatedPaymentsManager::OnRiskDataLoaded(
@@ -252,7 +254,7 @@ void FacilitatedPaymentsManager::OnPixPaymentPromptResult(
     return;
   }
   initiate_payment_request_details_->instrument_id_ = selected_instrument_id;
-  get_client_token_loading_latency_ = base::TimeTicks::Now();
+  get_client_token_loading_start_time_ = base::TimeTicks::Now();
   api_client_->GetClientToken(
       base::BindOnce(&FacilitatedPaymentsManager::OnGetClientToken,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -262,7 +264,7 @@ void FacilitatedPaymentsManager::OnGetClientToken(
     std::vector<uint8_t> client_token) {
   LogGetClientTokenResult(
       !client_token.empty(),
-      (base::TimeTicks::Now() - get_client_token_loading_latency_));
+      (base::TimeTicks::Now() - get_client_token_loading_start_time_));
   if (client_token.empty()) {
     Reset();
     return;
@@ -275,6 +277,7 @@ void FacilitatedPaymentsManager::OnGetClientToken(
 }
 
 void FacilitatedPaymentsManager::SendInitiatePaymentRequest() {
+  initiate_payment_network_start_time_ = base::TimeTicks::Now();
   if (FacilitatedPaymentsNetworkInterface* payments_network_interface =
           client_->GetFacilitatedPaymentsNetworkInterface()) {
     payments_network_interface->InitiatePayment(
@@ -282,7 +285,7 @@ void FacilitatedPaymentsManager::SendInitiatePaymentRequest() {
         base::BindOnce(
             &FacilitatedPaymentsManager::OnInitiatePaymentResponseReceived,
             weak_ptr_factory_.GetWeakPtr()),
-        client_->GetPersonalDataManager()->app_locale());
+        client_->GetPaymentsDataManager()->app_locale());
   }
 }
 
@@ -290,8 +293,41 @@ void FacilitatedPaymentsManager::OnInitiatePaymentResponseReceived(
     autofill::AutofillClient::PaymentsRpcResult result,
     std::unique_ptr<FacilitatedPaymentsInitiatePaymentResponseDetails>
         response_details) {
-  // TODO(b/300334855): Send the action token from the InitiatePayment response
-  // into the purchase manager.
+  base::TimeDelta latency =
+      base::TimeTicks::Now() - initiate_payment_network_start_time_;
+  if (result != autofill::AutofillClient::PaymentsRpcResult::kSuccess) {
+    // TODO(b/300335703): Show the error message.
+    LogInitiatePaymentResult(/*result=*/false, latency);
+    Reset();
+    return;
+  }
+  LogInitiatePaymentResult(/*result=*/true, latency);
+  DCHECK(response_details);
+  if (response_details->action_token_.empty()) {
+    Reset();
+    return;
+  }
+  std::optional<CoreAccountInfo> account_info = client_->GetCoreAccountInfo();
+  // If the user logged out after selecting the payment method, the
+  // `account_info` would be empty, and the `FacilitatedPaymentsManager` should
+  // abandon the payment flow.
+  if (!account_info.has_value() || account_info.value().IsEmpty()) {
+    Reset();
+    return;
+  }
+  purchase_action_start_time_ = base::TimeTicks::Now();
+  api_client_->InvokePurchaseAction(
+      account_info.value(), response_details->action_token_,
+      base::BindOnce(&FacilitatedPaymentsManager::OnPurchaseActionResult,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void FacilitatedPaymentsManager::OnPurchaseActionResult(
+    FacilitatedPaymentsApiClient::PurchaseActionResult result) {
+  LogInitiatePurchaseActionResult(
+      /*result=*/result ==
+          FacilitatedPaymentsApiClient::PurchaseActionResult::kResultOk,
+      base::TimeTicks::Now() - purchase_action_start_time_);
 }
 
 void FacilitatedPaymentsManager::ResetForTesting() {

@@ -24,6 +24,7 @@
 #include "media/gpu/v4l2/stateless/vp8_delegate.h"
 #include "media/gpu/v4l2/stateless/vp9_delegate.h"
 #include "media/gpu/v4l2/v4l2_status.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 
 // Logging for the decoder is following this convention:
 //
@@ -199,15 +200,17 @@ void V4L2StatelessVideoDecoder::Initialize(const VideoDecoderConfig& config,
     return;
   }
 
-  if (!CreateDecoder(config.profile(), config.color_space_info())) {
+  aspect_ratio_ = config.aspect_ratio();
+  profile_ = config.profile();
+  color_space_info_ = config.color_space_info();
+
+  if (!CreateDecoder()) {
     std::move(init_cb).Run(
         DecoderStatus(DecoderStatus::Codes::kNotInitialized)
             .AddCause(
                 V4L2Status(V4L2Status::Codes::kNoDriverSupportForFourcc)));
     return;
   }
-
-  aspect_ratio_ = config.aspect_ratio();
 
   resolution_changing_ = false;
 
@@ -218,6 +221,7 @@ void V4L2StatelessVideoDecoder::Initialize(const VideoDecoderConfig& config,
 void V4L2StatelessVideoDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
                                        DecodeCB decode_cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(decoder_sequence_checker_);
+  CHECK(decoder_);
   DVLOGF(4) << buffer->AsHumanReadableString(/*verbose=*/false);
 
   const int32_t bitstream_id =
@@ -242,14 +246,34 @@ void V4L2StatelessVideoDecoder::Reset(base::OnceClosure reset_cb) {
 
   // In order to preserve the order of the callbacks between Decode() and
   // Reset(), we also trampoline |reset_cb|.
-  base::ScopedClosureRunner scoped_trampoline_reset_cb(
-      base::BindOnce(base::IgnoreResult(&base::SequencedTaskRunner::PostTask),
-                     base::SequencedTaskRunner::GetCurrentDefault(), FROM_HERE,
-                     std::move(reset_cb)));
+  absl::Cleanup scoped_trampoline_reset_cb =
+      [reset_cb = std::move(reset_cb)]() mutable {
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE, std::move(reset_cb));
+      };
 
+  // Order is important. Reset() the |decoder_| and ClearPendingRequests() so
+  // that the reference frames are freed. This allows for the buffers allocated
+  // by the driver to be returned. Doing so also prepares for the resolution
+  // change to continue if it was interrupted.
   decoder_->Reset();
-
   ClearPendingRequests(DecoderStatus::Codes::kAborted);
+
+  // If a reset occurs during a resolution change, followed by a reset before
+  // the resolution change is done the pipeline may not signal that
+  // ApplyResolutionChange() should occur. The |client_| will check that there
+  // are no outstanding frames. Because the previous resolution change is stuck
+  // waiting for the queues to clear out, the |client_| will not call
+  // ApplyResolution() so it is pinged from here.
+  if (resolution_changing_) {
+    ApplyResolutionChange();
+  }
+
+  // It isn't enough to just decoder_->Reset() some delegates. The backing
+  // parser may not be able to recover from an error. This is done after
+  // the resolution change so that all servicing of the |request_queue_| has
+  // been completed.
+  CreateDecoder();
 
   // If the reset happened in the middle of a flush the flush will not be
   // completed.
@@ -259,31 +283,64 @@ void V4L2StatelessVideoDecoder::Reset(base::OnceClosure reset_cb) {
 }
 
 bool V4L2StatelessVideoDecoder::NeedsBitstreamConversion() const {
-  NOTREACHED() << "Our only owner VideoDecoderPipeline never calls here";
+  NOTREACHED_IN_MIGRATION()
+      << "Our only owner VideoDecoderPipeline never calls here";
   return false;
 }
 
 bool V4L2StatelessVideoDecoder::CanReadWithoutStalling() const {
-  NOTREACHED() << "Our only owner VideoDecoderPipeline never calls here";
+  NOTREACHED_IN_MIGRATION()
+      << "Our only owner VideoDecoderPipeline never calls here";
   return false;
 }
 
 int V4L2StatelessVideoDecoder::GetMaxDecodeRequests() const {
-  NOTREACHED() << "Our only owner VideoDecoderPipeline never calls here";
+  NOTREACHED_IN_MIGRATION()
+      << "Our only owner VideoDecoderPipeline never calls here";
   return -1;
 }
 
 VideoDecoderType V4L2StatelessVideoDecoder::GetDecoderType() const {
-  NOTREACHED() << "Our only owner VideoDecoderPipeline never calls here";
+  NOTREACHED_IN_MIGRATION()
+      << "Our only owner VideoDecoderPipeline never calls here";
   return VideoDecoderType::kV4L2;
 }
 
 bool V4L2StatelessVideoDecoder::IsPlatformDecoder() const {
-  NOTREACHED() << "Our only owner VideoDecoderPipeline never calls here";
+  NOTREACHED_IN_MIGRATION()
+      << "Our only owner VideoDecoderPipeline never calls here";
   return true;
 }
 
 void V4L2StatelessVideoDecoder::ApplyResolutionChange() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(decoder_sequence_checker_);
+  DVLOGF(3);
+
+  if (!resolution_changing_) {
+    return;
+  }
+
+  // Before a resolution change occurs all of the buffers in flight need to be
+  // cleaned up.
+  if ((input_queue_ && input_queue_->OutstandingBuffers()) ||
+      (output_queue_ && output_queue_->OutstandingBuffers()) ||
+      !display_queue_.empty()) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&V4L2StatelessVideoDecoder::ApplyResolutionChange,
+                       weak_ptr_factory_for_events_.GetWeakPtr()),
+        base::Milliseconds(1));
+    return;
+  }
+
+  // Always tear down the |output_queue_| because the size of the output buffers
+  // has changed.
+  output_queue_.reset();
+
+  ConfigureInputQueue();
+}
+
+void V4L2StatelessVideoDecoder::ConfigureInputQueue() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(decoder_sequence_checker_);
   DVLOGF(3);
 
@@ -297,28 +354,10 @@ void V4L2StatelessVideoDecoder::ApplyResolutionChange() {
     }
   }
 
-  // Always tear down the |output_queue_| because the size of the output buffers
-  // has changed.
-  output_queue_.reset();
-
-  // The driver can be busy cleaning up the resources that were freed up by
-  // resetting the queues. This delayed task allows for any messages resulting
-  // from the queue teardown to be serviced.
-  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&V4L2StatelessVideoDecoder::ContinueApplyResolutionChange,
-                     weak_ptr_factory_for_events_.GetWeakPtr()),
-      base::Milliseconds(1));
-}
-
-void V4L2StatelessVideoDecoder::ContinueApplyResolutionChange() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(decoder_sequence_checker_);
-  DVLOGF(3);
-
-  // TODO(frkoenig): There only needs to be a single buffer in order to
-  // decode. This should be investigated later to see if additional buffers
-  // provide better performance.
-  constexpr size_t kInputBuffers = 1;
+  // There only needs to be a single buffer in order for the client to decode.
+  // Profiling shows a large performance increase from 1 -> 2 and diminishing
+  // returns as the buffer count increases.
+  constexpr size_t kInputBuffers = 4;
 
   if (!input_queue_) {
     const VideoCodec codec =
@@ -338,6 +377,52 @@ void V4L2StatelessVideoDecoder::ContinueApplyResolutionChange() {
     ClearPendingRequests(DecoderStatus::Codes::kPlatformDecodeFailure);
     input_queue_.reset();
   }
+}
+
+bool V4L2StatelessVideoDecoder::ConfigureOutputQueue(void* ctrls) {
+  // The header needs to be parsed before the video resolution and format
+  // can be decided.
+  if (!request_queue_->SetHeadersForFormatNegotiation(ctrls)) {
+    LogError(media_log_,
+             "Failure to send the header necessary for output queue "
+             "instantiation.");
+    return false;
+  }
+
+  output_queue_ = OutputQueue::Create(device_);
+  if (!output_queue_) {
+    LogError(media_log_, "Unable to create an output queue.");
+    return false;
+  }
+
+  // There needs to be two additional buffers. One for the video frame being
+  // decoded, and one for our client (presumably an ImageProcessor).
+  constexpr size_t kAdditionalOutputBuffers = 2;
+  const size_t num_buffers =
+      decoder_->GetNumReferenceFrames() + kAdditionalOutputBuffers;
+  // Verify |num_buffers| has a reasonable value. Anecdotally
+  // 16 is the largest amount of reference frames seen, on an ITU-T H.264 test
+  // vector (CAPCM*1_Sand_E.h264).
+  CHECK_LE(num_buffers, 32u);
+  if (!output_queue_->PrepareBuffers(num_buffers)) {
+    LogError(media_log_, "Unable to prepare output buffers.");
+    return false;
+  }
+
+  const CroStatus status = SetupOutputFormatForPipeline();
+  if (status != CroStatus::Codes::kOk) {
+    if (status == CroStatus::Codes::kResetRequired) {
+      ClearPendingRequests(DecoderStatus::Codes::kAborted);
+    }
+    return false;
+  }
+
+  if (!output_queue_->StartStreaming()) {
+    LogError(media_log_, "Unable to start streaming on the output queue.");
+    return false;
+  }
+
+  return true;
 }
 
 size_t V4L2StatelessVideoDecoder::GetMaxOutputFramePoolSize() const {
@@ -395,41 +480,9 @@ bool V4L2StatelessVideoDecoder::SubmitFrame(
   DVLOGF(4);
 
   if (!output_queue_) {
-    // The header needs to be parsed before the video resolution and format
-    // can be decided.
-    if (!request_queue_->SetHeadersForFormatNegotiation(ctrls)) {
-      LogError(media_log_,
-               "Failure to send the header necessary for output queue "
-               "instantiation.");
+    if (!ConfigureOutputQueue(ctrls)) {
+      output_queue_.reset();
       return false;
-    }
-
-    output_queue_ = OutputQueue::Create(device_);
-    if (!output_queue_) {
-      LogError(media_log_, "Unable to create an output queue.");
-      return false;
-    }
-
-    // There needs to be two additional buffers. One for the video frame being
-    // decoded, and one for our client (presumably an ImageProcessor).
-    constexpr size_t kAdditionalOutputBuffers = 2;
-    const size_t num_buffers =
-        decoder_->GetNumReferenceFrames() + kAdditionalOutputBuffers;
-    // Verify |num_buffers| has a reasonable value. Anecdotally
-    // 16 is the largest amount of reference frames seen, on an ITU-T H.264 test
-    // vector (CAPCM*1_Sand_E.h264).
-    CHECK_LE(num_buffers, 32u);
-    if (!output_queue_->PrepareBuffers(num_buffers)) {
-      LogError(media_log_, "Unable to prepare output buffers.");
-      return false;
-    }
-
-    if (!SetupOutputFormatForPipeline()) {
-      return false;
-    }
-
-    if (!output_queue_->StartStreaming()) {
-      LogError(media_log_, "Unable to start streaming on the output queue.");
     }
   }
 
@@ -562,40 +615,40 @@ void V4L2StatelessVideoDecoder::ServiceDisplayQueue() {
   }
 }
 
-bool V4L2StatelessVideoDecoder::CreateDecoder(VideoCodecProfile profile,
-                                              VideoColorSpace color_space) {
+bool V4L2StatelessVideoDecoder::CreateDecoder() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(decoder_sequence_checker_);
   DVLOGF(3);
 
-  switch (VideoCodecProfileToVideoCodec(profile)) {
+  switch (VideoCodecProfileToVideoCodec(profile_)) {
 #if BUILDFLAG(IS_CHROMEOS)
     case VideoCodec::kAV1:
       decoder_ = std::make_unique<AV1Decoder>(
-          std::make_unique<AV1Delegate>(this), profile, color_space);
+          std::make_unique<AV1Delegate>(this), profile_, color_space_info_);
       break;
 #endif
     case VideoCodec::kH264:
       decoder_ = std::make_unique<H264Decoder>(
-          std::make_unique<H264Delegate>(this), profile, color_space);
+          std::make_unique<H264Delegate>(this), profile_, color_space_info_);
       break;
 #if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
     case VideoCodec::kHEVC:
       decoder_ = std::make_unique<H265Decoder>(
-          std::make_unique<H265Delegate>(this), profile, color_space);
+          std::make_unique<H265Delegate>(this), profile_, color_space_info_);
       break;
 #endif
     case VideoCodec::kVP8:
       decoder_ = std::make_unique<VP8Decoder>(
-          std::make_unique<VP8Delegate>(this), color_space);
+          std::make_unique<VP8Delegate>(this), color_space_info_);
       break;
     case VideoCodec::kVP9:
       decoder_ = std::make_unique<VP9Decoder>(
           std::make_unique<VP9Delegate>(
               this, device_->IsCompressedVP9HeaderSupported()),
-          profile, color_space);
+          profile_, color_space_info_);
       break;
     default:
-      LogError(media_log_, GetCodecName(VideoCodecProfileToVideoCodec(profile)),
+      LogError(media_log_,
+               GetCodecName(VideoCodecProfileToVideoCodec(profile_)),
                " not supported.");
       return false;
   }
@@ -603,7 +656,7 @@ bool V4L2StatelessVideoDecoder::CreateDecoder(VideoCodecProfile profile,
   return true;
 }
 
-bool V4L2StatelessVideoDecoder::SetupOutputFormatForPipeline() {
+CroStatus V4L2StatelessVideoDecoder::SetupOutputFormatForPipeline() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(decoder_sequence_checker_);
   DVLOGF(3);
   DCHECK(output_queue_);
@@ -638,10 +691,10 @@ bool V4L2StatelessVideoDecoder::SetupOutputFormatForPipeline() {
              output_queue_->GetQueueFormat().ToString(),
              " format with a resolution of ",
              output_queue_->GetVideoResolution().ToString());
-    return false;
+    return std::move(status_or_output_format).error().code();
   }
 
-  return true;
+  return CroStatus::Codes::kOk;
 }
 
 void V4L2StatelessVideoDecoder::DequeueBuffers(bool success) {
@@ -734,7 +787,7 @@ void V4L2StatelessVideoDecoder::ClearPendingRequests(DecoderStatus status) {
 void V4L2StatelessVideoDecoder::ServiceDecodeRequestQueue() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(decoder_sequence_checker_);
   DVLOGF(5);
-  DCHECK(decoder_);
+  CHECK(decoder_);
 
   // Prevent further processing of encoded chunks until the resolution change
   // event is done.
@@ -817,7 +870,7 @@ void V4L2StatelessVideoDecoder::ServiceDecodeRequestQueue() {
         return;
       case AcceleratedVideoDecoder::kDecodeError:
         LogError(media_log_, "AcceleratedVideoDecoder::Decode() failed.");
-        ClearPendingRequests(DecoderStatus::Codes::kPlatformDecodeFailure);
+        ClearPendingRequests(DecoderStatus::Codes::kFailed);
         return;
       case AcceleratedVideoDecoder::kTryAgain:
         // Will be needed for h.264 CENCv1

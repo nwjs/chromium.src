@@ -490,7 +490,7 @@ class DeskBarHoverObserver : public ui::EventObserver {
         break;
 
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -523,6 +523,7 @@ DeskBarViewBase::DeskBarViewBase(aura::Window* root, Type type)
   scroll_view_->SetHorizontalScrollBarMode(
       views::ScrollView::ScrollBarMode::kHiddenButEnabled);
   scroll_view_->SetTreatAllScrollEventsAsHorizontal(true);
+  scroll_view_->SetAllowKeyboardScrolling(false);
 
   left_scroll_button_ = AddChildView(std::make_unique<ScrollArrowButton>(
       base::BindRepeating(&DeskBarViewBase::ScrollToPreviousPage,
@@ -680,8 +681,8 @@ std::unique_ptr<views::Widget> DeskBarViewBase::CreateDeskWidget(
 
   std::unique_ptr<views::Widget> widget = std::make_unique<views::Widget>();
   views::Widget::InitParams params(
+      views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.activatable = views::Widget::InitParams::Activatable::kYes;
   params.accept_events = true;
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
@@ -710,11 +711,8 @@ std::unique_ptr<views::Widget> DeskBarViewBase::CreateDeskWidget(
   }
 
   widget->Init(std::move(params));
-
-  auto* window = widget->GetNativeWindow();
-  window->SetId(kShellWindowId_DesksBarWindow);
-  wm::SetWindowVisibilityAnimationTransition(window, wm::ANIMATE_NONE);
-
+  wm::SetWindowVisibilityAnimationTransition(widget->GetNativeWindow(),
+                                             wm::ANIMATE_NONE);
   return widget;
 }
 
@@ -953,6 +951,8 @@ void DeskBarViewBase::UpdateLibraryButtonVisibility() {
     if (type_ == Type::kOverview &&
         overview_grid_->IsShowingSavedDeskLibrary()) {
       library_button_->UpdateState(DeskIconButton::State::kActive);
+    } else if (state_ == State::kZero) {
+      library_button_->UpdateState(DeskIconButton::State::kZero);
     } else {
       library_button_->UpdateState(DeskIconButton::State::kExpanded);
     }
@@ -1105,7 +1105,7 @@ void DeskBarViewBase::HandleDragEvent(DeskMiniView* mini_view,
       ContinueDragDesk(mini_view, location);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -1131,7 +1131,7 @@ bool DeskBarViewBase::HandleReleaseEvent(DeskMiniView* mini_view,
       EndDragDesk(drag_view_, /*end_by_user=*/true);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   return true;
 }

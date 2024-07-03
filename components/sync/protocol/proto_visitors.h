@@ -16,7 +16,6 @@
 #include "components/sync/protocol/autofill_wallet_usage_specifics.pb.h"
 #include "components/sync/protocol/bookmark_specifics.pb.h"
 #include "components/sync/protocol/collaboration_group_specifics.pb.h"
-#include "components/sync/protocol/compare_specifics.pb.h"
 #include "components/sync/protocol/contact_info_specifics.pb.h"
 #include "components/sync/protocol/cookie_specifics.pb.h"
 #include "components/sync/protocol/data_type_progress_marker.pb.h"
@@ -38,12 +37,14 @@
 #include "components/sync/protocol/password_sharing_invitation_specifics.pb.h"
 #include "components/sync/protocol/password_specifics.pb.h"
 #include "components/sync/protocol/persisted_entity_data.pb.h"
+#include "components/sync/protocol/plus_address_setting_specifics.pb.h"
 #include "components/sync/protocol/plus_address_specifics.pb.h"
 #include "components/sync/protocol/power_bookmark_specifics.pb.h"
 #include "components/sync/protocol/preference_specifics.pb.h"
 #include "components/sync/protocol/printer_specifics.pb.h"
 #include "components/sync/protocol/printers_authorization_server_specifics.pb.h"
 #include "components/sync/protocol/priority_preference_specifics.pb.h"
+#include "components/sync/protocol/product_comparison_specifics.pb.h"
 #include "components/sync/protocol/proto_enum_conversions.h"
 #include "components/sync/protocol/proto_value_conversions.h"
 #include "components/sync/protocol/reading_list_specifics.pb.h"
@@ -56,6 +57,7 @@
 #include "components/sync/protocol/sync.pb.h"
 #include "components/sync/protocol/sync_entity.pb.h"
 #include "components/sync/protocol/sync_invalidations_payload.pb.h"
+#include "components/sync/protocol/tab_group_attribution_metadata.pb.h"
 #include "components/sync/protocol/theme_specifics.pb.h"
 #include "components/sync/protocol/typed_url_specifics.pb.h"
 #include "components/sync/protocol/unique_position.pb.h"
@@ -348,7 +350,7 @@ VISIT_PROTO_FIELDS(const sync_pb::ComparisonData& proto) {
   VISIT(url);
 }
 
-VISIT_PROTO_FIELDS(const sync_pb::CompareSpecifics& proto) {
+VISIT_PROTO_FIELDS(const sync_pb::ProductComparisonSpecifics& proto) {
   VISIT(uuid);
   VISIT(creation_time_unix_epoch_micros);
   VISIT(update_time_unix_epoch_micros);
@@ -658,7 +660,7 @@ VISIT_PROTO_FIELDS(
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(52 == GetNumModelTypes(),
+  static_assert(53 == GetNumModelTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -674,7 +676,6 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(autofill_wallet_usage);
   VISIT(bookmark);
   VISIT(collaboration_group);
-  VISIT(compare);
   VISIT(contact_info);
   VISIT(cookie);
   VISIT(device_info);
@@ -691,11 +692,13 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(outgoing_password_sharing_invitation);
   VISIT(password);
   VISIT(plus_address);
+  VISIT(plus_address_setting);
   VISIT(power_bookmark);
   VISIT(preference);
   VISIT(printer);
   VISIT(printers_authorization_server);
   VISIT(priority_preference);
+  VISIT(product_comparison);
   VISIT(reading_list);
   VISIT(saved_tab_group);
   VISIT(search_engine);
@@ -1112,6 +1115,13 @@ VISIT_PROTO_FIELDS(const sync_pb::PersistedEntityData& proto) {
   VISIT(specifics);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::PlusAddressSettingSpecifics& proto) {
+  VISIT(name);
+  VISIT(bool_value);
+  VISIT(string_value);
+  VISIT(int_value);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::PlusAddressSpecifics& proto) {
   VISIT(profile_id);
   VISIT(facet);
@@ -1171,6 +1181,7 @@ VISIT_PROTO_FIELDS(const sync_pb::SavedTabGroupSpecifics& proto) {
   VISIT(update_time_windows_epoch_micros);
   VISIT(group);
   VISIT(tab);
+  VISIT(attribution_metadata);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SavedTabGroup& proto) {
@@ -1185,6 +1196,21 @@ VISIT_PROTO_FIELDS(const sync_pb::SavedTabGroupTab& proto) {
   VISIT(group_guid);
   VISIT(url);
   VISIT(title);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::AttributionMetadata& proto) {
+  VISIT(created);
+  VISIT(updated);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::AttributionMetadata::Attribution& proto) {
+  VISIT(device_info);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::AttributionMetadata::Attribution::AttributionDeviceInfo&
+        proto) {
+  VISIT(cache_guid);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SearchEngineSpecifics& proto) {
@@ -1277,6 +1303,7 @@ VISIT_PROTO_FIELDS(const sync_pb::SharedTabGroupDataSpecifics& proto) {
   VISIT(last_modification_author);
   VISIT(tab_group);
   VISIT(tab);
+  VISIT(update_time_windows_epoch_micros);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SharingMessageSpecifics& proto) {

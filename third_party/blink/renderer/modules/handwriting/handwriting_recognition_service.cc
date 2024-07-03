@@ -50,7 +50,8 @@ void OnCreateHandwritingRecognizer(
     }
   }
 
-  NOTREACHED() << "CreateHandwritingRecognizer returns an invalid result.";
+  NOTREACHED_IN_MIGRATION()
+      << "CreateHandwritingRecognizer returns an invalid result.";
 }
 
 void OnQueryHandwritingRecognizer(
@@ -126,7 +127,7 @@ HandwritingRecognitionService::CreateHandwritingRecognizer(
     const HandwritingModelConstraint* blink_model_constraint,
     ExceptionState& exception_state) {
   if (!BootstrapMojoConnectionIfNeeded(script_state, exception_state)) {
-    return ScriptPromise<HandwritingRecognizer>();
+    return EmptyPromise();
   }
 
   auto* resolver =

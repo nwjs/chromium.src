@@ -32,6 +32,7 @@
 #include "third_party/blink/renderer/core/css/parser/css_supports_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
 #include "third_party/blink/renderer/core/css/parser/css_variable_parser.h"
+#include "third_party/blink/renderer/core/css/parser/find_length_of_declaration_list-inl.h"
 #include "third_party/blink/renderer/core/css/parser/media_query_parser.h"
 #include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
 #include "third_party/blink/renderer/core/css/property_registry.h"
@@ -146,7 +147,7 @@ std::optional<StyleRuleFontFeature::FeatureType> ToStyleRuleFontFeatureType(
     case CSSAtRuleID::kCSSAtRuleAnnotation:
       return StyleRuleFontFeature::FeatureType::kAnnotation;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   return std::nullopt;
 }
@@ -170,8 +171,7 @@ MutableCSSPropertyValueSet::SetResult CSSParserImpl::ParseValue(
   StyleRule::RuleType rule_type = RuleTypeForMutableDeclaration(declaration);
   CSSTokenizer tokenizer(string);
   CSSParserTokenStream stream(tokenizer);
-  CSSTokenizedValue tokenized_value = ConsumeRestrictedPropertyValue(stream);
-  parser.ConsumeDeclarationValue(tokenized_value, unresolved_property,
+  parser.ConsumeDeclarationValue(stream, unresolved_property,
                                  /*is_in_declaration_list=*/false, rule_type);
   if (parser.parsed_properties_.empty()) {
     return MutableCSSPropertyValueSet::kParseError;
@@ -653,7 +653,7 @@ bool CSSParserImpl::ConsumeRuleList(CSSParserTokenStream& stream,
       allowed_rules = kFontFeatureRules;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   bool seen_rule = false;
@@ -921,12 +921,7 @@ StyleRuleBase* CSSParserImpl::ConsumeQualifiedRule(
     }
 
     CSSParserTokenStream::BlockGuard guard(stream);
-    StyleRuleKeyframe* keyframe_style_rule =
-        ConsumeKeyframeStyleRule(prelude, prelude_offset, stream);
-    if (keyframe_style_rule) {
-      context_->ReportLayoutAnimationsViolationIfNeeded(*keyframe_style_rule);
-    }
-    return keyframe_style_rule;
+    return ConsumeKeyframeStyleRule(prelude, prelude_offset, stream);
   }
   if (allowed_rules == kFontFeatureRules) {
     // We get here if something other than an at rule (e.g. @swash,
@@ -939,7 +934,7 @@ StyleRuleBase* CSSParserImpl::ConsumeQualifiedRule(
     return nullptr;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 
@@ -1118,7 +1113,7 @@ StyleRule* CSSParserImpl::CreateImplicitNestedRule(
 
   switch (nesting_type) {
     case CSSNestingType::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
     case CSSNestingType::kNesting:
       // kPseudoParent
@@ -2172,7 +2167,7 @@ StyleRuleFunction* CSSParserImpl::ConsumeFunctionRule(
   }
 
   // Parse the actual returned value.
-  scoped_refptr<CSSVariableData> return_value;
+  CSSVariableData* return_value = nullptr;
   {
     CSSParserTokenStream::Boundary boundary(stream, kSemicolonToken);
     CSSTokenizedValue tokenized_value =
@@ -2191,8 +2186,8 @@ StyleRuleFunction* CSSParserImpl::ConsumeFunctionRule(
   }
 
   return MakeGarbageCollected<StyleRuleFunction>(
-      name.Value().ToAtomicString(), std::move(*parameters),
-      std::move(return_value), std::move(*return_type));
+      name.Value().ToAtomicString(), std::move(*parameters), return_value,
+      std::move(*return_type));
 }
 
 // Parse the parameters of a CSS function: Zero or more comma-separated
@@ -2368,43 +2363,69 @@ StyleRule* CSSParserImpl::ConsumeStyleRule(
   }
 
   DCHECK_EQ(stream.Peek().GetType(), kLeftBraceToken);
-  CSSParserTokenStream::BlockGuard guard(stream);
 
-  if (selector_vector.empty()) {
-    // Parse error, invalid selector list.
-    return nullptr;
-  }
-  if (custom_property_ambiguity) {
-    return nullptr;
-  }
-
-  // TODO(csharrison): How should we lazily parse css that needs the observer?
-  if (!observer_ && lazy_state_) {
-    DCHECK(style_sheet_);
-
-    wtf_size_t block_start_offset = stream.Offset() - 1;  // - 1 for the {.
-    guard.SkipToEndOfBlock();
-    wtf_size_t block_length = stream.Offset() - block_start_offset;
-
-    // Lazy parsing cannot deal with nested rules. We make a very quick check
-    // to see if there could possibly be any in there; if so, we need to go
-    // back to normal (non-lazy) parsing. If that happens, we've wasted some
-    // work; specifically, the SkipToEndOfBlock(), and potentially that we
-    // cannot use the CachedCSSTokenizer if that would otherwise be in use.
-    if (MayContainNestedRules(lazy_state_->SheetText(), block_start_offset,
-                              block_length)) {
-      CSSTokenizer tokenizer(lazy_state_->SheetText(), block_start_offset);
-      CSSParserTokenStream block_stream(tokenizer);
-      CSSParserTokenStream::BlockGuard sub_guard(
-          block_stream);  // Consume the {, and open the block stack.
-      return ConsumeStyleRuleContents(selector_vector, block_stream);
+  if (RuntimeEnabledFeatures::CSSLazyParsingFastPathEnabled()) {
+    if (selector_vector.empty() || custom_property_ambiguity) {
+      // Parse error, invalid selector list or ambiguous custom property.
+      CSSParserTokenStream::BlockGuard guard(stream);
+      return nullptr;
     }
 
-    return StyleRule::Create(selector_vector,
-                             MakeGarbageCollected<CSSLazyPropertyParserImpl>(
+    // TODO(csharrison): How should we lazily parse css that needs the observer?
+    if (!observer_ && lazy_state_) {
+      DCHECK(style_sheet_);
+
+      wtf_size_t len = static_cast<wtf_size_t>(
+          FindLengthOfDeclarationList(StringView(stream.RemainingText(), 1)));
+      if (len != 0) {
+        wtf_size_t block_start_offset = stream.Offset();
+        stream.SkipToEndOfBlock(len + 2);  // +2 for { and }.
+        return StyleRule::Create(
+            selector_vector, MakeGarbageCollected<CSSLazyPropertyParserImpl>(
                                  block_start_offset, lazy_state_));
+      }
+    }
+    CSSParserTokenStream::BlockGuard guard(stream);
+    return ConsumeStyleRuleContents(selector_vector, stream);
+  } else {
+    CSSParserTokenStream::BlockGuard guard(stream);
+
+    if (selector_vector.empty()) {
+      // Parse error, invalid selector list.
+      return nullptr;
+    }
+    if (custom_property_ambiguity) {
+      return nullptr;
+    }
+
+    // TODO(csharrison): How should we lazily parse css that needs the observer?
+    if (!observer_ && lazy_state_) {
+      DCHECK(style_sheet_);
+
+      wtf_size_t block_start_offset = stream.Offset() - 1;  // - 1 for the {.
+      guard.SkipToEndOfBlock();
+      wtf_size_t block_length = stream.Offset() - block_start_offset;
+
+      // Lazy parsing cannot deal with nested rules. We make a very quick check
+      // to see if there could possibly be any in there; if so, we need to go
+      // back to normal (non-lazy) parsing. If that happens, we've wasted some
+      // work; specifically, the SkipToEndOfBlock(), and potentially that we
+      // cannot use the CachedCSSTokenizer if that would otherwise be in use.
+      if (MayContainNestedRules(lazy_state_->SheetText(), block_start_offset,
+                                block_length)) {
+        CSSTokenizer tokenizer(lazy_state_->SheetText(), block_start_offset);
+        CSSParserTokenStream block_stream(tokenizer);
+        CSSParserTokenStream::BlockGuard sub_guard(
+            block_stream);  // Consume the {, and open the block stack.
+        return ConsumeStyleRuleContents(selector_vector, block_stream);
+      }
+
+      return StyleRule::Create(selector_vector,
+                               MakeGarbageCollected<CSSLazyPropertyParserImpl>(
+                                   block_start_offset, lazy_state_));
+    }
+    return ConsumeStyleRuleContents(selector_vector, stream);
   }
-  return ConsumeStyleRuleContents(selector_vector, stream);
 }
 
 StyleRule* CSSParserImpl::ConsumeStyleRuleContents(
@@ -2818,13 +2839,11 @@ bool CSSParserImpl::ConsumeDeclaration(CSSParserTokenStream& stream,
         ConsumeVariableValue(tokenized_value, variable_name, important,
                              is_animation_tainted);
       } else if (unresolved_property != CSSPropertyID::kInvalid) {
-        CSSTokenizedValue tokenized_value =
-            ConsumeRestrictedPropertyValue(stream);
-        if (stream.AtEnd()) {
-          ConsumeDeclarationValue(tokenized_value, unresolved_property,
-                                  /*is_in_declaration_list=*/true, rule_type);
-        }
         if (observer_) {
+          CSSParserTokenStream::State savepoint = stream.Save();
+          ConsumeDeclarationValue(stream, unresolved_property,
+                                  /*is_in_declaration_list=*/true, rule_type);
+
           // The observer would like to know (below) whether this declaration
           // was !important or not. If our parse succeeded, we can just pick it
           // out from the list of properties. If not, we'll need to look at the
@@ -2832,13 +2851,18 @@ bool CSSParserImpl::ConsumeDeclaration(CSSParserTokenStream& stream,
           if (parsed_properties_.size() != properties_count) {
             important = parsed_properties_.back().IsImportant();
           } else {
+            stream.Restore(savepoint);
+            CSSTokenizedValue tokenized_value =
+                ConsumeRestrictedPropertyValue(stream);
             important = RemoveImportantAnnotationIfPresent(tokenized_value);
           }
+        } else {
+          ConsumeDeclarationValue(stream, unresolved_property,
+                                  /*is_in_declaration_list=*/true, rule_type);
         }
       }
     }
   }
-
   if (observer_ &&
       (rule_type == StyleRule::kStyle || rule_type == StyleRule::kKeyframe ||
        rule_type == StyleRule::kProperty ||
@@ -2875,18 +2899,17 @@ void CSSParserImpl::ConsumeVariableValue(
   }
 }
 
-// NOTE: Leading whitespace must be stripped from tokenized_value, since
+// NOTE: Leading whitespace must be stripped from the stream, since
 // ParseValue() has the same requirement.
-void CSSParserImpl::ConsumeDeclarationValue(
-    const CSSTokenizedValue& tokenized_value,
-    CSSPropertyID unresolved_property,
-    bool is_in_declaration_list,
-    StyleRule::RuleType rule_type) {
+void CSSParserImpl::ConsumeDeclarationValue(CSSParserTokenStream& stream,
+                                            CSSPropertyID unresolved_property,
+                                            bool is_in_declaration_list,
+                                            StyleRule::RuleType rule_type) {
   const bool allow_important_annotation = is_in_declaration_list &&
                                           rule_type != StyleRule::kKeyframe &&
                                           rule_type != StyleRule::kPositionTry;
   CSSPropertyParser::ParseValue(unresolved_property, allow_important_annotation,
-                                tokenized_value, context_, parsed_properties_,
+                                stream, context_, parsed_properties_,
                                 rule_type);
 }
 
@@ -3033,6 +3056,10 @@ const MediaQuerySet* CSSParserImpl::CachedMediaQuerySet(
   }
   DCHECK(media);
   return media.Get();
+}
+
+CSSParserMode CSSParserImpl::GetMode() const {
+  return context_->Mode();
 }
 
 }  // namespace blink

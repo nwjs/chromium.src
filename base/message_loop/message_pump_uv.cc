@@ -102,7 +102,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
       continue;
     }
 
-    has_more_immediate_work = delegate->DoIdleWork();
+    delegate->DoIdleWork();
     if (!keep_running_)
       break;
 

@@ -102,10 +102,6 @@ class CONTENT_EXPORT IndexedDBDatabase {
   // IndexedDBBucketContextHandle while calling this methods.
   leveldb::Status ForceCloseAndRunTasks();
 
-  void TransactionCreated();
-  void TransactionFinished(blink::mojom::IDBTransactionMode mode,
-                           bool committed);
-
   void ScheduleOpenConnection(
       std::unique_ptr<IndexedDBPendingConnection> connection);
 
@@ -284,6 +280,12 @@ class CONTENT_EXPORT IndexedDBDatabase {
   bool IsObjectStoreIdInMetadataAndIndexNotInMetadata(int64_t object_store_id,
                                                       int64_t index_id) const;
 
+  // Returns metadata relevant to idb-internals.
+  storage::mojom::IdbDatabaseMetadataPtr GetIdbInternalsMetadata() const;
+  // Called when the data used to populate the struct in
+  // `GetIdbInternalsMetadata` is changed in a significant way.
+  void NotifyOfIdbInternalsRelevantChange();
+
   base::WeakPtr<IndexedDBDatabase> AsWeakPtr() {
     return weak_factory_.GetWeakPtr();
   }
@@ -323,7 +325,7 @@ class CONTENT_EXPORT IndexedDBDatabase {
       std::unique_ptr<IndexedDBDatabaseCallbacks> database_callbacks,
       mojo::Remote<storage::mojom::IndexedDBClientStateChecker>
           client_state_checker,
-      uint64_t client_id);
+      base::UnguessableToken client_token);
 
   // Ack that one of the connections notified with a "versionchange" event did
   // not promptly close. Therefore a "blocked" event should be fired at the
@@ -359,8 +361,6 @@ class CONTENT_EXPORT IndexedDBDatabase {
 
   // The object that owns `this`.
   raw_ref<IndexedDBBucketContext> bucket_context_;
-
-  int64_t transaction_count_ = 0;
 
   list_set<IndexedDBConnection*> connections_;
 

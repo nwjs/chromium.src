@@ -17,7 +17,7 @@
 #include "chrome/browser/ash/app_mode/fake_cws.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_launch_error.h"
 #include "chrome/browser/ash/app_mode/kiosk_chrome_app_manager.h"
-#include "chrome/browser/ash/login/app_mode/kiosk_launch_controller.h"
+#include "chrome/browser/ash/app_mode/kiosk_test_helper.h"
 #include "chrome/browser/ash/login/app_mode/test/kiosk_apps_mixin.h"
 #include "chrome/browser/ash/login/app_mode/test/kiosk_base_test.h"
 #include "chrome/browser/ash/login/app_mode/test/kiosk_test_helpers.h"
@@ -27,7 +27,6 @@
 #include "chrome/browser/ash/login/test/oobe_base_test.h"
 #include "chrome/browser/ash/login/test/oobe_screen_waiter.h"
 #include "chrome/browser/ash/login/test/scoped_policy_update.h"
-#include "chrome/browser/ash/policy/core/device_local_account.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/browsertest_util.h"
 #include "chrome/browser/lifetime/termination_notification.h"
@@ -186,7 +185,7 @@ class AutoLaunchedKioskTest : public OobeBaseTest {
   const std::string GetTestAppUserId() const {
     return policy::GenerateDeviceLocalAccountUserId(
         KioskAppsMixin::kEnterpriseKioskAccountId,
-        policy::DeviceLocalAccount::TYPE_KIOSK_APP);
+        policy::DeviceLocalAccountType::kKioskApp);
   }
 
   bool CloseAppWindow(const std::string& app_id) {
@@ -244,7 +243,7 @@ class AutoLaunchedKioskTest : public OobeBaseTest {
   extensions::SandboxedUnpacker::ScopedVerifierFormatOverrideForTest
       verifier_format_override_;
   base::AutoReset<bool> skip_splash_wait_override_ =
-      KioskLaunchController::SkipSplashScreenWaitForTesting();
+      KioskTestHelper::SkipSplashScreenWait();
 
   LoginManagerMixin login_manager_{&mixin_host_, {}};
 };

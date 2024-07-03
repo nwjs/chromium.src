@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include "ash/calendar/calendar_controller.h"
-#include "ash/constants/ash_switches.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/system/status_area_widget.h"
@@ -15,7 +14,6 @@
 #include "ash/test/ash_test_base.h"
 #include "ash/test/pixel/ash_pixel_differ.h"
 #include "ash/test/pixel/ash_pixel_test_init_params.h"
-#include "base/command_line.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
@@ -30,12 +28,13 @@ std::unique_ptr<google_apis::calendar::CalendarEvent> CreateEvent(
     const char* id,
     const base::Time start_time,
     const base::Time end_time,
-    const char* summary) {
+    const char* summary,
+    const GURL video_conference_url = GURL()) {
   return calendar_test_utils::CreateEvent(
       id, summary, start_time, end_time,
       google_apis::calendar::CalendarEvent::EventStatus::kConfirmed,
       google_apis::calendar::CalendarEvent::ResponseStatus::kAccepted, false,
-      GURL());
+      video_conference_url);
 }
 
 }  // namespace
@@ -49,8 +48,6 @@ class CalendarViewPixelTest
         {{features::kGlanceablesV2, AreGlanceablesV2Enabled()},
          {features::kGlanceablesTimeManagementTasksView,
           AreGlanceablesV2Enabled()}});
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kGlanceablesIgnoreEnableMergeRequestBuildFlag);
   }
 
   void SetUp() override {
@@ -178,7 +175,8 @@ TEST_P(CalendarViewPixelTest, EventList) {
   events.push_back(CreateEvent(
       "id_1", start_time2, end_time2,
       "Event with a very very very very very very very long name that should "
-      "ellipsis"));
+      "ellipsis",
+      GURL("https://meet.google.com/abc-123")));
   InsertEvents(std::move(events));
 
   OpenCalendarView();
@@ -186,7 +184,7 @@ TEST_P(CalendarViewPixelTest, EventList) {
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       "event_list_view",
-      /*revision_number=*/10, GetEventListView()));
+      /*revision_number=*/11, GetEventListView()));
 }
 
 }  // namespace ash

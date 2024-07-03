@@ -89,4 +89,10 @@ void DelegatedIdpNetworkRequestManager::SendDisconnectRequest(
                                    std::move(callback));
 }
 
+void DelegatedIdpNetworkRequestManager::DownloadAndDecodeImage(
+    const GURL& url,
+    ImageCallback callback) {
+  delegate_->DownloadAndDecodeImage(url, std::move(callback));
+}
+
 }  // namespace content

@@ -149,7 +149,6 @@ public class TabGroupUiCoordinator
                         mBrowserControlsStateProvider,
                         mBottomSheetController,
                         currentTabModelFilterSupplier,
-                        () -> mTabModelSelector.getModel(false),
                         mTabContentManager,
                         mTabCreatorManager,
                         mActivity.findViewById(R.id.coordinator),
@@ -178,8 +177,6 @@ public class TabGroupUiCoordinator
                             mContext,
                             mBrowserControlsStateProvider,
                             currentTabModelFilterSupplier,
-                            () -> mTabModelSelector.getModel(false),
-                            null,
                             null,
                             false,
                             null,
@@ -273,12 +270,12 @@ public class TabGroupUiCoordinator
                     mTabStripCoordinator.getContainerView(),
                     mBottomSheetController);
         }
-        mTabStripCoordinator.resetWithListOfTabs(tabs);
+        mTabStripCoordinator.resetWithListOfTabs(tabs, false);
     }
 
     /**
-     * Handles a reset event originated from {@link TabGroupUiMediator}
-     * when the bottom sheet is expanded or the dialog is shown.
+     * Handles a reset event originated from {@link TabGroupUiMediator} when the bottom sheet is
+     * expanded or the dialog is shown.
      *
      * @param tabs List of Tabs to reset.
      */

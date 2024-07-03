@@ -416,7 +416,7 @@ class CONTENT_EXPORT PrefetchContainer {
                                  serving_page_metrics_container);
   void UpdateServingPageMetrics();
 
-  // Returns request id to be used by DevTools
+  // Returns request id to be used by DevTools and test utilities.
   const std::string& RequestId() const { return request_id_; }
 
   // Sets DevTools observer
@@ -553,6 +553,13 @@ class CONTENT_EXPORT PrefetchContainer {
 
     // See the comment for `PrefetchResponseReader::CreateRequestHandler()`.
     PrefetchRequestHandler CreateRequestHandler();
+
+    // See the corresponding functions on `PrefetchResponseReader`.
+    // These apply to the current `SinglePrefetch` (and so, may change as the
+    // prefetch advances through a redirect change).
+    bool VariesOnCookieIndices() const;
+    bool MatchesCookieIndices(
+        base::span<const std::pair<std::string, std::string>> cookies) const;
 
    private:
     base::WeakPtr<PrefetchContainer> prefetch_container_;
@@ -722,7 +729,7 @@ class CONTENT_EXPORT PrefetchContainer {
   base::WeakPtr<PrefetchServingPageMetricsContainer>
       serving_page_metrics_container_;
 
-  // Request identifier used by DevTools
+  // Request identifier used by DevTools and test utilities.
   std::string request_id_;
 
   // Weak pointer to DevTools observer

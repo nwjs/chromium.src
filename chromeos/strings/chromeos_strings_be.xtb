@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">пастэльна-жоўты</translation>
 <translation id="1056898198331236512">Папярэджанне</translation>
 <translation id="1059913517121127803">Не ўдалося запусціць сканіраванне</translation>
+<translation id="1061864016440983342">Выкарыстоўваць без даных пра месцазнаходжанне</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> з <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Выяўлены брандмаўар</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Іншыя налады</translation>
 <translation id="2082932131694554252">Прызначаная клавіша клавіятуры</translation>
 <translation id="2085089206770112532">Паменшыць яркасць дысплэя</translation>
+<translation id="2086091080968010660">Змяненні, заснаваныя на часе сутак, могуць быць недакладнымі. Уключыце доступ да сістэмных даных пра месцазнаходжанне ў наладах.</translation>
 <translation id="2102231663024125441">Рэдагаванне тэксту</translation>
 <translation id="2105810540595158374">Гэта гульнявы кантролер.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, версія <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Змяненне падрабязных звестак пра APN</translation>
 <translation id="2195732836444333448">Не хапае рэсурсаў. Вярніцеся крыху пазней.</translation>
 <translation id="2201758491318984023">веласіпед</translation>
-<translation id="2203222757805818543">Бягучы расклад: <ph name="SUNRISE" /> – <ph name="SUNSET" />. Каб расклад цёмнага рэжыму змяняўся аўтаматычна, <ph name="BEGIN_LINK" />дайце доступ да месцазнаходжання<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">гарачая крыніца</translation>
 <translation id="2203642483788377106">уцёс</translation>
 <translation id="2208388655216963643">імпрэсіянізм</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Аднавіць стандартныя налады</translation>
 <translation id="2286454467119466181">Просты</translation>
 <translation id="2287186687001756809">Відарыс недаступны. Дадаць фота можна з сайта <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Бягучы расклад: <ph name="SUNRISE" /> – <ph name="SUNSET" />. Каб час усходу і захаду сонца абнаўляўся аўтаматычна, дайце доступ да сістэмных даных пра месцазнаходжанне.</translation>
 <translation id="2305172810646967500">чорны</translation>
 <translation id="2307344026739914387">Выкарыстанне бягучай пары ключоў</translation>
 <translation id="2308243864813041101">Каб працягнуць абнаўленне, адключыце кабель USB ад прылады "<ph name="DEVICE_NAME" />"</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">пясчаная дзюна</translation>
 <translation id="2619761439309613843">Штодзённае абнаўленне</translation>
 <translation id="2620436844016719705">Сістэма</translation>
+<translation id="2637303424821734920">ВЫКЛЮЧАНА. Каб бачыць звесткі пра надвор’е, <ph name="BEGIN_LINK" />уключыце доступ да сістэмных даных пра месцазнаходжанне<ph name="END_LINK" />.</translation>
 <translation id="2638662041295312666">Відарыс уліковага запісу</translation>
 <translation id="2640549051766135490">Выбраны альбом "<ph name="TITLE" />" (<ph name="DESC" />)</translation>
 <translation id="2645380101799517405">Элементы кіравання</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Фон</translation>
 <translation id="3027578600144895987">Закрыць камеру</translation>
 <translation id="3031560714565892478">Гэта відэакамера.</translation>
+<translation id="3051968340259309715">Сістэмныя службы будуць вызначаць ваша месцазнаходжанне, выкарыстоўваючы дакладнасць вызначэння месцазнаходжання. Для дакладнасці вызначэння месцазнаходжання выкарыстоўваецца інфармацыя пра бесправадныя сігналы, напрыклад пункты доступу Wi-Fi, вышкі сотавай сеткі і даныя GPS, а таксама даныя датчыкаў прылады, такіх як акселерометр і гіраскоп. Для выключэння вызначэння месцазнаходжання неабходна перайсці ў раздзел "Налады &gt; Прыватнасць і бяспека &gt; Налады прыватнасці &gt; Доступ да месцазнаходжання". <ph name="LINK_BEGIN" />Даведацца больш<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> мА</translation>
 <translation id="3056720590588772262">Канцавы пункт</translation>
 <translation id="3060579846059757016">Асноўныя палажэнні</translation>
+<translation id="3061850252076394168">уключыць функцыю "Чытаць уголас"</translation>
 <translation id="3069085583900247081">Праверка не пройдзена</translation>
 <translation id="3078740164268491126">табліца</translation>
 <translation id="3081652522083185657">светлы</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Не ўдалося супаставіць усе хосты</translation>
 <translation id="4593212453765072419">Патрабуецца аўтэнтыфікацыя проксі-сервера</translation>
 <translation id="4609350030397390689">Паменшыць яркасць клавіятуры</translation>
-<translation id="4617553623719764431">Прагноз надвор'я не паказваецца, бо ваша месцазнаходжанне не вызначана. Каб бачыць звесткі пра надвор'е, <ph name="BEGIN_LINK" />уключыце доступ да даных пра месцазнаходжанне<ph name="END_LINK" />.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> з <ph name="TOTAL_PAGE_NUMBER" />. Каб скасаваць заданне друку, націсніце Enter.</translation>
 <translation id="463791356324567266">Сканіраванне скасоўваецца…</translation>
 <translation id="4646949265910132906">Бяспечнае падключэнне да сеткі Wi-Fi</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Запусціць</translation>
 <translation id="4987769320337599931">Брандмаўар</translation>
 <translation id="4988526792673242964">Старонкі</translation>
+<translation id="4989542687859782284">Недаступна</translation>
 <translation id="4999333166442584738">Схаваць справаздачу</translation>
 <translation id="500920857929044050">Спыніць праверку</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">яркасць клавіятуры</translation>
 <translation id="6412715219990689313">Убудаваная клавіятура</translation>
 <translation id="6417265370957905582">Памочнік Google</translation>
+<translation id="6419454453018688975">Уключыць доступ да даных пра месцазнаходжанне</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Гэта дазволіць сістэмным службам з дазволам выкарыстоўваць даныя пра ваша месцазнаходжанне. Для вызначэння месцазнаходжання прылады могуць выкарыстоўвацца даныя Wi-Fi, мабільных сетак і датчыкаў. <ph name="LINK_BEGIN" />Даведацца больш<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Слабы (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Перайсці ў налады ўліковага запісу</translation>
 <translation id="6462978824459367242">Кнопка "Дадаць APN" уключана</translation>

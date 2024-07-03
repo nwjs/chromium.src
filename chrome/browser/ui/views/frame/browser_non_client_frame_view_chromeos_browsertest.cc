@@ -215,6 +215,41 @@ IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTestNoWebUiTabStrip,
   EXPECT_EQ(HTCLIENT, frame_view->NonClientHitTest(top_edge));
 }
 
+// Regression test for crbug.com/40945061. Asserts that the content window
+// accepts input from the edge of the browser frame when the browser is
+// maximized.
+IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTestNoWebUiTabStrip,
+                       ContentWindowAcceptsEdgeInputsWhenMaximized) {
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  content::WebContents* web_contents = browser_view->GetActiveWebContents();
+  views::Widget* widget = browser_view->GetWidget();
+  const BrowserNonClientFrameViewChromeOS* frame_view =
+      GetFrameViewChromeOS(browser_view);
+
+  // Maximize the widget.
+  EXPECT_FALSE(widget->IsMaximized());
+  const gfx::Rect old_bounds = frame_view->bounds();
+  widget->Maximize();
+  auto* window = widget->GetNativeWindow();
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return window->GetProperty(chromeos::kWindowStateTypeKey) ==
+           chromeos::WindowStateType::kMaximized;
+  }));
+  // TODO(crbug.com/40276379): Remove waiting for bounds change when the bug
+  // is fixed.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return frame_view->bounds() != old_bounds; }));
+
+  // Assert that input events at the edge of the browser are propagated to the
+  // web contents window.
+  EXPECT_FALSE(web_contents->GetFocusedFrame());
+  ui::test::EventGenerator event_generator(window->GetRootWindow());
+  ASSERT_NO_FATAL_FAILURE(
+      event_generator.GestureTapAt(frame_view->bounds().left_center()));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !!web_contents->GetFocusedFrame(); }));
+}
+
 using BrowserNonClientFrameViewChromeOSTouchTest =
     TopChromeTouchTest<ChromeOSBrowserUITest>;
 
@@ -695,8 +730,7 @@ IN_PROC_BROWSER_TEST_P(WebAppNonClientFrameViewChromeOSTest,
   password_form.match_type = password_manager::PasswordForm::MatchType::kExact;
   std::vector<password_manager::PasswordForm> forms = {password_form};
   PasswordsClientUIDelegateFromWebContents(web_contents)
-      ->OnPasswordAutofilled(forms, url::Origin::Create(password_form.url),
-                             nullptr);
+      ->OnPasswordAutofilled(forms, url::Origin::Create(password_form.url), {});
   chrome::ManagePasswordsForPage(app_browser_);
   ASSERT_TRUE(WaitForVisible(true, manage_passwords_icon));
 }
@@ -1116,16 +1150,14 @@ IN_PROC_BROWSER_TEST_F(PreventCloseBrowserNonClientFrameViewChromeOSTest,
   ClearWebAppSettings();
 }
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-// TODO(crbug.com/339083706): Flaky on Lacros.
-#define MAYBE_ImmersiveModeTopViewInset DISABLED_ImmersiveModeTopViewInset
-#else
-#define MAYBE_ImmersiveModeTopViewInset ImmersiveModeTopViewInset
-#endif
 IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTest,
-                       MAYBE_ImmersiveModeTopViewInset) {
+                       ImmersiveModeTopViewInset) {
   Browser* app_browser =
       CreateBrowserForApp("test_browser_app", browser()->profile());
+  // TODO(neis): Move this into the CreateBrowser* functions.
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  ui_test_utils::CreateAsyncWidgetRequestWaiter(*browser()).Wait();
+#endif
 
   BrowserView* browser_view =
       BrowserView::GetBrowserViewForBrowser(app_browser);

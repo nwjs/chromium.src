@@ -14,6 +14,7 @@
 #include "ui/color/color_provider.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/text_constants.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/label.h"
@@ -155,7 +156,7 @@ CandidateView::CandidateView(PressedCallback callback,
   }
 
   SetFocusBehavior(views::View::FocusBehavior::ACCESSIBLE_ONLY);
-  SetAccessibleRole(ax::mojom::Role::kImeCandidate);
+  GetViewAccessibility().SetRole(ax::mojom::Role::kImeCandidate);
 }
 
 void CandidateView::GetPreferredWidths(int* shortcut_width,
@@ -184,7 +185,7 @@ void CandidateView::SetEntry(const ui::CandidateWindow::Entry& entry) {
   shortcut_label_->SetText(label);
   candidate_label_->SetText(entry.value);
   annotation_label_->SetText(entry.annotation);
-  SetAccessibleName(entry.value);
+  GetViewAccessibility().SetName(entry.value);
 }
 
 void CandidateView::SetInfolistIcon(bool enable) {

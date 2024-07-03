@@ -177,7 +177,7 @@ gfx::Size NativeThemeBase::GetPartSize(Part part,
       NOTIMPLEMENTED();
       break;
     default:
-      NOTREACHED() << "Unknown theme part: " << part;
+      NOTREACHED_IN_MIGRATION() << "Unknown theme part: " << part;
       break;
   }
   return gfx::Size();
@@ -334,7 +334,7 @@ void NativeThemeBase::Paint(cc::PaintCanvas* canvas,
       NOTIMPLEMENTED();
       break;
     default:
-      NOTREACHED() << "Unknown theme part: " << part;
+      NOTREACHED_IN_MIGRATION() << "Unknown theme part: " << part;
       break;
   }
 
@@ -346,12 +346,14 @@ bool NativeThemeBase::SupportsNinePatch(Part part) const {
 }
 
 gfx::Size NativeThemeBase::GetNinePatchCanvasSize(Part part) const {
-  NOTREACHED() << "NativeThemeBase doesn't support nine-patch resources.";
+  NOTREACHED_IN_MIGRATION()
+      << "NativeThemeBase doesn't support nine-patch resources.";
   return gfx::Size();
 }
 
 gfx::Rect NativeThemeBase::GetNinePatchAperture(Part part) const {
-  NOTREACHED() << "NativeThemeBase doesn't support nine-patch resources.";
+  NOTREACHED_IN_MIGRATION()
+      << "NativeThemeBase doesn't support nine-patch resources.";
   return gfx::Rect();
 }
 
@@ -1515,7 +1517,7 @@ SkColor NativeThemeBase::GetControlColor(
     case kScrollbarThumb:
       return SkColorSetA(SK_ColorBLACK, 0x33);
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return gfx::kPlaceholderColor;
 }
 
@@ -1598,7 +1600,7 @@ SkColor NativeThemeBase::GetDarkModeControlColor(
     case kScrollbarThumb:
       return SkColorSetA(SK_ColorWHITE, 0x33);
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return gfx::kPlaceholderColor;
 }
 
@@ -1763,7 +1765,7 @@ bool NativeThemeBase::IsColorPipelineSupportedForControlColorId(
     ControlColorId color_id) const {
   // Color providers are not yet supported on Android so we need to check that
   // the color_provider is not null here.
-  if (!color_provider || !color_provider->HasMixers()) {
+  if (!color_provider) {
     return false;
   }
 

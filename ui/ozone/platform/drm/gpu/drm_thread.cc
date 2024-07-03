@@ -152,6 +152,7 @@ void DrmThread::CreateBuffer(gfx::AcceleratedWidget widget,
   std::vector<uint64_t> modifiers;
   if (window && window->GetController() && !(flags & GBM_BO_USE_LINEAR) &&
       !(flags & GBM_BO_USE_HW_VIDEO_DECODER) &&
+      !(flags & GBM_BO_USE_PROTECTED) &&
       !(client_flags & GbmPixmap::kFlagNoModifiers)) {
     modifiers = window->GetController()->GetSupportedModifiers(fourcc_format);
   }
@@ -481,19 +482,6 @@ void DrmThread::SetColorCalibration(
 void DrmThread::SetGammaAdjustment(int64_t display_id,
                                    const display::GammaAdjustment& adjustment) {
   display_manager_->SetGammaAdjustment(display_id, adjustment);
-}
-
-void DrmThread::SetColorMatrix(int64_t display_id,
-                               const std::vector<float>& color_matrix) {
-  TRACE_EVENT0("drm", "DrmThread::SetColorMatrix");
-  display_manager_->SetColorMatrix(display_id, color_matrix);
-}
-
-void DrmThread::SetGammaCorrection(int64_t display_id,
-                                   const display::GammaCurve& degamma,
-                                   const display::GammaCurve& gamma) {
-  TRACE_EVENT0("drm", "DrmThread::SetGammaCorrection");
-  display_manager_->SetGammaCorrection(display_id, degamma, gamma);
 }
 
 void DrmThread::SetPrivacyScreen(int64_t display_id,

@@ -220,7 +220,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.DirectRenderer.PartialSwap.TotalDamage" units="%"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>vasilyt@chromium.org</owner>
   <owner>petermcneeley@chromium.org</owner>
   <owner>graphics-dev@chromium.org</owner>
@@ -256,17 +256,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Compositing.DirectRenderer.SkippedNonRootRenderPassOutputSize"
-    units="pixels" expires_after="2024-06-30">
-  <owner>magchen@chromium.org</owner>
-  <owner>ccameron@chromium.org</owner>
-  <owner>graphics-dev@chromium.org</owner>
-  <summary>
-    Pixel size for a skipped nonroot render pass output surface. Recorded in Viz
-    DirectRenderer draw frame.
-  </summary>
-</histogram>
-
 <histogram name="Compositing.Display.AdpfHintUs" units="microseconds"
     expires_after="2024-09-01">
   <owner>boliu@chromium.org</owner>
@@ -278,6 +267,84 @@ chromium-metrics-reviews@google.com.
     as the wall clock time from vsync frame time to swap_start. Only reported
     for platforms supporting high resolution clocks.
   </summary>
+</histogram>
+
+<histogram name="Compositing.Display.Draw.LastPass.Quads" units="quads"
+    expires_after="2025-05-13">
+  <owner>berlu@chromium.org</owner>
+  <owner>chromeos-gfx-compositor@google.com</owner>
+  <summary>
+    This is logged once per n frames, when the frame is drawn and feature is
+    enabled. The total number of quads in the last render passes in the
+    CompositorFrame that is produced by surface aggregation.
+  </summary>
+</histogram>
+
+<histogram name="Compositing.Display.Draw.LastPass.Quads.BufferFormat"
+    enum="BufferFormat" expires_after="2025-05-13">
+  <owner>berlu@chromium.org</owner>
+  <owner>chromeos-gfx-compositor@google.com</owner>
+  <summary>
+    This is logged once per n frames, when the frame is drawn and feature is
+    enabled. The buffer format underlying each quads in the last render pass in
+    the CompositorFrame that is produced by surface aggregation.
+  </summary>
+</histogram>
+
+<histogram name="Compositing.Display.Draw.LastPass.Quads.ColorSpacePrimaryID"
+    enum="ColorSpacePrimaryID" expires_after="2025-05-13">
+  <owner>berlu@chromium.org</owner>
+  <owner>chromeos-gfx-compositor@google.com</owner>
+  <summary>
+    This is logged once per n frames, when the frame is drawn and feature is
+    enabled. The primary id for the color space of each quad in the last render
+    pass in the CompositorFrame that is produced by surface aggregation.
+  </summary>
+</histogram>
+
+<histogram name="Compositing.Display.Draw.LastPass.Quads.ColorSpaceTransferID"
+    enum="ColorSpaceTransferID" expires_after="2025-05-13">
+  <owner>berlu@chromium.org</owner>
+  <owner>chromeos-gfx-compositor@google.com</owner>
+  <summary>
+    This is logged once per n frames, when the frame is drawn and feature is
+    enabled. The transfer id for the color space of each quad in the last render
+    pass in the CompositorFrame that is produced by surface aggregation.
+  </summary>
+</histogram>
+
+<histogram name="Compositing.Display.Draw.LastPass.Quads.LoggingTimeUs"
+    units="microseconds" expires_after="2025-05-13">
+  <owner>berlu@chromium.org</owner>
+  <owner>chromeos-gfx-compositor@google.com</owner>
+  <summary>
+    This is logged once per n frames, when the frame is drawn and feature is
+    enabled. The amount of time spent collecting information relevant to all
+    quads in the last render pass. Only reported for platforms supporting high
+    resolution clocks.
+  </summary>
+</histogram>
+
+<histogram name="Compositing.Display.Draw.LastPass.Quads.{IdType}"
+    units="quads" expires_after="2025-05-13">
+  <owner>berlu@chromium.org</owner>
+  <owner>chromeos-gfx-compositor@google.com</owner>
+  <summary>
+    This is logged once per n frames, when the frame is drawn and feature is
+    enabled. The total number of quads that resulted in {IdType} during overlay
+    promotion attempt in the last render pass in the CompositorFrame is produced
+    by surface aggregation.
+  </summary>
+  <token key="IdType">
+    <variant name="FailedCandidate" summary="failed candidates"/>
+    <variant name="NonAligned" summary="non-aligned candidates"/>
+    <variant name="NonOpaque" summary="non-opaque candidates"/>
+    <variant name="NonPixelAligned" summary="non-pixel aligned candidates"/>
+    <variant name="RoundedCorners" summary="candidates with rounded corner"/>
+    <variant name="Scaled" summary="scaled candidates"/>
+    <variant name="SolidColor" summary="solid color quad"/>
+    <variant name="Transformations" summary="candidates with transformations"/>
+  </token>
 </histogram>
 
 <histogram name="Compositing.Display.Draw.Occlusion.Calculation.Time"
@@ -678,7 +745,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.Renderer.LCDTextDisallowedReasonLayers2.{DPI}"
-    enum="LCDTextDisallowedReason" expires_after="2024-06-30">
+    enum="LCDTextDisallowedReason" expires_after="2024-11-03">
   <owner>wangxianzhu@chromium.org</owner>
   <owner>paint-dev@chromium.org</owner>
   <summary>
@@ -801,7 +868,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.SurfaceAggregator.ExcessPixelsClipped"
-    units="pixels" expires_after="2024-09-15">
+    units="pixels" expires_after="2024-11-17">
   <owner>petermcneeley@chromium.org</owner>
   <owner>graphics-dev@chromium.org</owner>
   <summary>
@@ -916,7 +983,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="CompositorLatency.CompositorOnlyFrame{InteractionType}.{StageType}"
-    units="microseconds" expires_after="2024-09-15">
+    units="microseconds" expires_after="2024-11-17">
   <owner>jonross@chromium.org</owner>
   <owner>graphics-dev@chromium.org</owner>
   <summary>
@@ -1030,7 +1097,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CompositorLatency{ReportType}{InteractionType}.{StageType}"
-    units="microseconds" expires_after="2024-09-22">
+    units="microseconds" expires_after="2024-11-24">
   <owner>jonross@chromium.org</owner>
   <owner>graphics-dev@chromium.org</owner>
   <summary>
@@ -1158,7 +1225,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.Checkerboarding3.AllSequences" units="%"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>jonross@chromium.org</owner>
   <owner>graphics-dev@chromium.org</owner>
   <summary>
@@ -1181,7 +1248,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.Checkerboarding3.{Sequence}" units="%"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>jonross@chromium.org</owner>
   <owner>graphics-dev@chromium.org</owner>
   <summary>
@@ -1203,7 +1270,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.Checkerboarding3.{Thread}{Sequence}"
-    units="%" expires_after="2024-09-15">
+    units="%" expires_after="2024-11-17">
   <owner>jonross@chromium.org</owner>
   <owner>graphics-dev@chromium.org</owner>
   <summary>
@@ -1342,7 +1409,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.PercentDroppedFrames3.{Sequence}"
-    units="%" expires_after="2024-09-15">
+    units="%" expires_after="2024-11-17">
   <owner>jonross@chromium.org</owner>
   <owner>graphics-dev@chromium.org</owner>
   <summary>
@@ -1367,7 +1434,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.PercentDroppedFrames3.{Thread}{Sequence}"
-    units="%" expires_after="2024-09-15">
+    units="%" expires_after="2024-11-17">
   <owner>jonross@chromium.org</owner>
   <owner>graphics-dev@chromium.org</owner>
   <summary>

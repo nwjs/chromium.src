@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -155,11 +156,7 @@ class SkiaOutputSurfaceImplOnGpu
     return weak_ptr_;
   }
 
-  void Reshape(const SkImageInfo& image_info,
-               const gfx::ColorSpace& color_space,
-               int sample_count,
-               float device_scale_factor,
-               gfx::OverlayTransform transform);
+  void Reshape(const SkiaOutputDevice::ReshapeParams& params);
   void FinishPaintCurrentFrame(
       sk_sp<GrDeferredDisplayList> ddl,
       sk_sp<GrDeferredDisplayList> overdraw_ddl,
@@ -300,7 +297,8 @@ class SkiaOutputSurfaceImplOnGpu
                      gpu::Mailbox output,
                      const gfx::RectF& display_rect,
                      const gfx::RectF& crop_rect,
-                     gfx::OverlayTransform transform);
+                     gfx::OverlayTransform transform,
+                     bool is_10bit);
 
   void CleanupImageProcessor();
 #endif
@@ -312,7 +310,6 @@ class SkiaOutputSurfaceImplOnGpu
     MailboxAccessData& operator=(MailboxAccessData&& other);
     ~MailboxAccessData();
 
-    SkISize size;
     gpu::Mailbox mailbox;
     std::unique_ptr<gpu::SkiaImageRepresentation> representation;
     std::unique_ptr<gpu::SkiaImageRepresentation::ScopedWriteAccess>
@@ -374,18 +371,6 @@ class SkiaOutputSurfaceImplOnGpu
                gpu::GrContextType::kGraphiteMetal;
   }
 
-  // Helper for `FlushSurface()` & `FlushContext()` methods, flushes writes
-  // to either the surface if it is non-null or to the context otherwise, using
-  // |end_semaphores| and |end_state|.
-  bool FlushInternal(
-      SkSurface* surface,
-      std::vector<GrBackendSemaphore>& end_semaphores,
-      gpu::SkiaImageRepresentation::ScopedWriteAccess* scoped_write_access,
-      GrGpuFinishedProc ganesh_finished_proc = nullptr,
-      GrGpuFinishedContext ganesh_finished_context = nullptr,
-      skgpu::graphite::GpuFinishedProc graphite_finished_proc = nullptr,
-      skgpu::graphite::GpuFinishedContext graphite_finished_context = nullptr);
-
   // Helper for `CopyOutput()` method, handles the RGBA format.
   void CopyOutputRGBA(SkSurface* surface,
                       copy_output::RenderPassGeometry geometry,
@@ -424,7 +409,7 @@ class SkiaOutputSurfaceImplOnGpu
   CreateSharedImageRepresentationSkia(SharedImageFormat format,
                                       const gfx::Size& size,
                                       const gfx::ColorSpace& color_space,
-                                      base::StringPiece debug_label);
+                                      std::string_view debug_label);
 
   // Helper for `CopyOutputNV12()` & `CopyOutputRGBA()` methods, renders
   // |surface| into |dest_surface|'s canvas, cropping and scaling the results
@@ -444,29 +429,19 @@ class SkiaOutputSurfaceImplOnGpu
       std::vector<GrBackendSemaphore>& end_semaphores,
       gpu::SkiaImageRepresentation::ScopedWriteAccess* scoped_write_access,
       GrGpuFinishedProc ganesh_finished_proc = nullptr,
-      GrGpuFinishedContext ganesh_finished_context = nullptr,
       skgpu::graphite::GpuFinishedProc graphite_finished_proc = nullptr,
-      skgpu::graphite::GpuFinishedContext graphite_finished_context = nullptr);
+      void* finished_context = nullptr);
 
-  // Creates surfaces needed to store the data in NV12 format.
-  // |mailbox_access_datas| will be populated with information needed to access
-  // the NV12 planes.
-  bool CreateSurfacesForNV12Planes(
-      const SkYUVAInfo& yuva_info,
-      const gfx::ColorSpace& color_space,
-      std::array<MailboxAccessData, CopyOutputResult::kNV12MaxPlanes>&
-          mailbox_access_datas,
-      bool is_multiplane);
-
-  // Imports surfaces needed to store the data in NV12 format from a blit
-  // request. |mailbox_access_datas| will be populated with information needed
-  // to access the NV12 planes.
-  bool ImportSurfacesForNV12Planes(
-      const BlitRequest& blit_request,
+  // Begins access to the CopyOutputRequest destination shared image. If request
+  // has `BlitRequest` then specified mailbox will be accessed. Otherwise a new
+  // shared image to store the result will be allocated. `mailbox_access_data`
+  // will be populated with information needed to access the texture if function
+  // returns true.
+  bool CreateDestinationImageIfNeededAndBeginAccess(
+      CopyOutputRequest* request,
       gfx::Size intermediate_dst_size,
-      std::array<MailboxAccessData, CopyOutputResult::kNV12MaxPlanes>&
-          mailbox_access_datas,
-      bool is_multiplane);
+      const gfx::ColorSpace& color_space,
+      MailboxAccessData& mailbox_access_data);
 
   // Helper, blends `BlendBitmap`s set on the |blit_request| over the |canvas|.
   // Used to implement handling of `CopyOutputRequest`s that contain

@@ -3,11 +3,10 @@
 # found in the LICENSE file.
 """Definitions of builders in the chromium.fuzz builder group."""
 
-load("//lib/args.star", "args")
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_health_indicators.star", "health_spec")
-load("//lib/builders.star", "builders", "os", "reclient", "sheriff_rotations")
+load("//lib/builders.star", "builders", "cpu", "gardener_rotations", "os", "siso")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -17,19 +16,21 @@ load("//project.star", "settings")
 ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
     builder_group = "chromium.fuzz",
+    builder_config_settings = builder_config.ci_settings(
+        retry_failed_shards = True,
+    ),
     pool = ci.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
-    sheriff_rotations = sheriff_rotations.CHROMIUM,
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
+    gardener_rotations = gardener_rotations.CHROMIUM,
     health_spec = health_spec.DEFAULT,
     notifies = ["chromesec-lkgr-failures"],
-    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
-    reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
-    siso_remote_jobs = reclient.jobs.DEFAULT,
+    siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 consoles.console_view(
@@ -96,7 +97,7 @@ ci.builder(
             "asan",
             "lsan",
             "debug_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -104,7 +105,7 @@ ci.builder(
         short_name = "dbg",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = 250,
+    siso_remote_jobs = 250,
 )
 
 ci.builder(
@@ -136,7 +137,7 @@ ci.builder(
             "asan",
             "v8_heap",
             "debug_builder",
-            "reclient",
+            "remoteexec",
             "v8_hybrid",
         ],
     ),
@@ -177,7 +178,7 @@ ci.builder(
             "fuzzer",
             "v8_heap",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -185,7 +186,7 @@ ci.builder(
         short_name = "rel",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = 250,
+    siso_remote_jobs = 250,
 )
 
 ci.builder(
@@ -218,7 +219,7 @@ ci.builder(
             "fuzzer",
             "v8_heap",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "v8_hybrid",
         ],
     ),
@@ -260,14 +261,14 @@ ci.builder(
             "v8_heap",
             "chromeos_codecs",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux asan",
         short_name = "med",
     ),
-    reclient_jobs = 250,
+    siso_remote_jobs = 250,
 )
 
 ci.builder(
@@ -302,12 +303,11 @@ ci.builder(
             "optimize_for_fuzzing",
             "shared",
             "release",
-            "reclient",
+            "remoteexec",
             "disable_seed_corpus",
             "mojo_fuzzer",
         ],
     ),
-    sheriff_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "centipede",
         short_name = "centipede",
@@ -353,12 +353,11 @@ Those fuzzers require more resources to run correctly.\
             "optimize_for_fuzzing",
             "shared",
             "release",
-            "reclient",
+            "remoteexec",
             "disable_seed_corpus",
             "high_end_fuzzer_targets",
         ],
     ),
-    sheriff_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "centipede",
         short_name = "centipede high end",
@@ -402,7 +401,7 @@ ci.builder(
             "v8_heap",
             "chromeos_codecs",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "v8_hybrid",
         ],
     ),
@@ -448,14 +447,14 @@ ci.builder(
             "fuzzer",
             "v8_heap",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "cros asan",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -486,7 +485,7 @@ ci.builder(
         configs = [
             "msan",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     os = os.LINUX_FOCAL,
@@ -495,7 +494,7 @@ ci.builder(
         short_name = "org",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = 250,
+    siso_remote_jobs = 250,
 )
 
 ci.builder(
@@ -526,7 +525,7 @@ ci.builder(
         configs = [
             "msan_no_origins",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     os = os.LINUX_FOCAL,
@@ -535,7 +534,7 @@ ci.builder(
         short_name = "rel",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = 250,
+    siso_remote_jobs = 250,
 )
 
 ci.builder(
@@ -567,7 +566,7 @@ ci.builder(
             "fuzzer",
             "v8_heap",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = False,
@@ -616,7 +615,7 @@ ci.builder(
             "v8_heap",
             "chrome_with_codecs",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = False,
@@ -656,7 +655,7 @@ ci.builder(
         configs = [
             "tsan",
             "debug_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -664,7 +663,7 @@ ci.builder(
         short_name = "dbg",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = 250,
+    siso_remote_jobs = 250,
 )
 
 ci.builder(
@@ -695,7 +694,7 @@ ci.builder(
         configs = [
             "tsan",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -703,7 +702,7 @@ ci.builder(
         short_name = "rel",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = 250,
+    siso_remote_jobs = 250,
 )
 
 ci.builder(
@@ -730,7 +729,7 @@ ci.builder(
         configs = [
             "ubsan",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -738,7 +737,7 @@ ci.builder(
         short_name = "rel",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = 250,
+    siso_remote_jobs = 250,
 )
 
 ci.builder(
@@ -767,7 +766,7 @@ ci.builder(
             "ubsan_vptr",
             "ubsan_vptr_no_recover_hack",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -775,7 +774,7 @@ ci.builder(
         short_name = "vpt",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = 250,
+    siso_remote_jobs = 250,
 )
 
 ci.builder(
@@ -808,7 +807,7 @@ ci.builder(
             "fuzzer",
             "v8_heap",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = False,
@@ -818,7 +817,7 @@ ci.builder(
         short_name = "rel",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -853,7 +852,7 @@ ci.builder(
             "v8_heap",
             "chrome_with_codecs",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = False,
@@ -863,7 +862,7 @@ ci.builder(
         short_name = "med",
     ),
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -896,7 +895,7 @@ ci.builder(
             "asan",
             "shared",
             "release",
-            "reclient",
+            "remoteexec",
             "chromeos_with_codecs",
             "pdf_xfa",
             "optimize_for_fuzzing",
@@ -914,7 +913,7 @@ ci.builder(
         "upload_bucket": "chromium-browser-libfuzzer",
         "upload_directory": "chromeos-asan",
     },
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -941,7 +940,7 @@ ci.builder(
         configs = [
             "compile_only",
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
             "ios",
             "ios_catalyst",
             "x64",
@@ -951,8 +950,10 @@ ci.builder(
             "no_remoting",
         ],
     ),
-    cores = 12,
+    builderless = True,
+    cores = None,
     os = os.MAC_DEFAULT,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "libfuzz",
         short_name = "ios",
@@ -1001,7 +1002,7 @@ ci.builder(
             "mojo_fuzzer",
             "shared",
             "release",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1014,7 +1015,7 @@ ci.builder(
         "upload_bucket": "chromium-browser-libfuzzer",
         "upload_directory": "asan",
     },
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -1043,7 +1044,7 @@ ci.builder(
             "libfuzzer",
             "asan",
             "debug_builder",
-            "reclient",
+            "remoteexec",
             "shared",
             "chromeos_codecs",
             "pdf_xfa",
@@ -1062,7 +1063,7 @@ ci.builder(
         "upload_bucket": "chromium-browser-libfuzzer",
         "upload_directory": "asan",
     },
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -1093,7 +1094,7 @@ ci.builder(
             "msan",
             "shared",
             "release",
-            "reclient",
+            "remoteexec",
             "chromeos_codecs",
             "pdf_xfa",
             "optimize_for_fuzzing",
@@ -1110,7 +1111,7 @@ ci.builder(
         "upload_bucket": "chromium-browser-libfuzzer",
         "upload_directory": "msan",
     },
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -1139,7 +1140,7 @@ ci.builder(
             "libfuzzer",
             "ubsan_security_non_vptr",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "chromeos_codecs",
             "pdf_xfa",
             "optimize_for_fuzzing",
@@ -1159,7 +1160,7 @@ ci.builder(
         "upload_bucket": "chromium-browser-libfuzzer",
         "upload_directory": "ubsan",
     },
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -1189,7 +1190,7 @@ ci.builder(
             "asan",
             "shared",
             "release",
-            "reclient",
+            "remoteexec",
             "chromeos_codecs",
             "pdf_xfa",
             "optimize_for_fuzzing",
@@ -1236,7 +1237,7 @@ ci.builder(
             "libfuzzer",
             "asan",
             "debug_builder",
-            "reclient",
+            "remoteexec",
             "shared",
             "chromeos_codecs",
             "pdf_xfa",
@@ -1285,7 +1286,7 @@ ci.builder(
             "asan",
             "shared",
             "release",
-            "reclient",
+            "remoteexec",
             "chromeos_codecs",
             "pdf_xfa",
             "optimize_for_fuzzing",
@@ -1302,7 +1303,7 @@ ci.builder(
         "upload_bucket": "chromium-browser-libfuzzer",
         "upload_directory": "asan",
     },
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -1332,7 +1333,7 @@ ci.builder(
             "asan",
             "shared",
             "release",
-            "reclient",
+            "remoteexec",
             "chromeos_codecs",
             "pdf_xfa",
             "optimize_for_fuzzing",
@@ -1351,7 +1352,7 @@ ci.builder(
         "upload_directory": "asan-arm-sim",
         "v8_targets_only": True,
     },
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.builder(
@@ -1380,7 +1381,7 @@ ci.builder(
             "libfuzzer",
             "asan",
             "debug_builder",
-            "reclient",
+            "remoteexec",
             "shared",
             "chromeos_codecs",
             "pdf_xfa",
@@ -1426,7 +1427,7 @@ ci.builder(
             "asan",
             "shared",
             "release",
-            "reclient",
+            "remoteexec",
             "chrome_with_codecs",
             "pdf_xfa",
             "optimize_for_fuzzing",
@@ -1477,7 +1478,7 @@ ci.builder(
             "libfuzzer",
             "asan",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "chrome_with_codecs",
             "pdf_xfa",
             "minimal_symbols",
@@ -1498,5 +1499,5 @@ ci.builder(
         "upload_bucket": "chromium-browser-libfuzzer",
         "upload_directory": "asan",
     },
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )

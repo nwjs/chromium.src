@@ -68,7 +68,7 @@
 -codelabs/
 -components/
 +components/discardable_memory
--content/
+-content/nw/
 -courgette/
 -crypto/
 -data/
@@ -92,7 +92,7 @@
 -native_client/
 -native_client_sdk/
 -net/
--pdf/
+-net/third_party/
 -ppapi/
 -printing/
 -remoting/
@@ -107,6 +107,7 @@
 -third_party/
 -tools/
 -ui/
++ui/views/
 -url/
 -v8/
 -webkit/

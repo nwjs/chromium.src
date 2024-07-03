@@ -127,7 +127,7 @@ class FormFiller {
   // TODO(crbug.com/40281552): Make `optional_type_groups_originally_filled`
   // also a FieldTypeSet.
   base::flat_map<FieldGlobalId, FieldFillingSkipReason>
-  GetFieldFillingSkipReasons(const FormData& form,
+  GetFieldFillingSkipReasons(base::span<const FormFieldData> fields,
                              const FormStructure& form_structure,
                              const AutofillField& trigger_field,
                              const FieldTypeSet& field_types_to_fill,
@@ -155,7 +155,8 @@ class FormFiller {
                           FormStructure* form_structure,
                           AutofillField* autofill_field,
                           const std::u16string& value,
-                          SuggestionType type);
+                          SuggestionType type,
+                          std::optional<FieldType> field_type_used);
 
   // Fills or previews |data_model| in the |form|.
   // TODO(crbug.com/40227071): Clean up the API.

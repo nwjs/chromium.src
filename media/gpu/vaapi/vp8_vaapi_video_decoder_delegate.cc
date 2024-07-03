@@ -6,16 +6,16 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/trace_event/trace_event.h"
-#include "media/gpu/decode_surface_handler.h"
 #include "media/gpu/vaapi/va_surface.h"
 #include "media/gpu/vaapi/vaapi_common.h"
+#include "media/gpu/vaapi/vaapi_decode_surface_handler.h"
 #include "media/gpu/vaapi/vaapi_utils.h"
 #include "media/gpu/vaapi/vaapi_wrapper.h"
 
 namespace media {
 
 VP8VaapiVideoDecoderDelegate::VP8VaapiVideoDecoderDelegate(
-    DecodeSurfaceHandler<VASurface>* const vaapi_dec,
+    VaapiDecodeSurfaceHandler* const vaapi_dec,
     scoped_refptr<VaapiWrapper> vaapi_wrapper)
     : VaapiVideoDecoderDelegate(vaapi_dec,
                                 std::move(vaapi_wrapper),
@@ -101,7 +101,7 @@ bool VP8VaapiVideoDecoderDelegate::SubmitDecode(
        {slice_params_->id(),
         {slice_params_->type(), slice_params_->size(), &slice_param}},
        {encoded_data->id(),
-        {encoded_data->type(), header->frame_size, header->data}}});
+        {encoded_data->type(), header->frame_size, header->data.get()}}});
 }
 
 bool VP8VaapiVideoDecoderDelegate::OutputPicture(
@@ -109,8 +109,8 @@ bool VP8VaapiVideoDecoderDelegate::OutputPicture(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   const VaapiVP8Picture* vaapi_pic = pic->AsVaapiVP8Picture();
-  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface(), vaapi_pic->bitstream_id(),
-                           vaapi_pic->visible_rect(),
+  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface()->id(),
+                           vaapi_pic->bitstream_id(), vaapi_pic->visible_rect(),
                            vaapi_pic->get_colorspace());
   return true;
 }

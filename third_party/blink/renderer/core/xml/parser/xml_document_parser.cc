@@ -48,6 +48,7 @@
 #include "third_party/blink/renderer/core/dom/transform_source.h"
 #include "third_party/blink/renderer/core/dom/xml_document.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/custom/ce_reactions_scope.h"
@@ -1440,6 +1441,9 @@ static void NormalErrorHandler(void* closure, const char* message, ...) {
 // Using a static entity and marking it XML_INTERNAL_PREDEFINED_ENTITY is a hack
 // to avoid malloc/free. Using a global variable like this could cause trouble
 // if libxml implementation details were to change
+// TODO(https://crbug.com/344484975): The XML_INTERNAL_PREDEFINED_ENTITY is in
+// fact overridden in GetXHTMLEntity() below for all uses, so it's not
+// behaving as documented.
 static xmlChar g_shared_xhtml_entity_result[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 static xmlEntityPtr SharedXHTMLEntity() {
@@ -1448,6 +1452,9 @@ static xmlEntityPtr SharedXHTMLEntity() {
     entity.type = XML_ENTITY_DECL;
     entity.orig = g_shared_xhtml_entity_result;
     entity.content = g_shared_xhtml_entity_result;
+    // TODO(https://crbug.com/344484975): The XML_INTERNAL_PREDEFINED_ENTITY
+    // is in fact overridden in GetXHTMLEntity() below for all uses, so it's
+    // not behaving as documented.  We should only set the value in one place.
     entity.etype = XML_INTERNAL_PREDEFINED_ENTITY;
   }
   return &entity;
@@ -1533,15 +1540,20 @@ static xmlEntityPtr GetEntityHandler(void* closure, const xmlChar* name) {
   xmlParserCtxtPtr ctxt = static_cast<xmlParserCtxtPtr>(closure);
   xmlEntityPtr ent = xmlGetPredefinedEntity(name);
   if (ent) {
-    ent->etype = XML_INTERNAL_PREDEFINED_ENTITY;
+    CHECK_EQ(ent->etype, XML_INTERNAL_PREDEFINED_ENTITY);
     return ent;
   }
 
   ent = xmlGetDocEntity(ctxt->myDoc, name);
   if (!ent && GetParser(closure)->IsXHTMLDocument()) {
     ent = GetXHTMLEntity(name);
-    if (ent)
+    if (ent) {
+      // TODO(https://crbug.com/344484975): This overrides the
+      // XML_INTERNAL_PREDEFINED_ENTITY value set above for every single case.
+      // We should figure out which one is correct and only set it to one,
+      // rather than assigning one value and then always overriding it.
       ent->etype = XML_INTERNAL_GENERAL_ENTITY;
+    }
   }
 
   return ent;

@@ -15,12 +15,13 @@
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/desks/desks_histogram_enums.h"
 #include "ash/wm/desks/desks_util.h"
-#include "ash/wm/desks/legacy_desk_bar_view.h"
+#include "ash/wm/desks/overview_desk_bar_view.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_drop_target.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_grid_test_api.h"
 #include "ash/wm/overview/overview_item.h"
+#include "ash/wm/overview/overview_item_base.h"
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/overview/overview_test_util.h"
 #include "ash/wm/splitview/split_view_constants.h"
@@ -142,11 +143,10 @@ class OverviewWindowDragControllerTest : public AshTestBase {
   }
 
   int GetDesksBarViewExpandedStateHeight(
-      const LegacyDeskBarView* desks_bar_view) {
-    return LegacyDeskBarView::GetPreferredBarHeight(
+      const OverviewDeskBarView* desks_bar_view) {
+    return DeskBarViewBase::GetPreferredBarHeight(
         desks_bar_view->GetWidget()->GetNativeWindow()->GetRootWindow(),
-        LegacyDeskBarView::Type::kOverview,
-        LegacyDeskBarView::State::kExpanded);
+        DeskBarViewBase::Type::kOverview, DeskBarViewBase::State::kExpanded);
   }
 };
 
@@ -216,7 +216,7 @@ TEST_F(OverviewWindowDragControllerTest, DropTargetBoundsTest) {
         event_generator, by_touch, /*drop=*/false);
     EXPECT_TRUE(overview_controller->InOverviewSession());
 
-    const OverviewDropTarget* drop_target = overview_grid->drop_target();
+    const OverviewItemBase* drop_target = overview_grid->drop_target();
     EXPECT_TRUE(drop_target);
     EXPECT_EQ(gfx::RectF(drop_target->item_widget()->GetWindowBoundsInScreen()),
               target_bounds_before_dragging);

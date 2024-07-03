@@ -78,6 +78,7 @@ class BLINK_EXPORT WebNode {
   bool LessThan(const WebNode&) const;
 
   bool IsNull() const;
+  explicit operator bool() const { return !IsNull(); }
 
   bool IsConnected() const;
 
@@ -99,6 +100,10 @@ class BLINK_EXPORT WebNode {
   bool IsContentEditable() const;
   bool IsElementNode() const;
   void SimulateClick();
+
+  // Returns the top-most ancestor such this WebNode and that ancestor and all
+  // nodes in between are contenteditable.
+  WebElement RootEditableElement() const;
 
   // See cc/paint/element_id.h for the definition of these ids.
   cc::ElementId ScrollingElementIdForTesting() const;

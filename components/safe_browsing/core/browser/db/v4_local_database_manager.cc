@@ -24,7 +24,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
@@ -165,8 +164,8 @@ ThreatSeverity GetThreatSeverity(const ListIdentifier& list_id) {
     case POTENTIALLY_HARMFUL_APPLICATION:
     case SOCIAL_ENGINEERING_PUBLIC:
     case THREAT_TYPE_UNSPECIFIED:
-      NOTREACHED() << "Unexpected ThreatType encountered: "
-                   << list_id.threat_type();
+      NOTREACHED_IN_MIGRATION()
+          << "Unexpected ThreatType encountered: " << list_id.threat_type();
       return kLeastSeverity;
   }
 }
@@ -192,7 +191,7 @@ ListIdentifier GetUrlIdFromSBThreatType(SBThreatType sb_threat_type) {
       return GetUrlBillingId();
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       // Compiler requires a return statement here.
       return GetUrlMalwareId();
   }
@@ -216,19 +215,6 @@ void RecordTimeSinceLastUpdateHistograms(const base::Time& last_response_time) {
   UMA_HISTOGRAM_LONG_TIMES_100(
       "SafeBrowsing.V4LocalDatabaseManager.TimeSinceLastUpdateResponse",
       time_since_update);
-}
-
-void RecordCheckUrlForHighConfidenceAllowlistBoolean(
-    const std::string& metric_name,
-    const std::string& metric_variation,
-    bool value) {
-  auto histogram_name =
-      base::StrCat({"SafeBrowsing.", metric_variation, ".", metric_name});
-  DCHECK(histogram_name == "SafeBrowsing.RT.AllStoresAvailable" ||
-         histogram_name == "SafeBrowsing.HPRT.AllStoresAvailable" ||
-         histogram_name == "SafeBrowsing.RT.AllowlistSizeTooSmall" ||
-         histogram_name == "SafeBrowsing.HPRT.AllowlistSizeTooSmall");
-  base::UmaHistogramBoolean(histogram_name, value);
 }
 
 bool GetPrefixMatchesIsAsync() {
@@ -380,12 +366,6 @@ void V4LocalDatabaseManager::CancelCheck(Client* client) {
   }
 }
 
-bool V4LocalDatabaseManager::CanCheckRequestDestination(
-    network::mojom::RequestDestination request_destination) const {
-  // We check all destinations since most checks are fast.
-  return true;
-}
-
 bool V4LocalDatabaseManager::CanCheckUrl(const GURL& url) const {
   return url.SchemeIsHTTPOrHTTPS() || url.SchemeIs(url::kFtpScheme) ||
          url.SchemeIsWSOrWSS();
@@ -478,29 +458,28 @@ bool V4LocalDatabaseManager::CheckResourceUrl(const GURL& url, Client* client) {
   return HandleCheck(std::move(check));
 }
 
-void V4LocalDatabaseManager::CheckUrlForHighConfidenceAllowlist(
+std::optional<
+    SafeBrowsingDatabaseManager::HighConfidenceAllowlistCheckLoggingDetails>
+V4LocalDatabaseManager::CheckUrlForHighConfidenceAllowlist(
     const GURL& url,
-    const std::string& metric_variation,
     base::OnceCallback<void(bool)> callback) {
   DCHECK(sb_task_runner()->RunsTasksInCurrentSequence());
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           kSkipHighConfidenceAllowlist)) {
     sb_task_runner()->PostTask(FROM_HERE,
                                base::BindOnce(std::move(callback), false));
-    return;
+    return std::nullopt;
   }
 
   StoresToCheck stores_to_check({GetUrlHighConfidenceAllowlistId()});
   bool all_stores_available = AreAllStoresAvailableNow(stores_to_check);
-  RecordCheckUrlForHighConfidenceAllowlistBoolean(
-      "AllStoresAvailable", metric_variation, all_stores_available);
   bool is_artificial_prefix_empty =
       artificially_marked_store_and_hash_prefixes_.empty();
   bool is_allowlist_too_small =
       IsStoreTooSmall(GetUrlHighConfidenceAllowlistId(), kBytesPerFullHashEntry,
                       kHighConfidenceAllowlistMinimumEntryCount);
-  RecordCheckUrlForHighConfidenceAllowlistBoolean(
-      "AllowlistSizeTooSmall", metric_variation, is_allowlist_too_small);
+  auto logging_details = HighConfidenceAllowlistCheckLoggingDetails(
+      all_stores_available, is_allowlist_too_small);
   if (!IsDatabaseReady() ||
       (is_allowlist_too_small && is_artificial_prefix_empty) ||
       !CanCheckUrl(url) ||
@@ -512,7 +491,7 @@ void V4LocalDatabaseManager::CheckUrlForHighConfidenceAllowlist(
     // matches are present, consider the allowlist as ready.
     sb_task_runner()->PostTask(FROM_HERE,
                                base::BindOnce(std::move(callback), true));
-    return;
+    return logging_details;
   }
 
   std::unique_ptr<PendingCheck> check = std::make_unique<PendingCheck>(
@@ -521,6 +500,7 @@ void V4LocalDatabaseManager::CheckUrlForHighConfidenceAllowlist(
 
   HandleAllowlistCheck(std::move(check), /*allow_async_full_hash_check=*/false,
                        std::move(callback));
+  return logging_details;
 }
 
 bool V4LocalDatabaseManager::CheckUrlForSubresourceFilter(const GURL& url,
@@ -662,8 +642,12 @@ bool V4LocalDatabaseManager::IsDatabaseReady() const {
 //
 
 void V4LocalDatabaseManager::DatabaseReadyForChecks(
+    base::Time start_time,
     std::unique_ptr<V4Database, base::OnTaskRunnerDeleter> v4_database) {
   DCHECK(sb_task_runner()->RunsTasksInCurrentSequence());
+
+  base::UmaHistogramTimes("SafeBrowsing.V4DatabaseInitializationTime",
+                          base::Time::Now() - start_time);
 
   v4_database->InitializeOnSBThread();
 
@@ -914,7 +898,7 @@ void V4LocalDatabaseManager::HandleAllowlistCheckContinuation(
       RespondToClient(std::move(check));
     }
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -1225,7 +1209,8 @@ void V4LocalDatabaseManager::RespondToClientWithoutPendingCheckCleanup(
     }
 
     case ClientCallbackType::CHECK_OTHER:
-      NOTREACHED() << "Unexpected client_callback_type encountered";
+      NOTREACHED_IN_MIGRATION()
+          << "Unexpected client_callback_type encountered";
   }
 }
 
@@ -1239,7 +1224,7 @@ void V4LocalDatabaseManager::SetupDatabase() {
   // has been created, swap it out on the SB thread.
   NewDatabaseReadyCallback db_ready_callback =
       base::BindOnce(&V4LocalDatabaseManager::DatabaseReadyForChecks,
-                     weak_factory_.GetWeakPtr());
+                     weak_factory_.GetWeakPtr(), base::Time::Now());
   V4Database::Create(task_runner_, base_path_, list_infos_,
                      std::move(db_ready_callback));
 }
@@ -1316,5 +1301,12 @@ V4LocalDatabaseManager::CopyAndRemoveAllPendingChecks() {
   }
   return pending_checks;
 }
+
+V4LocalDatabaseManager::HighConfidenceAllowlistCheckLoggingDetails::
+    HighConfidenceAllowlistCheckLoggingDetails(
+        bool were_all_stores_available,
+        bool was_allowlist_size_too_small)
+    : were_all_stores_available(were_all_stores_available),
+      was_allowlist_size_too_small(was_allowlist_size_too_small) {}
 
 }  // namespace safe_browsing

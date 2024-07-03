@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">пастелно жут(а)</translation>
 <translation id="1056898198331236512">Упозорење</translation>
 <translation id="1059913517121127803">Покретање скенирања није успело</translation>
+<translation id="1061864016440983342">Користи без локације</translation>
 <translation id="1062823486781306604"><ph name="INDEX" />. од <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Откривен је заштитни зид</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Више подешавања</translation>
 <translation id="2082932131694554252">Додељени тастер на тастатури</translation>
 <translation id="2085089206770112532">Смањите осветљеност екрана</translation>
+<translation id="2086091080968010660">Промене засноване на времену можда нису прецизне. Укључите приступ локацији система у подешавањима.</translation>
 <translation id="2102231663024125441">Уређивање текста</translation>
 <translation id="2105810540595158374">Уређај је контролер за игре.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, верзија <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Измените детаље назива приступне тачке</translation>
 <translation id="2195732836444333448">Капацитет је тренутно попуњен. Вратите се брзо.</translation>
 <translation id="2201758491318984023">Бицикл</translation>
-<translation id="2203222757805818543">Актуелни распоред је подешен на <ph name="SUNRISE" />–<ph name="SUNSET" />. Да бисте аутоматски ажурирали распоред тамног режима, <ph name="BEGIN_LINK" />укључите приступ локацији<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">Термални извор</translation>
 <translation id="2203642483788377106">литица</translation>
 <translation id="2208388655216963643">импресионизам</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Врати на подразумевано</translation>
 <translation id="2286454467119466181">Једноставан</translation>
 <translation id="2287186687001756809">Слика није доступна. Да бисте додали слике, идите на <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Актуелни распоред је подешен на <ph name="SUNRISE" />–<ph name="SUNSET" />. Да бисте аутоматски ажурирали распоред заласка и изласка сунца, укључите приступ локацији система.</translation>
 <translation id="2305172810646967500">црним</translation>
 <translation id="2307344026739914387">Користите актуелни пар кључева</translation>
 <translation id="2308243864813041101">Искључите USB кабл уређаја <ph name="DEVICE_NAME" /> да бисте наставили процес ажурирања</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">пешчана дина</translation>
 <translation id="2619761439309613843">Дневно освежавање</translation>
 <translation id="2620436844016719705">Систем</translation>
+<translation id="2637303424821734920">ИСКЉУЧЕНО – Да би се приказивало локално време, <ph name="BEGIN_LINK" />укључите приступ локацији система<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Слика за пријављивање</translation>
 <translation id="2640549051766135490">Изабран је албум <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Контроле</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Позадина</translation>
 <translation id="3027578600144895987">Затворите камеру</translation>
 <translation id="3031560714565892478">Уређај је видео камера.</translation>
+<translation id="3051968340259309715">Ово омогућава системским услугама да користе прецизност локације за утврђивање локације. Прецизност локације користи информације о бежичним сигналима као што су приступне тачке за WiFi, репетитори мобилних мрежа и GPS, заједно са подацима сензора уређаја, као што су акцелерометар и жироскоп, за процену локације уређаја. Можете да искључите локацију у одељку Подешавања &gt; Приватност и безбедност &gt; Контроле приватности &gt; Приступ локацији. <ph name="LINK_BEGIN" />Сазнајте више<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Крајња тачка</translation>
 <translation id="3060579846059757016">Оквири</translation>
+<translation id="3061850252076394168">омогућите услугу Изаберите за говор</translation>
 <translation id="3069085583900247081">Тест није успео</translation>
 <translation id="3078740164268491126">табела</translation>
 <translation id="3081652522083185657">светло</translation>
@@ -394,7 +399,7 @@
 <translation id="3226405216343213872">Траже се скенери</translation>
 <translation id="3226657629376379887">Мени са радњама за распоред</translation>
 <translation id="3227186760713762082">Вредност (<ph name="CATEGORY_TEXT" />) дели се бројем <ph name="CONVERSION_RATE" /></translation>
-<translation id="3237710083340813756">Поново напишите</translation>
+<translation id="3237710083340813756">Преради</translation>
 <translation id="3246869037381808805">Задаци штампања старији од 1 дана се уклањају</translation>
 <translation id="324961752321393509">Администратор не дозвољава затварање ове апликације</translation>
 <translation id="3263941347294171263">Искључите и поново прикључите уређај <ph name="DEVICE_NAME" /> да бисте наставили процес ажурирања</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Разрешење свих хостова није успело</translation>
 <translation id="4593212453765072419">Потребна је потврда аутентичности проксија</translation>
 <translation id="4609350030397390689">Смањите осветљеност тастатуре</translation>
-<translation id="4617553623719764431">Време није приказано јер не зна вашу локацију. Да би се приказивало локално време, <ph name="BEGIN_LINK" />укључите приступ локацији<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> од <ph name="TOTAL_PAGE_NUMBER" />. Притисните тастер Enter да бисте отказали задатак штампања.</translation>
 <translation id="463791356324567266">Отказује се скенирање...</translation>
 <translation id="4646949265910132906">Безбедна WiFi веза</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Покрени</translation>
 <translation id="4987769320337599931">Заштитни зид</translation>
 <translation id="4988526792673242964">Странице</translation>
+<translation id="4989542687859782284">Недоступни</translation>
 <translation id="4999333166442584738">Сакриј извештај</translation>
 <translation id="500920857929044050">Заустави тест</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">осветљеност тастатуре</translation>
 <translation id="6412715219990689313">Уграђена тастатура</translation>
 <translation id="6417265370957905582">Google помоћник</translation>
+<translation id="6419454453018688975">Укључите приступ системској локацији</translation>
 <translation id="6423239382391657905">Отворена VPN</translation>
-<translation id="6438073885402882007">Ово омогућава системским услугама са дозволом да користе локацију. Локација може да користи изворе као што су WiFi, мобилне мреже и сензори да би се лакше одредила локација уређаја. <ph name="LINK_BEGIN" />Сазнајте више<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Слаб (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Отворите подешавања налога</translation>
 <translation id="6462978824459367242">Дугме Додај назив приступне тачке је сада омогућено</translation>

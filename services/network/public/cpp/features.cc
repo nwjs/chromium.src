@@ -6,14 +6,36 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/no_destructor.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/system/sys_info.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/miracle_parameter/common/public/miracle_parameter.h"
 #include "net/base/mime_sniffer.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
 namespace network::features {
+
+// Enables the Accept-CH support disabler. If this feature is activated, Chrome
+// ignore Accept-CH response headers for a site that is specified in the
+// following kBlockAcceptClientHintsBlockedSite. This is used to compare Chrome
+// performance with a dedicated site.
+BASE_FEATURE(kBlockAcceptClientHints,
+             "BlockAcceptClientHints",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<std::string> kBlockAcceptClientHintsBlockedSite{
+    &kBlockAcceptClientHints, /*name=*/"BlockedSite", /*default_value=*/""};
+
+bool ShouldBlockAcceptClientHintsFor(const url::Origin& origin) {
+  // Check if the Accept-CH support is disabled for a specified site.
+  static const bool block_accept_ch =
+      base::FeatureList::IsEnabled(features::kBlockAcceptClientHints);
+  static const base::NoDestructor<url::Origin> blocked_site(url::Origin::Create(
+      GURL(features::kBlockAcceptClientHintsBlockedSite.Get())));
+  return block_accept_ch && blocked_site->IsSameOriginWith(origin);
+}
 
 BASE_FEATURE(kNetworkErrorLogging,
              "NetworkErrorLogging",
@@ -389,7 +411,7 @@ BASE_FEATURE(kCookieIndicesHeader,
 //   * The network service loads the metadata database.
 //   * If there is a matching dictionary for a sending request, it adds the
 //     `sec-available-dictionary` header.
-//   * And if the `content-encoding` header of the response is `sbr`, it
+//   * And if the `content-encoding` header of the response is `dcb`, it
 //     decompresses the response body using the dictionary.
 BASE_FEATURE(kCompressionDictionaryTransportBackend,
              "CompressionDictionaryTransportBackend",
@@ -397,9 +419,11 @@ BASE_FEATURE(kCompressionDictionaryTransportBackend,
 
 // When both this feature and the kCompressionDictionaryTransportBackend feature
 // are enabled, the following will happen:
-//   * A <link rel=dictionary> HTML tag and a `Link: rel=dictionary` HTTP header
-//     will trigger dictionary download.
-//   * HTMLLinkElement.relList.supports('dictionary') will return true.
+//   * A <link rel=compression-dictionary> HTML tag and a
+//     `Link: rel=compression-dictionary` HTTP header will trigger dictionary
+//     download.
+//   * HTMLLinkElement.relList.supports('compression-dictionary') will return
+//     true.
 //   * The network service may register a HTTP response as a dictionary if the
 //     response header contains a `use-as-dictionary` header.
 // This feature can be enabled by an Origin Trial token in Blink. To propagate
@@ -438,7 +462,7 @@ BASE_FEATURE(kSharedZstd, "SharedZstd", base::FEATURE_ENABLED_BY_DEFAULT);
 // to observers via OnCookiesAccessed.
 BASE_FEATURE(kCookieAccessDetailsNotificationDeDuping,
              "CookieAccessDetailsNotificationDeDuping",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This feature will reduce TransferSizeUpdated IPC from the network service.
 // When enabled, the network service will send the IPC only when DevTools is
@@ -482,5 +506,16 @@ BASE_FEATURE(kAvoidResourceRequestCopies,
 BASE_FEATURE(kDocumentIsolationPolicy,
              "DocumentIsolationPolicy",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// This feature enables the Prefetch() method on the NetworkContext, and the
+// PrefetchMatchingURLLoaderFactory.
+BASE_FEATURE(kNetworkContextPrefetch,
+             "NetworkContextPrefetch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+// How many prefetches should be cached before old ones are evicted. This
+// provides rough control over the overall memory used by prefetches.
+const base::FeatureParam<int> kNetworkContextPrefetchMaxLoaders{
+    &kNetworkContextPrefetch,
+    /*name=*/"max_loaders", /*default_value=*/10};
 
 }  // namespace network::features

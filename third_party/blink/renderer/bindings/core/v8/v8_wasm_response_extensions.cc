@@ -115,10 +115,9 @@ class WasmCodeCachingCallback {
     {
       TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
                    "v8.wasm.compileDigestForCreate");
-      if (!ComputeDigest(kHashAlgorithmSha256,
-                         reinterpret_cast<const char*>(wire_bytes.data()),
-                         wire_bytes.size(), wire_bytes_digest))
+      if (!ComputeDigest(kHashAlgorithmSha256, wire_bytes, wire_bytes_digest)) {
         return;
+      }
       if (wire_bytes_digest.size() != kWireBytesDigestSize)
         return;
     }
@@ -226,7 +225,7 @@ class FetchDataLoaderForWasmStreaming final : public FetchDataLoader,
       }
       switch (result) {
         case BytesConsumer::Result::kShouldWait:
-          NOTREACHED();
+          NOTREACHED_IN_MIGRATION();
           return;
         case BytesConsumer::Result::kOk:
           break;
@@ -436,7 +435,7 @@ class WasmDataLoaderClient final
   WasmDataLoaderClient& operator=(const WasmDataLoaderClient&) = delete;
 
   void DidFetchDataLoadedCustomFormat() override {}
-  void DidFetchDataLoadFailed() override { NOTREACHED(); }
+  void DidFetchDataLoadFailed() override { NOTREACHED_IN_MIGRATION(); }
   void Abort() override { loader_->AbortFromClient(); }
 
   void Trace(Visitor* visitor) const override {

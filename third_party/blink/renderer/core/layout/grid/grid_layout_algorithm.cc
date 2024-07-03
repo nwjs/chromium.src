@@ -12,7 +12,6 @@
 #include "third_party/blink/renderer/core/layout/out_of_flow_layout_part.h"
 #include "third_party/blink/renderer/core/layout/relative_utils.h"
 #include "third_party/blink/renderer/core/layout/space_utils.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -1258,6 +1257,8 @@ LayoutUnit GridLayoutAlgorithm::ContributionSizeForGridItem(
       // We could be clever is and make this an if-stmt, but each type has
       // subtle consequences. This forces us in the future when we add a new
       // length type to consider what the best thing is for grid.
+      // TODO(https://crbug.com/40339056): The separation here is not
+      // correct for calc-size().
       switch (main_length.GetType()) {
         case Length::kAuto:
         case Length::kFitContent:
@@ -1360,7 +1361,7 @@ LayoutUnit GridLayoutAlgorithm::ContributionSizeForGridItem(
         case Length::kDeviceHeight:
         case Length::kNone:
         case Length::kContent:
-          NOTREACHED();
+          NOTREACHED_IN_MIGRATION();
           break;
       }
       break;
@@ -1371,8 +1372,9 @@ LayoutUnit GridLayoutAlgorithm::ContributionSizeForGridItem(
                                                       : BlockContributionSize();
       break;
     case GridItemContributionType::kForFreeSpace:
-      NOTREACHED() << "|kForFreeSpace| should only be used to distribute extra "
-                      "space in maximize tracks and stretch auto tracks steps.";
+      NOTREACHED_IN_MIGRATION()
+          << "|kForFreeSpace| should only be used to distribute extra "
+             "space in maximize tracks and stretch auto tracks steps.";
       break;
   }
   return (contribution + margin_sum).ClampNegativeToZero();
@@ -1742,10 +1744,6 @@ void GridLayoutAlgorithm::InitializeTrackSizes(
         grid_item.ComputeSetIndices(track_collection);
       }
     } else {
-      // If this grid has a standalone axis, invalidate its min/max sizes cache,
-      // since they're only valid for the current step of the sizing algorithm.
-      Node().InvalidateMinMaxSizesCache();
-
       auto& track_collection = layout_data.SizingCollection(track_direction);
       CacheGridItemsProperties(track_collection, &grid_items);
 
@@ -1968,12 +1966,68 @@ void GridLayoutAlgorithm::CompleteTrackSizingAlgorithm(
       });
 }
 
+namespace {
+
+// A subgrid's `MinMaxSizes` cache is stored in its respective `LayoutGrid` and
+// gets invalidated via the `IsSubgridMinMaxSizesCacheDirty` flag.
+//
+// However, a subgrid might need to invalidate the cache if it inherited a
+// different track collection in its subgridded axis, which might cause its
+// intrinsic sizes to change. This invalidation goes from parent to children,
+// which is not accounted for by the invalidation logic in `LayoutObject`.
+//
+// This method addresses such issue by traversing the tree in postorder checking
+// whether the cache at each subgrid level is reusable or not: if the subgrid
+// has a valid cache, but its input tracks for the subgridded axis changed,
+// then we'll invalidate the cache for that subgrid and its ancestors.
+bool ValidateMinMaxSizesCache(const GridNode& grid_node,
+                              const GridSizingSubtree& sizing_subtree,
+                              GridTrackSizingDirection track_direction) {
+  DCHECK(sizing_subtree.HasValidRootFor(grid_node));
+
+  bool should_invalidate_min_max_sizes_cache = false;
+
+  // Only iterate over items if this grid has nested subgrids.
+  if (auto next_subgrid_subtree = sizing_subtree.FirstChild()) {
+    for (const auto& grid_item : sizing_subtree.GetGridItems()) {
+      if (!grid_item.IsSubgrid()) {
+        continue;
+      }
+
+      DCHECK(next_subgrid_subtree);
+      should_invalidate_min_max_sizes_cache |= ValidateMinMaxSizesCache(
+          To<GridNode>(grid_item.node), next_subgrid_subtree,
+          RelativeDirectionInSubgrid(track_direction, grid_item));
+      next_subgrid_subtree = next_subgrid_subtree.NextSibling();
+    }
+  }
+
+  const auto& layout_data = sizing_subtree.LayoutData();
+  if (layout_data.IsSubgridWithStandaloneAxis(track_direction)) {
+    // If no nested subgrid marked this subtree to be invalidated already, check
+    // that the cached intrinsic sizes are reusable by the current sizing tree.
+    if (!should_invalidate_min_max_sizes_cache) {
+      should_invalidate_min_max_sizes_cache =
+          grid_node.ShouldInvalidateSubgridMinMaxSizesCacheFor(layout_data);
+    }
+
+    if (should_invalidate_min_max_sizes_cache) {
+      grid_node.InvalidateSubgridMinMaxSizesCache();
+    }
+  }
+  return should_invalidate_min_max_sizes_cache;
+}
+
+}  // namespace
+
 void GridLayoutAlgorithm::CompleteTrackSizingAlgorithm(
     const GridSizingTree& sizing_tree,
     GridTrackSizingDirection track_direction,
     SizingConstraint sizing_constraint,
     bool* opt_needs_additional_pass) const {
   const auto sizing_subtree = GridSizingSubtree(sizing_tree);
+
+  ValidateMinMaxSizesCache(Node(), sizing_subtree, track_direction);
 
   ComputeBaselineAlignment(sizing_tree.FinalizeTree(), sizing_subtree,
                            /* opt_subgrid_data */ kNoSubgriddedItemData,
@@ -2133,7 +2187,7 @@ LayoutUnit AffectedSizeForContribution(
     case GridItemContributionType::kForMaxContentMaximums:
       return DefiniteGrowthLimit(set);
     case GridItemContributionType::kForFreeSpace:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return LayoutUnit();
   }
 }
@@ -2166,7 +2220,7 @@ void GrowAffectedSizeByPlannedIncrease(
       set->IncreaseGrowthLimit(DefiniteGrowthLimit(*set) + planned_increase);
       return;
     case GridItemContributionType::kForFreeSpace:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 }
@@ -3175,7 +3229,7 @@ LayoutUnit AlignmentOffset(LayoutUnit container_size,
     case AxisEdge::kLastBaseline:
       return baseline_offset;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return LayoutUnit();
 }
 

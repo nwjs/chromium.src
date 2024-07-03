@@ -92,6 +92,11 @@ const char kDeviceTierUmaName[] = "DeviceTier";
 const char kTabResumptionClassifierKey[] = "tab_resupmtion_classifier";
 const char kTabResumptionClassifierUmaName[] = "TabResumptionClassifier";
 
+// The key is used to rank `URLVisitAggregate` objects leveraged by UI tab
+// resumption features.
+const char kURLVisitResumptionRankerKey[] = "url_visit_resumption_ranker";
+const char kURLVisitResumptionRankerUmaName[] = "URLVisitResumptionRanker";
+
 const char kIosModuleRankerKey[] = "ios_module_ranker";
 const char kIosModuleRankerUmaName[] = "IosModuleRanker";
 
@@ -157,6 +162,7 @@ const char kAdaptiveToolbarModelLabelReadAloud[] = "ReadAloud";
 // Labels for contextual page actions model.
 const char kContextualPageActionModelLabelPriceTracking[] = "price_tracking";
 const char kContextualPageActionModelLabelReaderMode[] = "reader_mode";
+const char kContextualPageActionModelLabelPriceInsights[] = "price_insights";
 
 // Labels for cross device segment.
 const char kNoCrossDeviceUsage[] = "NoCrossDeviceUsage";
@@ -235,6 +241,8 @@ const char kDesktopNtpDriveModuleLabelDontShow[] = "dont_show_drive";
 // Custom inputs for contextual page actions model.
 const char kContextualPageActionModelInputPriceTracking[] = "can_track_price";
 const char kContextualPageActionModelInputReaderMode[] = "has_reader_mode";
+const char kContextualPageActionModelInputPriceInsights[] =
+    "has_price_insights";
 
 const char kComposePrmotionLabelShow[] = "Show";
 const char kComposePrmotionLabelDontShow[] = "DontShow";

@@ -189,6 +189,7 @@ enum Setting {
   kAppNotificationOnOff = 707,
   kAppPinToShelfOnOff = 708,
   kAppResizeLockOnOff = 709,
+  kAppParentalControls = 710,
 
   // Crostini section.
   kSetUpCrostini= 800,
@@ -322,7 +323,7 @@ enum Setting {
   kMouseKeysDominantHand = 1543,
   kCaretBlinkInterval = 1544,
   kAccessibilityMagnifierFollowsSts = 1545,
-  kPdfOcrOnOff = 1546,
+  // [Deprecated] kPdfOcrOnOff = 1546,
   kOverscrollEnabled = 1547,
 
   // Reset section.

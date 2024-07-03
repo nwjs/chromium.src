@@ -43,8 +43,11 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
+#include "cc/input/browser_controls_offset_tags_info.h"
 #include "cc/trees/browser_controls_params.h"
 #include "cc/trees/render_frame_metadata.h"
+#include "components/input/native_web_keyboard_event.h"
+#include "components/input/timeout_monitor.h"
 #include "components/viz/common/features.h"
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "content/browser/accessibility/browser_accessibility_manager.h"
@@ -64,13 +67,12 @@
 #include "content/browser/renderer_host/frame_token_message_queue.h"
 #include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/input/fling_scheduler.h"
-#include "content/browser/renderer_host/input/touch_emulator.h"
+#include "content/browser/renderer_host/input/touch_emulator_impl.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_delegate_view.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/render_widget_helper.h"
-#include "content/browser/renderer_host/render_widget_host_input_event_router.h"
 #include "content/browser/renderer_host/render_widget_host_owner_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
@@ -82,10 +84,10 @@
 #include "content/common/frame.mojom.h"
 #include "content/common/input/input_router_config_helper.h"
 #include "content/common/input/input_router_impl.h"
+#include "content/common/input/render_widget_host_input_event_router.h"
 #include "content/common/input/synthetic_gesture.h"
 #include "content/common/input/synthetic_gesture_controller.h"
 #include "content/common/input/synthetic_gesture_target.h"
-#include "content/common/input/timeout_monitor.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/device_service.h"
@@ -102,7 +104,6 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/drop_data.h"
-#include "content/public/common/input/native_web_keyboard_event.h"
 #include "content/public/common/result_codes.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
@@ -409,7 +410,6 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
       should_disable_hang_monitor_(
           base::CommandLine::ForCurrentProcess()->HasSwitch(
               switches::kDisableHangMonitor)),
-      latency_tracker_(delegate_),
       hung_renderer_delay_(kHungRendererDelay),
       new_content_rendering_delay_(blink::kNewContentRenderingDelay),
       frame_token_message_queue_(std::move(frame_token_message_queue)),
@@ -431,6 +431,8 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
   CHECK(delegate_);
   CHECK_NE(MSG_ROUTING_NONE, routing_id_);
   CHECK(base::ThreadPoolInstance::Get());
+
+  AddInputEventObserver(BrowserAccessibilityStateImpl::GetInstance());
 
   std::pair<RoutingIDWidgetMap::iterator, bool> result =
       g_routing_id_widget_map.Get().insert(std::make_pair(
@@ -458,7 +460,7 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
 
   const auto* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(switches::kDisableNewContentRenderingTimeout)) {
-    new_content_rendering_timeout_ = std::make_unique<TimeoutMonitor>(
+    new_content_rendering_timeout_ = std::make_unique<input::TimeoutMonitor>(
         base::BindRepeating(&RenderWidgetHostImpl::ClearDisplayedGraphics,
                             weak_factory_.GetWeakPtr()),
         GetUIThreadTaskRunner({BrowserTaskType::kUserInput}));
@@ -566,6 +568,7 @@ void RenderWidgetHostImpl::SetView(RenderWidgetHostViewBase* view) {
   } else {
     view_.reset();
   }
+  GetRenderInputRouter()->SetView(view);
 }
 
 // static
@@ -1350,7 +1353,8 @@ void RenderWidgetHostImpl::SetPageFocus(bool focused) {
       UnlockKeyboard();
     }
 
-    if (auto* touch_emulator = GetExistingTouchEmulator()) {
+    if (auto* touch_emulator =
+            GetTouchEmulator(/*create_if_necessary=*/false)) {
       if (touch_emulator->rfh_limit()) {
         if (touch_emulator->rfh_limit()->GetView() == GetView())
           touch_emulator->CancelTouch();
@@ -1384,7 +1388,7 @@ void RenderWidgetHostImpl::SetPageFocus(bool focused) {
 }
 
 void RenderWidgetHostImpl::LostCapture() {
-  if (auto* touch_emulator = GetExistingTouchEmulator()) {
+  if (auto* touch_emulator = GetTouchEmulator(/*create_if_necessary=*/false)) {
     touch_emulator->CancelTouch();
   }
 
@@ -1467,9 +1471,6 @@ void RenderWidgetHostImpl::StopInputEventAckTimeout() {
 }
 
 void RenderWidgetHostImpl::DidNavigate() {
-  // Stop the flinging after navigating to a new page.
-  StopFling();
-
   // Resize messages before navigation are not acked, so reset
   // |visual_properties_ack_pending_| and make sure the next resize will be
   // acked if the last resize before navigation was supposed to be acked.
@@ -1513,12 +1514,6 @@ void RenderWidgetHostImpl::ForwardMouseEventWithLatencyInfo(
   CHECK_GE(mouse_event.GetType(), WebInputEvent::Type::kMouseTypeFirst);
   CHECK_LE(mouse_event.GetType(), WebInputEvent::Type::kMouseTypeLast);
 
-  // This is used to auto-disable accessibility if we detect user input
-  // but no accessibility API usage.
-  if (mouse_event.GetType() == WebInputEvent::Type::kMouseDown) {
-    BrowserAccessibilityStateImpl::GetInstance()->OnUserInputEvent();
-  }
-
   for (auto& mouse_event_callback : mouse_event_callbacks_) {
     if (mouse_event_callback.Run(mouse_event)) {
       return;
@@ -1529,14 +1524,14 @@ void RenderWidgetHostImpl::ForwardMouseEventWithLatencyInfo(
     return;
   }
 
-  auto* touch_emulator = GetExistingTouchEmulator();
+  auto* touch_emulator = GetTouchEmulator(/*create_if_necessary=*/false);
   if (touch_emulator &&
       touch_emulator->HandleMouseEvent(mouse_event, GetView())) {
     return;
   }
 
-  MouseEventWithLatencyInfo mouse_with_latency(mouse_event, latency);
-  DispatchInputEventWithLatencyInfo(
+  input::MouseEventWithLatencyInfo mouse_with_latency(mouse_event, latency);
+  GetRenderInputRouter()->DispatchInputEventWithLatencyInfo(
       mouse_with_latency.event, &mouse_with_latency.latency,
       &mouse_with_latency.event.GetModifiableEventLatencyMetadata());
   input_router()->SendMouseEvent(
@@ -1560,13 +1555,14 @@ void RenderWidgetHostImpl::ForwardWheelEventWithLatencyInfo(
     return;
   }
 
-  auto* touch_emulator = GetExistingTouchEmulator();
+  auto* touch_emulator = GetTouchEmulator(/*create_if_necessary=*/false);
   if (touch_emulator && touch_emulator->HandleMouseWheelEvent(wheel_event)) {
     return;
   }
 
-  MouseWheelEventWithLatencyInfo wheel_with_latency(wheel_event, latency);
-  DispatchInputEventWithLatencyInfo(
+  input::MouseWheelEventWithLatencyInfo wheel_with_latency(wheel_event,
+                                                           latency);
+  GetRenderInputRouter()->DispatchInputEventWithLatencyInfo(
       wheel_with_latency.event, &wheel_with_latency.latency,
       &wheel_with_latency.event.GetModifiableEventLatencyMetadata());
   input_router()->SendWheelEvent(wheel_with_latency);
@@ -1602,14 +1598,15 @@ void RenderWidgetHostImpl::ForwardGestureEventWithLatencyInfo(
   TRACE_EVENT1("input", "RenderWidgetHostImpl::ForwardGestureEvent", "type",
                WebInputEvent::GetName(gesture_event.GetType()));
 
-  // This is used to auto-disable accessibility if we detect user input
-  // but no accessibility API usage.
-  if (gesture_event.GetType() == WebInputEvent::Type::kGestureTapDown) {
-    BrowserAccessibilityStateImpl::GetInstance()->OnUserInputEvent();
-  }
-
   // Early out if necessary, prior to performing latency logic.
   if (IsIgnoringWebInputEvents(gesture_event)) {
+    // IgnoreWebInputEvents is primarily concerned with suppressing event
+    // dispatch to the renderer. However, the embedder may be filtering gesture
+    // events to drive its own UI so we still give it an opportunity to see
+    // these events.
+    if (GetView()) {
+      GetView()->FilterInputEvent(gesture_event);
+    }
     return;
   }
 
@@ -1645,36 +1642,16 @@ void RenderWidgetHostImpl::ForwardGestureEventWithLatencyInfo(
     return;
   }
 
-  GestureEventWithLatencyInfo gesture_with_latency(gesture_event, latency);
-  DispatchInputEventWithLatencyInfo(
+  input::GestureEventWithLatencyInfo gesture_with_latency(gesture_event,
+                                                          latency);
+  GetRenderInputRouter()->DispatchInputEventWithLatencyInfo(
       gesture_with_latency.event, &gesture_with_latency.latency,
       &gesture_with_latency.event.GetModifiableEventLatencyMetadata());
   GetRenderInputRouter()->SendGestureEventWithLatencyInfo(gesture_with_latency);
 }
 
-void RenderWidgetHostImpl::ForwardTouchEventWithLatencyInfo(
-    const blink::WebTouchEvent& touch_event,
-    const ui::LatencyInfo& latency) {
-  TRACE_EVENT0("input", "RenderWidgetHostImpl::ForwardTouchEvent");
-
-  // This is used to auto-disable accessibility if we detect user input
-  // but no accessibility API usage.
-  if (touch_event.GetType() == WebInputEvent::Type::kTouchStart) {
-    BrowserAccessibilityStateImpl::GetInstance()->OnUserInputEvent();
-  }
-
-  // Always forward TouchEvents for touch stream consistency. They will be
-  // ignored if appropriate in FilterInputEvent().
-
-  TouchEventWithLatencyInfo touch_with_latency(touch_event, latency);
-  DispatchInputEventWithLatencyInfo(
-      touch_with_latency.event, &touch_with_latency.latency,
-      &touch_with_latency.event.GetModifiableEventLatencyMetadata());
-  input_router()->SendTouchEvent(touch_with_latency);
-}
-
 void RenderWidgetHostImpl::ForwardKeyboardEvent(
-    const NativeWebKeyboardEvent& key_event) {
+    const input::NativeWebKeyboardEvent& key_event) {
   ui::LatencyInfo latency_info;
 
   if (key_event.GetType() == WebInputEvent::Type::kRawKeyDown ||
@@ -1685,25 +1662,18 @@ void RenderWidgetHostImpl::ForwardKeyboardEvent(
 }
 
 void RenderWidgetHostImpl::ForwardKeyboardEventWithLatencyInfo(
-    const NativeWebKeyboardEvent& key_event,
+    const input::NativeWebKeyboardEvent& key_event,
     const ui::LatencyInfo& latency) {
   ForwardKeyboardEventWithCommands(
       key_event, latency, std::vector<blink::mojom::EditCommandPtr>(), nullptr);
 }
 
 void RenderWidgetHostImpl::ForwardKeyboardEventWithCommands(
-    const NativeWebKeyboardEvent& key_event,
+    const input::NativeWebKeyboardEvent& key_event,
     const ui::LatencyInfo& latency,
     std::vector<blink::mojom::EditCommandPtr> commands,
     bool* update_event) {
   CHECK(WebInputEvent::IsKeyboardEventType(key_event.GetType()));
-
-  // This is used to auto-disable accessibility if we detect user input
-  // but no accessibility API usage.
-  if (key_event.GetType() == WebInputEvent::Type::kRawKeyDown ||
-      key_event.GetType() == WebInputEvent::Type::kKeyDown) {
-    BrowserAccessibilityStateImpl::GetInstance()->OnUserInputEvent();
-  }
 
   TRACE_EVENT0("input", "RenderWidgetHostImpl::ForwardKeyboardEvent");
   if (owner_delegate_ &&
@@ -1786,14 +1756,14 @@ void RenderWidgetHostImpl::ForwardKeyboardEventWithCommands(
     }
   }
 
-  auto* touch_emulator = GetExistingTouchEmulator();
+  auto* touch_emulator = GetTouchEmulator(/*create_if_necessary=*/false);
   if (touch_emulator && touch_emulator->HandleKeyboardEvent(key_event)) {
     return;
   }
-  NativeWebKeyboardEventWithLatencyInfo key_event_with_latency(key_event,
-                                                               latency);
+  input::NativeWebKeyboardEventWithLatencyInfo key_event_with_latency(key_event,
+                                                                      latency);
   key_event_with_latency.event.is_browser_shortcut = is_shortcut;
-  DispatchInputEventWithLatencyInfo(
+  GetRenderInputRouter()->DispatchInputEventWithLatencyInfo(
       key_event_with_latency.event, &key_event_with_latency.latency,
       &key_event_with_latency.event.GetModifiableEventLatencyMetadata());
   // TODO(foolip): |InputRouter::SendKeyboardEvent()| may filter events, in
@@ -2157,7 +2127,7 @@ void RenderWidgetHostImpl::NotifyScreenInfoChanged() {
   }
 
   // The delegate may not have an input event router in tests.
-  if (auto* touch_emulator = GetExistingTouchEmulator()) {
+  if (auto* touch_emulator = GetTouchEmulator(/*create_if_necessary=*/false)) {
     touch_emulator->SetDeviceScaleFactor(GetScaleFactorForView(view_.get()));
   }
 }
@@ -2371,15 +2341,12 @@ bool RenderWidgetHostImpl::IsContentRenderingTimeoutRunning() const {
 }
 
 void RenderWidgetHostImpl::OnMouseEventAck(
-    const MouseEventWithLatencyInfo& mouse_event,
+    const input::MouseEventWithLatencyInfo& mouse_event,
     blink::mojom::InputEventResultSource ack_source,
     blink::mojom::InputEventResultState ack_result) {
-  latency_tracker_.OnInputEventAck(mouse_event.event, &mouse_event.latency,
-                                   ack_result);
-  for (auto& input_event_observer : input_event_observers_) {
-    input_event_observer.OnInputEventAck(ack_source, ack_result,
-                                         mouse_event.event);
-  }
+  GetRenderInputRouter()->GetLatencyTracker()->OnInputEventAck(
+      mouse_event.event, &mouse_event.latency, ack_result);
+  NotifyObserversOfInputEventAcks(ack_source, ack_result, mouse_event.event);
 
   // Give the delegate the ability to handle a mouse event that wasn't consumed
   // by the renderer. eg. Back/Forward mouse buttons.
@@ -2505,13 +2472,12 @@ void RenderWidgetHostImpl::ClearDisplayedGraphics() {
 }
 
 void RenderWidgetHostImpl::OnKeyboardEventAck(
-    const NativeWebKeyboardEventWithLatencyInfo& event,
+    const input::NativeWebKeyboardEventWithLatencyInfo& event,
     blink::mojom::InputEventResultSource ack_source,
     blink::mojom::InputEventResultState ack_result) {
-  latency_tracker_.OnInputEventAck(event.event, &event.latency, ack_result);
-  for (auto& input_event_observer : input_event_observers_) {
-    input_event_observer.OnInputEventAck(ack_source, ack_result, event.event);
-  }
+  GetRenderInputRouter()->GetLatencyTracker()->OnInputEventAck(
+      event.event, &event.latency, ack_result);
+  NotifyObserversOfInputEventAcks(ack_source, ack_result, event.event);
 
   bool processed =
       (blink::mojom::InputEventResultState::kConsumed == ack_result);
@@ -2542,6 +2508,10 @@ void RenderWidgetHostImpl::SetPopupBounds(const gfx::Rect& bounds,
     view_->SetBounds(bounds);
   }
   std::move(callback).Run();
+}
+
+RenderWidgetHostInputEventRouter* RenderWidgetHostImpl::GetInputEventRouter() {
+  return delegate()->GetInputEventRouter();
 }
 
 RenderWidgetHostViewInput* RenderWidgetHostImpl::GetPointerLockView() {
@@ -2596,6 +2566,27 @@ void RenderWidgetHostImpl::ResetDelegatedInkPointPrediction(
 const cc::RenderFrameMetadata&
 RenderWidgetHostImpl::GetLastRenderFrameMetadata() {
   return render_frame_metadata_provider()->LastRenderFrameMetadata();
+}
+
+ukm::SourceId RenderWidgetHostImpl::GetCurrentPageUkmSourceId() {
+  return delegate()->GetCurrentPageUkmSourceId();
+}
+
+void RenderWidgetHostImpl::NotifyObserversOfInputEvent(
+    const WebInputEvent& event) {
+  AddPendingUserActivation(event);
+  for (auto& observer : input_event_observers_) {
+    observer.OnInputEvent(event);
+  }
+}
+
+void RenderWidgetHostImpl::NotifyObserversOfInputEventAcks(
+    blink::mojom::InputEventResultSource ack_source,
+    blink::mojom::InputEventResultState ack_result,
+    const WebInputEvent& event) {
+  for (auto& input_event_observer : input_event_observers_) {
+    input_event_observer.OnInputEventAck(ack_source, ack_result, event);
+  }
 }
 
 void RenderWidgetHostImpl::ShowPopup(const gfx::Rect& initial_screen_rect,
@@ -2705,9 +2696,10 @@ SiteInstanceGroup* RenderWidgetHostImpl::GetSiteInstanceGroup() {
 void RenderWidgetHostImpl::UpdateBrowserControlsState(
     cc::BrowserControlsState constraints,
     cc::BrowserControlsState current,
-    bool animate) {
-  GetWidgetInputHandler()->UpdateBrowserControlsState(constraints, current,
-                                                      animate);
+    bool animate,
+    const std::optional<cc::BrowserControlsOffsetTagsInfo>& offset_tags_info) {
+  GetWidgetInputHandler()->UpdateBrowserControlsState(
+      constraints, current, animate, offset_tags_info);
 }
 
 void RenderWidgetHostImpl::StartDragging(
@@ -2964,21 +2956,14 @@ bool RenderWidgetHostImpl::IsAutoscrollInProgress() {
   return autoscroll_in_progress_;
 }
 
-TouchEmulator* RenderWidgetHostImpl::GetTouchEmulator() {
+TouchEmulatorImpl* RenderWidgetHostImpl::GetTouchEmulator(
+    bool create_if_necessary) {
   if (!delegate_ || !delegate_->GetInputEventRouter()) {
     return nullptr;
   }
 
-  return delegate_->GetInputEventRouter()->GetTouchEmulator();
-}
-
-TouchEmulator* RenderWidgetHostImpl::GetExistingTouchEmulator() {
-  if (!delegate_ || !delegate_->GetInputEventRouter() ||
-      !delegate_->GetInputEventRouter()->has_touch_emulator()) {
-    return nullptr;
-  }
-
-  return delegate_->GetInputEventRouter()->GetTouchEmulator();
+  return static_cast<TouchEmulatorImpl*>(
+      delegate_->GetInputEventRouter()->GetTouchEmulator(create_if_necessary));
 }
 
 void RenderWidgetHostImpl::TextInputStateChanged(
@@ -3191,7 +3176,7 @@ void RenderWidgetHostImpl::RequestForceRedraw(int snapshot_id) {
 }
 
 bool RenderWidgetHostImpl::KeyPressListenersHandleEvent(
-    const NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   if (event.skip_if_unhandled ||
       event.GetType() != WebKeyboardEvent::Type::kRawKeyDown) {
     return false;
@@ -3397,28 +3382,10 @@ RenderWidgetHostImpl::BindAndGenerateCreateFrameWidgetParamsForNewWindow() {
   return params;
 }
 
-void RenderWidgetHostImpl::DispatchInputEventWithLatencyInfo(
-    const WebInputEvent& event,
-    ui::LatencyInfo* latency,
-    ui::EventLatencyMetadata* event_latency_metadata) {
-  latency_tracker_.OnInputEvent(event, latency, event_latency_metadata);
-  AddPendingUserActivation(event);
-  for (auto& observer : input_event_observers_) {
-    observer.OnInputEvent(event);
-  }
-}
-
 void RenderWidgetHostImpl::OnWheelEventAck(
-    const MouseWheelEventWithLatencyInfo& wheel_event,
+    const input::MouseWheelEventWithLatencyInfo& wheel_event,
     blink::mojom::InputEventResultSource ack_source,
     blink::mojom::InputEventResultState ack_result) {
-  latency_tracker_.OnInputEventAck(wheel_event.event, &wheel_event.latency,
-                                   ack_result);
-  for (auto& input_event_observer : input_event_observers_) {
-    input_event_observer.OnInputEventAck(ack_source, ack_result,
-                                         wheel_event.event);
-  }
-
   if (!is_hidden() && view_) {
     if (ack_result != blink::mojom::InputEventResultState::kConsumed &&
         delegate_ && delegate_->HandleWheelEvent(wheel_event.event)) {
@@ -3429,45 +3396,17 @@ void RenderWidgetHostImpl::OnWheelEventAck(
 }
 
 void RenderWidgetHostImpl::OnGestureEventAck(
-    const GestureEventWithLatencyInfo& event,
+    const input::GestureEventWithLatencyInfo& event,
     blink::mojom::InputEventResultSource ack_source,
     blink::mojom::InputEventResultState ack_result) {
-  latency_tracker_.OnInputEventAck(event.event, &event.latency, ack_result);
-  for (auto& input_event_observer : input_event_observers_) {
-    input_event_observer.OnInputEventAck(ack_source, ack_result, event.event);
-  }
-
   // If the TouchEmulator didn't exist when this GestureEvent was sent, we
   // shouldn't create it here.
-  if (auto* touch_emulator = GetExistingTouchEmulator()) {
+  if (auto* touch_emulator = GetTouchEmulator(/*create_if_necessary=*/false)) {
     touch_emulator->OnGestureEventAck(event.event, GetView());
   }
 
   if (view_) {
     view_->GestureEventAck(event.event, ack_result);
-  }
-}
-
-void RenderWidgetHostImpl::OnTouchEventAck(
-    const TouchEventWithLatencyInfo& event,
-    blink::mojom::InputEventResultSource ack_source,
-    blink::mojom::InputEventResultState ack_result) {
-  latency_tracker_.OnInputEventAck(event.event, &event.latency, ack_result);
-  for (auto& input_event_observer : input_event_observers_) {
-    input_event_observer.OnInputEventAck(ack_source, ack_result, event.event);
-  }
-
-  auto* input_event_router =
-      delegate() ? delegate()->GetInputEventRouter() : nullptr;
-
-  // At present interstitial pages might not have an input event router, so we
-  // just have the view process the ack directly in that case; the view is
-  // guaranteed to be a top-level view with an appropriate implementation of
-  // ProcessAckedTouchEvent().
-  if (input_event_router) {
-    input_event_router->ProcessAckedTouchEvent(event, ack_result, view_.get());
-  } else if (view_) {
-    view_->ProcessAckedTouchEvent(event, ack_result);
   }
 }
 
@@ -3562,7 +3501,7 @@ void RenderWidgetHostImpl::GotResponseToForceRedraw(int snapshot_id) {
 
 void RenderWidgetHostImpl::DetachDelegate() {
   delegate_ = nullptr;
-  latency_tracker_.reset_delegate();
+  GetRenderInputRouter()->GetLatencyTracker()->reset_delegate();
 }
 
 void RenderWidgetHostImpl::WindowSnapshotReachedScreen(int snapshot_id) {
@@ -3759,7 +3698,8 @@ device::mojom::WakeLock* RenderWidgetHostImpl::GetWakeLock() {
 }
 #endif
 
-std::unique_ptr<FlingSchedulerBase> RenderWidgetHostImpl::MakeFlingScheduler() {
+std::unique_ptr<input::FlingSchedulerBase>
+RenderWidgetHostImpl::MakeFlingScheduler() {
 #if BUILDFLAG(IS_MAC)
   return std::make_unique<FlingSchedulerMac>(this);
 #elif BUILDFLAG(IS_ANDROID)
@@ -3775,7 +3715,7 @@ RenderInputRouter* RenderWidgetHostImpl::GetRenderInputRouter() {
 
 void RenderWidgetHostImpl::SetupRenderInputRouter() {
   render_input_router_ = std::make_unique<RenderInputRouter>(
-      this, this, MakeFlingScheduler(), this,
+      this, MakeFlingScheduler(), this,
       GetUIThreadTaskRunner({BrowserTaskType::kUserInput}));
   SetupInputRouter();
 }
@@ -3867,7 +3807,7 @@ void RenderWidgetHostImpl::OnRenderFrameMetadataChangedAfterActivation(
 
   bool is_mobile_optimized = metadata.is_mobile_optimized;
   input_router()->NotifySiteIsMobileOptimized(is_mobile_optimized);
-  if (auto* touch_emulator = GetExistingTouchEmulator()) {
+  if (auto* touch_emulator = GetTouchEmulator(/*create_if_necessary=*/false)) {
     touch_emulator->SetDoubleTapSupportForPageEnabled(!is_mobile_optimized);
   }
 

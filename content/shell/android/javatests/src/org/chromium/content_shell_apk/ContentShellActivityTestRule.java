@@ -15,8 +15,6 @@ import androidx.test.InstrumentationRegistry;
 
 import org.hamcrest.Matchers;
 import org.junit.Assert;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
 
 import org.chromium.base.Log;
 import org.chromium.base.test.BaseActivityTestRule;
@@ -66,24 +64,14 @@ public class ContentShellActivityTestRule extends BaseActivityTestRule<ContentSh
     }
 
     @Override
-    @SuppressWarnings("deprecation")
-    public Statement apply(final Statement base, final Description desc) {
-        return super.apply(
-                new Statement() {
-                    @Override
-                    public void evaluate() throws Throwable {
-                        PowerManager pm =
-                                (PowerManager)
-                                        InstrumentationRegistry.getInstrumentation()
-                                                .getContext()
-                                                .getSystemService(Context.POWER_SERVICE);
-                        Assert.assertTrue(
-                                "Many tests will fail if the screen is not on.",
-                                pm.isInteractive());
-                        base.evaluate();
-                    }
-                },
-                desc);
+    protected void before() throws Throwable {
+        super.before();
+        PowerManager pm =
+                (PowerManager)
+                        InstrumentationRegistry.getInstrumentation()
+                                .getContext()
+                                .getSystemService(Context.POWER_SERVICE);
+        Assert.assertTrue("Many tests will fail if the screen is not on.", pm.isInteractive());
     }
 
     public void runOnUiThread(Runnable r) {
@@ -228,18 +216,14 @@ public class ContentShellActivityTestRule extends BaseActivityTestRule<ContentSh
     }
 
     public JavascriptInjector getJavascriptInjector() {
-        return getJavascriptInjector(false);
-    }
-
-    public JavascriptInjector getJavascriptInjector(boolean useMojo) {
-        return JavascriptInjector.fromWebContents(getWebContents(), useMojo);
+        return JavascriptInjector.fromWebContents(getWebContents());
     }
 
     /**
-     * Waits for the Active shell to finish loading.  This times out after
-     * WAIT_FOR_ACTIVE_SHELL_LOADING_TIMEOUT milliseconds and it shouldn't be used for long
-     * loading pages. Instead it should be used more for test initialization. The proper way
-     * to wait is to use a TestCallbackHelperContainer after the initial load is completed.
+     * Waits for the Active shell to finish loading. This times out after
+     * WAIT_FOR_ACTIVE_SHELL_LOADING_TIMEOUT milliseconds and it shouldn't be used for long loading
+     * pages. Instead it should be used more for test initialization. The proper way to wait is to
+     * use a TestCallbackHelperContainer after the initial load is completed.
      */
     public void waitForActiveShellToBeDoneLoading() {
         // Wait for the Content Shell to be initialized.

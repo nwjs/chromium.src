@@ -513,6 +513,7 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
       HTMLElement*,
       WebFormRelatedChangeType) {}
   virtual void DidChangeValueInTextField(HTMLFormControlElement&) {}
+  virtual void DidClearValueInTextField(HTMLFormControlElement&) {}
   virtual void DidUserChangeContentEditableContent(Element&) {}
   virtual void DidEndEditingOnTextField(HTMLInputElement&) {}
   virtual void HandleKeyboardEventOnTextField(HTMLInputElement&,
@@ -594,7 +595,7 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   // of "zoom factor" in blink (e.g., |LocalFrame::PageZoomFactor()|) which
   // includes CSS zoom and the device scale factor (if use-zoom-for-dsf is
   // enabled). This only includes the zoom initiated by the user (ctrl +/-).
-  virtual double UserZoomFactor() const { return 1; }
+  virtual double UserZoomFactor(LocalFrame* frame) const { return 1; }
 
   virtual void SetDelegatedInkMetadata(
       LocalFrame* frame,

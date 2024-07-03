@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/tab_group_mediator.h"
 
+#import <algorithm>
+
 #import "base/check.h"
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/histogram_functions.h"
@@ -175,6 +177,29 @@
   [self.consumer replaceItem:item withReplacementItem:item];
 }
 
+- (void)insertNewWebStateAtGridIndex:(int)index withURL:(const GURL&)newTabURL {
+  CHECK(self.browser->GetBrowserState());
+
+  web::WebState::CreateParams params(self.browser->GetBrowserState());
+  std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
+
+  int webStateListIndex = _tabGroup->range().range_begin() + index;
+  webStateListIndex =
+      std::clamp(webStateListIndex, _tabGroup->range().range_begin(),
+                 _tabGroup->range().range_end());
+
+  const auto insertionParams =
+      WebStateList::InsertionParams::AtIndex(webStateListIndex)
+          .InGroup(_tabGroup.get())
+          .Activate();
+
+  web::NavigationManager::WebLoadParams loadParams(newTabURL);
+  loadParams.transition_type = ui::PAGE_TRANSITION_TYPED;
+  webState->GetNavigationManager()->LoadURLWithParams(loadParams);
+
+  self.webStateList->InsertWebState(std::move(webState), insertionParams);
+}
+
 #pragma mark - TabCollectionDragDropHandler override
 
 // Overrides the parent as the given destination index do not take into account
@@ -182,41 +207,48 @@
 - (void)dropItem:(UIDragItem*)dragItem
                toIndex:(NSUInteger)destinationIndex
     fromSameCollection:(BOOL)fromSameCollection {
+  WebStateList* webStateList = self.webStateList;
   // Tab move operations only originate from Chrome so a local object is used.
   // Local objects allow synchronous drops, whereas NSItemProvider only allows
   // asynchronous drops.
-  int destinationWebStateIndex = _tabGroup->range().range_begin();
   if ([dragItem.localObject isKindOfClass:[TabInfo class]]) {
+    int destinationWebStateIndex =
+        _tabGroup->range().range_begin() + destinationIndex;
     TabInfo* tabInfo = static_cast<TabInfo*>(dragItem.localObject);
-    // Reorder tab within same grid.
-    int sourceIndex =
-        GetWebStateIndex(self.webStateList, WebStateSearchCriteria{
-                                                .identifier = tabInfo.tabID,
-                                            });
-    if (sourceIndex == WebStateList::kInvalidIndex) {
+    int sourceWebStateIndex =
+        GetWebStateIndex(webStateList, WebStateSearchCriteria{
+                                           .identifier = tabInfo.tabID,
+                                       });
+    const auto insertionParams =
+        WebStateList::InsertionParams::AtIndex(destinationWebStateIndex)
+            .InGroup(_tabGroup.get());
+    if (sourceWebStateIndex == WebStateList::kInvalidIndex) {
       base::UmaHistogramEnumeration(kUmaGroupViewDragOrigin,
-                                    DragItemOrigin::kOtherBrwoser);
-      destinationWebStateIndex += destinationIndex;
-      const auto insertionParams =
-          WebStateList::InsertionParams::AtIndex(destinationWebStateIndex)
-              .InGroup(_tabGroup.get());
+                                    DragItemOrigin::kOtherBrowser);
       MoveTabToBrowser(tabInfo.tabID, self.browser, insertionParams);
-    } else {
+      return;
+    }
+
+    if (fromSameCollection) {
       base::UmaHistogramEnumeration(kUmaGroupViewDragOrigin,
                                     DragItemOrigin::kSameCollection);
-      destinationWebStateIndex += destinationIndex;
-      self.webStateList->MoveWebStateAt(sourceIndex, destinationWebStateIndex);
+    } else {
+      base::UmaHistogramEnumeration(kUmaGroupViewDragOrigin,
+                                    DragItemOrigin::kSameBrowser);
     }
+
+    // Reorder tabs.
+    MoveWebStateWithIdentifierToInsertionParams(
+        tabInfo.tabID, insertionParams, webStateList, fromSameCollection);
     return;
   }
+  base::UmaHistogramEnumeration(kUmaGroupViewDragOrigin,
+                                DragItemOrigin::kOther);
 
   // Handle URLs from within Chrome synchronously using a local object.
   if ([dragItem.localObject isKindOfClass:[URLInfo class]]) {
     URLInfo* droppedURL = static_cast<URLInfo*>(dragItem.localObject);
-    destinationWebStateIndex +=
-        WebStateIndexFromGridDropItemIndex(self.webStateList, destinationIndex);
-    [self insertNewWebStateAtIndex:destinationWebStateIndex
-                           withURL:droppedURL.URL];
+    [self insertNewWebStateAtGridIndex:destinationIndex withURL:droppedURL.URL];
     return;
   }
 }
@@ -359,6 +391,15 @@
   }
   if (status.active_web_state_change()) {
     [self.consumer selectItemWithIdentifier:[self activeIdentifier]];
+  }
+}
+
+- (void)webStateListBatchOperationEnded:(WebStateList*)webStateList {
+  DCHECK_EQ(self.webStateList, webStateList);
+  [self populateConsumerItems];
+  if (_tabGroup) {
+    [_groupConsumer setGroupTitle:_tabGroup->GetTitle()];
+    [_groupConsumer setGroupColor:_tabGroup->GetColor()];
   }
 }
 

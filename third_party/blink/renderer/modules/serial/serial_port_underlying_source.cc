@@ -95,7 +95,7 @@ void SerialPortUnderlyingSource::SignalErrorOnClose(SerialReceiveError error) {
   v8::Local<v8::Value> exception;
   switch (error) {
     case SerialReceiveError::NONE:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
     case SerialReceiveError::DISCONNECTED:
       [[fallthrough]];
@@ -183,8 +183,7 @@ void SerialPortUnderlyingSource::ReadDataOrArmWatcher() {
       break;
     default:
       invalid_data_pipe_read_result_ = result;
-      DUMP_WILL_BE_NOTREACHED_NORETURN()
-          << "Invalid data pipe read result: " << result;
+      DUMP_WILL_BE_NOTREACHED() << "Invalid data pipe read result: " << result;
       break;
   }
 }

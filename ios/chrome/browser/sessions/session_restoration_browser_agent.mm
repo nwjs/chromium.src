@@ -54,6 +54,7 @@ class OrderControllerSourceFromSessionWindowIOS final
                         int opener_index,
                         bool check_navigation_index) const final;
   TabGroupRange GetGroupRangeOfItemAt(int index) const final;
+  std::set<int> GetCollapsedGroupIndexes() const final;
 
  private:
   SessionWindowIOS* session_window_;
@@ -130,6 +131,19 @@ TabGroupRange OrderControllerSourceFromSessionWindowIOS::GetGroupRangeOfItemAt(
     }
   }
   return TabGroupRange::InvalidRange();
+}
+
+std::set<int>
+OrderControllerSourceFromSessionWindowIOS::GetCollapsedGroupIndexes() const {
+  std::set<int> collapsed_indexes;
+
+  for (SessionTabGroup* group in session_window_.tabGroups) {
+    if (group.collapsedState) {
+      const TabGroupRange group_range(group.rangeStart, group.rangeCount);
+      collapsed_indexes.insert(group_range.begin(), group_range.end());
+    }
+  }
+  return collapsed_indexes;
 }
 
 // Determines the new active index.

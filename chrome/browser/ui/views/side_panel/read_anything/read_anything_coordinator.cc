@@ -18,8 +18,8 @@
 #include "chrome/browser/language/language_model_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/side_panel/read_anything/read_anything_side_panel_controller_utils.h"
-#include "chrome/browser/ui/side_panel/read_anything/read_anything_tab_helper.h"
+#include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_controller_utils.h"
+#include "chrome/browser/ui/views/side_panel/read_anything/read_anything_tab_helper.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_container_view.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_controller.h"
@@ -50,21 +50,17 @@ namespace {
 // When ReadAnythingCoordinator observes a tab change, page load complete, or
 // primary page change, it compares the active url against this list of urls
 // to see whether the active page is considered "distillable". This information
-// is then passed on to observers which are gated behind the experiments listed
-// below: omnibox icon and IPH. The list of URLs will be associated as a param
-// of the experiment to ensure that the variation groups that have the
-// experiment enabled also have the list of urls as a param.
+// is then passed on to observers which are gated behind the IPH experiment.
+// The list of URLs will be associated as a param of the experiment to ensure
+// that the variation groups that have the experiment enabled also have the list
+// of urls as a param.
 std::vector<std::string> GetDistillableURLs() {
-  const base::Feature* feature = nullptr;
-  if (features::IsReadAnythingOmniboxIconEnabled()) {
-    feature = &features::kReadAnythingOmniboxIcon;
-  } else if (base::FeatureList::IsEnabled(
-                 feature_engagement::kIPHReadingModeSidePanelFeature)) {
-    feature = &feature_engagement::kIPHReadingModeSidePanelFeature;
-  }
-  if (feature) {
+  if (base::FeatureList::IsEnabled(
+          feature_engagement::kIPHReadingModeSidePanelFeature)) {
     return base::SplitString(
-        base::GetFieldTrialParamValueByFeature(*feature, "distillable_urls"),
+        base::GetFieldTrialParamValueByFeature(
+            feature_engagement::kIPHReadingModeSidePanelFeature,
+            "distillable_urls"),
         ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
   }
   return std::vector<std::string>();
@@ -129,6 +125,9 @@ void ReadAnythingCoordinator::InitModelWithUserPrefs() {
   bool prefs_links_enabled = browser->profile()->GetPrefs()->GetBoolean(
       prefs::kAccessibilityReadAnythingLinksEnabled);
 
+  bool prefs_images_enabled = browser->profile()->GetPrefs()->GetBoolean(
+      prefs::kAccessibilityReadAnythingImagesEnabled);
+
   read_anything::mojom::Colors prefs_colors =
       static_cast<read_anything::mojom::Colors>(
           browser->profile()->GetPrefs()->GetInteger(
@@ -149,6 +148,7 @@ void ReadAnythingCoordinator::InitModelWithUserPrefs() {
       /* font name= */ prefs_font_name,
       /* font scale = */ prefs_font_scale,
       /* links enabled = */ prefs_links_enabled,
+      /* images_enabled = */ prefs_images_enabled,
       /* colors = */ prefs_colors,
       /* line spacing = */ prefs_line_spacing,
       /* letter spacing = */ prefs_letter_spacing);
@@ -159,6 +159,8 @@ void ReadAnythingCoordinator::InitModelWithUserPrefs() {
 }
 
 ReadAnythingCoordinator::~ReadAnythingCoordinator() {
+  local_side_panel_switch_delay_timer_.Stop();
+
   if (features::IsReadAnythingDocsIntegrationEnabled()) {
     RemoveGDocsHelperExtension();
   }
@@ -193,9 +195,6 @@ void ReadAnythingCoordinator::CreateAndRegisterEntry(
     SidePanelRegistry* global_registry) {
   auto side_panel_entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::Id::kReadAnything,
-      l10n_util::GetStringUTF16(IDS_READING_MODE_TITLE),
-      ui::ImageModel::FromVectorIcon(kMenuBookChromeRefreshIcon,
-                                     ui::kColorIcon),
       base::BindRepeating(&ReadAnythingCoordinator::CreateContainerView,
                           base::Unretained(this)));
   side_panel_entry->AddObserver(this);
@@ -266,12 +265,17 @@ void ReadAnythingCoordinator::OnReadAnythingSidePanelEntryShown() {
     obs.Activate(true);
   }
 
-  // TODO(crbug.com/324143642): Handle the installation of a11y helper extension
-  // for local side panels.
-  if (features::IsReadAnythingDocsIntegrationEnabled() &&
-      !features::IsReadAnythingLocalSidePanelEnabled()) {
-    InstallGDocsHelperExtension();
+  if (!features::IsReadAnythingDocsIntegrationEnabled()) {
+    return;
   }
+
+  if (!features::IsReadAnythingLocalSidePanelEnabled()) {
+    InstallGDocsHelperExtension();
+    return;
+  }
+
+  active_local_side_panel_count_++;
+  InstallGDocsHelperExtension();
 }
 
 void ReadAnythingCoordinator::OnReadAnythingSidePanelEntryHidden() {
@@ -279,12 +283,22 @@ void ReadAnythingCoordinator::OnReadAnythingSidePanelEntryHidden() {
     obs.Activate(false);
   }
 
-  // TODO(crbug.com/324143642): Handle the uninstallation of a11y helper
-  // extension for local side panels.
-  if (features::IsReadAnythingDocsIntegrationEnabled() &&
-      !features::IsReadAnythingLocalSidePanelEnabled()) {
-    RemoveGDocsHelperExtension();
+  if (!features::IsReadAnythingDocsIntegrationEnabled()) {
+    return;
   }
+
+  if (!features::IsReadAnythingLocalSidePanelEnabled()) {
+    RemoveGDocsHelperExtension();
+    return;
+  }
+
+  active_local_side_panel_count_--;
+  local_side_panel_switch_delay_timer_.Stop();
+  local_side_panel_switch_delay_timer_.Start(
+      FROM_HERE, base::Seconds(30),
+      base::BindRepeating(
+          &ReadAnythingCoordinator::OnLocalSidePanelSwitchDelayTimeout,
+          weak_ptr_factory_.GetWeakPtr()));
 }
 
 std::unique_ptr<views::View> ReadAnythingCoordinator::CreateContainerView() {
@@ -462,6 +476,14 @@ void ReadAnythingCoordinator::OnBrowserSetLastActive(Browser* browser) {
   if (side_panel_ui->GetCurrentEntryId() != SidePanelEntryId::kReadAnything) {
     side_panel_ui->Show(SidePanelEntryId::kReadAnything);
   }
+}
+
+void ReadAnythingCoordinator::OnLocalSidePanelSwitchDelayTimeout() {
+  if (active_local_side_panel_count_ > 0) {
+    return;
+  }
+
+  RemoveGDocsHelperExtension();
 }
 
 BROWSER_USER_DATA_KEY_IMPL(ReadAnythingCoordinator);

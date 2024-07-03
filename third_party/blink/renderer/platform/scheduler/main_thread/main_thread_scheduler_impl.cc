@@ -45,7 +45,6 @@
 #include "third_party/blink/renderer/platform/bindings/v8_per_isolate_data.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/instrumentation/resource_coordinator/renderer_resource_coordinator.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/common/auto_advancing_virtual_time_domain.h"
 #include "third_party/blink/renderer/platform/scheduler/common/features.h"
 #include "third_party/blink/renderer/platform/scheduler/common/process_state.h"
@@ -105,7 +104,7 @@ v8::RAILMode RAILModeToV8RAILMode(RAILMode rail_mode) {
     case RAILMode::kLoad:
       return v8::RAILMode::PERFORMANCE_LOAD;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -159,7 +158,7 @@ const char* RendererProcessTypeToString(WebRendererProcessType process_type) {
     case WebRendererProcessType::kExtensionRenderer:
       return "extension";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "";  // MSVC needs that.
 }
 
@@ -207,7 +206,7 @@ const char* InputEventStateToString(
     case WidgetScheduler::InputEventState::EVENT_FORWARDED_TO_MAIN_THREAD:
       return "event_forwarded_to_main_thread";
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nullptr;
   }
 }
@@ -268,12 +267,6 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
       find_in_page_budget_pool_controller_(
           new FindInPageBudgetPoolController(this)),
       control_task_queue_(helper_.ControlMainThreadTaskQueue()),
-      compositor_task_queue_(helper_.NewTaskQueue(
-          MainThreadTaskQueue::QueueCreationParams(
-              MainThreadTaskQueue::QueueType::kCompositor)
-              .SetShouldMonitorQuiescence(true)
-              .SetPrioritisationType(MainThreadTaskQueue::QueueTraits::
-                                         PrioritisationType::kCompositor))),
       back_forward_cache_ipc_tracking_task_queue_(helper_.NewTaskQueue(
           MainThreadTaskQueue::QueueCreationParams(
               MainThreadTaskQueue::QueueType::kIPCTrackingForCachedPages)
@@ -298,10 +291,6 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
   // Compositor task queue and default task queue should be managed by
   // WebThreadScheduler. Control task queue should not.
   task_runners_.emplace(helper_.DefaultMainThreadTaskQueue(), nullptr);
-  task_runners_.emplace(compositor_task_queue_,
-                        compositor_task_queue_->CreateQueueEnabledVoter());
-  main_thread_only().idle_time_estimator.AddCompositorTaskQueue(
-      compositor_task_queue_);
 
   back_forward_cache_ipc_tracking_task_runner_ =
       back_forward_cache_ipc_tracking_task_queue_->CreateTaskRunner(
@@ -323,8 +312,6 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
       v8_task_queue_->CreateTaskRunner(TaskType::kMainThreadTaskQueueV8);
   v8_low_priority_task_runner_ = v8_low_priority_task_queue_->CreateTaskRunner(
       TaskType::kMainThreadTaskQueueV8LowPriority);
-  compositor_task_runner_ = compositor_task_queue_->CreateTaskRunner(
-      TaskType::kMainThreadTaskQueueCompositor);
   control_task_runner_ = helper_.ControlMainThreadTaskQueue()->CreateTaskRunner(
       TaskType::kMainThreadTaskQueueControl);
   non_waking_task_runner_ = non_waking_task_queue_->CreateTaskRunner(
@@ -542,10 +529,6 @@ MainThreadSchedulerImpl::SchedulingSettings::SchedulingSettings() {
   mbi_override_task_runner_handle =
       base::FeatureList::IsEnabled(kMbiOverrideTaskRunnerHandle);
 
-  mbi_compositor_task_runner_per_agent_scheduling_group =
-      base::FeatureList::IsEnabled(
-          kMbiCompositorTaskRunnerPerAgentSchedulingGroup);
-
   compositor_tq_policy_during_threaded_scroll =
       base::FeatureList::IsEnabled(kThreadedScrollPreventRenderingStarvation)
           ? kCompositorTQPolicyDuringThreadedScroll.Get()
@@ -669,12 +652,6 @@ MainThreadSchedulerImpl::IdleTaskRunner() {
 scoped_refptr<base::SingleThreadTaskRunner>
 MainThreadSchedulerImpl::DeprecatedDefaultTaskRunner() {
   return helper_.DeprecatedDefaultTaskRunner();
-}
-
-scoped_refptr<MainThreadTaskQueue>
-MainThreadSchedulerImpl::CompositorTaskQueue() {
-  helper_.CheckOnValidThread();
-  return compositor_task_queue_;
 }
 
 scoped_refptr<MainThreadTaskQueue> MainThreadSchedulerImpl::V8TaskQueue() {
@@ -1396,7 +1373,7 @@ bool MainThreadSchedulerImpl::ShouldYieldForHighPriorityWork() {
       return false;
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
   }
 }
@@ -1540,7 +1517,7 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
       break;
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   // TODO(skyostil): Add an idle state for foreground tabs too.
@@ -2071,11 +2048,6 @@ MainThreadSchedulerImpl::V8LowPriorityTaskRunner() {
 }
 
 scoped_refptr<base::SingleThreadTaskRunner>
-MainThreadSchedulerImpl::CompositorTaskRunner() {
-  return compositor_task_runner_;
-}
-
-scoped_refptr<base::SingleThreadTaskRunner>
 MainThreadSchedulerImpl::NonWakingTaskRunner() {
   return non_waking_task_runner_;
 }
@@ -2276,20 +2248,15 @@ void MainThreadSchedulerImpl::RemovePageScheduler(
   UpdatePolicyLocked(UpdateType::kMayEarlyOutIfPolicyUnchanged);
 }
 
-void MainThreadSchedulerImpl::OnPageFrozen() {
-  memory_purge_manager_.OnPageFrozen();
+void MainThreadSchedulerImpl::OnPageFrozen(
+    base::MemoryReductionTaskContext called_from) {
+  memory_purge_manager_.OnPageFrozen(called_from);
   UpdatePolicy();
 }
 
 void MainThreadSchedulerImpl::OnPageResumed() {
   memory_purge_manager_.OnPageResumed();
   UpdatePolicy();
-}
-
-void MainThreadSchedulerImpl::BroadcastIntervention(const String& message) {
-  helper_.CheckOnValidThread();
-  for (auto* page_scheduler : main_thread_only().page_schedulers)
-    page_scheduler->ReportIntervention(message);
 }
 
 void MainThreadSchedulerImpl::OnTaskStarted(
@@ -2483,7 +2450,7 @@ TaskPriority MainThreadSchedulerImpl::ComputePriority(
     case MainThreadTaskQueue::QueueTraits::PrioritisationType::kLow:
       return TaskPriority::kLowPriority;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return TaskPriority::kNormalPriority;
   }
 }
@@ -2726,7 +2693,7 @@ MainThreadSchedulerImpl::ComputeCompositorPriorityFromUseCase() const {
       return std::nullopt;
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return std::nullopt;
   }
 }
@@ -2782,7 +2749,7 @@ const char* MainThreadSchedulerImpl::UseCaseToString(UseCase use_case) {
     case UseCase::kMainThreadGesture:
       return "main_thread_gesture";
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nullptr;
   }
 }
@@ -2799,7 +2766,7 @@ const char* MainThreadSchedulerImpl::RAILModeToString(RAILMode rail_mode) {
     case RAILMode::kLoad:
       return "load";
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nullptr;
   }
 }
@@ -2813,7 +2780,7 @@ const char* MainThreadSchedulerImpl::TimeDomainTypeToString(
     case TimeDomainType::kVirtual:
       return "virtual";
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nullptr;
   }
 }
@@ -2821,6 +2788,12 @@ const char* MainThreadSchedulerImpl::TimeDomainTypeToString(
 WTF::Vector<base::OnceClosure>&
 MainThreadSchedulerImpl::GetOnTaskCompletionCallbacks() {
   return main_thread_only().on_task_completion_callbacks;
+}
+
+void MainThreadSchedulerImpl::ExecuteAfterCurrentTaskForTesting(
+    base::OnceClosure on_completion_task,
+    ExecuteAfterCurrentTaskRestricted) {
+  ThreadSchedulerBase::ExecuteAfterCurrentTask(std::move(on_completion_task));
 }
 
 void MainThreadSchedulerImpl::OnUrgentMessageReceived() {

@@ -174,7 +174,8 @@ class TabContainerTest : public ChromeViewsTestBase {
     tab_container_controller_->set_tab_container(tab_container.get());
     tab_slot_controller_->set_tab_container(tab_container.get());
 
-    widget_ = CreateTestWidget();
+    widget_ =
+        CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
     tab_container_ =
         widget_->GetRootView()->AddChildView(std::move(tab_container));
     drag_context_ =
@@ -398,6 +399,41 @@ TEST_F(TabContainerTest, ExitsClosingModeAtStandardWidth) {
   RemoveTab(tab_container_->GetTabCount() - 1);
   tab_container_->CompleteAnimationAndLayout();
   EXPECT_EQ(tab_container_->GetActiveTabWidth(), standard_width);
+}
+
+TEST_F(TabContainerTest, StaysInClosingModeBelowStandardWidth) {
+  AddTab(0, std::nullopt, TabActive::kActive);
+
+  // Create just enough tabs so tabs are not full size.
+  const int standard_width = TabStyle::Get()->GetStandardWidth();
+  while (tab_container_->GetActiveTabWidth() == standard_width) {
+    AddTab(0);
+    tab_container_->CompleteAnimationAndLayout();
+  }
+
+  // Add one more so removing a tab leaves things below full size.
+  AddTab(0);
+  tab_container_->CompleteAnimationAndLayout();
+
+  // The test closes two tabs, we need at least one left over after that.
+  ASSERT_GE(tab_container_->GetTabCount(), 3);
+
+  // Enter tab closing mode manually; this would normally happen as the result
+  // of a mouse/touch-based tab closure action.
+  tab_container_->EnterTabClosingMode(std::nullopt,
+                                      CloseTabSource::CLOSE_TAB_FROM_MOUSE);
+
+  // Close the second-to-last tab; tab closing mode should remain active,
+  // constraining tab widths to below full size.
+  RemoveTab(tab_container_->GetTabCount() - 2);
+  tab_container_->CompleteAnimationAndLayout();
+  ASSERT_LT(tab_container_->GetActiveTabWidth(), standard_width);
+
+  // Close the last tab; tab closing mode should remain active, as there isn't
+  // enough room for tabs to be standard width.
+  RemoveTab(tab_container_->GetTabCount() - 1);
+  tab_container_->CompleteAnimationAndLayout();
+  EXPECT_LT(tab_container_->GetActiveTabWidth(), standard_width);
 }
 
 // After removing a tab followed by removing a tab in a tabgroup

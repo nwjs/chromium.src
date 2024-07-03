@@ -11,6 +11,7 @@
 #include "extensions/browser/api/storage/settings_namespace.h"
 #include "extensions/browser/api/storage/settings_observer.h"
 #include "extensions/browser/api/storage/storage_area_namespace.h"
+#include "extensions/browser/api/storage/storage_frontend.h"
 #include "extensions/browser/extension_function.h"
 
 namespace extensions {
@@ -23,15 +24,16 @@ class SettingsFunction : public ExtensionFunction {
 
   // ExtensionFunction:
   bool ShouldSkipQuotaLimiting() const override;
+  bool PreRunValidation(std::string* error) override;
   ResponseAction Run() override;
 
   // Extension settings function implementations should do their work here.
   // The StorageFrontend makes sure this is posted to the appropriate thread.
-  virtual ResponseValue RunWithStorage(value_store::ValueStore* storage) = 0;
+  virtual ResponseValue RunWithStorage(value_store::ValueStore* storage);
 
   // Extension settings function implementations in `session` namespace should
   // do their work here.
-  virtual ResponseValue RunInSession() = 0;
+  virtual ResponseValue RunInSession();
 
   // Convert the |result| of a read function to the appropriate response value.
   // - If the |result| succeeded this will return a response object argument.
@@ -50,6 +52,8 @@ class SettingsFunction : public ExtensionFunction {
 
   // Returns whether the caller's context has access to the storage or not.
   bool IsAccessToStorageAllowed();
+
+  StorageAreaNamespace storage_area() const { return storage_area_; }
 
  private:
   // Called via PostTask from Run. Calls RunWithStorage and then
@@ -119,11 +123,13 @@ class StorageStorageAreaClearFunction : public SettingsFunction {
   ~StorageStorageAreaClearFunction() override {}
 
   // SettingsFunction:
-  ResponseValue RunWithStorage(value_store::ValueStore* storage) override;
-  ResponseValue RunInSession() override;
+  ResponseAction Run() override;
 
   // ExtensionFunction:
   void GetQuotaLimitHeuristics(QuotaLimitHeuristics* heuristics) const override;
+
+  // Called after clearing storage.
+  void OnClearOperationFinished(StorageFrontend::ResultStatus status);
 };
 
 class StorageStorageAreaGetBytesInUseFunction : public SettingsFunction {
@@ -136,8 +142,10 @@ class StorageStorageAreaGetBytesInUseFunction : public SettingsFunction {
   ~StorageStorageAreaGetBytesInUseFunction() override {}
 
   // SettingsFunction:
-  ResponseValue RunWithStorage(value_store::ValueStore* storage) override;
-  ResponseValue RunInSession() override;
+  ResponseAction Run() override;
+
+  // Called after retrieving bytes from storage.
+  void OnGetBytesInUseOperationFinished(size_t);
 };
 
 class StorageStorageAreaSetAccessLevelFunction : public SettingsFunction {

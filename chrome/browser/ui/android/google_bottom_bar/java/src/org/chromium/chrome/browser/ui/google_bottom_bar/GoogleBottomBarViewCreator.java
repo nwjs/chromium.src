@@ -36,7 +36,7 @@ public class GoogleBottomBarViewCreator {
      * @param activity An Android activity.
      * @param tabProvider Supplier for the current activity tab.
      * @param shareDelegateSupplier Supplier for the the share delegate.
-     * @param pageInsightsCoordinatorSupplier Supplier for the page insights coordinator
+     * @param pageInsightsCoordinatorSupplier Supplier for the page insights coordinator.
      * @param config Bottom bar configuration for the buttons that will be displayed.
      */
     public GoogleBottomBarViewCreator(

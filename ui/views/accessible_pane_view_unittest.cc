@@ -82,8 +82,8 @@ TEST_F(AccessiblePaneViewTest, SimpleSetPaneFocus) {
   TestBarView* test_view = new TestBarView();
   std::unique_ptr<Widget> widget(new Widget());
   Widget::InitParams params =
-      CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -111,8 +111,8 @@ TEST_F(AccessiblePaneViewTest, SetPaneFocusAndRestore) {
   View* test_view_main = new View();
   std::unique_ptr<Widget> widget_main(new Widget());
   Widget::InitParams params_main =
-      CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params_main.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params_main.bounds = gfx::Rect(0, 0, 20, 20);
   widget_main->Init(std::move(params_main));
   View* root_main = widget_main->GetRootView();
@@ -126,8 +126,8 @@ TEST_F(AccessiblePaneViewTest, SetPaneFocusAndRestore) {
   TestBarView* test_view_bar = new TestBarView();
   std::unique_ptr<Widget> widget_bar(new Widget());
   Widget::InitParams params_bar =
-      CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params_bar.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params_bar.bounds = gfx::Rect(50, 50, 650, 650);
   widget_bar->Init(std::move(params_bar));
   View* root_bar = widget_bar->GetRootView();
@@ -167,8 +167,8 @@ TEST_F(AccessiblePaneViewTest, TwoSetPaneFocus) {
   TestBarView* test_view_2 = new TestBarView();
   std::unique_ptr<Widget> widget(new Widget());
   Widget::InitParams params =
-      CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -198,8 +198,8 @@ TEST_F(AccessiblePaneViewTest, PaneFocusTraversal) {
   TestBarView* original_test_view = new TestBarView();
   std::unique_ptr<Widget> widget(new Widget());
   Widget::InitParams params =
-      CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -254,8 +254,8 @@ TEST_F(AccessiblePaneViewTest, MAYBE_DoesntCrashOnEscapeWithRemovedView) {
   TestBarView* test_view2 = new TestBarView();
   Widget widget;
   Widget::InitParams params =
-      CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget.Init(std::move(params));
   View* root = widget.GetRootView();
@@ -284,10 +284,11 @@ TEST_F(AccessiblePaneViewTest, AccessibleProperties) {
   std::unique_ptr<TestBarView> test_view = std::make_unique<TestBarView>();
   test_view->SetAccessibleName(u"Name");
   test_view->GetViewAccessibility().SetDescription(u"Description");
-  EXPECT_EQ(test_view->GetAccessibleName(), u"Name");
+  EXPECT_EQ(test_view->GetViewAccessibility().GetCachedName(), u"Name");
   EXPECT_EQ(test_view->GetViewAccessibility().GetCachedDescription(),
             u"Description");
-  EXPECT_EQ(test_view->GetAccessibleRole(), ax::mojom::Role::kPane);
+  EXPECT_EQ(test_view->GetViewAccessibility().GetCachedRole(),
+            ax::mojom::Role::kPane);
 
   ui::AXNodeData data;
   test_view->GetViewAccessibility().GetAccessibleNodeData(&data);
@@ -298,7 +299,7 @@ TEST_F(AccessiblePaneViewTest, AccessibleProperties) {
   EXPECT_EQ(data.role, ax::mojom::Role::kPane);
 
   data = ui::AXNodeData();
-  test_view->SetAccessibleRole(ax::mojom::Role::kToolbar);
+  test_view->GetViewAccessibility().SetRole(ax::mojom::Role::kToolbar);
   test_view->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Name");

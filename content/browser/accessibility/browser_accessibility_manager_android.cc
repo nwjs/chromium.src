@@ -18,7 +18,7 @@
 namespace content {
 
 // static
-BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
+BrowserAccessibilityManager* BrowserAccessibilityManagerAndroid::Create(
     const ui::AXTreeUpdate& initial_tree,
     ui::AXPlatformTreeManagerDelegate* delegate) {
   if (!delegate)
@@ -35,15 +35,10 @@ BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
 }
 
 // static
-BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
+BrowserAccessibilityManager* BrowserAccessibilityManagerAndroid::Create(
     ui::AXPlatformTreeManagerDelegate* delegate) {
-  return BrowserAccessibilityManager::Create(
+  return BrowserAccessibilityManagerAndroid::Create(
       BrowserAccessibilityManagerAndroid::GetEmptyDocument(), delegate);
-}
-
-BrowserAccessibilityManagerAndroid*
-BrowserAccessibilityManager::ToBrowserAccessibilityManagerAndroid() {
-  return static_cast<BrowserAccessibilityManagerAndroid*>(this);
 }
 
 BrowserAccessibilityManagerAndroid::BrowserAccessibilityManagerAndroid(
@@ -110,7 +105,7 @@ ui::AXNode* BrowserAccessibilityManagerAndroid::RetargetForEvents(
   // this. So we are temporarily using NOTREACHED in the hopes that ClusterFuzz
   // will lead to a reliably-reproducible test case.
   if (!node) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
 
@@ -156,7 +151,7 @@ ui::AXNode* BrowserAccessibilityManagerAndroid::RetargetForEvents(
       break;
     }
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
   return updated ? updated->node() : nullptr;
@@ -474,7 +469,7 @@ bool BrowserAccessibilityManagerAndroid::NextAtGranularity(
       break;
     }
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   return true;
@@ -522,7 +517,7 @@ bool BrowserAccessibilityManagerAndroid::PreviousAtGranularity(
       break;
     }
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   return true;
@@ -580,6 +575,12 @@ void BrowserAccessibilityManagerAndroid::OnNodeWillBeDeleted(ui::AXTree* tree,
   }
 
   BrowserAccessibilityManager::OnNodeWillBeDeleted(tree, node);
+}
+
+std::unique_ptr<BrowserAccessibility>
+BrowserAccessibilityManagerAndroid::CreateBrowserAccessibility(
+    ui::AXNode* node) {
+  return BrowserAccessibility::Create(this, node);
 }
 
 void BrowserAccessibilityManagerAndroid::OnAtomicUpdateFinished(

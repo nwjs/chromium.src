@@ -79,9 +79,9 @@ constexpr auto kDefaultTriggerSource =
 
 using autofill::FillingProduct;
 using autofill::Suggestion;
+using autofill::SuggestionAdditionalLabelsContains;
 using autofill::SuggestionVectorIconsAre;
 using autofill::SuggestionVectorIdsAre;
-using autofill::SuggestionVectorLabelsContains;
 using autofill::SuggestionVectorMainTextsAre;
 using autofill::password_generation::PasswordGenerationType;
 using base::test::RunOnceCallback;
@@ -959,14 +959,10 @@ TEST_F(PasswordAutofillManagerTest, ExtractSuggestions) {
           kSeparatorEntry,
           Suggestion::Text(GetManagePasswordsTitle(),
                            Suggestion::Text::IsPrimary(true))));
-  EXPECT_THAT(
-      open_args.suggestions,
-      SuggestionVectorLabelsContains(std::vector<std::vector<Suggestion::Text>>{
-          {Suggestion::Text(u"foo.com")}}));
-  EXPECT_THAT(
-      open_args.suggestions,
-      SuggestionVectorLabelsContains(std::vector<std::vector<Suggestion::Text>>{
-          {Suggestion::Text(u"foobarrealm.org")}}));
+  EXPECT_THAT(open_args.suggestions,
+              SuggestionAdditionalLabelsContains(u"foo.com"));
+  EXPECT_THAT(open_args.suggestions,
+              SuggestionAdditionalLabelsContains(u"foobarrealm.org"));
 
   // Now simulate displaying suggestions matching "John".
   EXPECT_CALL(autofill_client, ShowAutofillSuggestions)
@@ -1025,14 +1021,10 @@ TEST_F(PasswordAutofillManagerTest, PrettifiedAndroidRealmsAreShownAsLabels) {
   password_autofill_manager_->OnShowPasswordSuggestions(
       kElementId, kDefaultTriggerSource, base::i18n::RIGHT_TO_LEFT,
       std::u16string(), ShowWebAuthnCredentials(false), gfx::RectF());
-  EXPECT_THAT(
-      open_args.suggestions,
-      SuggestionVectorLabelsContains(std::vector<std::vector<Suggestion::Text>>{
-          {Suggestion::Text(u"android://com.example2.android/")}}));
-  EXPECT_THAT(
-      open_args.suggestions,
-      SuggestionVectorLabelsContains(std::vector<std::vector<Suggestion::Text>>{
-          {Suggestion::Text(u"android://com.example1.android/")}}));
+  EXPECT_THAT(open_args.suggestions, SuggestionAdditionalLabelsContains(
+                                         u"android://com.example2.android/"));
+  EXPECT_THAT(open_args.suggestions, SuggestionAdditionalLabelsContains(
+                                         u"android://com.example1.android/"));
   EXPECT_EQ(open_args.trigger_source,
             autofill::AutofillSuggestionTriggerSource::kPasswordManager);
 }
@@ -1251,11 +1243,10 @@ TEST_F(PasswordAutofillManagerTest,
   histograms.ExpectUniqueSample(
       kDropdownShownHistogram,
       metrics_util::PasswordDropdownState::kStandardGenerate, 1);
-  EXPECT_THAT(
-      open_args.suggestions,
-      SuggestionVectorIconsAre(Suggestion::Icon::kGlobe, Suggestion::Icon::kKey,
-                               Suggestion::Icon::kNoIcon,
-                               Suggestion::Icon::kSettings));
+  EXPECT_THAT(open_args.suggestions,
+              SuggestionVectorIconsAre(
+                  Suggestion::Icon::kGlobe, Suggestion::Icon::kKey,
+                  Suggestion::Icon::kNoIcon, Suggestion::Icon::kSettings));
   EXPECT_THAT(
       open_args.suggestions,
       SuggestionVectorMainTextsAre(
@@ -1703,7 +1694,6 @@ TEST_F(PasswordAutofillManagerTest, CancelsOngoingBiometricAuthOnNewRequest) {
   // Destroying the manager should cancel ongoing authentication.
   EXPECT_CALL(*authenticator_ptr2, Cancel());
 }
-
 
 TEST_F(PasswordAutofillManagerTest, MetricsRecordedForBiometricAuth) {
   base::ScopedMockElapsedTimersForTest mock_elapsed_timers_;

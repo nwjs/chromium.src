@@ -29,6 +29,7 @@
 #include "components/viz/common/quads/compositor_render_pass_draw_quad.h"
 #include "components/viz/common/quads/debug_border_draw_quad.h"
 #include "components/viz/common/quads/draw_quad.h"
+#include "components/viz/common/quads/offset_tag.h"
 #include "components/viz/common/quads/shared_quad_state.h"
 #include "components/viz/common/quads/solid_color_draw_quad.h"
 #include "components/viz/common/quads/surface_draw_quad.h"
@@ -50,6 +51,7 @@
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/transform.h"
+#include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/overlay_transform_utils.h"
 
 namespace viz {
@@ -651,7 +653,11 @@ const DrawQuad* SurfaceAggregator::FindQuadWithOverlayDamage(
     if (!gfx::IsNearestRectWithinDistance(rect_in_root_space, 0.01f)) {
       return nullptr;
     }
-    if (!rect_in_root_space.Contains(gfx::RectF(damage_rect_in_root_space))) {
+    // Now, in order to check whether the display rect (gfx::RectF) contains the
+    // damage rect (gfx::Rect), we can safely round the former so that we do not
+    // fail to assign the damage due to 4-6 digits difference.
+    if (!gfx::ToEnclosingRectIgnoringError(rect_in_root_space)
+             .Contains(damage_rect_in_root_space)) {
       return nullptr;
     }
   }
@@ -760,6 +766,22 @@ ResolvedFrameData* SurfaceAggregator::GetResolvedFrame(
       // applicable to valid `ResolvedFrameData`.
       resolved_frame.SetRenderPassPointers();
     }
+
+    // Lookup function allows ResolvedFrameData to find OffsetTagValues.
+    auto lookup_fn = [this](const OffsetTagDefinition& tag_def) {
+      if (auto* provider_frame = GetResolvedFrame(tag_def.provider)) {
+        auto& tag_values = provider_frame->surface()
+                               ->GetActiveFrameMetadata()
+                               .offset_tag_values;
+        for (auto& tag_value : tag_values) {
+          if (tag_def.tag == tag_value.tag) {
+            return tag_value.offset;
+          }
+        }
+      }
+      return gfx::Vector2dF();
+    };
+    resolved_frame.UpdateOffsetTags(lookup_fn);
   }
 
   return &resolved_frame;
@@ -1710,6 +1732,9 @@ void SurfaceAggregator::CopyPasses(ResolvedFrameData& resolved_frame) {
     dest_pass_list_->push_back(std::move(copy_pass));
   }
 
+  dest_pass_list_->back()->video_capture_enabled =
+      surface->IsVideoCaptureOnFromClient();
+
   if (!apply_surface_transform_to_root_pass)
     AddDisplayTransformPass();
 }
@@ -2327,9 +2352,6 @@ AggregatedFrame SurfaceAggregator::Aggregate(
       });
 
   AggregatedFrame frame;
-  frame.top_controls_visible_height =
-      root_surface_frame.metadata.top_controls_visible_height;
-
   dest_pass_list_ = &frame.render_pass_list;
   surface_damage_rect_list_ = &frame.surface_damage_rect_list_;
 

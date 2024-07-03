@@ -6,6 +6,7 @@
 
 #include "base/files/file_path.h"
 #include "base/sequence_checker.h"
+#include "components/history_embeddings/history_embeddings_features.h"
 #include "components/history_embeddings/passages_util.h"
 #include "components/history_embeddings/proto/history_embeddings.pb.h"
 #include "sql/init_status.h"
@@ -146,7 +147,8 @@ sql::InitStatus SqlDatabase::InitInternal(const base::FilePath& storage_dir) {
   constexpr char kKeyModelVersion[] = "model_version";
   int model_version = 0;
   meta_table.GetValue(kKeyModelVersion, &model_version);
-  if (model_version != embedder_metadata_->model_version) {
+  if (model_version != embedder_metadata_->model_version ||
+      kDeleteEmbeddings.Get()) {
     // Old version embeddings can't be used with new model. Simply delete them
     // all and set new version. Passages can be used for reconstruction later.
     constexpr char kSqlDeleteFromEmbeddings[] = "DELETE FROM embeddings;";
@@ -210,6 +212,34 @@ std::optional<proto::PassagesValue> SqlDatabase::GetPassages(
   return std::nullopt;
 }
 
+std::vector<UrlPassages> SqlDatabase::GetUrlPassagesWithoutEmbeddings() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (!LazyInit()) {
+    return {};
+  }
+
+  constexpr char kSqlSelectPassagesWithoutEmbeddings[] =
+      "SELECT url_id, visit_id, visit_time, passages_blob "
+      "FROM passages WHERE url_id NOT IN (SELECT url_id FROM embeddings);";
+  DCHECK(db_.IsSQLValid(kSqlSelectPassagesWithoutEmbeddings));
+  sql::Statement statement(db_.GetCachedStatement(
+      SQL_FROM_HERE, kSqlSelectPassagesWithoutEmbeddings));
+
+  std::vector<UrlPassages> all_url_passages;
+  while (statement.Step()) {
+    std::optional<proto::PassagesValue> passages_value =
+        PassagesBlobToProto(statement.ColumnBlob(3));
+    if (passages_value.has_value()) {
+      UrlPassages& url_passages = all_url_passages.emplace_back(
+          statement.ColumnInt64(0), statement.ColumnInt64(1),
+          statement.ColumnTime(2));
+      url_passages.passages = std::move(passages_value.value());
+    }
+  }
+  return all_url_passages;
+}
+
 size_t SqlDatabase::GetEmbeddingDimensions() const {
   return embedder_metadata_->output_size;
 }
@@ -243,6 +273,7 @@ bool SqlDatabase::AddUrlEmbeddings(const UrlEmbeddings& url_embeddings) {
     for (float f : embedding.GetData()) {
       vector->add_floats(f);
     }
+    vector->set_passage_word_count(embedding.GetPassageWordCount());
   }
   statement.BindBlob(3, value.SerializeAsString());
 
@@ -308,7 +339,8 @@ SqlDatabase::MakeEmbeddingsIterator(
         }
         for (const proto::EmbeddingVector& vector : value.vectors()) {
           data.embeddings.emplace_back(
-              std::vector(vector.floats().cbegin(), vector.floats().cend()));
+              std::vector(vector.floats().cbegin(), vector.floats().cend()),
+              vector.passage_word_count());
         }
 
         return &data;

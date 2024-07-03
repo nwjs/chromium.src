@@ -173,12 +173,11 @@ public class SignOutCoordinatorTest {
         doAnswer(
                         args -> {
                             SigninManager.SignOutCallback signOutCallback = args.getArgument(1);
-                            signOutCallback.preWipeData();
                             signOutCallback.signOutComplete();
                             return null;
                         })
                 .when(mSigninManagerMock)
-                .signOut(eq(signOutReason), any(SigninManager.SignOutCallback.class), eq(true));
+                .signOut(eq(signOutReason), any(SigninManager.SignOutCallback.class), eq(false));
 
         startSignOutFlow(signOutReason, mOnSignOut);
 
@@ -238,7 +237,7 @@ public class SignOutCoordinatorTest {
                             return null;
                         })
                 .when(mSigninManagerMock)
-                .signOut(eq(signOutReason), any(SigninManager.SignOutCallback.class), eq(true));
+                .signOut(eq(signOutReason), any(SigninManager.SignOutCallback.class), eq(false));
         startSignOutFlow(signOutReason, mOnSignOut);
         onView(withText(R.string.sign_out_unsaved_data_title))
                 .inRoot(isDialog())

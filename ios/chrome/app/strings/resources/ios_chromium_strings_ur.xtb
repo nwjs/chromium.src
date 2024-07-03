@@ -75,6 +75,7 @@
 <translation id="2942241131342758843">‏لنکس کھولنے، ویجیٹس سے تلاش کرنے اور دیگر ایپس میں پاس ورڈز کو آٹو فل کرنے کیلئے، Chromium کا بطور ڈیفالٹ استعمال کریں</translation>
 <translation id="2977470724722393594">‏Chromium اپ ٹو ڈیٹ ہے</translation>
 <translation id="3044857325852340337">‏Chromium کے ڈیٹا کو حذف کر دیا گیا ہے</translation>
+<translation id="3049211156275642309">‏‫Chromium کا سیٹ اپ مکل کریں</translation>
 <translation id="3078941082359356771">{COUNT,plural, =1{‏Chromium نئے ٹیب صفحہ پر اس پیکیج کو ٹریک کرنے میں آپ کی مدد کر سکتا ہے۔}other{‏Chromium نئے ٹیب صفحہ پر ان پیکیجز کو ٹریک کرنے میں آپ کی مدد کر سکتا ہے۔}}</translation>
 <translation id="3102849287235003384">‏سبھی ویب سائٹس پر اپنے Google اکاؤنٹ سے سائن آؤٹ کرنے کے لیے <ph name="BEGIN_LINK" />Chromium سے سائن آؤٹ کریں<ph name="END_LINK" />۔</translation>
 <translation id="3219277919172823720">‏Chromium میں آواز سے تلاش کریں</translation>
@@ -201,7 +202,6 @@
 <translation id="6433172051771630690">‏Chromium سے زیادہ سے زیادہ فائدہ اٹھانے کے لیے تجاویز۔</translation>
 <translation id="6502321914804101924">‏Chromium سائن آؤٹ ہو گیا ہے</translation>
 <translation id="6563921047760808519">‏اس بارے میں مزید جانیں کہ <ph name="BEGIN_LINK" />Chromium آپ کے ڈیٹا کو کس طرح نجی رکھتا ہے<ph name="END_LINK" /></translation>
-<translation id="6625409903340039086">‏Chromium اب آپ کے نظم کردہ اکاؤنٹ کے لیے صارف کی پالیسیوں کو سپورٹ کرتا ہے</translation>
 <translation id="6728350288669261079">‏Chromium میں ترتیبات کھولتا ہے۔</translation>
 <translation id="6752854822223394465">‏آپ کی تنظیم Chromium سیٹ اپ کر رہی ہے...</translation>
 <translation id="6794054469102824109">‏Chromium ڈائنو گیم کھلتی ہے۔</translation>
@@ -232,7 +232,6 @@
 <translation id="7395825497086981028">آپ کا پاس ورڈ <ph name="EMAIL" /> کے لیے پاس ورڈ مینیجر میں محفوظ کیا جائے گا۔</translation>
 <translation id="7400689562045506105">‏Chromium کو ہر جگہ استعمال کریں</translation>
 <translation id="7523464085759699266">‏"جب آپ Chromium بند کرتے ہیں تو پوشیدگی ٹیبز کو مقفل کریں" کو آن کریں۔</translation>
-<translation id="7601597633134889942">‏کسی سائٹ پر جائیں اور Chromium مینو میں پیروی کریں پر کلک کریں</translation>
 <translation id="7674213385180944843">‏ترتیبات &gt; رازداری &gt; کیمرا &gt; Chromium کو کھولیں اور کیمرا آن کریں۔</translation>
 <translation id="7710137812207066069">‏Chromium میں ایک نیا ٹیب کھلتا ہے۔</translation>
 <translation id="7747820849741499258">‏Chromium میں تلاش کریں</translation>
@@ -264,6 +263,7 @@
 <translation id="8386869251364507178">‏Chromium کارروائیاں</translation>
 <translation id="8409374867500149834">‏آپ کے پاس نقصان دہ ویب سائٹس کے خلاف Chromium کی مضبوط ترین سیکیورٹی ہے</translation>
 <translation id="8458950033462118672">‏آپ Chromium میں لنکس کو اپنی ڈیفالٹ براؤزر ایپ بنا کر خودکار طور پر اسے کھول سکتے ہیں۔</translation>
+<translation id="8543509361021925846">{THRESHOLD,plural, =1{‏ایسا اس وقت ہوتا ہے جب Chromium {THRESHOLD} منٹ تک استعمال نہیں ہوتا ہے۔ آپ کے سائن ہونے کے دوران صرف اس آلے پر محفوظ کردہ ڈیٹا کو حذف کر دیا جائے گا۔ اس میں سرگزشت اور پاس ورڈز شامل ہو سکتے ہیں۔}other{‏ایسا اس وقت ہوتا ہے جب Chromium {THRESHOLD} منٹ تک استعمال نہیں ہوتا ہے۔ آپ کے سائن ہونے کے دوران صرف اس آلے پر محفوظ کردہ ڈیٹا کو حذف کر دیا جائے گا۔ اس میں سرگزشت اور پاس ورڈز شامل ہو سکتے ہیں۔}}</translation>
 <translation id="858114650497379505">‏آپ اپنے iPhone پر پاس ورڈ مینیجر میں اپنے محفوظ کردہ پاس ورڈز کو دیگر ایپس میں استعمال کر سکتے ہیں۔</translation>
 <translation id="8586442755830160949">‏کاپی رائٹ ‎<ph name="YEAR" /> The Chromium Authors۔ جملہ حقوق محفوظ۔</translation>
 <translation id="865600487977764604">‏آپ کے سائن ان ہونے پر آپ کو Chromium پر محفوظ رکھتا ہے اور دیگر Google ایپس میں آپ کی سیکیورٹی کو بہتر بنانے کے لیے استعمال کیا جا سکتا ہے</translation>
@@ -274,6 +274,7 @@
 <translation id="8754966941001340678">‏Chromium بہتر تحفظ کی تجویز کرتا ہے</translation>
 <translation id="8759037115129007407">‏آپ کا فیملی ممبر ابھی پاس ورڈز موصول نہیں کر سکتا۔ ان سے Chromium اپ ڈیٹ کرنے اور پاس ورڈز کو مطابقت پذیر کرنے کے لیے کہیں۔ <ph name="BEGIN_LINK" />مزید جانیں<ph name="END_LINK" /></translation>
 <translation id="8776843108004031667">‏اس اکاؤنٹ اور کسی بھی غیر محفوظ ڈیٹا کو Chromium سے ہٹا دیا جائے گا۔</translation>
+<translation id="8826789549860004832">‏اپنا براؤزر سیٹ اپ کرنا جاری رکھ کر Chromium سے زیادہ سے زیادہ فائدہ اٹھائیں۔</translation>
 <translation id="88376265765385899">‏Chromium بُک مارکس کھولتا ہے۔</translation>
 <translation id="8860548555286245440">‏URLs کو Chromium میں پوشیدگی میں کھولیں</translation>
 <translation id="8866191443434488382">‏Chromium ان سائٹس پر ٹریکنگ نمبرز کا پتہ لگائے گا جو آپ ملاحظہ کرتے ہیں اور نئے ٹیب کے صفحہ پر آپ کو پیکیج کی اپ ڈیٹس دکھائے گا۔ پیکج ٹریکنگ نمبر اور ویب سائٹ کا نام Chromium کو بھیجا جائے گا تاکہ یہ خصوصیت فراہم کی جا سکے اور ہر کسی کے لیے خریداری کی خصوصیات کو بہتر بنایا جا سکے۔ آپ اسے کسی بھی وقت <ph name="BEGIN_LINK" />پیکیج ٹریکنگ کی ترتیبات<ph name="END_LINK" /> میں اپ ڈیٹ کر سکتے ہیں۔</translation>

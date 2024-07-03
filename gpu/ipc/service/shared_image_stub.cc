@@ -21,6 +21,7 @@
 #include "gpu/ipc/common/gpu_peak_memory.h"
 #include "gpu/ipc/service/gpu_channel.h"
 #include "gpu/ipc/service/gpu_channel_manager.h"
+#include "gpu/ipc/service/gpu_channel_shared_image_interface.h"
 #include "gpu/ipc/service/gpu_memory_buffer_factory.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/gpu_fence_handle.h"
@@ -81,10 +82,15 @@ SharedImageStub::~SharedImageStub() {
   }
 }
 
+const scoped_refptr<gpu::GpuChannelSharedImageInterface>&
+SharedImageStub::shared_image_interface() {
+  return gpu_channel_shared_image_interface_;
+}
+
 std::unique_ptr<SharedImageStub> SharedImageStub::Create(GpuChannel* channel,
                                                          int32_t route_id) {
   auto stub = base::WrapUnique(new SharedImageStub(channel, route_id));
-  ContextResult result = stub->MakeContextCurrentAndCreateFactory();
+  ContextResult result = stub->Initialize();
   if (result == ContextResult::kSuccess)
     return stub;
 
@@ -94,8 +100,9 @@ std::unique_ptr<SharedImageStub> SharedImageStub::Create(GpuChannel* channel,
 
   // For transient failure, retry once to create a shared context state and
   // hence factory again.
-  if (stub->MakeContextCurrentAndCreateFactory() != ContextResult::kSuccess)
+  if (stub->Initialize() != ContextResult::kSuccess) {
     return nullptr;
+  }
   return stub;
 }
 
@@ -665,7 +672,7 @@ bool SharedImageStub::MakeContextCurrent(bool needs_gl) {
   return context_state_->MakeCurrent(/*surface=*/nullptr, needs_gl);
 }
 
-ContextResult SharedImageStub::MakeContextCurrentAndCreateFactory() {
+ContextResult SharedImageStub::Initialize() {
   auto* channel_manager = channel_->gpu_channel_manager();
   DCHECK(!context_state_);
 
@@ -693,6 +700,9 @@ ContextResult SharedImageStub::MakeContextCurrentAndCreateFactory() {
       channel_manager->gpu_feature_info(), context_state_.get(),
       channel_manager->shared_image_manager(), this,
       /*is_for_display_compositor=*/false);
+  gpu_channel_shared_image_interface_ =
+      base::MakeRefCounted<GpuChannelSharedImageInterface>(
+          weak_factory_.GetWeakPtr());
   return ContextResult::kSuccess;
 }
 

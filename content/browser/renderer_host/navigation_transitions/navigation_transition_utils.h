@@ -7,6 +7,7 @@
 
 #include "base/functional/callback.h"
 #include "content/common/content_export.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
 namespace gfx {
@@ -19,14 +20,26 @@ class NavigationRequest;
 
 struct NavigationTransitionUtils {
   // See ScreenshotCallback in NavigationTransitionTestUtils.
-  using ScreenshotCallback = base::RepeatingCallback<
-      void(int nav_entry_index, const SkBitmap& bitmap, bool requested)>;
+  using ScreenshotCallback =
+      base::RepeatingCallback<void(int nav_entry_index,
+                                   const SkBitmap& bitmap,
+                                   bool requested,
+                                   SkBitmap& out_override)>;
 
   // Capture the `NavigationEntryScreenshot` for the old page, and store the
   // screenshot in the old page's NavigationEntry.
   // Should only be called immediately before the old page is unloaded.
-  static void CaptureNavigationEntryScreenshot(
+  static void CaptureNavigationEntryScreenshotForCrossDocumentNavigations(
       const NavigationRequest& navigation_request);
+
+  // Called when `DidCommitSameDocumentNavigation` arrives at the browser, and
+  // *before* the navigation commits. Ensures that a `NavigationEntryScreenshot`
+  // for the pre-navigation DOM state is cached when provided by the Viz
+  // process.
+  static void SetSameDocumentNavigationEntryScreenshotToken(
+      const NavigationRequest& navigation_request,
+      const blink::SameDocNavigationScreenshotDestinationToken&
+          destination_token);
 
   // Used by tests to deterministically validate the memory budgeting / eviction
   // logic.
@@ -40,8 +53,8 @@ struct NavigationTransitionUtils {
   CONTENT_EXPORT static void ResetNumCopyOutputRequestIssuedForTesting();
 
   // Calls `screenshot_callback` with the index of the previous NavigationEntry
-  // when leaving a page, along with the generated bitmap captured by the
-  // CaptureNavigationEntryScreenshot function.
+  // when leaving a page, along with the generated bitmap captured captured for
+  // all navigations.
   CONTENT_EXPORT static void SetNavScreenshotCallbackForTesting(
       ScreenshotCallback screenshot_callback);
 };

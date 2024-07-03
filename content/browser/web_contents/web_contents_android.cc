@@ -22,6 +22,7 @@
 #include "base/logging.h"
 #include "base/metrics/user_metrics.h"
 #include "base/threading/scoped_blocking_call.h"
+#include "cc/input/android/offset_tag_android.h"
 #include "content/browser/android/java/gin_java_bridge_dispatcher_host.h"
 #include "content/browser/media/media_web_contents_observer.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
@@ -30,7 +31,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_contents/web_contents_view_android.h"
 #include "content/common/frame.mojom.h"
-#include "content/public/android/content_jni_headers/WebContentsImpl_jni.h"
+#include "content/public/browser/back_forward_transition_animation_manager.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/message_port_provider.h"
@@ -49,6 +50,9 @@
 #include "ui/gfx/geometry/rect.h"
 #include "url/android/gurl_android.h"
 #include "url/gurl.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "content/public/android/content_jni_headers/WebContentsImpl_jni.h"
 
 using base::android::AttachCurrentThread;
 using base::android::ConvertJavaStringToUTF16;
@@ -909,6 +913,38 @@ void WebContentsAndroid::NotifyBrowserControlsHeightChanged(JNIEnv* env) {
 
 bool WebContentsAndroid::NeedToFireBeforeUnloadOrUnloadEvents(JNIEnv* env) {
   return web_contents_->NeedToFireBeforeUnloadOrUnloadEvents();
+}
+
+void WebContentsAndroid::OnContentForNavigationEntryShown(JNIEnv* env) {
+  if (auto* animation =
+          web_contents_->GetBackForwardTransitionAnimationManager()) {
+    animation->OnContentForNavigationEntryShown();
+  }
+}
+
+jint WebContentsAndroid::GetCurrentBackForwardTransitionStage(JNIEnv* env) {
+  auto stage = BackForwardTransitionAnimationManager::AnimationStage::kNone;
+  if (auto* animation =
+          web_contents_->GetBackForwardTransitionAnimationManager()) {
+    stage = animation->GetCurrentAnimationStage();
+  }
+  return static_cast<jint>(stage);
+}
+
+void WebContentsAndroid::NotifyControlsConstraintsChanged(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jold_tags_info,
+    const base::android::JavaParamRef<jobject>& jtags_info) {
+  RenderWidgetHostViewAndroid* rwhva = GetRenderWidgetHostViewAndroid();
+  if (!rwhva) {
+    return;
+  }
+
+  cc::BrowserControlsOffsetTagsInfo old_tags_info =
+      cc::android::FromJavaBrowserControlsOffsetTagsInfo(env, jold_tags_info);
+  cc::BrowserControlsOffsetTagsInfo tags_info =
+      cc::android::FromJavaBrowserControlsOffsetTagsInfo(env, jtags_info);
+  rwhva->OnControlsConstraintsChanged(old_tags_info, tags_info);
 }
 
 }  // namespace content

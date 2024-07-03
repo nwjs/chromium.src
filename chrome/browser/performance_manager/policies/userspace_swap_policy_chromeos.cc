@@ -185,8 +185,9 @@ void UserspaceSwapPolicy::PrintAllSwapMetrics() {
   uint64_t total_renderers = 0;
   for (const PageNode* page_node : graph_->GetAllPageNodes()) {
     const FrameNode* main_frame_node = page_node->GetMainFrameNode();
-    if (!main_frame_node)
+    if (!main_frame_node) {
       continue;
+    }
 
     const ProcessNode* process_node = main_frame_node->GetProcessNode();
 

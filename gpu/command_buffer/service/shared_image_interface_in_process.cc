@@ -235,7 +235,7 @@ SharedImageInterfaceInProcess::CreateSharedImage(
     const SharedImageInfo& si_info,
     gpu::SurfaceHandle surface_handle) {
   DCHECK(gpu::IsValidClientUsage(si_info.meta.usage));
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   {
     base::AutoLock lock(lock_);
     // Note: we enqueue the task under the lock to guarantee monotonicity of
@@ -283,7 +283,7 @@ SharedImageInterfaceInProcess::CreateSharedImage(
     const SharedImageInfo& si_info,
     base::span<const uint8_t> pixel_data) {
   DCHECK(gpu::IsValidClientUsage(si_info.meta.usage));
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   std::vector<uint8_t> pixel_data_copy(pixel_data.begin(), pixel_data.end());
   {
     base::AutoLock lock(lock_);
@@ -333,7 +333,7 @@ SharedImageInterfaceInProcess::CreateSharedImage(
     SurfaceHandle surface_handle,
     gfx::BufferUsage buffer_usage) {
   DCHECK(gpu::IsValidClientUsage(si_info.meta.usage));
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   {
     base::AutoLock lock(lock_);
     // Note: we enqueue the task under the lock to guarantee monotonicity of
@@ -453,7 +453,7 @@ SharedImageInterfaceInProcess::CreateSharedImage(
 #endif
 
   auto client_buffer_handle = buffer_handle.Clone();
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   {
     base::AutoLock lock(lock_);
     SyncToken sync_token = MakeSyncToken(next_fence_sync_release_++);
@@ -486,7 +486,7 @@ SharedImageInterfaceInProcess::CreateSharedImage(
   CHECK(!si_info.meta.format.PrefersExternalSampler());
 #endif
 
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto gmb_type = buffer_handle.type;
   {
     base::AutoLock lock(lock_);
@@ -542,7 +542,7 @@ SharedImageInterfaceInProcess::CreateSharedImage(
       gfx::RowSizeForBufferFormat(si_info.meta.size.width(), buffer_format, 0));
   handle.region = std::move(shared_memory_region);
 
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   {
     base::AutoLock lock(lock_);
     SyncToken sync_token = MakeSyncToken(next_fence_sync_release_++);
@@ -602,7 +602,7 @@ SharedImageInterfaceInProcess::CreateSharedImage(
   DCHECK(IsPlaneValidForGpuMemoryBufferFormat(plane,
                                               gpu_memory_buffer->GetFormat()));
 
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   gfx::GpuMemoryBufferHandle handle = gpu_memory_buffer->CloneHandle();
   {
     base::AutoLock lock(lock_);
@@ -666,14 +666,14 @@ SharedImageInterfaceInProcess::CreateSwapChain(
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
     uint32_t usage) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return SharedImageInterface::SwapChainSharedImages(nullptr, nullptr);
 }
 
 void SharedImageInterfaceInProcess::PresentSwapChain(
     const SyncToken& sync_token,
     const Mailbox& mailbox) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -683,7 +683,7 @@ void SharedImageInterfaceInProcess::RegisterSysmemBufferCollection(
     gfx::BufferFormat format,
     gfx::BufferUsage usage,
     bool register_with_image_pipe) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 #endif  // BUILDFLAG(IS_FUCHSIA)
 
@@ -814,7 +814,7 @@ SharedImageInterfaceInProcess::ImportSharedImage(
     const ExportedSharedImage& exported_shared_image) {
   // Secondary references are required only by client processes, so it shouldn't
   // be reachable here.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 

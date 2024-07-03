@@ -70,7 +70,6 @@
 #include "third_party/blink/public/common/features.h"
 #include "ui/aura/env.h"
 #include "ui/base/test/ui_controls.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -93,13 +92,17 @@
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "base/test/simple_test_tick_clock.h"
+#include "ui/events/base_event_utils.h"
+#endif
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/public/cpp/split_view_test_api.h"
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/shell.h"
 #include "ash/wm/window_state.h"
-#include "base/test/simple_test_tick_clock.h"
 #include "chrome/browser/ash/system_web_apps/test_support/test_system_web_app_installation.h"
 #include "chrome/browser/ui/views/frame/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
@@ -112,12 +115,13 @@
 #include "ui/base/cursor/cursor.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/test/display_manager_test_api.h"  // nogncheck
-#include "ui/events/base_event_utils.h"
 #include "ui/events/gesture_detection/gesture_configuration.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "chrome/browser/ui/views/frame/desktop_browser_frame_lacros.h"
+#include "chromeos/crosapi/mojom/test_controller.mojom-test-utils.h"
+#include "chromeos/lacros/lacros_service.h"
 #include "ui/aura/window_tree_host_platform.h"
 #include "ui/platform_window/extensions/wayland_extension.h"
 #define DESKTOP_BROWSER_FRAME_AURA DesktopBrowserFrameLacros
@@ -579,10 +583,11 @@ class DetachToBrowserTabDragControllerTest
   void SetUpOnMainThread() override {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     root_ = browser()->window()->GetNativeWindow()->GetRootWindow();
+#endif
+#if BUILDFLAG(IS_CHROMEOS)
     // Disable flings which might otherwise inadvertently be generated from
     // tests' touch events.
-    ui::GestureConfiguration::GetInstance()->set_min_fling_velocity(
-        std::numeric_limits<float>::max());
+    SetMinFlingVelocity(std::numeric_limits<float>::max());
 #endif
 #if BUILDFLAG(IS_MAC)
     // Currently MacViews' browser windows are shown in the background and could
@@ -817,6 +822,30 @@ class DetachToBrowserTabDragControllerTest
   }
 
   Browser* browser() const { return InProcessBrowserTest::browser(); }
+
+ protected:
+#if BUILDFLAG(IS_CHROMEOS)
+  void SetMinFlingVelocity(float velocity) {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    ui::GestureConfiguration::GetInstance()->set_min_fling_velocity(velocity);
+#elif BUILDFLAG(IS_CHROMEOS_LACROS)
+    auto* lacros_service = chromeos::LacrosService::Get();
+    const int version =
+        lacros_service->GetInterfaceVersion<crosapi::mojom::TestController>();
+    const int required_version = crosapi::mojom::TestController::
+        MethodMinVersions::kSetMinFlingVelocityMinVersion;
+    if (version < required_version) {
+      LOG(WARNING) << "Ash does not support crosapi "
+                      "TestController::SetMinFlingVelocity; skipping call.";
+      return;
+    }
+    auto& test_controller =
+        lacros_service->GetRemote<crosapi::mojom::TestController>();
+    crosapi::mojom::TestControllerAsyncWaiter(test_controller.get())
+        .SetMinFlingVelocity(velocity);
+#endif
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
  private:
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1527,6 +1556,60 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
   EXPECT_FALSE(tab_strip->GetDragContext()->IsDragSessionActive());
 }
 
+// Flaky. https://crbug.com/343188577
+#if BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_StartDragWhileEndingPreviousDragDoesNothingTest \
+  DISABLED_StartDragWhileEndingPreviousDragDoesNothingTest
+#else
+#define MAYBE_StartDragWhileEndingPreviousDragDoesNothingTest \
+  StartDragWhileEndingPreviousDragDoesNothingTest
+#endif
+
+// Can't start another drag session while the previous one is still ending.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       MAYBE_StartDragWhileEndingPreviousDragDoesNothingTest) {
+  AddTabsAndResetBrowser(browser(), 2);
+
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+
+  const gfx::Point tab_0_center_screen =
+      GetCenterInScreenCoordinates(tab_strip->tab_at(0));
+  const gfx::Point tab_1_center_screen =
+      GetCenterInScreenCoordinates(tab_strip->tab_at(1));
+  const gfx::Point tab_2_center_screen =
+      GetCenterInScreenCoordinates(tab_strip->tab_at(2));
+
+  ASSERT_TRUE(PressInput(tab_1_center_screen));
+  ASSERT_TRUE(DragInputTo(tab_0_center_screen));
+
+  ASSERT_TRUE(TabDragController::IsActive());
+  StopAnimating(tab_strip);
+
+  ASSERT_TRUE(ReleaseInput());
+
+  // The drag is over...
+  ASSERT_FALSE(TabDragController::IsActive());
+  ASSERT_FALSE(tab_strip->GetDragContext()->IsDragSessionActive());
+
+  // But the tab is still animating and still belongs to the TabDragContext.
+  ASSERT_TRUE(tab_strip->IsAnimatingInTabStrip());
+  ASSERT_TRUE(tab_strip->tab_at(0)->dragging());
+  ASSERT_EQ(tab_strip->tab_at(0)->parent(), tab_strip->GetDragContext());
+
+  ASSERT_EQ("1 0 2", IDString(browser()->tab_strip_model()));
+
+  // Attempt to start *another* drag session while the animation is still going.
+  ASSERT_TRUE(PressInput(tab_2_center_screen));
+  ASSERT_TRUE(DragInputTo(tab_0_center_screen));
+
+  // This should not actually start.
+  EXPECT_FALSE(TabDragController::IsActive());
+  EXPECT_FALSE(tab_strip->GetDragContext()->IsDragSessionActive());
+  EXPECT_EQ("1 0 2", IDString(browser()->tab_strip_model()));
+
+  ASSERT_TRUE(ReleaseInput());
+}
+
 #if defined(USE_AURA)
 bool SubtreeShouldBeExplored(aura::Window* window,
                              const gfx::Point& local_point) {
@@ -1674,6 +1757,59 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
   // mouse/touch was released.
   EXPECT_FALSE(tab_strip->GetWidget()->HasCapture());
   EXPECT_FALSE(tab_strip2->GetWidget()->HasCapture());
+}
+
+// Test is based on DragToSeparateWindow. https://crbug.com/1176998
+#if (BUILDFLAG(IS_MAC) && defined(ARCH_CPU_ARM64)) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_DragToSeparateWindowDuringDragEnd \
+  DISABLED_DragToSeparateWindowDuringDragEnd
+#else
+#define MAYBE_DragToSeparateWindowDuringDragEnd \
+  DragToSeparateWindowDuringDragEnd
+#endif
+
+// Creates two browsers, starts and end a drag in the target browser, then drags
+// from source to target before the target browser finishes ending drags.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       MAYBE_DragToSeparateWindowDuringDragEnd) {
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+
+  AddTabsAndResetBrowser(browser(), 1);
+
+  // Create another browser.
+  Browser* browser2 = CreateAnotherBrowserAndResize();
+  AddTabsAndResetBrowser(browser2, 1);
+  TabStrip* tab_strip2 = GetTabStripForBrowser(browser2);
+
+  ASSERT_TRUE(PressInput(GetCenterInScreenCoordinates(tab_strip2->tab_at(0))));
+  ASSERT_TRUE(DragInputTo(GetCenterInScreenCoordinates(tab_strip2->tab_at(1))));
+
+  StopAnimating(tab_strip2);
+  ASSERT_TRUE(ReleaseInput());
+
+  // We should be doing the post-drag animation.
+  ASSERT_TRUE(tab_strip2->GetDragContext()->IsAnimatingDragEnd());
+  // The tab should still be considered as dragging.
+  ASSERT_TRUE(tab_strip2->tab_at(1)->dragging());
+
+  // Drag from `tab_strip` to `tab_strip2`.
+  DragTabAndNotify(tab_strip, base::BindOnce(&DragToSeparateWindowStep2, this,
+                                             tab_strip, tab_strip2));
+
+  // Should now be attached to `tab_strip2`.
+  ASSERT_TRUE(tab_strip2->GetDragContext()->IsDragSessionActive());
+  ASSERT_FALSE(tab_strip->GetDragContext()->IsDragSessionActive());
+  ASSERT_TRUE(TabDragController::IsActive());
+  EXPECT_FALSE(GetIsDragged(browser()));
+  EXPECT_TRUE(IsTabDraggingInfoCleared(tab_strip));
+  EXPECT_TRUE(IsTabDraggingInfoSet(tab_strip2, tab_strip));
+
+  // Release mouse or touch, stopping the drag session.
+  ASSERT_TRUE(ReleaseInput());
+  ASSERT_FALSE(tab_strip2->GetDragContext()->IsDragSessionActive());
+  ASSERT_FALSE(tab_strip->GetDragContext()->IsDragSessionActive());
+  ASSERT_FALSE(TabDragController::IsActive());
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -4098,13 +4234,10 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithTabbedSystemApp,
   EXPECT_EQ(Browser::Type::TYPE_APP, browser_list()->get(1)->type());
 }
 
+// TODO (crbug.com/1521327): Test fails after migrating to ChromeRefresh2023.
 // Move tab from TYPE_APP Browser to another TYPE_APP Browser.
 IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithTabbedSystemApp,
-                       DragAppToAppWindow) {
-  // TODO (crbug/1521327): Test fails under ChromeRefresh2023. Skip for now.
-  if (features::IsChromeRefresh2023()) {
-    GTEST_SKIP();
-  }
+                       DISABLED_DragAppToAppWindow) {
   // Install and get 2 browsers with tabbed system app.
   webapps::AppId tabbed_app_id = InstallMockApp();
   Browser* app_browser1 = LaunchWebAppBrowser(tabbed_app_id);
@@ -4808,9 +4941,8 @@ IN_PROC_BROWSER_TEST_P(
       ui_test_utils::SendMouseEventsSync(ui_controls::LEFT, ui_controls::UP));
 }
 
-// TODO(crbug.com/333085989): Re-enable flaky tests
-#if BUILDFLAG(IS_CHROMEOS) && defined(ADDRESS_SANITIZER) && \
-    defined(LEAK_SANITIZER)
+// TODO(crbug.com/333085989): Re-enable flaky tests on ChromeOS
+#if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_CancelDragTabToWindowIn1stDisplay \
   DISABLED_CancelDragTabToWindowIn1stDisplay
 #else
@@ -4860,6 +4992,10 @@ IN_PROC_BROWSER_TEST_P(
       ui_test_utils::SendMouseEventsSync(ui_controls::LEFT, ui_controls::UP));
 }
 
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_CHROMEOS)
+
 // Subclass of DetachToBrowserTabDragControllerTest that runs tests only with
 // touch input.
 class DetachToBrowserTabDragControllerTestTouch
@@ -4880,6 +5016,10 @@ class DetachToBrowserTabDragControllerTestTouch
  protected:
   std::unique_ptr<base::SimpleTestTickClock> clock_;
 };
+
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 
 namespace {
 void PressSecondFingerWhileDetachedStep3(
@@ -4975,12 +5115,16 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestTouch,
   EXPECT_EQ(2u, browser_list()->size());
 }
 
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_CHROMEOS)
+
 IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestTouch,
                        FlingDownAtEndOfDrag) {
   // Reduce the minimum fling velocity for this specific test case to cause the
   // fling-down gesture in the middle of tab-dragging. This should end up with
   // minimizing the window. See https://crbug.com/902897 for the details.
-  ui::GestureConfiguration::GetInstance()->set_min_fling_velocity(1);
+  SetMinFlingVelocity(1);
 
   TabStrip* tab_strip = GetTabStripForBrowser(browser());
   test::QuitDraggingObserver observer(tab_strip);
@@ -5010,9 +5154,12 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestTouch,
   EXPECT_FALSE(browser()->window()->IsVisible());
 }
 
+// TODO(http://crbug/343503164) This test seems to be attempting to induce a
+// fling gesture event, but it currently fails to do so. If a fling gesture
+// event was produced, the detached window should end up minimized.
 IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestTouch,
-                       FlingOnStartingDrag) {
-  ui::GestureConfiguration::GetInstance()->set_min_fling_velocity(1);
+                       DISABLED_FlingOnStartingDrag) {
+  SetMinFlingVelocity(1);
   AddTabsAndResetBrowser(browser(), 1);
   TabStrip* tab_strip = GetTabStripForBrowser(browser());
   const gfx::Point tab_0_center =
@@ -5037,9 +5184,12 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestTouch,
   ASSERT_FALSE(tab_strip->GetDragContext()->IsDragSessionActive());
   ASSERT_FALSE(TabDragController::IsActive());
   EXPECT_EQ(2u, browser_list()->size());
+  auto* browser2 = browser_list()->get(1);
+  EXPECT_TRUE(browser2->window()->IsMinimized());
+  EXPECT_FALSE(browser2->window()->IsVisible());
 }
 
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace {
 
@@ -5120,6 +5270,13 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Bool(),
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
         ::testing::Values("mouse")));
+INSTANTIATE_TEST_SUITE_P(
+    TabDragging,
+    DetachToBrowserTabDragControllerTestTouch,
+    ::testing::Combine(
+        ::testing::Bool(),
+        /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
+        ::testing::Values("touch")));
 #endif  // BUILDFLAG(IS_CHROMEOS)
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // TODO(crbug.com/40283516): Enable Multi Display Test on lacros
@@ -5136,13 +5293,6 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(::testing::Bool(),
                        ::testing::Values(false),
                        ::testing::Values("mouse")));
-INSTANTIATE_TEST_SUITE_P(
-    TabDragging,
-    DetachToBrowserTabDragControllerTestTouch,
-    ::testing::Combine(
-        ::testing::Bool(),
-        /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
-        ::testing::Values("touch")));
 INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserTabDragControllerTestWithTabbedSystemApp,

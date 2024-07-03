@@ -4,8 +4,10 @@
 
 #import "base/check.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/tab_grid_toolbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/base_grid_coordinator+subclassing.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/base_grid_mediator.h"
@@ -142,11 +144,15 @@
 #pragma mark - ChromeCoordinator
 
 - (void)start {
-  [self.browser->GetCommandDispatcher()
-      startDispatchingToTarget:self
-                   forProtocol:@protocol(TabGroupsCommands)];
+  CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
+  [dispatcher startDispatchingToTarget:self
+                           forProtocol:@protocol(TabGroupsCommands)];
 
-  self.mediator.dispatcher = self;
+  self.mediator.tabGroupsHandler = self;
+  if (!self.browser->GetBrowserState()->IsOffTheRecord()) {
+    self.mediator.tabGridToolbarHandler =
+        HandlerForProtocol(dispatcher, TabGridToolbarCommands);
+  }
   self.mediator.browser = self.browser;
   self.mediator.delegate = self.gridMediatorDelegate;
   self.mediator.toolbarsMutator = self.toolbarsMutator;
@@ -167,10 +173,19 @@
   if (_tabGroupCoordinator) {
     [self hideTabGroup];
   }
+
+  // When entering the tab group, disable scrolls-to-top gesture for the
+  // view controller that is going to stay behind the screen being presented.
+  self.gridViewController.gridScrollsToTopEnabled = NO;
+
   [self showTabGroup:tabGroup forTabGridOpening:NO];
 }
 
 - (void)hideTabGroup {
+  // When the tab group is hidden, re-enable the scrolls-to-top gesture on the
+  // regular grid view controller.
+  self.gridViewController.gridScrollsToTopEnabled = YES;
+
   [_tabGroupCoordinator stop];
   _tabGroupCoordinator = nil;
 }

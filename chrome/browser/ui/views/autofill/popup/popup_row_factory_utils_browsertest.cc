@@ -35,7 +35,7 @@ namespace {
 Suggestion CreatePasswordSuggestion(const std::u16string& main_text) {
   Suggestion suggestion(main_text, SuggestionType::kPasswordEntry);
   suggestion.icon = Suggestion::Icon::kKey;
-  suggestion.additional_label = u"****";
+  suggestion.labels = {{Suggestion::Text(u"****")}};
   return suggestion;
 }
 
@@ -64,7 +64,7 @@ const Suggestion kSuggestions[] = {
                "Minor text",
                "label",
                Suggestion::Icon::kSettings,
-               SuggestionType::kAutofillOptions),
+               SuggestionType::kManageAddress),
     Suggestion(u"Autocomplete", SuggestionType::kAutocompleteEntry),
     Suggestion("Compose",
                "Minor text",
@@ -163,13 +163,13 @@ class CreatePopupRowViewTest
  private:
   std::unique_ptr<views::Widget> CreateWidget() {
     auto widget = std::make_unique<views::Widget>();
-    views::Widget::InitParams params;
+    views::Widget::InitParams params(
+        views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+        views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
     // Row view size depends on the parent view it's embedded into, 220x52 is
     // close to the actually used row size so that the screenshot is also close
     // to what is rendered in the popup.
     params.bounds = gfx::Rect(220, 52);
-    params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-    params.type = views::Widget::InitParams::TYPE_WINDOW_FRAMELESS;
     widget->Init(std::move(params));
     return widget;
   }

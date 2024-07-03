@@ -32,7 +32,6 @@
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/network/http_names.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/segmented_string.h"
 
 namespace blink {
@@ -221,7 +220,7 @@ inline void CSSPreloadScanner::Tokenize(UChar c,
       }
       break;
     case kDoneParsingImportRules:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 }

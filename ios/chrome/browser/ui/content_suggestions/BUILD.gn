@@ -12,6 +12,7 @@ source_set("content_suggestions") {
     "content_suggestions_mediator.mm",
   ]
   deps = [
+    ":commands",
     ":constants",
     ":content_suggestions_constant",
     ":content_suggestions_ui",
@@ -43,8 +44,8 @@ source_set("content_suggestions") {
     "//ios/chrome/browser/ntp/model:set_up_list_item_type",
     "//ios/chrome/browser/ntp/model:set_up_list_prefs",
     "//ios/chrome/browser/ntp_tiles/model",
+    "//ios/chrome/browser/parcel_tracking:features",
     "//ios/chrome/browser/parcel_tracking:prefs",
-    "//ios/chrome/browser/parcel_tracking:util",
     "//ios/chrome/browser/passwords/model:password_checkup_utils",
     "//ios/chrome/browser/policy/model:policy_util",
     "//ios/chrome/browser/promos_manager/model:factory",
@@ -104,6 +105,10 @@ source_set("content_suggestions") {
     deps += [ "//ios/chrome/browser/widget_kit/model:model_swift" ]
   }
   public_deps = [ "//ios/third_party/material_components_ios" ]
+}
+
+source_set("commands") {
+  sources = [ "content_suggestions_commands.h" ]
 }
 
 source_set("metrics") {
@@ -180,8 +185,8 @@ source_set("content_suggestions_ui") {
     "//ios/chrome/browser/ntp/model:set_up_list_item_type",
     "//ios/chrome/browser/ntp/model:set_up_list_prefs",
     "//ios/chrome/browser/ntp_tiles/model/tab_resumption:tab_resumption_prefs",
+    "//ios/chrome/browser/parcel_tracking:features",
     "//ios/chrome/browser/parcel_tracking:prefs",
-    "//ios/chrome/browser/parcel_tracking:util",
     "//ios/chrome/browser/safety_check/model:constants",
     "//ios/chrome/browser/shared/model/prefs",
     "//ios/chrome/browser/shared/model/utils",
@@ -195,6 +200,7 @@ source_set("content_suggestions_ui") {
     "//ios/chrome/browser/shared/ui/util:util_swift",
     "//ios/chrome/browser/ui/content_suggestions/cells",
     "//ios/chrome/browser/ui/content_suggestions/cells:constants",
+    "//ios/chrome/browser/ui/content_suggestions/cells:most_visited_tiles",
     "//ios/chrome/browser/ui/content_suggestions/cells:public",
     "//ios/chrome/browser/ui/content_suggestions/cells:shortcuts",
     "//ios/chrome/browser/ui/content_suggestions/magic_stack",
@@ -300,6 +306,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/ui/table_view:utils",
     "//ios/chrome/browser/shared/ui/table_view/cells",
     "//ios/chrome/browser/ui/content_suggestions/cells",
+    "//ios/chrome/browser/ui/content_suggestions/cells:most_visited_tiles",
     "//ios/chrome/browser/ui/content_suggestions/cells:shortcuts",
     "//ios/chrome/browser/ui/content_suggestions/magic_stack:cells",
     "//ios/chrome/browser/ui/content_suggestions/parcel_tracking",
@@ -361,6 +368,7 @@ source_set("eg2_tests") {
     "//ios/chrome/browser/ui/ntp:constants",
     "//ios/chrome/browser/ui/ntp:feature_flags",
     "//ios/chrome/browser/ui/popup_menu:constants",
+    "//ios/chrome/browser/ui/search_engine_choice:earl_grey_ui_test_util",
     "//ios/chrome/browser/ui/settings:constants",
     "//ios/chrome/browser/ui/settings:eg_test_support+eg2",
     "//ios/chrome/browser/ui/start_surface:feature_flags",

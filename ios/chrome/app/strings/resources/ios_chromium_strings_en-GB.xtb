@@ -75,6 +75,7 @@ For more settings that use data to improve your Chromium experience, go to <ph n
 <translation id="2942241131342758843">Use Chromium by default to open links, search from widgets and auto-fill passwords in other apps</translation>
 <translation id="2977470724722393594">Chromium is up to date</translation>
 <translation id="3044857325852340337">Deleted Chromium data</translation>
+<translation id="3049211156275642309">Finish setting up Chromium</translation>
 <translation id="3078941082359356771">{COUNT,plural, =1{Chromium can help you track this parcel on the New tab page.}other{Chromium can help you track these parcels on the New tab page.}}</translation>
 <translation id="3102849287235003384">To sign out of your Google Account on all websites, <ph name="BEGIN_LINK" />sign out of Chromium<ph name="END_LINK" />.</translation>
 <translation id="3219277919172823720">Search with Voice in Chromium</translation>
@@ -201,7 +202,6 @@ Things to consider:
 <translation id="6433172051771630690">Tips on getting the most out of Chromium.</translation>
 <translation id="6502321914804101924">Chromium is signed out</translation>
 <translation id="6563921047760808519">Learn more about <ph name="BEGIN_LINK" />how Chromium keeps your data private<ph name="END_LINK" /></translation>
-<translation id="6625409903340039086">Chromium now supports user policies for your managed account</translation>
 <translation id="6728350288669261079">Opens The Settings in Chromium.</translation>
 <translation id="6752854822223394465">Your organisation is setting up Chromium…</translation>
 <translation id="6794054469102824109">Opens the Chromium Dino Game.</translation>
@@ -232,7 +232,6 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
 <translation id="7395825497086981028">Your password will be saved to Password Manager for <ph name="EMAIL" />.</translation>
 <translation id="7400689562045506105">Use Chromium Everywhere</translation>
 <translation id="7523464085759699266">Turn on 'Lock Incognito tabs when you close Chrome'.</translation>
-<translation id="7601597633134889942">Visit a site and click 'Follow' in the Chromium menu</translation>
 <translation id="7674213385180944843">Open Settings &gt; Privacy &gt; Camera &gt; Chromium and turn on the camera.</translation>
 <translation id="7710137812207066069">Opens a New Tab in Chromium.</translation>
 <translation id="7747820849741499258">Search in Chromium</translation>
@@ -264,6 +263,7 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
 <translation id="8386869251364507178">Chromium actions</translation>
 <translation id="8409374867500149834">You have Chromium's strongest security against harmful websites</translation>
 <translation id="8458950033462118672">You can open links in Chromium automatically by making it your default browser app.</translation>
+<translation id="8543509361021925846">{THRESHOLD,plural, =1{This happens when Chromium isn't used for {THRESHOLD} minute. Data saved only to this device while you were signed in will be deleted. This could include history and passwords.}other{This happens when Chromium isn't used for {THRESHOLD} minutes. Data saved only to this device while you were signed in will be deleted. This could include history and passwords.}}</translation>
 <translation id="858114650497379505">You can use the passwords that you saved to Password Manager in other apps on your iPhone.</translation>
 <translation id="8586442755830160949">Copyright <ph name="YEAR" /> The Chromium Authors. All rights reserved.</translation>
 <translation id="865600487977764604">Keeps you safe on Chromium and may be used to improve your security in other Google apps when you are signed in.</translation>
@@ -274,6 +274,7 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
 <translation id="8754966941001340678">Chromium recommends enhanced protection</translation>
 <translation id="8759037115129007407">Your family member can't receive passwords right now. Ask them to update Chromium and sync their passwords. <ph name="BEGIN_LINK" />Learn more<ph name="END_LINK" /></translation>
 <translation id="8776843108004031667">This account and any unsaved data will be removed from Chromium.</translation>
+<translation id="8826789549860004832">Get the most out of Chromium by continuing setting up your browser.</translation>
 <translation id="88376265765385899">Opens the Chromium bookmarks.</translation>
 <translation id="8860548555286245440">Open URLs in Chromium in Incognito</translation>
 <translation id="8866191443434488382">Chromium will detect tracking numbers on sites that you visit and show you package updates on the New tab page. The package tracking number and website name will be sent to Chromium to provide this feature and to improve shopping features for everyone. You can update this at any time in <ph name="BEGIN_LINK" />package tracking settings<ph name="END_LINK" />.</translation>

@@ -180,7 +180,10 @@ source_set("eg2_tests") {
   testonly = true
   sources = [
     "enterprise_loading_screen_egtest.mm",
-    "first_run_egtest.mm",
+    "first_run_search_engine_choice_egtest.mm",
+    "first_run_test_case_base.h",
+    "first_run_test_case_base.mm",
+    "first_run_without_search_engine_choice_egtest.mm",
   ]
   deps = [
     ":constants",
@@ -217,6 +220,7 @@ source_set("eg2_tests") {
     "//ios/chrome/browser/ui/bookmarks:eg_test_support+eg2",
     "//ios/chrome/browser/ui/search_engine_choice:constants",
     "//ios/chrome/browser/ui/search_engine_choice:earl_grey_ui_test_util",
+    "//ios/chrome/browser/ui/settings:constants",
     "//ios/chrome/browser/ui/settings:eg_test_support+eg2",
     "//ios/chrome/browser/ui/settings/google_services:constants",
     "//ios/chrome/common:string_util",

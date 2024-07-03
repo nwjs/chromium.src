@@ -130,10 +130,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     // per-ASG task runner instead of the per-thread task runner.
     bool mbi_override_task_runner_handle;
 
-    // If enabled, per-AgentGroupScheduler CompositorTaskRunner will be used
-    // instead of per-MainThreadScheduler CompositorTaskRunner.
-    bool mbi_compositor_task_runner_per_agent_scheduling_group;
-
     // If ThreadedScrollPreventRenderingStarvation is enabled, this is set to
     // the policy set in the associated feature param, otherwise this is
     // equivalent to the existing behavior.
@@ -160,7 +156,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   ~MainThreadSchedulerImpl() override;
 
   // WebThreadScheduler implementation:
-  scoped_refptr<base::SingleThreadTaskRunner> CompositorTaskRunner() override;
   scoped_refptr<base::SingleThreadTaskRunner> DeprecatedDefaultTaskRunner()
       override;
   std::unique_ptr<MainThread> CreateMainThread() override;
@@ -192,6 +187,9 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
       base::RepeatingCallback<void(v8::Isolate* isolate)> callback) override;
   Vector<WebInputEventAttribution> GetPendingUserInputInfo(
       bool include_continuous) const override;
+  void ExecuteAfterCurrentTaskForTesting(
+      base::OnceClosure on_completion_task,
+      ExecuteAfterCurrentTaskRestricted) override;
   void StartIdlePeriodForTesting() override;
   void SetRendererBackgroundedForTesting(bool backgrounded) override;
 
@@ -273,7 +271,7 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   void RemovePageScheduler(PageSchedulerImpl*);
 
   // Called by an associated PageScheduler when frozen or resumed.
-  void OnPageFrozen();
+  void OnPageFrozen(base::MemoryReductionTaskContext called_from);
   void OnPageResumed();
 
   void AddTaskTimeObserver(base::sequence_manager::TaskTimeObserver*);
@@ -557,9 +555,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   // nagigation. This function does that. Must be called from the main thread.
   void ResetForNavigationLocked();
 
-  // Report an intervention to all WebViews in this process.
-  void BroadcastIntervention(const String& message);
-
   // Trigger an update to all task queues' priorities, throttling, and
   // enabled/disabled state based on current policy. When triggered from a
   // policy update, |previous_policy| should be populated with the pre-update
@@ -658,7 +653,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
       find_in_page_budget_pool_controller_;
 
   const scoped_refptr<MainThreadTaskQueue> control_task_queue_;
-  const scoped_refptr<MainThreadTaskQueue> compositor_task_queue_;
   scoped_refptr<MainThreadTaskQueue> virtual_time_control_task_queue_;
   scoped_refptr<MainThreadTaskQueue>
       back_forward_cache_ipc_tracking_task_queue_;
@@ -677,7 +671,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
 
   scoped_refptr<base::SingleThreadTaskRunner> v8_task_runner_;
   scoped_refptr<base::SingleThreadTaskRunner> v8_low_priority_task_runner_;
-  scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner_;
   scoped_refptr<base::SingleThreadTaskRunner> control_task_runner_;
   scoped_refptr<base::SingleThreadTaskRunner> non_waking_task_runner_;
   scoped_refptr<base::SingleThreadTaskRunner>

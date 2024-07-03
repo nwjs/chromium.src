@@ -65,6 +65,9 @@ inline constexpr uint32_t kCrtcIdPropId = 1000;
 inline constexpr uint32_t kLinkStatusPropId = 1001;
 inline constexpr uint32_t kEdidBlobPropId = 1002;
 
+// Optional Connector Property IDs:
+inline constexpr uint32_t kTileBlobPropId = 1500;
+
 // Required CRTC Property IDs:
 inline constexpr uint32_t kActivePropId = 2000;
 inline constexpr uint32_t kModePropId = 2001;
@@ -100,6 +103,7 @@ inline constexpr uint32_t kRotationPropId = 5003;
 
 // Blob IDs:
 inline constexpr uint32_t kBaseBlobId = 6000;
+inline constexpr uint32_t kTileBlobId = 6100;
 
 // The real DrmDevice makes actual DRM calls which we can't use in unit tests.
 class FakeDrmDevice : public DrmDevice {
@@ -338,9 +342,12 @@ class FakeDrmDevice : public DrmDevice {
   ScopedDrmPropertyPtr GetProperty(drmModeConnector* connector,
                                    const char* name) const override;
   ScopedDrmPropertyPtr GetProperty(uint32_t id) const override;
-  bool SetProperty(uint32_t connector_id,
-                   uint32_t property_id,
-                   uint64_t value) override;
+  bool SetConnectorProperty(uint32_t connector_id,
+                            uint32_t property_id,
+                            uint64_t value) override;
+  bool AddAndCommitObjectProperty(uint32_t object_id,
+                                  uint32_t property_id,
+                                  uint64_t value) override;
   ScopedDrmPropertyBlob CreatePropertyBlob(const void* blob,
                                            size_t size) override;
   void DestroyPropertyBlob(uint32_t id) override;

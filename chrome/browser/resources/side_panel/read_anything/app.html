@@ -1,4 +1,4 @@
-<style include="cr-shared-style cr-hidden-style sp-shared-style">
+<style include="cr-hidden-style sp-shared-style">
   #empty-state-container {
     background: var(--background-color);
     border-radius: 12px;
@@ -91,8 +91,10 @@
   }
 
   #toast {
-    bottom: 0;
+    bottom: -2%;
     left: 0;
+    min-width: 245px;
+    width: 80%;
   }
 
   #toastTitle {
@@ -103,6 +105,10 @@
   #toastMessage {
     display:inline-block;
     font-size: 0.8em;
+  }
+
+  .hiddenImg {
+    display: none;
   }
 
 </style>
@@ -116,7 +122,7 @@
         hasContent_, selectedVoice, speechEngineLoaded, willDrawAgainSoon_)]]"
       selected-voice="[[selectedVoice]]"
       enabled-languages-in-pref="[[enabledLanguagesInPref]]"
-      voice-pack-install-status="[[voicePackInstallStatus]]"
+      voice-pack-install-status="[[voiceStatusLocalState]]"
       available-voices="[[availableVoices]]"
       preview-voice-playing="[[previewVoicePlaying]]"
       locale-to-display-name="[[localeToDisplayName]]"
@@ -130,7 +136,8 @@
       on-rate-change="onSpeechRateChange_"
       on-next-granularity-click="playNextGranularity_"
       on-previous-granularity-click="playPreviousGranularity_"
-      on-links-toggle="updateContent"
+      on-links-toggle="updateLinks"
+      on-images-toggle="updateImages"
       on-letter-spacing-change="onLetterSpacingChange_"
       on-theme-change="onThemeChange_"
       on-line-spacing-change="onLineSpacingChange_"
@@ -156,7 +163,7 @@
   </div>
 </div>
 
-<cr-toast id="toast" duration="5000">
+<cr-toast id="toast" duration="10000">
   <div id="toastDiv">
     <span id="toastTitle">
       [[getLanguageDownloadedTitle_(lastDownloadedLang_)]]

@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.autofill;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import static org.chromium.chrome.browser.autofill.AutofillTestHelper.createLocalCreditCard;
@@ -53,7 +52,6 @@ import org.chromium.url.GURL;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 /** Tests for Chrome on Android's usage of the PersonalDataManager API. */
@@ -1272,20 +1270,16 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    public void testAddingServerIbanThrowsException() throws TimeoutException {
-        String guid = UUID.randomUUID().toString();
+    public void testAddingServerIban() {
         Iban.Builder ibanBuilder =
                 new Iban.Builder()
-                        .setGuid(guid)
+                        .setInstrumentId(123456L)
                         .setLabel("")
                         .setNickname("My IBAN")
                         .setRecordType(IbanRecordType.SERVER_IBAN)
                         .setValue("FR76 3000 6000 0112 3456 7890 189");
 
-        UnsupportedOperationException e =
-                assertThrows(UnsupportedOperationException.class, () -> ibanBuilder.build());
-
-        assertThat(e).hasMessageThat().isEqualTo("Server IBANs are not supported yet.");
+        ibanBuilder.build();
     }
 
     @Test
@@ -1303,11 +1297,22 @@ public class PersonalDataManagerTest {
         String ibanGuid = mHelper.addOrUpdateLocalIban(iban);
 
         Iban storedLocalIban = mHelper.getIban(ibanGuid);
+        String dot = "\u2022";
         // \u2022 is Bullet and \u2006 is SIX-PER-EM SPACE (small space between bullets). The
-        // expected string is 'CH56 •••• •••• •••• •800 9'.
+        // expected string is 'CH•• •••• •••• •••• •800 9'.
         Assert.assertEquals(
-                "CH56\u2006\u2022\u2022\u2022\u2022\u2006\u2022\u2022\u2022\u2022"
-                        + "\u2006\u2022\u2022\u2022\u2022\u2006\u2022800\u20069",
+                "CH"
+                        + dot.repeat(2)
+                        + "\u2006"
+                        + dot.repeat(4)
+                        + "\u2006"
+                        + dot.repeat(4)
+                        + "\u2006"
+                        + dot.repeat(4)
+                        + "\u2006"
+                        + dot
+                        + "800"
+                        + "\u20069",
                 storedLocalIban.getLabel());
     }
 

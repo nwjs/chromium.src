@@ -66,6 +66,7 @@ public class PlusAddressCreationViewBridge {
                 String plusAddressModalOkText,
                 String plusAddressModalCancelText,
                 String errorReportInstruction,
+                boolean refreshSupported,
                 GURL manageUrl,
                 GURL errorReportUrl);
     }
@@ -93,7 +94,8 @@ public class PlusAddressCreationViewBridge {
             String plusAddressModalCancelText,
             String errorReportInstruction,
             String manageUrl,
-            String errorReportUrl) {
+            String errorReportUrl,
+            boolean refreshSupported) {
         if (mNativePlusAddressCreationPromptAndroid != 0) {
             mCoordinator =
                     mCoordinatorFactory.create(
@@ -109,6 +111,7 @@ public class PlusAddressCreationViewBridge {
                             plusAddressModalOkText,
                             plusAddressModalCancelText,
                             errorReportInstruction,
+                            refreshSupported,
                             new GURL(manageUrl),
                             new GURL(errorReportUrl));
             mCoordinator.requestShowContent();
@@ -136,6 +139,13 @@ public class PlusAddressCreationViewBridge {
         }
     }
 
+    @CalledByNative
+    void hideRefreshButton() {
+        if (mNativePlusAddressCreationPromptAndroid != 0 && mCoordinator != null) {
+            mCoordinator.hideRefreshButton();
+        }
+    }
+
     // Hide the bottom sheet (if showing) and clean up observers.
     @CalledByNative
     void destroy() {
@@ -144,6 +154,15 @@ public class PlusAddressCreationViewBridge {
             mCoordinator = null;
         }
         mNativePlusAddressCreationPromptAndroid = 0;
+    }
+
+    public void onRefreshClicked() {
+        if (mNativePlusAddressCreationPromptAndroid != 0) {
+            PlusAddressCreationViewBridgeJni.get()
+                    .onRefreshClicked(
+                            mNativePlusAddressCreationPromptAndroid,
+                            PlusAddressCreationViewBridge.this);
+        }
     }
 
     public void onConfirmRequested() {
@@ -180,6 +199,9 @@ public class PlusAddressCreationViewBridge {
 
     @NativeMethods
     interface Natives {
+        void onRefreshClicked(
+                long nativePlusAddressCreationViewAndroid, PlusAddressCreationViewBridge caller);
+
         void onConfirmRequested(
                 long nativePlusAddressCreationViewAndroid, PlusAddressCreationViewBridge caller);
 

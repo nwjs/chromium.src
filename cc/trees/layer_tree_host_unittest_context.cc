@@ -160,7 +160,7 @@ class LayerTreeHostContextTest : public LayerTreeTest {
   // CreateDisplayLayerTreeFrameSink can both use it on different threads.
   base::Lock gl_lock_;
   raw_ptr<viz::TestGLES2Interface, AcrossTasksDanglingUntriaged> gl_ = nullptr;
-  raw_ptr<viz::TestSharedImageInterface, AcrossTasksDanglingUntriaged> sii_ =
+  raw_ptr<gpu::TestSharedImageInterface, AcrossTasksDanglingUntriaged> sii_ =
       nullptr;
 
   int times_to_fail_create_;
@@ -792,7 +792,7 @@ class LayerTreeHostContextTestLayersNotified : public LayerTreeHostContextTest {
         EndTest();
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 
@@ -884,16 +884,13 @@ class LayerTreeHostContextTestDontUseLostResources
     color_video_frame_ = VideoFrame::CreateColorFrame(
         gfx::Size(4, 4), 0x80, 0x80, 0x80, base::TimeDelta());
     ASSERT_TRUE(color_video_frame_);
-    scoped_refptr<gpu::ClientSharedImage>
-        shared_images[media::VideoFrame::kMaxPlanes];
-    shared_images[0] = shared_image;
-    hw_video_frame_ = VideoFrame::WrapSharedImages(
-        media::PIXEL_FORMAT_ARGB, shared_images, sync_token, GL_TEXTURE_2D,
+    hw_video_frame_ = VideoFrame::WrapSharedImage(
+        media::PIXEL_FORMAT_ARGB, shared_image, sync_token, GL_TEXTURE_2D,
         media::VideoFrame::ReleaseMailboxCB(), gfx::Size(4, 4),
         gfx::Rect(0, 0, 4, 4), gfx::Size(4, 4), base::TimeDelta());
     ASSERT_TRUE(hw_video_frame_);
-    scaled_hw_video_frame_ = VideoFrame::WrapSharedImages(
-        media::PIXEL_FORMAT_ARGB, shared_images, sync_token, GL_TEXTURE_2D,
+    scaled_hw_video_frame_ = VideoFrame::WrapSharedImage(
+        media::PIXEL_FORMAT_ARGB, shared_image, sync_token, GL_TEXTURE_2D,
         media::VideoFrame::ReleaseMailboxCB(), gfx::Size(4, 4),
         gfx::Rect(0, 0, 3, 2), gfx::Size(4, 4), base::TimeDelta());
     ASSERT_TRUE(scaled_hw_video_frame_);
@@ -1045,7 +1042,7 @@ class ScrollbarLayerLostContext : public LayerTreeHostContextTest {
         EndTest();
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 
@@ -1129,7 +1126,7 @@ class UIResourceLostAfterCommit : public UIResourceLostTestSimple {
         EndTest();
         break;
       case 5:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -1223,7 +1220,7 @@ class UIResourceLostBeforeCommit : public UIResourceLostTestSimple {
         EndTest();
         break;
       case 6:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -1298,7 +1295,7 @@ class UIResourceLostBeforeActivateTree : public UIResourceLostTest {
         break;
       case 6:
         // Make sure no extra commits happened.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 
@@ -1400,7 +1397,7 @@ class UIResourceLostEviction : public UIResourceLostTestSimple {
         EndTest();
         break;
       case 4:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 
@@ -1560,7 +1557,7 @@ class TileResourceFreedIfLostWhileExported : public LayerTreeHostContextTest {
   void DrawLayersOnThread(LayerTreeHostImpl* impl) override {
     auto* context_provider = static_cast<viz::TestContextProvider*>(
         impl->layer_tree_frame_sink()->worker_context_provider());
-    viz::TestSharedImageInterface* sii =
+    gpu::TestSharedImageInterface* sii =
         context_provider->SharedImageInterface();
     switch (impl->active_tree()->source_frame_number()) {
       case 0:

@@ -14,8 +14,10 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/accessibility/accessibility_state_utils.h"
 #include "chrome/browser/image_fetcher/image_decoder_impl.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/monogram_utils.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
+#include "chrome/browser/ui/views/webid/account_selection_view_base.h"
 #include "chrome/browser/ui/views/webid/fedcm_account_selection_view_desktop.h"
 #include "chrome/browser/ui/views/webid/webid_utils.h"
 #include "chrome/grit/generated_resources.h"
@@ -31,9 +33,11 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_utils.h"
+#include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/image/canvas_image_source.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
@@ -228,10 +232,10 @@ AccountSelectionBubbleView::AccountSelectionBubbleView(
     views::WidgetObserver* widget_observer)
     : views::BubbleDialogDelegateView(
           anchor_view,
-          // Note that BOTTOM_RIGHT means the bubble's bottom and right are
-          // anchored to the `anchor_view`, which effectively means the bubble
-          // will be on top of the `anchor_view`, aligned on its right side.
-          views::BubbleBorder::Arrow::BOTTOM_RIGHT,
+          // Note that TOP_RIGHT means the bubble's top and right are anchored
+          // to the `anchor_view`. The final bubble positioning will be computed
+          // in GetBubbleBounds.
+          views::BubbleBorder::Arrow::TOP_RIGHT,
           views::BubbleBorder::DIALOG_SHADOW,
           /*autosize=*/true),
       AccountSelectionViewBase(web_contents,
@@ -514,7 +518,7 @@ void AccountSelectionBubbleView::ShowErrorDialog(
 }
 
 void AccountSelectionBubbleView::ShowLoadingDialog() {
-  NOTREACHED()
+  NOTREACHED_IN_MIGRATION()
       << "ShowLoadingDialog is only implemented for AccountSelectionModalView";
 }
 
@@ -522,8 +526,9 @@ void AccountSelectionBubbleView::ShowRequestPermissionDialog(
     const std::u16string& top_frame_for_display,
     const content::IdentityRequestAccount& account,
     const IdentityProviderDisplayData& idp_display_data) {
-  NOTREACHED() << "ShowRequestPermissionDialog is only implemented for "
-                  "AccountSelectionModalView";
+  NOTREACHED_IN_MIGRATION()
+      << "ShowRequestPermissionDialog is only implemented for "
+         "AccountSelectionModalView";
 }
 
 void AccountSelectionBubbleView::ShowSingleReturningAccountDialog(
@@ -576,19 +581,45 @@ std::optional<std::string> AccountSelectionBubbleView::GetDialogSubtitle()
   return base::UTF16ToUTF8(subtitle_label_->GetText());
 }
 
+void AccountSelectionBubbleView::UpdateDialogPosition() {
+  dialog_widget_->SetBounds(GetBubbleBounds());
+}
+
+void AccountSelectionBubbleView::OnAnchorBoundsChanged() {
+  // TODO(crbug.com/342216390): It is unclear why there are callers where some
+  // of these checks fail.
+  if (!web_contents_) {
+    return;
+  }
+
+  Browser* browser = chrome::FindBrowserWithTab(web_contents_.get());
+  if (!browser || !browser->tab_strip_model()) {
+    return;
+  }
+
+  // This method is called only if we didn't early return because there is a
+  // crash (crbug.com/341240034) that is caused by calling this method and
+  // subsequently, calling GetBubbleBounds() when the web contents is invalid.
+  views::BubbleDialogDelegateView::OnAnchorBoundsChanged();
+}
+
 gfx::Rect AccountSelectionBubbleView::GetBubbleBounds() {
-  // The bubble initially looks like this relative to the contents_web_view:
-  //                        |--------|
-  //                        |        |
-  //                        | bubble |
-  //                        |        |
+  // Since the top right corner of the bubble is set as the arrow in the ctor,
+  // the top right corner of the bubble will be anchored to the origin, which we
+  // set to be the top right corner of the web contents container.
   //       |-------------------------|
+  //       |                |        |
+  //       |                | bubble |
+  //       |                |        |
+  //       |                |--------|
   //       |                         |
-  //       | contents_web_view       |
+  //       |   contents_web_view     |
   //       |          ...            |
   //       |-------------------------|
-  // Thus, we need to move the bubble to the left by kRightMargin and down by
-  // the size of the bubble plus kTopMargin in order to achieve what we want:
+  // We also need to inset the web contents bounds by kTopMargin at the top and
+  // kRightMargin either at the left or right, depending on whether RTL is
+  // enabled, in order to leave some space between the bubble and the edges of
+  // the web contents.
   //       |-------------------------|
   //       |               kTopMargin|
   //       |         |--------|      |
@@ -600,11 +631,23 @@ gfx::Rect AccountSelectionBubbleView::GetBubbleBounds() {
   //       |          ...            |
   //       |-------------------------|
   // In the RTL case, the bubble is aligned towards the left side of the screen
-  // and hence the x-axis offset needs to be in the opposite direction.
-  return views::BubbleDialogDelegateView::GetBubbleBounds() +
-         gfx::Vector2d(base::i18n::IsRTL() ? kRightMargin : -kRightMargin,
-                       GetWidget()->client_view()->GetPreferredSize().height() +
-                           kTopMargin);
+  // and the horizontal inset would apply to the left of the bubble.
+  CHECK(web_contents_);
+
+  gfx::Rect bubble_bounds = views::BubbleDialogDelegateView::GetBubbleBounds();
+  gfx::Rect web_contents_bounds = web_contents_->GetViewBounds();
+  if (base::i18n::IsRTL()) {
+    web_contents_bounds.Inset(gfx::Insets::TLBR(
+        /*top=*/kTopMargin, /*left=*/kRightMargin, /*bottom=*/0, /*right=*/0));
+    bubble_bounds.set_origin(web_contents_->GetViewBounds().origin());
+  } else {
+    web_contents_bounds.Inset(gfx::Insets::TLBR(
+        /*top=*/kTopMargin, /*left=*/0, /*bottom=*/0, /*right=*/kRightMargin));
+    bubble_bounds.set_origin(web_contents_->GetViewBounds().top_right());
+  }
+  bubble_bounds.AdjustToFit(web_contents_bounds);
+
+  return bubble_bounds;
 }
 
 std::unique_ptr<views::View> AccountSelectionBubbleView::CreateHeaderView(
@@ -620,9 +663,8 @@ std::unique_ptr<views::View> AccountSelectionBubbleView::CreateHeaderView(
     auto image_view = std::make_unique<BrandIconImageView>(
         base::BindOnce(&AccountSelectionViewBase::AddIdpImage,
                        weak_ptr_factory_.GetWeakPtr()),
-        kDesiredIdpIconSize, /*should_circle_crop=*/true);
-    image_view->SetImageSize(
-        gfx::Size(kDesiredIdpIconSize, kDesiredIdpIconSize));
+        kBubbleIdpIconSize, /*should_circle_crop=*/true);
+    image_view->SetImageSize(gfx::Size(kBubbleIdpIconSize, kBubbleIdpIconSize));
     image_view->SetProperty(views::kMarginsKey,
                             gfx::Insets().set_right(kLeftRightPadding));
     header_icon_view_ = header->AddChildView(std::move(image_view));
@@ -681,7 +723,7 @@ std::unique_ptr<views::View> AccountSelectionBubbleView::CreateHeaderView(
   SetLabelProperties(subtitle_label_);
   int leftPadding = 2 * kLeftRightPadding;
   if (has_idp_icon) {
-    leftPadding += kDesiredIdpIconSize;
+    leftPadding += kBubbleIdpIconSize;
   }
   subtitle_label_->SetBorder(views::CreateEmptyBorder(gfx::Insets::TLBR(
       -kTopBottomPadding, leftPadding, kTopBottomPadding, kLeftRightPadding)));
@@ -880,6 +922,7 @@ std::unique_ptr<views::View> AccountSelectionBubbleView::CreateIdpLoginRow(
                      weak_ptr_factory_.GetWeakPtr()),
       kMultiIdpIconSize, /*should_circle_crop=*/true);
   image_view->SetImageSize(gfx::Size(kMultiIdpIconSize, kMultiIdpIconSize));
+  image_view->SetVisible(idp_metadata.brand_icon_url.is_valid());
   ConfigureBrandImageView(image_view.get(), idp_metadata.brand_icon_url);
 
   auto button = std::make_unique<HoverButton>(
@@ -892,7 +935,7 @@ std::unique_ptr<views::View> AccountSelectionBubbleView::CreateIdpLoginRow(
       /*subtitle=*/std::u16string(),
       /*secondary_view=*/
       std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
-          kOpenInNewIcon, ui::kColorMenuIcon, kDesiredIdpIconSize)));
+          kOpenInNewIcon, ui::kColorMenuIcon, kBubbleIdpIconSize)));
   button->SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(
       /*vertical=*/kMultiIdpVerticalSpacing,
       /*horizontal=*/kLeftRightPadding)));
@@ -924,10 +967,15 @@ void AccountSelectionBubbleView::UpdateHeader(
     bool show_back_button) {
   back_button_->SetVisible(show_back_button);
   if (header_icon_view_) {
-    if (show_back_button)
+    // The back button takes the place of the brand icon, if it is shown. By
+    // default, we show placeholder brand icon prior to brand icon being fetched
+    // so that header text wrapping does not change when brand icon is fetched.
+    // Therefore, we need to hide the brand icon if the URL is invalid.
+    if (show_back_button || !idp_metadata.brand_icon_url.is_valid()) {
       header_icon_view_->SetVisible(false);
-    else
+    } else {
       ConfigureBrandImageView(header_icon_view_, idp_metadata.brand_icon_url);
+    }
   }
   title_label_->SetText(subpage_title);
 

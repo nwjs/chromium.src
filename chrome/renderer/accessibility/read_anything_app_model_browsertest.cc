@@ -4,12 +4,17 @@
 
 #include "chrome/renderer/accessibility/read_anything_app_model.h"
 
+#include <vector>
+
 #include "base/memory/raw_ptr.h"
 #include "base/threading/platform_thread.h"
 #include "chrome/test/base/chrome_render_view_test.h"
 #include "services/strings/grit/services_strings.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
+#include "ui/accessibility/ax_event.h"
+#include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_serializable_tree.h"
+#include "ui/accessibility/ax_updates_and_events.h"
 #include "ui/base/l10n/l10n_util.h"
 
 class ReadAnythingAppModelTest : public ChromeRenderViewTest {
@@ -61,6 +66,12 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
     model_->set_speech_playing(speech_playing);
   }
 
+  void SetLastExpandedNodeId(ui::AXNodeID id) {
+    model_->set_last_expanded_node_id(id);
+  }
+
+  ui::AXNodeID LastExpandedNodeId() { return model_->last_expanded_node_id(); }
+
   bool AreAllPendingUpdatesEmpty() {
     size_t count = 0;
     for (auto const& [tree_id, updates] :
@@ -80,6 +91,7 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
   void SetThemeForTesting(const std::string& font_name,
                           float font_size,
                           bool links_enabled,
+                          bool images_enabled,
                           SkColor foreground_color,
                           SkColor background_color,
                           int line_spacing,
@@ -89,15 +101,15 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
     auto letter_spacing_enum =
         static_cast<read_anything::mojom::LetterSpacing>(letter_spacing);
     model_->OnThemeChanged(read_anything::mojom::ReadAnythingTheme::New(
-        font_name, font_size, links_enabled, foreground_color, background_color,
-        line_spacing_enum, letter_spacing_enum));
+        font_name, font_size, links_enabled, images_enabled, foreground_color,
+        background_color, line_spacing_enum, letter_spacing_enum));
   }
 
   void SetLineAndLetterSpacing(
       read_anything::mojom::LetterSpacing letter_spacing,
       read_anything::mojom::LineSpacing line_spacing) {
     model_->OnThemeChanged(read_anything::mojom::ReadAnythingTheme::New(
-        "Arial", 15.0, false, SkColorSetRGB(0x33, 0x40, 0x36),
+        "Arial", 15.0, false, false, SkColorSetRGB(0x33, 0x40, 0x36),
         SkColorSetRGB(0xDF, 0xD2, 0x63), line_spacing, letter_spacing));
   }
 
@@ -112,6 +124,14 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
     std::vector<ui::AXEvent> events;
     model_->AccessibilityEventReceived(
         tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates), events);
+  }
+
+  void AccessibilityEventReceived(const ui::AXTreeID& tree_id,
+                                  const std::vector<ui::AXTreeUpdate>& updates,
+                                  const std::vector<ui::AXEvent>& events) {
+    model_->AccessibilityEventReceived(
+        tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates),
+        const_cast<std::vector<ui::AXEvent>&>(events));
   }
 
   void set_active_tree_id(ui::AXTreeID tree_id) {
@@ -131,6 +151,8 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
   float FontSize() { return model_->font_size(); }
 
   bool LinksEnabled() { return model_->links_enabled(); }
+
+  bool ImagesEnabled() { return model_->images_enabled(); }
 
   SkColor ForegroundColor() { return model_->foreground_color(); }
 
@@ -187,6 +209,8 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
     return base::Contains(model_->selection_node_ids(), ax_node_id);
   }
 
+  bool SelectionNodeIdsEmpty() { return model_->selection_node_ids().empty(); }
+
   void ProcessDisplayNodes(const std::vector<ui::AXNodeID>& content_node_ids) {
     Reset(content_node_ids);
     model_->ComputeDisplayNodeIdsForDistilledTree();
@@ -195,6 +219,10 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
   bool ProcessSelection() { return model_->PostProcessSelection(); }
 
   bool RequiresDistillation() { return model_->requires_distillation(); }
+
+  bool RequiresRedraw() { return model_->redraw_required(); }
+
+  bool DrawTimerReset() { return model_->reset_draw_timer(); }
 
   bool RequiresPostProcessSelection() {
     return model_->requires_post_process_selection();
@@ -236,6 +264,8 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
   void InitAXPosition(const ui::AXNodeID id) {
     model_->InitAXPositionWithNode(id);
   }
+
+  void ResetReadAloudState() { model_->ResetReadAloudState(); }
 
   ui::AXNodePosition::AXPositionInstance GetNextNodePosition() {
     ReadAnythingAppModel::ReadAloudCurrentGranularity granularity =
@@ -309,6 +339,7 @@ TEST_F(ReadAnythingAppModelTest, Theme) {
   std::string font_name = "Roboto";
   float font_size = 18.0;
   bool links_enabled = false;
+  bool images_enabled = true;
   SkColor foreground = SkColorSetRGB(0x33, 0x36, 0x39);
   SkColor background = SkColorSetRGB(0xFD, 0xE2, 0x93);
   int letter_spacing =
@@ -317,11 +348,12 @@ TEST_F(ReadAnythingAppModelTest, Theme) {
   int line_spacing =
       static_cast<int>(read_anything::mojom::LineSpacing::kDefaultValue);
   float line_spacing_value = 1.5;
-  SetThemeForTesting(font_name, font_size, links_enabled, foreground,
-                     background, line_spacing, letter_spacing);
+  SetThemeForTesting(font_name, font_size, links_enabled, images_enabled,
+                     foreground, background, line_spacing, letter_spacing);
   EXPECT_EQ(font_name, FontName());
   EXPECT_EQ(font_size, FontSize());
   EXPECT_EQ(links_enabled, LinksEnabled());
+  EXPECT_EQ(images_enabled, ImagesEnabled());
   EXPECT_EQ(foreground, ForegroundColor());
   EXPECT_EQ(background, BackgroundColor());
   EXPECT_EQ(line_spacing_value, LineSpacing());
@@ -784,6 +816,7 @@ TEST_F(ReadAnythingAppModelTest, ChangeActiveTreeWithPendingUpdates_UnknownID) {
 
   // Create a couple of updates which add additional nodes to the tree.
   std::vector<ui::AXTreeUpdate> updates;
+  std::vector<ui::AXEvent> events;
   std::vector<int> child_ids = {2, 3, 4};
   for (int i = 0; i < 2; i++) {
     int id = i + 5;
@@ -1912,6 +1945,62 @@ TEST_F(
 }
 
 TEST_F(ReadAnythingAppModelTest,
+       GetNextNodes_AfterResetReadAloudState_StartsOver) {
+  std::u16string sentence1 = u"Where the north wind meets the sea. ";
+  std::u16string sentence2 = u"There's a river full of memory. ";
+  std::u16string sentence3 = u"Sleep my darling safe and sound. ";
+  ui::AXTreeUpdate update;
+  SetUpdateTreeID(&update);
+  ui::AXNodeData static_text1;
+  static_text1.id = 2;
+  static_text1.role = ax::mojom::Role::kStaticText;
+  static_text1.SetNameChecked(sentence1);
+
+  ui::AXNodeData static_text2;
+  static_text2.id = 3;
+  static_text2.role = ax::mojom::Role::kStaticText;
+  static_text2.SetNameChecked(sentence2);
+
+  ui::AXNodeData static_text3;
+  static_text3.id = 4;
+  static_text3.role = ax::mojom::Role::kStaticText;
+  static_text3.SetNameChecked(sentence3);
+  update.nodes = {static_text1, static_text2, static_text3};
+  AccessibilityEventReceived({update});
+  ProcessDisplayNodes({static_text1.id, static_text2.id, static_text3.id});
+  InitAXPosition(update.nodes[0].id);
+
+  // Get first and second granularity.
+  ReadAnythingAppModel::ReadAloudCurrentGranularity first_granularity =
+      GetNextNodes();
+  EXPECT_EQ((int)first_granularity.node_ids.size(), 1);
+  EXPECT_TRUE(base::Contains(first_granularity.node_ids, static_text1.id));
+  EXPECT_EQ(first_granularity.text, sentence1);
+  ReadAnythingAppModel::ReadAloudCurrentGranularity next_granularity =
+      GetNextNodes();
+  EXPECT_EQ((int)next_granularity.node_ids.size(), 1);
+  EXPECT_TRUE(base::Contains(next_granularity.node_ids, static_text2.id));
+  EXPECT_EQ(next_granularity.text, sentence2);
+
+  // If we init without resetting we should just go to the next sentence
+  InitAXPosition(update.nodes[0].id);
+  ReadAnythingAppModel::ReadAloudCurrentGranularity last_granularity =
+      GetNextNodes();
+  EXPECT_EQ((int)last_granularity.node_ids.size(), 1);
+  EXPECT_TRUE(base::Contains(last_granularity.node_ids, static_text3.id));
+  EXPECT_EQ(last_granularity.text, sentence3);
+
+  // After reset and then init, we should get the first sentence again.
+  ResetReadAloudState();
+  InitAXPosition(update.nodes[0].id);
+  ReadAnythingAppModel::ReadAloudCurrentGranularity after_reset =
+      GetNextNodes();
+  EXPECT_EQ((int)after_reset.node_ids.size(), 1);
+  EXPECT_TRUE(base::Contains(after_reset.node_ids, static_text1.id));
+  EXPECT_EQ(first_granularity.text, sentence1);
+}
+
+TEST_F(ReadAnythingAppModelTest,
        GetNodeIdForCurrentSegmentIndex_ReturnsCorrectNodes) {
   std::u16string sentence1 = u"Never feel heavy ";
   std::u16string sentence2 = u"or earthbound, ";
@@ -2159,4 +2248,53 @@ TEST_F(ReadAnythingAppModelTest,
   EXPECT_EQ(GetWordLength(-5), 0);
   EXPECT_EQ(GetWordLength(sentence.length()), 0);
   EXPECT_EQ(GetWordLength(sentence.length() + 1), 0);
+}
+
+TEST_F(ReadAnythingAppModelTest, LastExpandedNodeNamedChanged_TriggersRedraw) {
+  ui::AXTreeUpdate inital_update;
+  SetUpdateTreeID(&inital_update);
+  ui::AXNodeData inital_node;
+  inital_node.id = 2;
+  inital_node.role = ax::mojom::Role::kStaticText;
+  inital_node.SetNameChecked("Old Name");
+  inital_update.nodes = {inital_node};
+  AccessibilityEventReceived({inital_update});
+
+  ui::AXTreeUpdate update;
+  SetUpdateTreeID(&update);
+  ui::AXNodeData updated_node;
+  updated_node.id = inital_node.id;
+  updated_node.role = ax::mojom::Role::kStaticText;
+  updated_node.SetNameChecked("New Name");
+  update.nodes = {updated_node};
+  SetLastExpandedNodeId(inital_node.id);
+  EXPECT_EQ(LastExpandedNodeId(), inital_node.id);
+  AccessibilityEventReceived({update});
+
+  EXPECT_FALSE(RequiresPostProcessSelection());
+  EXPECT_TRUE(RequiresRedraw());
+  EXPECT_EQ(LastExpandedNodeId(), ui::kInvalidAXNodeID);
+  // Check selection reset.
+  EXPECT_FALSE(HasSelection());
+  EXPECT_EQ(StartOffset(), -1);
+  EXPECT_EQ(EndOffset(), -1);
+  EXPECT_EQ(StartNodeId(), ui::kInvalidAXNodeID);
+  EXPECT_EQ(EndNodeId(), ui::kInvalidAXNodeID);
+  EXPECT_TRUE(SelectionNodeIdsEmpty());
+}
+
+TEST_F(ReadAnythingAppModelTest, ContentEditableValueChanged_ResetsDrawTimer) {
+  ui::AXTreeUpdate update;
+  SetUpdateTreeID(&update);
+  ui::AXNodeData node1;
+  node1.id = 1;
+  update.nodes = {node1};
+
+  ui::AXEvent event;
+  event.id = node1.id;
+  event.event_type = ax::mojom::Event::kValueChanged;
+  // This update changes the structure of the tree. When the controller receives
+  // it in AccessibilityEventReceived, it will re-distill the tree.
+  AccessibilityEventReceived(update.tree_data.tree_id, {update}, {event});
+  EXPECT_TRUE(DrawTimerReset());
 }

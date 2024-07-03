@@ -128,8 +128,8 @@ PictureLayerImpl::~PictureLayerImpl() {
   UnregisterAnimatedImages();
 }
 
-const char* PictureLayerImpl::LayerTypeAsString() const {
-  return "cc::PictureLayerImpl";
+mojom::LayerType PictureLayerImpl::GetLayerType() const {
+  return mojom::LayerType::kPicture;
 }
 
 std::unique_ptr<LayerImpl> PictureLayerImpl::CreateLayerImpl(
@@ -1003,17 +1003,21 @@ bool PictureLayerImpl::IsDirectlyCompositedImage() const {
   return directly_composited_image_default_raster_scale_ > 0.f;
 }
 
-bool PictureLayerImpl::ScrollInteractionInProgress() const {
-  return layer_tree_impl()->GetActivelyScrollingType() !=
-         ActivelyScrollingType::kNone;
-}
-
-bool PictureLayerImpl::CurrentScrollCheckerboardsDueToNoRecording() const {
-  return layer_tree_impl()->CurrentScrollCheckerboardsDueToNoRecording();
-}
-
 void PictureLayerImpl::OnTilesAdded() {
   SetNeedsPushProperties();
+}
+
+ScrollOffsetMap PictureLayerImpl::GetRasterInducingScrollOffsets() const {
+  ScrollOffsetMap map;
+  if (raster_source_) {
+    const ScrollTree& scroll_tree =
+        layer_tree_impl()->property_trees()->scroll_tree();
+    for (ElementId element_id :
+         raster_source_->GetDisplayItemList()->raster_inducing_scrolls()) {
+      map[element_id] = scroll_tree.current_scroll_offset(element_id);
+    }
+  }
+  return map;
 }
 
 gfx::Rect PictureLayerImpl::GetEnclosingVisibleRectInTargetSpace() const {
@@ -1262,8 +1266,10 @@ bool PictureLayerImpl::CanRecreateHighResTilingForLCDTextAndRasterTransform(
   if (layer_tree_impl()->IsSyncTree() && layer_tree_impl()->IsReadyToActivate())
     return false;
   // To reduce memory usage, don't recreate highres tiling during scroll
-  if (ScrollInteractionInProgress())
+  if (layer_tree_impl()->GetActivelyScrollingType() !=
+      ActivelyScrollingType::kNone) {
     return false;
+  }
 
   return true;
 }

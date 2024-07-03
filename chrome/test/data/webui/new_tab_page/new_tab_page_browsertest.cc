@@ -126,6 +126,15 @@ IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, PhotosModule) {
 }
 #endif  // !defined(OFFICIAL_BUILD)
 
+IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, Calendar) {
+  RunTest("new_tab_page/modules/v2/calendar/calendar_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, CalendarEvent) {
+  RunTest("new_tab_page/modules/v2/calendar/calendar_event_test.js",
+          "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, GoogleCalendarModule) {
   RunTest("new_tab_page/modules/v2/calendar/google_calendar_module_test.js",
           "mocha.run()");
@@ -343,4 +352,25 @@ class NewTabPageModulesTabResumptionModuleTest : public NewTabPageBrowserTest {
 IN_PROC_BROWSER_TEST_F(NewTabPageModulesTabResumptionModuleTest, Core) {
   RunTest("new_tab_page/modules/v2/tab_resumption/module_test.js",
           "runMochaSuite('NewTabPageModulesTabResumptionModuleTest Core')");
+}
+
+class NewTabPageModulesMostRelevantTabResumptionModuleTest
+    : public NewTabPageBrowserTest {
+ protected:
+  NewTabPageModulesMostRelevantTabResumptionModuleTest() {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{ntp_features::
+                                  kNtpMostRelevantTabResumptionModule},
+        /*disabled_features=*/{});
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(NewTabPageModulesMostRelevantTabResumptionModuleTest,
+                       Core) {
+  RunTest("new_tab_page/modules/v2/most_relevant_tab_resumption/module_test.js",
+          "runMochaSuite('NewTabPageModulesMostRelevantTabResumptionModuleTest "
+          "Core')");
 }

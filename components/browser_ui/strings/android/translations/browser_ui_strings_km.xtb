@@ -158,6 +158,7 @@
 <translation id="3602290021589620013">ពិនិត្យមើល</translation>
 <translation id="3628308229821498208">ការស្វែងរក​ដែលបាន​ណែនាំ</translation>
 <translation id="3697164069658504920">នៅពេល​បើក គេហទំព័រ​អាចស្នើសុំប្រើ​ឧបករណ៍ USB បាន។ នៅពេល​បិទ គេហទំព័រ​មិនអាចប្រើ​ឧបករណ៍ USB បានទេ។</translation>
+<translation id="3701220924999499408"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="FROM_DEVICE" /> <ph name="SEPARATOR2" /> <ph name="RECENCY" /></translation>
 <translation id="3707034683772193706">គេហទំព័រ​ដែលអ្នក​ចូលមើល​អាចរក្សាទុក​ព័ត៌មាន​បន្តិចបន្តួច​ជាមួយ Chrome ដោយជាចម្បង មានគោលបំណងបញ្ជាក់ភាពត្រឹមត្រូវថា អ្នកមិនមែនជាបូតទេ</translation>
 <translation id="3721953990244350188">ច្រានចោល និងបង្ហាញសកម្មភាពបន្ទាប់ដែលអាចធ្វើបាន</translation>
 <translation id="3744111561329211289">សមកាលកម្មផ្ទៃខាងក្រោយ</translation>
@@ -190,7 +191,6 @@
 <translation id="4169549551965910670">បានភ្ជាប់​ទៅ​ឧបករណ៍ USB</translation>
 <translation id="4194328954146351878">សួរ​មុនពេល​អនុញ្ញាតឱ្យ​គេហទំព័រមើលឃើញ និងផ្លាស់ប្ដូរព័ត៌មាននៅលើឧបករណ៍ NFC (បានណែនាំ)</translation>
 <translation id="4200726100658658164">បើកការកំណត់ទីតាំង</translation>
-<translation id="4206661981211220935"><ph name="RECENCY" /> <ph name="SEPARATOR" /> ពី <ph name="FROM_DEVICE" /></translation>
 <translation id="4226663524361240545">ការជូនដំណឹងអាចនឹងធ្វើឲ្យឧបករណ៍ញ័រ</translation>
 <translation id="4259722352634471385">ការរុករកត្រូវបានរារាំង៖ <ph name="URL" /></translation>
 <translation id="4278390842282768270">បានអនុញ្ញាត</translation>
@@ -198,7 +198,6 @@
 <translation id="42981349822642051">ពង្រីក</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{ផុតកំណត់​ថ្ងៃស្អែក}other{ផុតកំណត់​ក្នុងរយៈពេល # ថ្ងៃ}}</translation>
 <translation id="4336566011000459927">Chrome នឹង​ដាក់កំហិត​ខូគី​ម្ដង​ទៀត​នៅ​ថ្ងៃនេះ</translation>
-<translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> ផ្ទាំង​ចុងក្រោយ​របស់អ្នក</translation>
 <translation id="4338831206024587507">គេហទំព័រ​ទាំង​អស់​នៅក្រោម <ph name="DOMAIN" /></translation>
 <translation id="4402755511846832236">ទប់ស្កាត់​គេហទំព័រមិនឱ្យដឹង​អំពីពេលវេលាដែលអ្នក​កំពុងប្រើឧបករណ៍នេះ​យ៉ាងសកម្ម</translation>
 <translation id="4412992751769744546">អនុញ្ញាតខុកឃីភាគីទីបី</translation>
@@ -229,6 +228,7 @@
 <translation id="4962975101802056554">ដក​ការអនុញ្ញាត​ទាំងអស់​សម្រាប់​ឧបករណ៍</translation>
 <translation id="497421865427891073">ទៅមុខ</translation>
 <translation id="4976702386844183910">បានចូល​មើល​លើកចុង​ក្រោយនៅថ្ងៃទី <ph name="DATE" /></translation>
+<translation id="498287755803443017"><ph name="FROM_DEVICE" /> <ph name="SEPARATOR" /> <ph name="RECENCY" /></translation>
 <translation id="4985206706500620449">អ្នក​បានអនុញ្ញាត​ខូគី​ភាគីទីបី​សម្រាប់​គេហទំព័រនេះ</translation>
 <translation id="4994033804516042629">រកមិនឃើញ​ទំនាក់ទំនង​ទេ</translation>
 <translation id="4996978546172906250">ចែករំលែកតាមរយៈ</translation>
@@ -280,6 +280,7 @@
 <translation id="5690795753582697420">កាមេរ៉ាត្រូវបានបិទនៅក្នុងការកំណត់ Android</translation>
 <translation id="5691080386278724773"><ph name="SITE" /> អាចប្រើ​ព័ត៌មាន​របស់អ្នក នៅពេលដែល​អ្នករុករក</translation>
 <translation id="5700761515355162635">បានអនុញ្ញាត​ខូគី​ភាគីទីបី</translation>
+<translation id="5705383358494210886"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /></translation>
 <translation id="5706552988683188916">សកម្មភាពនេះ​លុប​ខូគី និង​ទិន្នន័យ​គេហទំព័រ​ផ្សេងទៀត​សម្រាប់ <ph name="WEBSITE" /></translation>
 <translation id="5723967018671998714">បានទប់ស្កាត់ខូគី​ភាគទីបីនៅក្នុងមុខងារឯកជន</translation>
 <translation id="5740126560802162366">គេហ​ទំព័រ​អាច​រក្សាទុក​ទិន្នន័យ​នៅលើ​ឧបករណ៍​របស់​អ្នក</translation>
@@ -304,7 +305,6 @@
 <translation id="6015775454662021376">គ្រប់គ្រងការចូលប្រើរបស់គេហទំព័រនេះនៅលើឧបករណ៍របស់អ្នក</translation>
 <translation id="6040143037577758943">បិទ</translation>
 <translation id="6042308850641462728">ច្រើនទៀត</translation>
-<translation id="6060464773477604108"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> ផ្ទាំង​ចុងក្រោយ​របស់អ្នក</translation>
 <translation id="6064125863973209585">​ការទាញយកដែលបាន​បញ្ចប់</translation>
 <translation id="6071501408666570960">អ្នក​អាច​ត្រូវ​បាននាំចេញ​ពី​គេហទំព័រ​នេះ</translation>
 <translation id="6120483543004435978">នៅពេល​បើក គេហទំព័រ​អាចស្នើសុំយល់ដឹងអំពី​ពេលវេលា​ដែលអ្នក​ប្រើប្រាស់​ឧបករណ៍​របស់អ្នក​យ៉ាងសកម្ម។ នៅពេល​បិទ គេហទំព័រ​មិនអាច​ដឹងអំពី​ពេលវេលា​ដែលអ្នក​ប្រើប្រាស់​ឧបករណ៍​របស់អ្នក​យ៉ាងសកម្មទេ។</translation>
@@ -360,7 +360,6 @@
 <translation id="6790428901817661496">លេង</translation>
 <translation id="6818926723028410516">ជ្រើសរើសធាតុ</translation>
 <translation id="6864395892908308021">ឧបករណ៍នេះ​មិនអាចអាន NFC បានទេ</translation>
-<translation id="6867014948848323204">ពី <ph name="FROM_DEVICE" /></translation>
 <translation id="6912998170423641340">ទប់ស្កាត់​ទំព័រ​មិន​ឱ្យ​អាន​អក្សរ និង​រូបភាព​ពី​អង្គ​ចង​ចាំ</translation>
 <translation id="6945221475159498467">ជ្រើសរើស</translation>
 <translation id="6950072572526089586">គេហទំព័រ​ដែល​អ្នក​ចូលមើល​អាច​រក្សាទុក​ព័ត៌មាន​អំពី​អ្វី​ដែល​អ្នក​កំពុង​ធ្វើ ដើម្បី​ឱ្យ​គេហទំព័រនេះ​ដំណើរការ​ដូច​ដែល​បាន​រំពឹង​ទុក — ឧទាហរណ៍ ដើម្បី​ឱ្យ​អ្នក​បន្តចូល​គេហទំព័រ ឬ​ដើម្បី​រក្សាទុក​ទំនិញ​នៅ​ក្នុង​កន្ត្រកទិញ​ទំនិញ​របស់​អ្នក។ ជារឿយៗ គេហទំព័រ​រក្សាទុក​ព័ត៌មាននេះ​ជា​បណ្ដោះអាសន្ន​នៅលើ​ឧបករណ៍​របស់​អ្នក។</translation>
@@ -426,7 +425,6 @@
 <translation id="7986741934819883144">ជ្រើស​រើសទំ​នាក់ទំនង</translation>
 <translation id="7990211076305263060">នៅពេល​បើក គេហទំព័រ​អាចស្នើសុំប្រើ​មីក្រូហ្វូន​របស់អ្នក​បាន។ នៅពេល​បិទ គេហទំព័រ​មិនអាចប្រើ​មីក្រូហ្វូន​របស់អ្នក​បានទេ។</translation>
 <translation id="8007176423574883786">បានបិទសម្រាប់ឧបករណ៍នេះ</translation>
-<translation id="8009579582995973057"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> ពី <ph name="FROM_DEVICE" /></translation>
 <translation id="802154636333426148">បានបរាជ័យក្នុងការទាញយក</translation>
 <translation id="8042586301629853791">តម្រៀបតាម៖</translation>
 <translation id="8067883171444229417">ចាក់​វីដេអូ</translation>

@@ -134,7 +134,6 @@ public class TabGroupModelFilterUnitTest {
     private static final String TAB_TITLE = "Tab";
 
     private static final String TAB_GROUP_COLORS_FILE_NAME = "tab_group_colors";
-    private static final int INVALID_COLOR_ID = -1;
     private static final int COLOR_ID = 0;
 
     private static final String TAB_GROUP_SYNC_IDS_FILE_NAME = "tab_group_sync_ids";
@@ -392,7 +391,8 @@ public class TabGroupModelFilterUnitTest {
                 .getSharedPreferences(TAB_GROUP_COLLAPSED_FILE_NAME, Context.MODE_PRIVATE);
         ContextUtils.initApplicationContextForTests(mContext);
         when(mSharedPreferencesTitle.getString(anyString(), any())).thenReturn(TAB_TITLE);
-        when(mSharedPreferencesColor.getInt(anyString(), anyInt())).thenReturn(INVALID_COLOR_ID);
+        when(mSharedPreferencesColor.getInt(anyString(), anyInt()))
+                .thenReturn(TabGroupColorUtils.INVALID_COLOR_ID);
         when(mSharedPreferencesCollapsed.getBoolean(anyString(), anyBoolean())).thenReturn(true);
         when(mSharedPreferencesTitle.edit()).thenReturn(mEditor);
         when(mSharedPreferencesColor.edit()).thenReturn(mEditor);
@@ -408,6 +408,7 @@ public class TabGroupModelFilterUnitTest {
 
     @Before
     public void setUp() {
+        TabGroupModelFilter.SKIP_TAB_GROUP_CREATION_DIALOG.setForTesting(false);
         // After setUp, TabModel has 6 tabs in the following order: mTab1, mTab2, mTab3, mTab4,
         // mTab5, mTab6. While mTab2 and mTab3 are in a group, and mTab5 and mTab6 are in a separate
         // group.
@@ -571,8 +572,50 @@ public class TabGroupModelFilterUnitTest {
         assertEquals(mTab1.getTabGroupId(), tabGroupId);
         assertEquals(mTab1.getTabGroupId(), newTab.getTabGroupId());
 
+        verify(mTabGroupModelFilterObserver).willMergeTabToGroup(newTab, TAB1_ROOT_ID);
         verify(mTabGroupModelFilterObserver).didCreateNewGroup(newTab, mTabGroupModelFilter);
         assertThat(mTabGroupModelFilter.getTabGroupCount(), equalTo(3));
+    }
+
+    @Test
+    public void addTab_TabLaunchedFromLongPressBackgroundInGroup_NotRestoredToGroupOnUndo() {
+        Tab newTab = prepareTab(NEW_TAB_ID_0, NEW_TAB_ID_0, null, TAB1_ID);
+        doReturn(TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP).when(newTab).getLaunchType();
+        assertNull(mTab1.getTabGroupId());
+        assertNull(newTab.getTabGroupId());
+        assertThat(mTabGroupModelFilter.getTabGroupCount(), equalTo(2));
+
+        Token tabGroupId = new Token(93L, 42L);
+        when(mTokenJniMock.createRandom()).thenReturn(tabGroupId);
+
+        // Create a new tab in the tab group via launch type.
+        addTabToTabModel(POSITION1 + 1, newTab);
+
+        assertThat(newTab.getRootId(), equalTo(TAB1_ROOT_ID));
+        assertEquals(mTab1.getTabGroupId(), tabGroupId);
+        assertEquals(mTab1.getTabGroupId(), newTab.getTabGroupId());
+        assertTrue(mTabGroupModelFilter.isTabInTabGroup(newTab));
+        verify(mTabGroupModelFilterObserver).didCreateNewGroup(newTab, mTabGroupModelFilter);
+        assertThat(mTabGroupModelFilter.getTabGroupCount(), equalTo(3));
+
+        // Move the new tab out of the tab group.
+        mTabGroupModelFilter.moveTabOutOfGroupInDirection(newTab.getId(), /* trailing= */ true);
+
+        verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(newTab, POSITION1);
+        assertFalse(mTabGroupModelFilter.isTabInTabGroup(newTab));
+        assertThat(newTab.getRootId(), equalTo(NEW_TAB_ID_0));
+        assertTrue(mTabGroupModelFilter.isTabInTabGroup(mTab1));
+
+        // Start to close the new tab.
+        mTabGroupModelFilter.willCloseTab(newTab, /* didCloseAlone= */ true);
+
+        // Undo the closure.
+        mTabGroupModelFilter.tabClosureUndone(newTab);
+
+        // Assert on undo the new tab is not re-added to the tab group it was originally in.
+        assertThat(newTab.getRootId(), equalTo(NEW_TAB_ID_0));
+        assertFalse(mTabGroupModelFilter.isTabInTabGroup(newTab));
+        assertTrue(mTabGroupModelFilter.isTabInTabGroup(mTab1));
     }
 
     @Test
@@ -649,7 +692,7 @@ public class TabGroupModelFilterUnitTest {
         addTabToTabModel(-1, newTab);
         doReturn(false).when(mTabModel).isIncognito();
         doReturn(true).when(newTab).isIncognito();
-        mTabGroupModelFilter.addTab(newTab);
+        mTabGroupModelFilter.addTab(newTab, /* fromUndo= */ false);
     }
 
     @Test
@@ -2257,6 +2300,19 @@ public class TabGroupModelFilterUnitTest {
     }
 
     @Test
+    public void testGetOrCreateTabGroupColor() {
+        assertEquals(
+                TabGroupColorId.GREY,
+                mTabGroupModelFilter.getTabGroupColorWithFallback(TAB1_ROOT_ID));
+
+        when(mSharedPreferencesColor.getInt(eq(String.valueOf(TAB2_ROOT_ID)), anyInt()))
+                .thenReturn(TabGroupColorId.BLUE);
+        assertEquals(
+                TabGroupColorId.BLUE,
+                mTabGroupModelFilter.getTabGroupColorWithFallback(TAB2_ROOT_ID));
+    }
+
+    @Test
     public void testSetTabGroupColor() {
         mTabGroupModelFilter.setTabGroupColor(TAB2_ROOT_ID, TabGroupColorId.GREY);
         verify(mTabGroupModelFilterObserver)
@@ -2292,7 +2348,6 @@ public class TabGroupModelFilterUnitTest {
         doReturn(true).when(mTabGroupSyncFeaturesJniMock).isTabGroupSyncEnabled(mProfile);
 
         assertFalse(mTabGroupModelFilter.isTabGroupHiding(TAB2_TAB_GROUP_ID));
-
         List<Tab> groupWithTab2AndTab3 = List.of(mTab2, mTab3);
         // canUndo will always be true for pending tab closure, but use false just to verify it is
         // forwarded correctly.
@@ -2530,5 +2585,19 @@ public class TabGroupModelFilterUnitTest {
                 .committedTabGroupClosure(TAB5_TAB_GROUP_ID, /* wasHiding= */ false);
         assertFalse(mTabGroupModelFilter.isTabGroupHiding(TAB2_TAB_GROUP_ID));
         assertFalse(mTabGroupModelFilter.isTabGroupHiding(TAB5_TAB_GROUP_ID));
+    }
+
+    @Test
+    public void testWillMergingCreateNewGroup_NewGroup() {
+        // Mock a merge between mTab1 and mTab4, neither of which are in a group.
+        List<Tab> tabsToMerge = List.of(mTab1, mTab4);
+        assertTrue(mTabGroupModelFilter.willMergingCreateNewGroup(tabsToMerge));
+    }
+
+    @Test
+    public void testWillMergingCreateNewGroup_ExistingGroup() {
+        // Mock a merge between mTab1, mTab2 and mTab3, of which the latter 2 are in a group.
+        List<Tab> tabsToMerge = List.of(mTab1, mTab2, mTab3);
+        assertFalse(mTabGroupModelFilter.willMergingCreateNewGroup(tabsToMerge));
     }
 }

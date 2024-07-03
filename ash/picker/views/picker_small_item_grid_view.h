@@ -14,7 +14,6 @@
 
 namespace ash {
 
-class PickerItemView;
 class PickerEmojiItemView;
 class PickerSymbolItemView;
 class PickerEmoticonItemView;
@@ -27,18 +26,18 @@ class ASH_EXPORT PickerSmallItemGridView
   METADATA_HEADER(PickerSmallItemGridView, views::View)
 
  public:
-  explicit PickerSmallItemGridView(int grid_width);
+  explicit PickerSmallItemGridView(int grid_width, size_t max_visible_rows = 2);
   PickerSmallItemGridView(const PickerSmallItemGridView&) = delete;
   PickerSmallItemGridView& operator=(const PickerSmallItemGridView&) = delete;
   ~PickerSmallItemGridView() override;
 
   // PickerTraversableItemContainer:
-  PickerItemView* GetTopItem() override;
-  PickerItemView* GetBottomItem() override;
-  PickerItemView* GetItemAbove(PickerItemView* item) override;
-  PickerItemView* GetItemBelow(PickerItemView* item) override;
-  PickerItemView* GetItemLeftOf(PickerItemView* item) override;
-  PickerItemView* GetItemRightOf(PickerItemView* item) override;
+  views::View* GetTopItem() override;
+  views::View* GetBottomItem() override;
+  views::View* GetItemAbove(views::View* item) override;
+  views::View* GetItemBelow(views::View* item) override;
+  views::View* GetItemLeftOf(views::View* item) override;
+  views::View* GetItemRightOf(views::View* item) override;
 
   PickerEmojiItemView* AddEmojiItem(
       std::unique_ptr<PickerEmojiItemView> emoji_item);
@@ -48,14 +47,17 @@ class ASH_EXPORT PickerSmallItemGridView
       std::unique_ptr<PickerEmoticonItemView> emoticon_item);
 
  private:
-  PickerItemView* AddSmallGridItem(
-      std::unique_ptr<PickerItemView> small_grid_item);
+  views::View* AddSmallGridItem(std::unique_ptr<views::View> small_grid_item);
 
-  // Returns the row containing `item`, or nullptr if `item` is not part of this
-  // grid.
-  views::View* GetRowContaining(PickerItemView* item);
+  // Gets and returns the visible row containing `item`. Returns nullptr if the
+  // row containing `item` is not visible or if `item` is not part of this grid.
+  views::View* GetVisibleRowContaining(views::View* item);
 
   int grid_width_ = 0;
+
+  // The maximum number of rows to show in the grid. Items that don't fit into
+  // these rows are added to grid rows that are hidden by default.
+  size_t max_visible_rows_ = 2;
 };
 
 }  // namespace ash

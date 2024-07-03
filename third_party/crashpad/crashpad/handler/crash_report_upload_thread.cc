@@ -237,7 +237,7 @@ void CrashReportUploadThread::ProcessPendingReport(
       return;
 
     case CrashReportDatabase::kCannotRequestUpload:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 

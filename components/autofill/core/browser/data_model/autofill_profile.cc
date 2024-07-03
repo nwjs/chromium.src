@@ -18,6 +18,7 @@
 #include "base/i18n/char_iterator.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
@@ -104,11 +105,10 @@ FieldType GetStorableTypeCollapsingGroupsForPartialType(FieldType type) {
 // groups types which include address line 1.
 //
 // `GetStorableTypeCollapsingGroups()` serves this purpose:
-// If `ADDRESS_HOME_LINE2` is an excluded field, we also want to exclude
-// `ADDRESS_HOME_STREET_ADDRESS` and `ADDRESS_HOME_LINE1`, because they don't
-// add extra relevant information.
-// Names and phone numbers also behave like this for the same reason. i.e. if
-// `NAME_FIRST` is excluded, we also exclude `NAME_LAST`.
+// If `ADDRESS_HOME_STREET_ADDRESS` is an excluded field, we also want to
+// exclude `ADDRESS_HOME_LINE1`, because it doesn't add extra relevant
+// information. Names and phone numbers also behave like this for the same
+// reason. i.e. if `NAME_FIRST` is excluded, we also exclude `NAME_LAST`.
 //
 // `GetStorableTypeCollapsingGroupsForPartialType()` serves the purpose of
 // including `NAME_FULL` in the label candidates, as a last resort, if a partial
@@ -117,13 +117,12 @@ FieldType GetStorableTypeCollapsingGroupsForPartialType(FieldType type) {
 // This does not apply to `ADDRESS_HOME_LINE1`, because if a field is
 // `ADDRESS_HOME_STREET_ADDRESS` and we don't want to accidentally include back
 // `ADDRESS_HOME_LINE1` in the label candidates.
-FieldType GetStorableTypeCollapsingGroups(FieldType type) {
+FieldType GetStorableTypeCollapsingGroups(FieldType type,
+                                          bool use_improved_labels_order) {
   FieldType storable_type = AutofillType(type).GetStorableType();
   if ((storable_type == ADDRESS_HOME_LINE1 ||
-       storable_type == ADDRESS_HOME_LINE2 ||
        storable_type == ADDRESS_HOME_STREET_ADDRESS) &&
-      base::FeatureList::IsEnabled(
-          features::kAutofillGranularFillingAvailable)) {
+      use_improved_labels_order) {
     return ADDRESS_HOME_LINE1;
   }
   return GetStorableTypeCollapsingGroupsForPartialType(type);
@@ -133,10 +132,9 @@ FieldType GetStorableTypeCollapsingGroups(FieldType type) {
 // is used for prioritizing which data types are shown in inferred labels. For
 // example, if the profile is going to fill ADDRESS_HOME_ZIP, it should
 // prioritize showing that over ADDRESS_HOME_STATE in the suggestion sublabel.
-int SpecificityForType(FieldType type) {
+int SpecificityForType(FieldType type, bool use_improved_labels_order) {
   // TODO(crbug.com/40274514): Clean up after launch.
-  if (!base::FeatureList::IsEnabled(
-          features::kAutofillGranularFillingAvailable)) {
+  if (!use_improved_labels_order) {
     switch (type) {
       case ADDRESS_HOME_LINE1:
         return 1;
@@ -225,7 +223,8 @@ int SpecificityForType(FieldType type) {
 void GetFieldsForDistinguishingProfiles(
     const std::vector<FieldType>* suggested_fields,
     FieldTypeSet excluded_fields,
-    std::vector<FieldType>* distinguishing_fields) {
+    std::vector<FieldType>* distinguishing_fields,
+    bool use_improved_labels_order) {
   std::vector<FieldType> default_fields;
   if (!suggested_fields) {
     default_fields.assign(
@@ -244,18 +243,21 @@ void GetFieldsForDistinguishingProfiles(
   FieldTypeSet seen_fields;
   seen_fields.insert(UNKNOWN_TYPE);
   for (FieldType excluded_field : excluded_fields) {
-    seen_fields.insert(GetStorableTypeCollapsingGroups(excluded_field));
+    seen_fields.insert(GetStorableTypeCollapsingGroups(
+        excluded_field, use_improved_labels_order));
   }
 
   distinguishing_fields->clear();
   for (const FieldType& it : *suggested_fields) {
-    FieldType suggested_type = GetStorableTypeCollapsingGroups(it);
+    FieldType suggested_type =
+        GetStorableTypeCollapsingGroups(it, use_improved_labels_order);
     if (seen_fields.insert(suggested_type).second)
       distinguishing_fields->push_back(suggested_type);
   }
   std::sort(distinguishing_fields->begin(), distinguishing_fields->end(),
-            [](FieldType type1, FieldType type2) {
-              return SpecificityForType(type1) < SpecificityForType(type2);
+            [use_improved_labels_order](FieldType type1, FieldType type2) {
+              return SpecificityForType(type1, use_improved_labels_order) <
+                     SpecificityForType(type2, use_improved_labels_order);
             });
 
   // Special case: If one of the excluded fields is a partial name (e.g.
@@ -544,7 +546,7 @@ bool AutofillProfile::IsPresentButInvalid(FieldType type) const {
       return !IsValidEmailAddress(data);
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
   }
 }
@@ -786,7 +788,7 @@ bool AutofillProfile::MergeDataFrom(const AutofillProfile& profile,
       !comparator.MergeCompanyNames(profile, *this, company) ||
       !comparator.MergePhoneNumbers(profile, *this, phone_number) ||
       !comparator.MergeAddresses(profile, *this, address)) {
-    DUMP_WILL_BE_NOTREACHED_NORETURN();
+    DUMP_WILL_BE_NOTREACHED();
     return false;
   }
 
@@ -844,10 +846,6 @@ bool AutofillProfile::MergeDataFrom(const AutofillProfile& profile,
 void AutofillProfile::MergeFormGroupTokenQuality(
     const FormGroup& merged_group,
     const AutofillProfile& other_profile) {
-  if (!base::FeatureList::IsEnabled(
-          features::kAutofillTrackProfileTokenQuality)) {
-    return;
-  }
   FieldTypeSet supported_types;
   merged_group.GetSupportedTypes(&supported_types);
   for (FieldType type : supported_types) {
@@ -899,7 +897,16 @@ void AutofillProfile::CreateInferredLabels(
     FieldTypeSet excluded_fields,
     size_t minimal_fields_shown,
     const std::string& app_locale,
-    std::vector<std::u16string>* labels) {
+    std::vector<std::u16string>* labels,
+    bool use_improved_labels_order) {
+  // TODO(crbug.com/40274514): Clean up after launch.
+  CHECK(!triggering_field_type ||
+        base::FeatureList::IsEnabled(
+            features::kAutofillGranularFillingAvailable));
+  CHECK(!use_improved_labels_order ||
+        base::FeatureList::IsEnabled(
+            features::kAutofillGranularFillingAvailable));
+
   std::vector<FieldType> fields_to_use;
   std::vector<FieldType> suggested_fields_types =
       suggested_fields
@@ -907,12 +914,8 @@ void AutofillProfile::CreateInferredLabels(
           : std::vector<FieldType>();
   GetFieldsForDistinguishingProfiles(
       suggested_fields ? &suggested_fields_types : nullptr, excluded_fields,
-      &fields_to_use);
+      &fields_to_use, use_improved_labels_order);
 
-  // TODO(crbug.com/40274514): Clean up after launch.
-  CHECK(base::FeatureList::IsEnabled(
-            features::kAutofillGranularFillingAvailable) ||
-        !triggering_field_type);
   // Construct the default label for each profile. Also construct a map that
   // associates each (main_text, label) pair with the profiles that have this
   // info. This map is then used to detect which labels need further
@@ -1030,6 +1033,13 @@ void AutofillProfile::RecordAndLogUse() {
   // fill a single field at a time as per
   // `AutofillSuggestionsForAutocompleteUnrecognizedFieldsOnMobile`.
   if (time_since_last_used.InSeconds() >= 60) {
+    if (use_count() == 1) {
+      // The max is the number of days a profile wasn't used before it gets
+      // deleted (see `kDisusedDataModelDeletionTimeDelta`).
+      base::UmaHistogramCustomCounts("Autofill.DaysUntilFirstUsage.Profile",
+                                     time_since_last_used.InDays(), 1, 395,
+                                     100);
+    }
     set_use_count(use_count() + 1);
     UMA_HISTOGRAM_COUNTS_1000("Autofill.DaysSinceLastUse.Profile",
                               time_since_last_used.InDays());
@@ -1181,11 +1191,12 @@ FormGroup* AutofillProfile::MutableFormGroupForType(const AutofillType& type) {
     case FieldTypeGroup::kPasswordField:
     case FieldTypeGroup::kUsernameField:
     case FieldTypeGroup::kTransaction:
+    case FieldTypeGroup::kStandaloneCvcField:
     case FieldTypeGroup::kUnfillable:
       return nullptr;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 
@@ -1295,6 +1306,7 @@ AutofillType AutofillProfile::GetFillingType(AutofillType field_type) const {
     case FieldTypeGroup::kUsernameField:
     case FieldTypeGroup::kUnfillable:
     case FieldTypeGroup::kIban:
+    case FieldTypeGroup::kStandaloneCvcField:
       NOTREACHED_NORETURN();
   }
   NOTREACHED_NORETURN();

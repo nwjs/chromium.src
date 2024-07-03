@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">amarelo pastel</translation>
 <translation id="1056898198331236512">Aviso</translation>
 <translation id="1059913517121127803">Não foi possível iniciar a digitalização.</translation>
+<translation id="1061864016440983342">Usar sem localização</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> de <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Firewall detetada</translation>
@@ -82,7 +83,7 @@
 <translation id="1416836038590872660">EAP-MD5</translation>
 <translation id="1418991483994088776">orquídea</translation>
 <translation id="142228117786570094">Tenho um par de chaves</translation>
-<translation id="1423591390236870726">Tecla <ph name="KEY_NAME" /> não premida</translation>
+<translation id="1423591390236870726">Tecla <ph name="KEY_NAME" /> não pressionada</translation>
 <translation id="1432110487435300883">Para um resultado aproximado, divida o valor de <ph name="CATEGORY_TEXT" /> por <ph name="CONVERSION_RATE" /></translation>
 <translation id="1435763214710588005">Repõe automaticamente a utilização de dados todos os meses no dia selecionado</translation>
 <translation id="1442433966118452622">Fonte da imagem</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Mais definições</translation>
 <translation id="2082932131694554252">Tecla do teclado atribuída</translation>
 <translation id="2085089206770112532">Diminuir o luminosidade do ecrã</translation>
+<translation id="2086091080968010660">As alterações baseadas na hora podem não ser exatas. Ative o acesso à localização nas definições.</translation>
 <translation id="2102231663024125441">Edição de texto</translation>
 <translation id="2105810540595158374">O dispositivo é um comando de jogos.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versão <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Edite detalhes do APN (Nome do Ponto de Acesso)</translation>
 <translation id="2195732836444333448">Está no limite da sua capacidade neste momento. Volte em breve.</translation>
 <translation id="2201758491318984023">bicicleta</translation>
-<translation id="2203222757805818543">O horário atual está definido para <ph name="SUNRISE" /> - <ph name="SUNSET" />. Para atualizar automaticamente o horário do modo escuro, <ph name="BEGIN_LINK" />ative o acesso à localização<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">termas</translation>
 <translation id="2203642483788377106">penhasco</translation>
 <translation id="2208388655216963643">impressionista</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Restaurar predefinições</translation>
 <translation id="2286454467119466181">Simples</translation>
 <translation id="2287186687001756809">Nenhuma imagem disponível. Para adicionar fotos, aceda a <ph name="LINK" /></translation>
+<translation id="2294577623958216786">O horário atual está definido como <ph name="SUNRISE" />-<ph name="SUNSET" />. Para atualizar automaticamente o horário do pôr e do nascer do sol, ative o acesso à localização do sistema.</translation>
 <translation id="2305172810646967500">preto</translation>
 <translation id="2307344026739914387">Usar par de chaves atual</translation>
 <translation id="2308243864813041101">Desligue o cabo USB do dispositivo <ph name="DEVICE_NAME" /> para continuar o processo de atualização</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">duna de areia</translation>
 <translation id="2619761439309613843">Atualização diária</translation>
 <translation id="2620436844016719705">Sistema</translation>
+<translation id="2637303424821734920">DESATIVADO – Para apresentar a meteorologia local, <ph name="BEGIN_LINK" />ative o acesso à localização do sistema<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Imagem do início de sessão</translation>
 <translation id="2640549051766135490">Álbum <ph name="TITLE" /> <ph name="DESC" /> selecionado</translation>
 <translation id="2645380101799517405">Controlos</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Fundo</translation>
 <translation id="3027578600144895987">Fechar câmara</translation>
 <translation id="3031560714565892478">O dispositivo é uma câmara de vídeo.</translation>
+<translation id="3051968340259309715">Isto permite que os serviços do sistema usem a Precisão da localização para determinar a sua localização. A Precisão da localização usa informações sobre sinais sem fios, como pontos de acesso Wi-Fi, torres de redes móveis e GPS, juntamente com dados de sensores do dispositivo, como o acelerómetro e o giroscópio, para estimar a localização do dispositivo. Pode desativar a localização em Definições &gt; Privacidade e segurança &gt; Controlos de privacidade &gt; Acesso à localização. <ph name="LINK_BEGIN" />Saiba mais<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Ponto final</translation>
 <translation id="3060579846059757016">Destaques</translation>
+<translation id="3061850252076394168">ative a funcionalidade Selecionar para falar</translation>
 <translation id="3069085583900247081">O teste falhou</translation>
 <translation id="3078740164268491126">tabela</translation>
 <translation id="3081652522083185657">claro</translation>
@@ -580,7 +585,7 @@
 <translation id="430786093962686457">chiffon</translation>
 <translation id="4310735698903592804">Imagens de fundo recentes com tecnologia de IA da Google</translation>
 <translation id="4320904097188876154">rosa fluorescente</translation>
-<translation id="4333390807948134856">Tecla <ph name="KEY_NAME" /> premida</translation>
+<translation id="4333390807948134856">Tecla <ph name="KEY_NAME" /> pressionada</translation>
 <translation id="4354430579665871434">tecla</translation>
 <translation id="4361257691546579041">O tipo de APN é predefinido.</translation>
 <translation id="437294888293595148">Repor todos os atalhos</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Falha ao resolver todos os anfitriões.</translation>
 <translation id="4593212453765072419">Autenticação proxy necessária</translation>
 <translation id="4609350030397390689">Diminuir o brilho do teclado</translation>
-<translation id="4617553623719764431">A meteorologia não é apresentada porque não sabe a sua localização. Para apresentar a meteorologia local, <ph name="BEGIN_LINK" />ative o acesso à localização<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> de <ph name="TOTAL_PAGE_NUMBER" />. Prima Enter para cancelar a tarefa de impressão.</translation>
 <translation id="463791356324567266">A cancelar a digitalização…</translation>
 <translation id="4646949265910132906">Ligação segura ao Wi-Fi</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Executar</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Páginas </translation>
+<translation id="4989542687859782284">Indisponível</translation>
 <translation id="4999333166442584738">Ocultar relatório</translation>
 <translation id="500920857929044050">Parar teste</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">brilho do teclado</translation>
 <translation id="6412715219990689313">Teclado incorporado</translation>
 <translation id="6417265370957905582">Assistente Google</translation>
+<translation id="6419454453018688975">Ativar acesso à localização do sistema</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Isto permite que os serviços do sistema com autorização usem a sua localização. A localização pode usar fontes como o Wi‑Fi, as redes móveis e os sensores para ajudar a calcular a localização do seu dispositivo. <ph name="LINK_BEGIN" />Saiba mais<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Fraca (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Aceda às definições da conta</translation>
 <translation id="6462978824459367242">O botão Adicionar APN está agora ativado</translation>

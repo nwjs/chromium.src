@@ -232,7 +232,7 @@ using base::UserMetricsAction;
     return true;
   }
 
-  if (!IsContentNotificationExperimentEnalbed() ||
+  if (!IsContentNotificationExperimentEnabled() ||
       !IsContentNotificationPromoEnabled([self isUserSignedIn],
                                          self.isDefaultSearchEngine,
                                          self.prefService)) {

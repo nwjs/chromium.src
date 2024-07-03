@@ -17,8 +17,7 @@
  *       ticks="[[sliderTicks_]]"
  *       on-change="onSliderChange_"
  *       min-label="$i18n{low}"
- *       max-label="$i18n{high}"
- *       show-markers>
+ *       max-label="$i18n{high}">
  *   <settings-slider-v2>
  *
  *   // With scale
@@ -42,7 +41,7 @@
  *       on-change="onSliderChange_"
  *       min-label="$i18n{low}"
  *       max-label="$i18n{high}"
- *       show-markers>
+ *       hide-markers>
  *   <settings-slider-v2>
  *
  *   // With scale
@@ -58,6 +57,7 @@
  */
 
 import 'chrome://resources/ash/common/cr_elements/cr_shared_vars.css.js';
+import 'chrome://resources/ash/common/cr_elements/cr_hidden_style.css.js';
 import 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 import 'chrome://resources/ash/common/cr_elements/cros_color_overrides.css.js';
 
@@ -150,9 +150,13 @@ export class SettingsSliderV2Element extends SettingsSliderV2ElementBase {
       },
 
       /**
-       * A11y label for the slider.
+       * Whether or not to hide tick marks on the slider. Default to false.
+       * Only compatible with `ticks`, and not compatible with `scale`.
        */
-      ariaLabel: String,
+      hideMarkers: {
+        type: Boolean,
+        value: false,
+      },
 
       /**
        * By default, the slider value will only be updated when the dragging
@@ -163,15 +167,6 @@ export class SettingsSliderV2Element extends SettingsSliderV2ElementBase {
         type: Boolean,
         value: false,
         observer: 'onSliderChanged_',
-      },
-
-      /**
-       * Whether or not to show tick marks on the slider. Default to false.
-       * Only compatible with `ticks`, and not compatible with `scale`.
-       */
-      showMarkers: {
-        type: Boolean,
-        value: false,
       },
 
       loaded_: Boolean,
@@ -192,7 +187,7 @@ export class SettingsSliderV2Element extends SettingsSliderV2ElementBase {
   hideLabel: boolean;
   minLabel: string;
   maxLabel: string;
-  showMarkers: boolean;
+  hideMarkers: boolean;
   updateValueInstantly: boolean;
   override validPrefTypes = [chrome.settingsPrivate.PrefType.NUMBER];
   value: number;
@@ -241,8 +236,11 @@ export class SettingsSliderV2Element extends SettingsSliderV2ElementBase {
       this.updatePrefValueFromUserAction(this.value);
     }
 
-    this.dispatchEvent(new CustomEvent(
-        'change', {bubbles: true, composed: true, detail: this.value}));
+    this.dispatchEvent(new CustomEvent('change', {
+      bubbles: true,
+      composed: false,  // Event should not pass the shadow DOM boundary.
+      detail: this.value,
+    }));
   }
 
   /**
@@ -281,11 +279,11 @@ export class SettingsSliderV2Element extends SettingsSliderV2ElementBase {
       return;
     }
 
-    assert(this.scale === 1);
+    assert(this.scale === 1, 'Scale has to be 1 if ticks is set.');
     // Limit the number of ticks to 10 to keep the slider from looking too busy.
     const MAX_TICKS = 10;
     this.$.slider.markerCount =
-        (this.showMarkers || numTicks <= MAX_TICKS) ? numTicks : 0;
+        (this.hideMarkers || numTicks > MAX_TICKS) ? 0 : numTicks;
 
     // Convert from the public `value` to the slider index (where the knob
     // should be positioned on the slider).

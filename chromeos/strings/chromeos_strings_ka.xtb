@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">პასტელური ყვითელი</translation>
 <translation id="1056898198331236512">გაფრთხილება</translation>
 <translation id="1059913517121127803">სკანირების დაწყება ვერ მოხერხდა</translation>
+<translation id="1061864016440983342">მდებარეობის გარეშე გამოყენება</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> / <ph name="COUNT" />-დან, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">აღმოჩენილია ქსელის დაცვა</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">დამატებითი პარამეტრები</translation>
 <translation id="2082932131694554252">მინიჭებულია კლავიატურის კლავიში</translation>
 <translation id="2085089206770112532">ეკრანის სიკაშკაშის დაკლება</translation>
+<translation id="2086091080968010660">დროზე დაფუძნებული ცვლილებები შეიძლება არაზუსტი იყოს. ჩართეთ სისტემის მდებარეობაზე წვდომა პარამეტრებიდან.</translation>
 <translation id="2102231663024125441">ტექსტის რედაქტირება</translation>
 <translation id="2105810540595158374">მოწყობილობა არის სათამაშო კონტროლერი.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, ვერსია <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">შეასრულეთ APN-ის დეტალების რედაქტირება</translation>
 <translation id="2195732836444333448">რესურსები არასაკმარისია. დაბრუნდით მოგვიანებით.</translation>
 <translation id="2201758491318984023">ველოსიპედი</translation>
-<translation id="2203222757805818543">ამჟამინდელი განრიგია <ph name="SUNRISE" /> — <ph name="SUNSET" />. მუქი რეჟიმის განრიგის ავტომატურად გასაახლებლად <ph name="BEGIN_LINK" />ჩართეთ მდებარეობაზე წვდომა<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">ცხელი წყარო</translation>
 <translation id="2203642483788377106">კლდე</translation>
 <translation id="2208388655216963643">იმპრესიონიზმი</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">ნაგულისხმევის აღდგენა</translation>
 <translation id="2286454467119466181">მარტივი</translation>
 <translation id="2287186687001756809">სურათი მიუწვდომელია. ფოტოების დასამატებლად გადადით აქ: <ph name="LINK" /></translation>
+<translation id="2294577623958216786">მიმდინარე განრიგის დაყენებული დროები არის <ph name="SUNRISE" />-<ph name="SUNSET" />. მზის ჩასვლისა და ამოსვლის განრიგების ავტომატურად გასაახლებლად ჩართეთ მდებარეობაზე წვდომა.</translation>
 <translation id="2305172810646967500">შავი</translation>
 <translation id="2307344026739914387">ამჟამინდელი წყვილის გამოყენება</translation>
 <translation id="2308243864813041101">გამოაერთეთ <ph name="DEVICE_NAME" />-ის USB კაბელი, რომ განახლება განაგრძოთ</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">ქვიშის დიუნი</translation>
 <translation id="2619761439309613843">ყოველდღიური განახლება</translation>
 <translation id="2620436844016719705">სისტემა</translation>
+<translation id="2637303424821734920">გამორთულია — ადგილობრივი ამინდის საჩვენებლად <ph name="BEGIN_LINK" />ჩართეთ სისტემის მდებარეობაზე წვდომა<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">შესვლის სურათი</translation>
 <translation id="2640549051766135490">არჩეულია ალბომი <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">მართვის საშუალებები</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">ფონი</translation>
 <translation id="3027578600144895987">კამერის დახურვა</translation>
 <translation id="3031560714565892478">მოწყობილობა არის ვიდეოკამერა.</translation>
+<translation id="3051968340259309715">ამ მოქმედების საშუალებით სისტემის სერვისები გამოიყენებს მდებარეობის სიზუსტეს, მდებარეობის დადგენის მიზნით. მოწყობილობის ზუსტი მდებარეობის დასადგენად, მოწყობილობის სენსორულ მონაცემებთან ერთად, როგორიცაა აქსელერომეტრი და გიროსკოპი, მდებარეობის სიზუსტე იყენებს ისეთ ინფორმაციას, როგორიცაა Wi-Fi წვდომის წერტილები, ფიჭური ქსელების ანძები და GPS-ს. მდებარეობის გამორთვა შეგიძლიათ აქ: პარამეტრები &gt; კონფიდენციალურობა და უსაფრთხოება &gt; კონფიდენციალურობის მართვის პარამეტრები &gt; მდებარეობაზე წვდომა. <ph name="LINK_BEGIN" />შეიტყვეთ მეტი<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> მა</translation>
 <translation id="3056720590588772262">საბოლოო წერტილი</translation>
 <translation id="3060579846059757016">კონტურები</translation>
+<translation id="3061850252076394168">ჩართეთ „მონიშვნა წარმოსათქმელად“</translation>
 <translation id="3069085583900247081">ტესტი წარუმატებლად დასრულდა</translation>
 <translation id="3078740164268491126">ცხრილი</translation>
 <translation id="3081652522083185657">ღია</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">ჰოსტების გარდაქმნა ვერ მოხერხდა</translation>
 <translation id="4593212453765072419">საჭიროა პროქსი-სერვერის ავტორიზაცია</translation>
 <translation id="4609350030397390689">კლავიატურის სიკაშკაშის დაკლება</translation>
-<translation id="4617553623719764431">ამინდი არ არის ნაჩვენები, რადგან ამ სერვისმა თქვენი მდებარეობა არ იცის. ადგილობრივი ამინდის გამოსაჩენად <ph name="BEGIN_LINK" />გაააქტიურეთ მდებარეობაზე წვდომა<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> / <ph name="TOTAL_PAGE_NUMBER" />. გთხოვთ დააჭიროთ შეყვანის ღილაკს ამ ბეჭდვის დავალების გასაუქმებლად.</translation>
 <translation id="463791356324567266">მიმდინარეობს სკანირების გაუქმება...</translation>
 <translation id="4646949265910132906">დაცული Wi-Fi კავშირი</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">გაშვება</translation>
 <translation id="4987769320337599931">ქსელის დაცვა</translation>
 <translation id="4988526792673242964">გვერდები</translation>
+<translation id="4989542687859782284">მიუწვდომელია</translation>
 <translation id="4999333166442584738">ანგარიშის დამალვა</translation>
 <translation id="500920857929044050">ტესტის შეწყვეტა</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">კლავიატურის სიკაშკაშე</translation>
 <translation id="6412715219990689313">ჩაშენებული კლავიატურა</translation>
 <translation id="6417265370957905582">Google ასისტენტი</translation>
+<translation id="6419454453018688975">დაუშვით სისტემის მდებარეობაზე წვდომა</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">ეს მოქმედება მისცემს თქვენი მდებარეობის გამოყენების საშუალებას სისტემის იმ სერვისებს, რომელთაც შესაბამისი ნებართვა აქვს. თქვენი მოწყობილობის მდებარეობის განსასაზღვრად მდებარეობის სერვისმა, შესაძლოა, გამოიყენოს ისეთი წყაროები, როგორიცაა Wi-Fi კავშირი, მობილური ქსელები და სენსორები. <ph name="LINK_BEGIN" />შეიტყვეთ მეტი<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">სუსტი (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">ანგარიშის პარამეტრებზე გადასვლა</translation>
 <translation id="6462978824459367242">APN-ის დამატების ღილაკი ახლა ჩართულია</translation>

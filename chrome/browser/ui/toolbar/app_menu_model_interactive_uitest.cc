@@ -15,6 +15,7 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/ui/accelerator_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -25,6 +26,8 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/web_applications/test/web_app_icon_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
+#include "chrome/browser/web_applications/web_app_command_scheduler.h"
+#include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/api/dashboard_private.h"
 #include "chrome/common/webui_url_constants.h"
@@ -36,6 +39,9 @@
 #include "chrome/test/interaction/webcontents_interaction_test_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/performance_manager/public/features.h"
+#include "components/signin/public/identity_manager/identity_test_environment.h"
+#include "components/supervised_user/core/common/features.h"
+#include "components/supervised_user/test_support/supervised_user_signin_test_utils.h"
 #include "components/webapps/browser/banners/app_banner_manager.h"
 #include "components/webapps/browser/banners/installable_web_app_check_result.h"
 #include "components/webapps/browser/banners/web_app_banner_data.h"
@@ -106,6 +112,25 @@ class AppMenuModelInteractiveTest : public InteractiveBrowserTest {
     }));
   }
 
+  auto CheckGuestWindowOpened(const Browser* default_browser) {
+    return Check(base::BindLambdaForTesting([default_browser]() {
+      Browser* new_browser = nullptr;
+      if (BrowserList::GetGuestBrowserCount() == 1) {
+        EXPECT_EQ(2u, BrowserList::GetInstance()->size());
+        for (Browser* browser : *BrowserList::GetInstance()) {
+          if (browser != default_browser) {
+            new_browser = browser;
+            break;
+          }
+        }
+        CHECK(new_browser);
+      } else {
+        new_browser = ui_test_utils::WaitForBrowserToOpen();
+      }
+      return new_browser->profile()->IsGuestSession();
+    }));
+  }
+
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -136,83 +161,11 @@ IN_PROC_BROWSER_TEST_F(AppMenuModelInteractiveTest, IncognitoAccelerator) {
       CheckIncognitoWindowOpened(browser()));
 }
 
-class ExtensionsMenuModelInteractiveTest : public AppMenuModelInteractiveTest {
- public:
-  explicit ExtensionsMenuModelInteractiveTest(bool enable_feature = true) {
-    std::vector<base::test::FeatureRef> enabled_features;
-    std::vector<base::test::FeatureRef> disabled_features;
-    if (enable_feature) {
-      enabled_features = {features::kExtensionsMenuInAppMenu};
-      disabled_features = {features::kChromeRefresh2023};
-    } else {
-      enabled_features = {};
-      disabled_features = {features::kExtensionsMenuInAppMenu,
-                           features::kChromeRefresh2023};
-    }
-    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
-  }
-  ~ExtensionsMenuModelInteractiveTest() override = default;
-  ExtensionsMenuModelInteractiveTest(
-      const ExtensionsMenuModelInteractiveTest&) = delete;
-  void operator=(const ExtensionsMenuModelInteractiveTest&) = delete;
-
-  void SetUp() override {
-    set_open_about_blank_on_browser_launch(true);
-    ASSERT_TRUE(embedded_test_server()->InitializeAndListen());
-    InteractiveBrowserTest::SetUp();
-  }
-
- protected:
-  base::HistogramTester histograms;
-};
-
-class ExtensionsMenuModelPresenceTest
-    : public ExtensionsMenuModelInteractiveTest,
-      public testing::WithParamInterface<bool> {
- public:
-  ExtensionsMenuModelPresenceTest()
-      : ExtensionsMenuModelInteractiveTest(/*enable_feature=*/GetParam()) {}
-  ~ExtensionsMenuModelPresenceTest() override = default;
-  ExtensionsMenuModelPresenceTest(const ExtensionsMenuModelPresenceTest&) =
-      delete;
-  void operator=(const ExtensionsMenuModelPresenceTest&) = delete;
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ExtensionsMenuModelPresenceTest,
-    testing::Bool(),
-    [](const testing::TestParamInfo<ExtensionsMenuModelPresenceTest::ParamType>&
-           info) { return info.param ? "InRootAppMenu" : "NotInRootAppMenu"; });
-
-// Test to confirm that the structure of the Extensions menu is present but that
-// no histograms are logged since it isn't interacted with.
-IN_PROC_BROWSER_TEST_P(ExtensionsMenuModelPresenceTest, MenuPresence) {
-  if (features::IsExtensionMenuInRootAppMenu()) {  // Menu enabled
-    RunTestSequence(
-        InstrumentTab(kPrimaryTabPageElementId),
-        PressButton(kToolbarAppMenuButtonElementId),
-        EnsurePresent(AppMenuModel::kExtensionsMenuItem),
-        SelectMenuItem(AppMenuModel::kExtensionsMenuItem),
-        EnsurePresent(ExtensionsMenuModel::kManageExtensionsMenuItem),
-        EnsurePresent(ExtensionsMenuModel::kVisitChromeWebStoreMenuItem));
-  } else {
-    RunTestSequence(InstrumentTab(kPrimaryTabPageElementId),
-                    PressButton(kToolbarAppMenuButtonElementId),
-                    EnsureNotPresent(AppMenuModel::kExtensionsMenuItem));
-  }
-
-  histograms.ExpectTotalCount("WrenchMenu.TimeToAction.VisitChromeWebStore", 0);
-  histograms.ExpectTotalCount("WrenchMenu.TimeToAction.ManageExtensions", 0);
-  histograms.ExpectBucketCount("WrenchMenu.MenuAction",
-                               MENU_ACTION_MANAGE_EXTENSIONS, 0);
-  histograms.ExpectBucketCount("WrenchMenu.MenuAction",
-                               MENU_ACTION_VISIT_CHROME_WEB_STORE, 0);
-}
-
 // Test to confirm that the manage extensions menu item navigates when selected
 // and emite histograms that it did so.
-IN_PROC_BROWSER_TEST_F(ExtensionsMenuModelInteractiveTest, ManageExtensions) {
+IN_PROC_BROWSER_TEST_F(AppMenuModelInteractiveTest, ManageExtensions) {
+  base::HistogramTester histograms;
+
   RunTestSequence(
       InstrumentTab(kPrimaryTabPageElementId),
       PressButton(kToolbarAppMenuButtonElementId),
@@ -258,16 +211,14 @@ class ExtensionsMenuVisitChromeWebstoreModelInteractiveTest
   base::HistogramTester histograms;
 };
 
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ExtensionsMenuVisitChromeWebstoreModelInteractiveTest,
-    // extensions_features::kNewWebstoreURL enabled status.
-    testing::Bool(),
-    [](const testing::TestParamInfo<ExtensionsMenuModelPresenceTest::ParamType>&
-           info) {
-      return info.param ? "NewVisitChromeWebstoreUrl"
-                        : "OldVisitChromeWebstoreUrl";
-    });
+INSTANTIATE_TEST_SUITE_P(All,
+                         ExtensionsMenuVisitChromeWebstoreModelInteractiveTest,
+                         // extensions_features::kNewWebstoreURL enabled status.
+                         testing::Bool(),
+                         [](const testing::TestParamInfo<bool>& info) {
+                           return info.param ? "NewVisitChromeWebstoreUrl"
+                                             : "OldVisitChromeWebstoreUrl";
+                         });
 
 // Test to confirm that the visit Chrome Web Store menu item navigates to the
 // correct chrome webstore URL when selected and emits histograms that it did
@@ -342,8 +293,7 @@ class CastExperimentAppMenuModelInteractiveTest
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
         {{features::kCastAppMenuExperiment,
-          {{features::kCastListedFirst.name, "false"}}},
-         {features::kChromeRefresh2023, {}}},
+          {{features::kCastListedFirst.name, "false"}}}},
         /*disabled_features=*/{});
   }
   CastExperimentAppMenuModelInteractiveTest(
@@ -375,8 +325,7 @@ class CastListedFirstExperimentAppMenuModelInteractiveTest
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
         {{features::kCastAppMenuExperiment,
-          {{features::kCastListedFirst.name, "true"}}},
-         {features::kChromeRefresh2023, {}}},
+          {{features::kCastListedFirst.name, "true"}}}},
         /*disabled_features=*/{});
   }
   CastListedFirstExperimentAppMenuModelInteractiveTest(
@@ -626,3 +575,104 @@ INSTANTIATE_TEST_SUITE_P(All,
                            return info.param ? "UniversalInstallEnabled"
                                              : "UniversalInstallDisabled";
                          });
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+class SupervisedUserAppMenuModelInteractiveTest
+    : public AppMenuModelInteractiveTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  SupervisedUserAppMenuModelInteractiveTest() {
+    scoped_feature_list_.InitWithFeatureState(
+        supervised_user::kHideGuestModeForSupervisedUsers,
+        HideGuestModeForSupervisedUsersFeatureEnabled());
+  }
+
+  void SetUpInProcessBrowserTestFixture() override {
+    unused_subscription_ =
+        BrowserContextDependencyManager::GetInstance()
+            ->RegisterCreateServicesCallbackForTesting(
+                base::BindRepeating([](content::BrowserContext* context) {
+                  // Required to use IdentityTestEnvironmentAdaptor.
+                  IdentityTestEnvironmentProfileAdaptor::
+                      SetIdentityTestEnvironmentFactoriesOnBrowserContext(
+                          context);
+                }));
+  }
+
+ protected:
+  void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
+    IdentityTestEnvironmentProfileAdaptor::
+        SetIdentityTestEnvironmentFactoriesOnBrowserContext(context);
+  }
+
+  void SetUpOnMainThread() override {
+    InteractiveBrowserTest::SetUpOnMainThread();
+    identity_test_environment_adaptor_ =
+        std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
+            browser()->profile());
+  }
+
+  static bool HideGuestModeForSupervisedUsersFeatureEnabled() {
+    return GetParam();
+  }
+
+  void SignIn(bool is_supervised_user) {
+    AccountInfo account_info =
+        identity_test_environment_adaptor_->identity_test_env()
+            ->MakePrimaryAccountAvailable("name@gmail.com",
+                                          signin::ConsentLevel::kSignin);
+    supervised_user::UpdateSupervisionStatusForAccount(
+        account_info,
+        identity_test_environment_adaptor_->identity_test_env()
+            ->identity_manager(),
+        is_supervised_user);
+  }
+
+ private:
+  base::CallbackListSubscription unused_subscription_;
+  std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
+      identity_test_environment_adaptor_;
+};
+
+IN_PROC_BROWSER_TEST_P(SupervisedUserAppMenuModelInteractiveTest,
+                       OpenGuestSessionForSignedOutUser) {
+  RunTestSequence(PressButton(kToolbarAppMenuButtonElementId),
+                  SelectMenuItem(AppMenuModel::kProfileMenuItem),
+                  SelectMenuItem(AppMenuModel::kProfileOpenGuestItem),
+                  CheckGuestWindowOpened(browser()));
+}
+
+IN_PROC_BROWSER_TEST_P(SupervisedUserAppMenuModelInteractiveTest,
+                       OpenGuestSessionForSignedInRegularUser) {
+  SignIn(/*is_supervised_user=*/false);
+  RunTestSequence(PressButton(kToolbarAppMenuButtonElementId),
+                  SelectMenuItem(AppMenuModel::kProfileMenuItem),
+                  SelectMenuItem(AppMenuModel::kProfileOpenGuestItem),
+                  CheckGuestWindowOpened(browser()));
+}
+
+IN_PROC_BROWSER_TEST_P(SupervisedUserAppMenuModelInteractiveTest,
+                       OpenGuestSessionForSignedInSupervisedUser) {
+  SignIn(/*is_supervised_user=*/true);
+
+  if (HideGuestModeForSupervisedUsersFeatureEnabled()) {
+    RunTestSequence(PressButton(kToolbarAppMenuButtonElementId),
+                    SelectMenuItem(AppMenuModel::kProfileMenuItem),
+                    EnsureNotPresent(AppMenuModel::kProfileOpenGuestItem));
+  } else {
+    RunTestSequence(PressButton(kToolbarAppMenuButtonElementId),
+                    SelectMenuItem(AppMenuModel::kProfileMenuItem),
+                    SelectMenuItem(AppMenuModel::kProfileOpenGuestItem),
+                    CheckGuestWindowOpened(browser()));
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    SupervisedUser,
+    SupervisedUserAppMenuModelInteractiveTest,
+    ::testing::Bool(),
+    [](const testing::TestParamInfo<bool>& info) {
+      return info.param ? "HideGuestModeForSupervisedUsersEnabled"
+                        : "HideGuestModeForSupervisedUsersDisabled";
+    });
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)

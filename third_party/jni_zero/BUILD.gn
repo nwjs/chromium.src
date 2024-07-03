@@ -14,13 +14,27 @@ config("toolchain_define") {
   }
 }
 
+generate_jar_jni("system_jni") {
+  classes = [
+    "java/util/Arrays.class",
+    "java/util/Collection.class",
+  ]
+  visibility = [ ":*" ]
+}
+
 # This is the public target that we intend others to use.
 component("jni_zero") {
   # This is the public API.
-  sources = [ "jni_zero.h" ]
+  sources = [
+    "default_conversions.h",
+    "jni_zero.h",
+  ]
 
   # These are intended to only be used within jni_zero and the code it generates.
   sources += [
+    "common_apis.cc",
+    "common_apis.h",
+    "default_conversions.cc",
     "jni_export.h",
     "jni_zero.cc",
     "jni_zero_internal.h",
@@ -32,7 +46,13 @@ component("jni_zero") {
   } else if (is_robolectric) {
     public_configs = [ "//third_party/jdk:jdk" ]
   }
-  configs += [ ":toolchain_define" ]
+  configs += [
+    ":toolchain_define",
+    ":jni_include_dir",
+  ]
+
+  # Need to depend on the inner target to avoid a circular dependency.
+  deps = [ ":system_jni__action($default_toolchain)" ]
 }
 
 if (enable_java_templates && is_android) {

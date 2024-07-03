@@ -9,10 +9,10 @@
 #include <vector>
 
 #include "base/containers/flat_map.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "build/build_config.h"
 #include "components/viz/common/quads/aggregated_render_pass.h"
+#include "components/viz/common/quads/texture_draw_quad.h"
 #include "components/viz/common/quads/tile_draw_quad.h"
 #include "components/viz/common/resources/resource_id.h"
 #include "components/viz/service/viz_service_export.h"
@@ -31,10 +31,11 @@
 
 namespace gfx {
 class Rect;
-}
+}  // namespace gfx
 
 namespace viz {
 class AggregatedRenderPassDrawQuad;
+class DrawQuad;
 class DisplayResourceProvider;
 
 class VIZ_SERVICE_EXPORT OverlayCandidate {
@@ -68,6 +69,9 @@ class VIZ_SERVICE_EXPORT OverlayCandidate {
   // Returns true if |quad| will not block quads underneath from becoming
   // an overlay.
   static bool IsInvisibleQuad(const DrawQuad* quad);
+
+  // Returns true if `quad` contains rounded display masks textures.
+  static bool QuadHasRoundedDisplayMasks(const DrawQuad* quad);
 
   // Modifies the |candidate|'s |display_rect| to be clipped within |clip_rect|.
   // This function will also update the |uv_rect| based on what clipping was
@@ -219,8 +223,7 @@ class VIZ_SERVICE_EXPORT OverlayCandidate {
 
   // If |rpdq| is present, then the renderer must draw the filter effects and
   // copy the result into the buffer backing of a render pass.
-  // This field is not a raw_ptr<> because of missing |.get()| in not-rewritten
-  // platform specific code.
+  // RAW_PTR_EXCLUSION: #addr-of
   RAW_PTR_EXCLUSION const AggregatedRenderPassDrawQuad* rpdq = nullptr;
 
   // Quad |shared_quad_state| opacity is ubiquitous for quad types

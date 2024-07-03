@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/service_worker/service_worker_installed_script_reader.h"
 
 #include <utility>
@@ -50,7 +55,7 @@ class ServiceWorkerInstalledScriptReader::MetaDataSender {
       case MOJO_RESULT_INVALID_ARGUMENT:
       case MOJO_RESULT_OUT_OF_RANGE:
       case MOJO_RESULT_BUSY:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         return;
       case MOJO_RESULT_FAILED_PRECONDITION:
         OnCompleted(false);

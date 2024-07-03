@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastel yellow</translation>
 <translation id="1056898198331236512">Warning</translation>
 <translation id="1059913517121127803">Couldn't start scanning</translation>
+<translation id="1061864016440983342">Use without location</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> of <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Firewall detected</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">More settings</translation>
 <translation id="2082932131694554252">Assigned keyboard key</translation>
 <translation id="2085089206770112532">Display brightness down</translation>
+<translation id="2086091080968010660">Time based changes may not be accurate. Turn on system location access in Settings.</translation>
 <translation id="2102231663024125441">Text editing</translation>
 <translation id="2105810540595158374">Device is a game controller.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, version <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Edit APN details</translation>
 <translation id="2195732836444333448">At capacity right now. Come back soon.</translation>
 <translation id="2201758491318984023">bicycle</translation>
-<translation id="2203222757805818543">Current schedule is set to <ph name="SUNRISE" /> – <ph name="SUNSET" />. To automatically update the dark mode schedule, <ph name="BEGIN_LINK" />turn on location access<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">hot spring</translation>
 <translation id="2203642483788377106">cliff</translation>
 <translation id="2208388655216963643">impressionist</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Restore defaults</translation>
 <translation id="2286454467119466181">Simple</translation>
 <translation id="2287186687001756809">No image available. To add photos, go to <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Current schedule is set to <ph name="SUNRISE" />–<ph name="SUNSET" />. To automatically update the sunset and sunrise schedule, turn on system location access.</translation>
 <translation id="2305172810646967500">black</translation>
 <translation id="2307344026739914387">Use current keypair</translation>
 <translation id="2308243864813041101">Unplug the <ph name="DEVICE_NAME" /> USB cable to continue the update process</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">sand dune</translation>
 <translation id="2619761439309613843">Daily Refresh</translation>
 <translation id="2620436844016719705">System</translation>
+<translation id="2637303424821734920">OFF – to display local weather <ph name="BEGIN_LINK" />turn on system location access<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Sign-in image</translation>
 <translation id="2640549051766135490">Album <ph name="TITLE" /> <ph name="DESC" /> selected</translation>
 <translation id="2645380101799517405">Controls</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Background</translation>
 <translation id="3027578600144895987">Close the camera</translation>
 <translation id="3031560714565892478">Device is a video camera.</translation>
+<translation id="3051968340259309715">This allows system services to use Location Accuracy to determine your location. Location Accuracy uses information about wireless signals, such as Wi-Fi access points, mobile network towers and GPS, along with device sensor data, such as accelerometer and gyroscope, to estimate device location. You can turn off location in Settings &gt; Privacy and security &gt; Privacy controls &gt; Location access. <ph name="LINK_BEGIN" />Learn more<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">Endpoint</translation>
 <translation id="3060579846059757016">Outlines</translation>
+<translation id="3061850252076394168">enable Select to Speak</translation>
 <translation id="3069085583900247081">Test failed</translation>
 <translation id="3078740164268491126">table</translation>
 <translation id="3081652522083185657">light</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Failed to resolve all hosts</translation>
 <translation id="4593212453765072419">Proxy authentication required</translation>
 <translation id="4609350030397390689">Keyboard brightness down</translation>
-<translation id="4617553623719764431">Weather is not displayed because it doesn't know your location. To display local weather, <ph name="BEGIN_LINK" />turn on Location access<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> out of <ph name="TOTAL_PAGE_NUMBER" />. Press Enter to cancel the print job.</translation>
 <translation id="463791356324567266">Cancelling scanning...</translation>
 <translation id="4646949265910132906">Secure Wi-Fi connection</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Run</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Pages</translation>
+<translation id="4989542687859782284">Unavailable</translation>
 <translation id="4999333166442584738">Hide report</translation>
 <translation id="500920857929044050">Stop test</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">keyboard brightness</translation>
 <translation id="6412715219990689313">Built-in keyboard</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
+<translation id="6419454453018688975">Turn on system location access</translation>
 <translation id="6423239382391657905">Open VPN</translation>
-<translation id="6438073885402882007">This allows system services with the permission to use your location. Location may use sources like Wi-Fi, mobile networks and sensors to help estimate your device's location. <ph name="LINK_BEGIN" />Learn more<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Weak (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Go to account settings</translation>
 <translation id="6462978824459367242">Add APN button is now enabled</translation>
@@ -1254,7 +1259,7 @@
 <translation id="802154636333426148">Download failed</translation>
 <translation id="8031884997696620457">HSPAPlus</translation>
 <translation id="80398733265834479">Enable auto colour mode</translation>
-<translation id="8041089156583427627">Send Feedback</translation>
+<translation id="8041089156583427627">Send feedback</translation>
 <translation id="8045012663542226664">Microphone mute</translation>
 <translation id="8054112564438735763">beige</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_COLOR" /> <ph name="CHARACTERS_SUBJECTS" /> on a <ph name="CHARACTERS_BACKGROUND" /> background</translation>

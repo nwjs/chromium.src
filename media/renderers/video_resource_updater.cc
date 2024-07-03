@@ -174,7 +174,7 @@ VideoFrameResourceType ExternalResourceTypeForHardwarePlanes(
                      ? VideoFrameResourceType::RGB
                      : VideoFrameResourceType::RGBA_PREMULTIPLIED;
         default:
-          NOTREACHED();
+          NOTREACHED_IN_MIGRATION();
           break;
       }
       break;
@@ -227,6 +227,16 @@ VideoFrameResourceType ExternalResourceTypeForHardwarePlanes(
         return VideoFrameResourceType::RGB;
       }
 
+    case PIXEL_FORMAT_NV16:
+      DCHECK_EQ(num_textures, 1u);
+      si_formats[0] = viz::MultiPlaneFormat::kNV16;
+      return VideoFrameResourceType::RGB;
+
+    case PIXEL_FORMAT_NV24:
+      DCHECK_EQ(num_textures, 1u);
+      si_formats[0] = viz::MultiPlaneFormat::kNV24;
+      return VideoFrameResourceType::RGB;
+
     case PIXEL_FORMAT_NV12A:
       if (frame.shared_image_format_type() == SharedImageFormatType::kLegacy) {
         DCHECK_EQ(num_textures, 3u);
@@ -259,13 +269,23 @@ VideoFrameResourceType ExternalResourceTypeForHardwarePlanes(
         return VideoFrameResourceType::RGB;
       }
 
+    case PIXEL_FORMAT_P216LE:
+      DCHECK_EQ(num_textures, 1u);
+      si_formats[0] = viz::MultiPlaneFormat::kP210;
+      return VideoFrameResourceType::RGB;
+
+    case PIXEL_FORMAT_P416LE:
+      DCHECK_EQ(num_textures, 1u);
+      si_formats[0] = viz::MultiPlaneFormat::kP410;
+      return VideoFrameResourceType::RGB;
+
     case PIXEL_FORMAT_RGBAF16:
       DCHECK_EQ(num_textures, 1u);
       si_formats[0] = viz::SinglePlaneFormat::kRGBA_F16;
       return VideoFrameResourceType::RGBA;
 
     case PIXEL_FORMAT_UYVY:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       [[fallthrough]];
     case PIXEL_FORMAT_I422:
     case PIXEL_FORMAT_I444:
@@ -459,9 +479,12 @@ viz::SharedImageFormat VideoPixelFormatToMultiPlanarSharedImageFormat(
     case PIXEL_FORMAT_NV12A:
       return viz::MultiPlaneFormat::kNV12A;
     case PIXEL_FORMAT_I420A:
-      return viz::SharedImageFormat::MultiPlane(
-          PlaneConfig::kY_U_V_A, Subsampling::k420, ChannelFormat::k8);
+      return viz::MultiPlaneFormat::kI420A;
+    case PIXEL_FORMAT_NV16:
+    case PIXEL_FORMAT_NV24:
     case PIXEL_FORMAT_P016LE:
+    case PIXEL_FORMAT_P216LE:
+    case PIXEL_FORMAT_P416LE:
     case PIXEL_FORMAT_ARGB:
     case PIXEL_FORMAT_XRGB:
     case PIXEL_FORMAT_ABGR:
@@ -484,6 +507,28 @@ viz::SharedImageFormat VideoPixelFormatToMultiPlanarSharedImageFormat(
     case PIXEL_FORMAT_UNKNOWN:
       NOTREACHED_NORETURN();
   }
+}
+
+std::vector<VideoFrame::Plane> GetVideoFramePlanes(
+    viz::SharedImageFormat format) {
+  CHECK(format.is_multi_plane());
+  switch (format.plane_config()) {
+    case viz::SharedImageFormat::PlaneConfig::kY_U_V:
+      return {VideoFrame::Plane::kY, VideoFrame::Plane::kU,
+              VideoFrame::Plane::kV};
+    case viz::SharedImageFormat::PlaneConfig::kY_V_U:
+      return {VideoFrame::Plane::kY, VideoFrame::Plane::kV,
+              VideoFrame::Plane::kU};
+    case viz::SharedImageFormat::PlaneConfig::kY_UV:
+      return {VideoFrame::Plane::kY, VideoFrame::Plane::kUV};
+    case viz::SharedImageFormat::PlaneConfig::kY_UV_A:
+      return {VideoFrame::Plane::kY, VideoFrame::Plane::kUV,
+              VideoFrame::Plane::kATriPlanar};
+    case viz::SharedImageFormat::PlaneConfig::kY_U_V_A:
+      return {VideoFrame::Plane::kY, VideoFrame::Plane::kU,
+              VideoFrame::Plane::kV, VideoFrame::Plane::kA};
+  }
+  NOTREACHED_NORETURN();
 }
 
 bool UseMultiplanarSoftwarePixelUpload(const gfx::ColorSpace& cs) {
@@ -613,7 +658,7 @@ class VideoResourceUpdater::SoftwarePlaneResource
         video_resource_updater_(video_resource_updater),
         shared_bitmap_reporter_(shared_bitmap_reporter),
         shared_bitmap_id_(shared_image_interface
-                              ? gpu::Mailbox()
+                              ? viz::SharedBitmapId()
                               : viz::SharedBitmap::GenerateId()) {
     if (shared_image_interface) {
       auto shared_image_mapping = shared_image_interface->CreateSharedImage(
@@ -1511,7 +1556,7 @@ bool VideoResourceUpdater::WriteYUVPixelsPerPlaneToPerTexture(
           upload_image_stride / 2, resource_size_pixels.width(),
           resource_size_pixels.height(), bits_per_channel);
     } else {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
     }
 
     pixels = upload_pixels_[0].get();
@@ -1545,9 +1590,12 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
   SkPixmap pixmaps[SkYUVAInfo::kMaxPlanes] = {};
   for (int plane_index = 0; plane_index < yuv_si_format.NumberOfPlanes();
        ++plane_index) {
+    std::vector<VideoFrame::Plane> frame_planes =
+        GetVideoFramePlanes(yuv_si_format);
     // |video_stride_bytes| is the width of the |video_frame| we are
     // uploading (including non-frame data to fill in the stride).
-    const int video_stride_bytes = video_frame->stride(plane_index);
+    const int video_stride_bytes =
+        video_frame->stride(frame_planes[plane_index]);
 
     // |resource_size_pixels| is the size of the destination resource.
     const gfx::Size resource_size_pixels =
@@ -1588,7 +1636,7 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
     const uint8_t* pixels;
     int pixels_stride_in_bytes;
     if (!needs_conversion) {
-      pixels = video_frame->data(plane_index);
+      pixels = video_frame->data(frame_planes[plane_index]);
       pixels_stride_in_bytes = video_stride_bytes;
     } else {
       // Avoid malloc for each frame/plane if possible.
@@ -1611,7 +1659,8 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
         // slower software pixel upload path here.
         float libyuv_multiplier = 1.f / max_value;
         libyuv::HalfFloatPlane(
-            reinterpret_cast<const uint16_t*>(video_frame->data(plane_index)),
+            reinterpret_cast<const uint16_t*>(
+                video_frame->data(frame_planes[plane_index])),
             video_stride_bytes,
             reinterpret_cast<uint16_t*>(upload_pixels_[plane_index].get()),
             upload_image_stride, libyuv_multiplier,
@@ -1621,20 +1670,22 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
                viz::SharedImageFormat::ChannelFormat::k8);
         const int scale = 0x10000 >> (bits_per_channel - 8);
         libyuv::Convert16To8Plane(
-            reinterpret_cast<const uint16_t*>(video_frame->data(plane_index)),
+            reinterpret_cast<const uint16_t*>(
+                video_frame->data(frame_planes[plane_index])),
             video_stride_bytes / 2, upload_pixels_[plane_index].get(),
             upload_image_stride, scale, bytes_per_row,
             resource_size_pixels.height());
       } else if (needs_bit_upshifting) {
         CHECK_EQ(resource_bit_depth, 16u);
         libyuv::ConvertToMSBPlane_16(
-            reinterpret_cast<const uint16_t*>(video_frame->data(plane_index)),
+            reinterpret_cast<const uint16_t*>(
+                video_frame->data(frame_planes[plane_index])),
             video_stride_bytes / 2,
             reinterpret_cast<uint16_t*>(upload_pixels_[plane_index].get()),
             upload_image_stride / 2, resource_size_pixels.width(),
             resource_size_pixels.height(), bits_per_channel);
       } else {
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
       }
 
       pixels = upload_pixels_[plane_index].get();

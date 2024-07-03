@@ -195,13 +195,6 @@ id<GREYMatcher> ClearButton() {
       IDS_IOS_ACCNAME_CLEAR_TEXT);
 }
 
-// Returns Paste to Search button on the omnibox's keyboard accessory.
-id<GREYMatcher> PasteToSearchButton() {
-  NSString* a11yHintPasteButton =
-      l10n_util::GetNSString(IDS_IOS_KEYBOARD_ACCESSORY_VIEW_PASTE_SEARCH);
-  return grey_accessibilityHint(a11yHintPasteButton);
-}
-
 #pragma mark LocationBar context menu buttons
 
 // LocationBar context menu buttons can be showed in different orders depending
@@ -292,11 +285,11 @@ void FocusFakebox() {
   [ChromeEarlGrey clearPasteboard];
   [ChromeEarlGrey clearBrowsingHistory];
 
-  [ChromeEarlGrey setBoolValue:NO forUserPref:prefs::kBottomOmnibox];
+  [ChromeEarlGrey setBoolValue:NO forLocalStatePref:prefs::kBottomOmnibox];
 }
 
 - (void)tearDown {
-  [ChromeEarlGrey setBoolValue:NO forUserPref:prefs::kBottomOmnibox];
+  [ChromeEarlGrey setBoolValue:NO forLocalStatePref:prefs::kBottomOmnibox];
   [super tearDown];
 }
 
@@ -494,74 +487,6 @@ void FocusFakebox() {
       assertWithMatcher:chrome_test_util::OmniboxContainingText("google")];
 }
 
-#pragma mark - Omnibox Keyboard Accessory Paste to Search
-
-// Tests that the keyboard accessory's paste to search button is shown with a
-// text in the clipboard and is starting a search.
-// TODO(crbug.com/40912596): Re-enable when fixed.
-- (void)DISABLED_testOmniboxKeyboardAccessoryPasteTextToSearch {
-  if (@available(iOS 16, *)) {
-    [[AppLaunchManager sharedManager]
-        ensureAppLaunchedWithFeaturesEnabled:{kOmniboxKeyboardPasteButton}
-                                    disabled:{}
-                              relaunchPolicy:ForceRelaunchByCleanShutdown];
-    FocusFakebox();
-    NSString* textToSearch = @"TextToCopy";
-    [ChromeEarlGrey copyTextToPasteboard:textToSearch];
-    [[EarlGrey selectElementWithMatcher:PasteToSearchButton()]
-        performAction:grey_tap()];
-
-    // Check that the omnibox contains the copied text.
-    [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-        assertWithMatcher:chrome_test_util::OmniboxContainingText(
-                              base::SysNSStringToUTF8(textToSearch))];
-  }
-}
-
-// Tests that the keyboard accessory's paste to search button is shown with a
-// link in the clipboard and is visiting the link.
-- (void)testOmniboxKeyboardAccessoryPasteURLToSearch {
-  if (@available(iOS 16, *)) {
-    [[AppLaunchManager sharedManager]
-        ensureAppLaunchedWithFeaturesEnabled:{kOmniboxKeyboardPasteButton}
-                                    disabled:{}
-                              relaunchPolicy:ForceRelaunchByCleanShutdown];
-    FocusFakebox();
-    [ChromeEarlGrey copyTextToPasteboard:base::SysUTF8ToNSString(_URL1.spec())];
-
-    [[EarlGrey selectElementWithMatcher:PasteToSearchButton()]
-        performAction:grey_tap()];
-    [ChromeEarlGrey waitForPageToFinishLoading];
-    [ChromeEarlGrey waitForWebStateContainingText:kPage1];
-  }
-}
-
-// Tests that the keyboard accessory's paste to search button is shown with an
-// image in the clipboard and is starting an image search.
-// TODO(crbug.com/40912596): Re-enable when fixed.
-- (void)DISABLED_testOmniboxKeyboardAccessoryPasteImageToSearch {
-  if (@available(iOS 16, *)) {
-    [[AppLaunchManager sharedManager]
-        ensureAppLaunchedWithFeaturesEnabled:{kOmniboxKeyboardPasteButton}
-                                    disabled:{}
-                              relaunchPolicy:ForceRelaunchByCleanShutdown];
-    [self copyImageIntoClipboard];
-
-    // Wait for the context menu to dismiss, so the omnibox can be tapped.
-    [ChromeEarlGrey waitForSufficientlyVisibleElementWithMatcher:
-                        chrome_test_util::DefocusedLocationView()];
-
-    [[EarlGrey
-        selectElementWithMatcher:chrome_test_util::DefocusedLocationView()]
-        performAction:grey_tap()];
-    [[EarlGrey selectElementWithMatcher:PasteToSearchButton()]
-        performAction:grey_tap()];
-    // Check that the omnibox started a google search.
-    [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-        assertWithMatcher:chrome_test_util::OmniboxContainingText("google")];
-  }
-}
-
 // Tests that copying in the omnibox will trigger the share button IPH to be
 // displayed, if certain conditions are met, with bottom omnibox for phone form
 // factor.
@@ -570,7 +495,7 @@ void FocusFakebox() {
     EARL_GREY_TEST_SKIPPED(@"Skipped for iPad (no bottom omnibox in tablet)");
   }
 
-  [ChromeEarlGrey setBoolValue:YES forUserPref:prefs::kBottomOmnibox];
+  [ChromeEarlGrey setBoolValue:YES forLocalStatePref:prefs::kBottomOmnibox];
 
   // Enable the IPH flag to ensure the IPH triggersenable)
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
@@ -684,11 +609,11 @@ void FocusFakebox() {
   UIPasteboard* pasteboard = UIPasteboard.generalPasteboard;
   [pasteboard setValue:@"" forPasteboardType:UIPasteboardNameGeneral];
 
-  [ChromeEarlGrey setBoolValue:NO forUserPref:prefs::kBottomOmnibox];
+  [ChromeEarlGrey setBoolValue:NO forLocalStatePref:prefs::kBottomOmnibox];
 }
 
 - (void)tearDown {
-  [ChromeEarlGrey setBoolValue:NO forUserPref:prefs::kBottomOmnibox];
+  [ChromeEarlGrey setBoolValue:NO forLocalStatePref:prefs::kBottomOmnibox];
   [super tearDown];
 }
 
@@ -786,7 +711,7 @@ void FocusFakebox() {
     EARL_GREY_TEST_SKIPPED(@"Skipped for iPad (no bottom omnibox in tablet)");
   }
 
-  [ChromeEarlGrey setBoolValue:YES forUserPref:prefs::kBottomOmnibox];
+  [ChromeEarlGrey setBoolValue:YES forLocalStatePref:prefs::kBottomOmnibox];
 
   // Enable the IPH flag to ensure the IPH triggers
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
@@ -1184,7 +1109,10 @@ void FocusFakebox() {
 @interface LocationBarEditStateTestCase : ChromeTestCase
 @end
 
-@implementation LocationBarEditStateTestCase
+@implementation LocationBarEditStateTestCase {
+  GURL _URL1;
+  GURL _URL2;
+}
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
@@ -1196,6 +1124,14 @@ void FocusFakebox() {
   [super setUp];
 
   [ChromeEarlGrey clearBrowsingHistory];
+
+  // Start a server to be able to navigate to a web page.
+  self.testServer->RegisterRequestHandler(
+      base::BindRepeating(&StandardResponse));
+  GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
+
+  _URL1 = self.testServer->GetURL(kPage1URL);
+  _URL2 = self.testServer->GetURL(kPage2URL);
 
   // Clear the pasteboard in case there is a URL copied.
   [ChromeEarlGrey clearPasteboard];
@@ -1431,6 +1367,32 @@ void FocusFakebox() {
       assertWithMatcher:grey_notNil()];
 }
 
+// Test inline autocomplete of legacy text field implementation.
+- (void)testLegacyInlineAutocompleteSuggestion {
+  // Relaunch the app with new textfield disabled, as autocomplete label exists
+  // only on legacy implementation.
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
+  config.features_disabled.push_back(kIOSNewOmniboxImplementation);
+
+  // Disable all autocomplete providers except the history url provider.
+  omnibox::DisableAutocompleteProviders(config, 524279);
+
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
+
+  [self populateHistory];
+
+  // Clears the url and replace it with local url prefix.
+  // TODO(crbug.com/40916974): This should use grey_typeText when fixed.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::DefocusedLocationView()]
+      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
+      performAction:grey_replaceText(@"127")];
+
+  // We expect to have an autocomplete.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
+                      chrome_test_util::OmniboxAutocompleteLabel()];
+}
+
 #pragma mark - Helpers
 
 // Taps the fake omnibox and waits for the real omnibox to be visible.
@@ -1439,6 +1401,15 @@ void FocusFakebox() {
       performAction:grey_tap()];
   [ChromeEarlGrey
       waitForSufficientlyVisibleElementWithMatcher:chrome_test_util::Omnibox()];
+}
+
+// Populate history by visiting the 2 different pages.
+- (void)populateHistory {
+  // Add all the pages to the history.
+  [ChromeEarlGrey loadURL:_URL1];
+  [ChromeEarlGrey waitForWebStateContainingText:kPage1];
+  [ChromeEarlGrey loadURL:_URL2];
+  [ChromeEarlGrey waitForWebStateContainingText:kPage2];
 }
 
 @end

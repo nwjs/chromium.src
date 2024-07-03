@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">пастел шар</translation>
 <translation id="1056898198331236512">Анхааруулга</translation>
 <translation id="1059913517121127803">Скан хийхийг эхлүүлж чадсангүй</translation>
+<translation id="1061864016440983342">Байршилгүйгээр ашиглах</translation>
 <translation id="1062823486781306604"><ph name="COUNT" />-с <ph name="INDEX" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Галт хана илрүүлсэн</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Нэмэлт тохиргоо</translation>
 <translation id="2082932131694554252">Оноосон гарын товч</translation>
 <translation id="2085089206770112532">Дэлгэцийн гэрэлтүүлгийг багасгах</translation>
+<translation id="2086091080968010660">Цагт тулгуурласан өөрчлөлтүүд оновчгүй байж магадгүй. Системийн байршлын хандалтыг тохиргоонд асаана уу.</translation>
 <translation id="2102231663024125441">Текст засах</translation>
 <translation id="2105810540595158374">Төхөөрөмж нь тоглоомын гар байна.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, <ph name="MILESTONE_VERSION" />-р хувилбар</translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN-н дэлгэрэнгүйг засах</translation>
 <translation id="2195732836444333448">Ачаалалтай байна. Удахгүй эргэн ирээрэй.</translation>
 <translation id="2201758491318984023">унадаг дугуй</translation>
-<translation id="2203222757805818543">Одоогийн хуваарийг <ph name="SUNRISE" /> - <ph name="SUNSET" /> болгож тохируулсан. Бараан горимын хуваарийг автоматаар шинэчлэхийн тулд <ph name="BEGIN_LINK" />байршлын хандалтыг асаана уу<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">халуун рашаан</translation>
 <translation id="2203642483788377106">цохио</translation>
 <translation id="2208388655216963643">импрессионист</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Өгөгдмөлийг сэргээх</translation>
 <translation id="2286454467119466181">Энгийн</translation>
 <translation id="2287186687001756809">Боломжтой зураг байхгүй. Зураг нэмэхийн тулд <ph name="LINK" /> руу очно уу</translation>
+<translation id="2294577623958216786">Одоогийн хуваарийг <ph name="SUNRISE" />-<ph name="SUNSET" /> болгож тохируулсан. Нар жаргах, нар мандах хуваарийг автоматаар шинэчлэхийн тулд системийн байршлын хандалтыг асаана уу.</translation>
 <translation id="2305172810646967500">хар</translation>
 <translation id="2307344026739914387">Одоогийн хос түлхүүрийг ашиглах</translation>
 <translation id="2308243864813041101">Шинэчлэх явцыг үргэлжлүүлэхийн тулд <ph name="DEVICE_NAME" />-н USB кабелийг салгана уу</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">элсэн манхан</translation>
 <translation id="2619761439309613843">Өдөр тутам сэргээх</translation>
 <translation id="2620436844016719705">Систем</translation>
+<translation id="2637303424821734920">УНТРААЛТТАЙ - Орон нутгийн цаг агаарыг үзүүлэхийн тулд <ph name="BEGIN_LINK" />системийн байршлын хандалтыг асаана уу<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Нэвтрэх зураг</translation>
 <translation id="2640549051766135490"><ph name="TITLE" /> цомгийг <ph name="DESC" /> сонгосон</translation>
 <translation id="2645380101799517405">Тохиргоо</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Арын дэвсгэр</translation>
 <translation id="3027578600144895987">Камерыг хаах</translation>
 <translation id="3031560714565892478">Төхөөрөмж нь видео камер байна.</translation>
+<translation id="3051968340259309715">Энэ нь системийн үйлчилгээнүүдэд таны байршлыг тодорхойлохын тулд Байршлын нарийвчлалыг ашиглахыг зөвшөөрдөг. Байршлын нарийвчлал нь Wi-Fi, хандалтын цэг, үүрэн холбооны сүлжээний цамхаг, GPS зэрэг утасгүй дохионы талаарх мэдээллийг хурдатгал хэмжигч, гироскоп зэрэг төхөөрөмжийн мэдрэгчийн өгөгдлийн хамтаар төхөөрөмжийн байршлыг тооцоолоход ашигладаг. Та байршлыг Тохиргоо &gt; Нууцлал, аюулгүй байдал &gt; Нууцлалын тохиргоо &gt; Байршлын хандалтад унтраах боломжтой. <ph name="LINK_BEGIN" />Нэмэлт мэдээлэл авах<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />мA</translation>
 <translation id="3056720590588772262">Төгсгөлийн цэг</translation>
 <translation id="3060579846059757016">Тойм</translation>
+<translation id="3061850252076394168">ярихаар сонгохыг идэвхжүүлэх</translation>
 <translation id="3069085583900247081">Туршилт амжилтгүй боллоо</translation>
 <translation id="3078740164268491126">Хүснэгт</translation>
 <translation id="3081652522083185657">цайвар</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Бүх хостыг шийдвэрлэж чадсангүй</translation>
 <translation id="4593212453765072419">Проксиг баталгаажуулах шаардлагатай</translation>
 <translation id="4609350030397390689">Гарны гэрэлтүүлгийг багасгах</translation>
-<translation id="4617553623719764431">Цаг агаар таны байршлыг мэдэхгүй байгаа тул үүнийг үзүүлээгүй. Орон нутгийн цаг агаарыг үзүүлэхийн тулд <ph name="BEGIN_LINK" />Байршлын хандалтыг асаана уу<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="TOTAL_PAGE_NUMBER" />-с <ph name="PRINTED_PAGE_NUMBER" />. Хэвлэх ажлыг цуцлахын тулд enter дээр дарна уу.</translation>
 <translation id="463791356324567266">Скан хийхийг цуцалж байна...</translation>
 <translation id="4646949265910132906">Аюулгүй Wi-Fi холболт</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Ажиллуулах</translation>
 <translation id="4987769320337599931">Галт хана</translation>
 <translation id="4988526792673242964">Хуудас</translation>
+<translation id="4989542687859782284">Боломжгүй</translation>
 <translation id="4999333166442584738">Тайланг нуух</translation>
 <translation id="500920857929044050">Туршилтыг зогсоох</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">гарын гэрэлтүүлэг</translation>
 <translation id="6412715219990689313">Суурилуулсан гар</translation>
 <translation id="6417265370957905582">Google туслах</translation>
+<translation id="6419454453018688975">Системийн байршлын хандалтыг асаах</translation>
 <translation id="6423239382391657905">VPN-г нээх</translation>
-<translation id="6438073885402882007">Энэ нь зөвшөөрөлтэй системийн үйлчилгээнүүдэд таны байршлыг ашиглахыг зөвшөөрдөг. Байршил нь Wi-Fi, хөдөлгөөнт холбооны сүлжээ болон мэдрэгчид зэрэг эх сурвалжийг таны төхөөрөмжийн байршлыг тооцоолоход ашиглаж магадгүй. <ph name="LINK_BEGIN" />Нэмэлт мэдээлэл авах<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Сул (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Бүртгэлийн тохиргоо хэсэгт очих</translation>
 <translation id="6462978824459367242">APN нэмэх товчлуурыг одоо идэвхжүүлсэн</translation>

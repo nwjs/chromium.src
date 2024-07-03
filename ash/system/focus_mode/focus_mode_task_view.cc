@@ -18,6 +18,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/compositor/layer.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/image_button.h"
@@ -35,6 +36,7 @@ namespace {
 
 constexpr int kIconSize = 20;
 constexpr int kTextfieldCornerRadius = 8;
+constexpr float kOfflineStateOpacity = 0.38f;
 constexpr auto kSelectedStateBoxInsets = gfx::Insets::VH(4, 0);
 constexpr auto kSelectedStateTextfieldInsets = gfx::Insets::TLBR(0, 16, 0, 12);
 constexpr auto kUnselectedStateBoxInsets = gfx::Insets::TLBR(4, 8, 4, 16);
@@ -86,6 +88,18 @@ class FocusModeTaskView::TaskTextfield : public SystemTextfield {
     show_selected_state_ = show_selected_state;
   }
 
+  std::u16string GetTooltipText() const { return tooltip_text_; }
+
+  void SetTooltipText(const std::u16string& tooltip_text) {
+    if (tooltip_text_ == tooltip_text) {
+      return;
+    }
+
+    tooltip_text_ = tooltip_text;
+    TooltipTextChanged();
+    OnPropertyChanged(&tooltip_text_, views::kPropertyEffectsNone);
+  }
+
   void UpdateElideBehavior(bool active) {
     GetRenderText()->SetElideBehavior(active ? gfx::NO_ELIDE : gfx::ELIDE_TAIL);
   }
@@ -114,15 +128,18 @@ class FocusModeTaskView::TaskTextfield : public SystemTextfield {
 
   // views::View:
   std::u16string GetTooltipText(const gfx::Point& p) const override {
-    return show_selected_state_ ? GetText() : std::u16string();
+    return tooltip_text_;
   }
 
  private:
   // True if `FocusModeTaskView` has a selected task.
   bool show_selected_state_ = false;
+
+  std::u16string tooltip_text_;
 };
 
 BEGIN_METADATA(FocusModeTaskView, TaskTextfield)
+ADD_PROPERTY_METADATA(std::u16string, TooltipText)
 END_METADATA
 
 //---------------------------------------------------------------------
@@ -190,7 +207,7 @@ class FocusModeTaskView::TaskTextfieldController
 //---------------------------------------------------------------------
 // FocusModeTaskView:
 
-FocusModeTaskView::FocusModeTaskView() {
+FocusModeTaskView::FocusModeTaskView(bool is_network_connected) {
   SetOrientation(views::BoxLayout::Orientation::kVertical);
 
   textfield_container_ = AddChildView(std::make_unique<views::BoxLayoutView>());
@@ -200,11 +217,15 @@ FocusModeTaskView::FocusModeTaskView() {
       views::BoxLayout::Orientation::kHorizontal);
   textfield_container_->SetProperty(views::kBoxLayoutFlexKey,
                                     views::BoxLayoutFlexSpecification());
-  radio_button_ = textfield_container_->AddChildView(
-      std::make_unique<views::ImageButton>(base::BindRepeating(
-          &FocusModeTaskView::OnCompleteTask, base::Unretained(this))));
-  radio_button_->SetTooltipText(l10n_util::GetStringUTF16(
-      IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_VIEW_RADIO_BUTTON));
+  radio_button_ =
+      textfield_container_->AddChildView(std::make_unique<views::ImageButton>(
+          base::BindRepeating(&FocusModeTaskView::OnCompleteTask,
+                              base::Unretained(this), /*update=*/true)));
+  const std::u16string radio_text = l10n_util::GetStringUTF16(
+      IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_VIEW_RADIO_BUTTON);
+  radio_button_->GetViewAccessibility().SetName(radio_text);
+  radio_button_->SetTooltipText(radio_text);
+
   views::FocusRing::Install(radio_button_);
   views::FocusRing::Get(radio_button_)
       ->SetColorId(cros_tokens::kCrosSysFocusRing);
@@ -215,20 +236,31 @@ FocusModeTaskView::FocusModeTaskView() {
   add_task_button_->SetImageModel(
       views::Button::STATE_NORMAL,
       ui::ImageModel::FromVectorIcon(kGlanceablesTasksAddNewTaskIcon,
-                                     cros_tokens::kCrosSysSecondary,
+                                     is_network_connected
+                                         ? cros_tokens::kCrosSysSecondary
+                                         : cros_tokens::kCrosSysDisabled,
                                      kIconSize));
   add_task_button_->SetFocusBehavior(View::FocusBehavior::NEVER);
+  add_task_button_->SetEnabled(is_network_connected);
 
   textfield_ =
       textfield_container_->AddChildView(std::make_unique<TaskTextfield>(
           base::BindRepeating(&FocusModeTaskView::PaintFocusRingAndUpdateStyle,
                               weak_factory_.GetWeakPtr())));
-  textfield_->SetAccessibleName(l10n_util::GetStringUTF16(
+  textfield_->GetViewAccessibility().SetName(l10n_util::GetStringUTF16(
       IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_TEXTFIELD_PLACEHOLDER));
   textfield_->SetBackgroundEnabled(false);
+  textfield_->UpdateBackground();
   textfield_->SetPlaceholderText(l10n_util::GetStringUTF16(
       IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_TEXTFIELD_PLACEHOLDER));
-  textfield_->SetPlaceholderTextColorId(cros_tokens::kCrosSysSecondary);
+  textfield_->SetPlaceholderTextColorId(is_network_connected
+                                            ? cros_tokens::kCrosSysSecondary
+                                            : cros_tokens::kCrosSysDisabled);
+  if (!is_network_connected) {
+    textfield_->SetEnabled(false);
+    textfield_->SetPaintToLayer();
+    textfield_->layer()->SetOpacity(kOfflineStateOpacity);
+  }
   // Shrink the inactive `textfield_` ring so it's not touching the other views
   // when focused.
   views::InstallRoundRectHighlightPathGenerator(
@@ -258,10 +290,13 @@ FocusModeTaskView::FocusModeTaskView() {
   deselect_button_->SetImageModel(
       views::Button::STATE_NORMAL,
       ui::ImageModel::FromVectorIcon(kMediumOrLargeCloseButtonIcon,
-                                     cros_tokens::kCrosSysSecondary,
+                                     is_network_connected
+                                         ? cros_tokens::kCrosSysSecondary
+                                         : cros_tokens::kCrosSysDisabled,
                                      kIconSize));
   deselect_button_->SetTooltipText(l10n_util::GetStringUTF16(
       IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_DESELECT_BUTTON));
+  deselect_button_->SetEnabled(is_network_connected);
   views::FocusRing::Install(deselect_button_);
   views::FocusRing::Get(deselect_button_)
       ->SetColorId(cros_tokens::kCrosSysFocusRing);
@@ -271,14 +306,30 @@ FocusModeTaskView::FocusModeTaskView() {
           &FocusModeTaskView::OnTaskSelected, base::Unretained(this))));
   auto* controller = FocusModeController::Get();
   const bool has_selected_task = controller->HasSelectedTask();
+  const std::string& selected_task_title = controller->selected_task_title();
   if (has_selected_task) {
-    task_title_ = base::UTF8ToUTF16(controller->selected_task_title());
-  } else {
+    // There is a chance that we have a selected task but the title isn't
+    // updated yet, since we do not save that to user prefs.
+    if (!selected_task_title.empty()) {
+      task_title_ = base::UTF8ToUTF16(selected_task_title);
+    }
+
+    if (is_network_connected) {
+      // Fetch the selected task to verify if it is still in the uncompleted
+      // state.
+      controller->tasks_provider().GetTask(
+          controller->selected_task_list_id(), controller->selected_task_id(),
+          base::BindOnce(&FocusModeTaskView::OnTaskFetched,
+                         weak_factory_.GetWeakPtr()));
+    }
+  } else if (is_network_connected) {
     controller->tasks_provider().GetSortedTaskList(base::BindOnce(
         &FocusModeTaskView::OnTasksFetched, weak_factory_.GetWeakPtr()));
   }
 
-  UpdateStyle(/*show_selected_state=*/has_selected_task);
+  UpdateStyle(/*show_selected_state=*/(has_selected_task &&
+                                       !selected_task_title.empty()),
+              /*is_network_connected=*/is_network_connected);
 
   textfield_controller_ =
       std::make_unique<TaskTextfieldController>(textfield_, this);
@@ -308,7 +359,7 @@ void FocusModeTaskView::AddOrUpdateTask(const std::u16string& task_title) {
 }
 
 void FocusModeTaskView::OnTaskSelected(const FocusModeTask& task_entry) {
-  if (task_entry.task_id.empty()) {
+  if (task_entry.task_id.empty() || task_entry.title.empty()) {
     OnClearTask();
     return;
   }
@@ -354,8 +405,19 @@ void FocusModeTaskView::PaintFocusRingAndUpdateStyle() {
   textfield_->UpdateElideBehavior(is_active);
 }
 
-void FocusModeTaskView::OnCompleteTask() {
-  FocusModeController::Get()->CompleteTask();
+void FocusModeTaskView::OnCompleteTask(bool update) {
+  FocusModeController::Get()->CompleteTask(update);
+
+  // Not having a populated `task_title_` means that the UI is not in the
+  // selected state, so we don't need to update the styling and can immediately
+  // clear the task. This can only happen when we initialize the focus panel for
+  // the first time and we have a selected task without a title, since we do not
+  // save that to user prefs.
+  if (task_title_.empty()) {
+    OnClearTask();
+    return;
+  }
+
   radio_button_->SetEnabled(false);
   radio_button_->SetImageModel(
       views::Button::STATE_NORMAL,
@@ -381,7 +443,15 @@ void FocusModeTaskView::OnDeselectButtonPressed() {
 void FocusModeTaskView::OnAddTaskButtonPressed() {
   if (auto* focus_manager = GetFocusManager()) {
     if (textfield_ != focus_manager->GetFocusedView()) {
-      GetFocusManager()->SetFocusedView(textfield_);
+      // When the `add_task_button_` is visible, it means this view isn't in
+      // selected state. When clicking on the `add_task_button_`, if there is no
+      // content for the `textfield_`, we should activate it and the cursor will
+      // be shown on it; if the `textfield_` has some content, it means the user
+      // is selecting the task, we shouldn't give the focus to the `textfield_`.
+      // More info here b/343623327.
+      if (textfield_->GetText().empty()) {
+        GetFocusManager()->SetFocusedView(textfield_);
+      }
     } else {
       // The `textfield_` may be inactive when it is focused, so we should
       // manually activate it in this case.
@@ -396,7 +466,21 @@ void FocusModeTaskView::OnTasksFetched(
   chip_carousel_->SetVisible(!tasks.empty());
 }
 
-void FocusModeTaskView::UpdateStyle(bool show_selected_state) {
+void FocusModeTaskView::OnTaskFetched(const FocusModeTask& task_entry) {
+  // If the selected task could not be found, then an error has occurred.
+  if (task_entry.task_id.empty()) {
+    return;
+  }
+
+  if (task_entry.completed) {
+    OnCompleteTask(/*update=*/false);
+  } else {
+    OnTaskSelected(task_entry);
+  }
+}
+
+void FocusModeTaskView::UpdateStyle(bool show_selected_state,
+                                    bool is_network_connected) {
   textfield_->SetText(task_title_);
   // Unfocus the textfield if a task is selected.
   if (show_selected_state) {
@@ -424,7 +508,7 @@ void FocusModeTaskView::UpdateStyle(bool show_selected_state) {
                                 cros_tokens::kCrosSysInputFieldOnShaded,
                                 kTextfieldCornerRadius));
 
-  radio_button_->SetEnabled(true);
+  radio_button_->SetEnabled(is_network_connected);
   radio_button_->SetVisible(show_selected_state);
   deselect_button_->SetVisible(show_selected_state);
   add_task_button_->SetVisible(!show_selected_state);
@@ -436,10 +520,18 @@ void FocusModeTaskView::UpdateStyle(bool show_selected_state) {
   radio_button_->SetImageModel(
       views::Button::STATE_NORMAL,
       ui::ImageModel::FromVectorIcon(kRadioButtonUncheckedIcon,
-                                     cros_tokens::kCrosSysPrimary, kIconSize));
+                                     is_network_connected
+                                         ? cros_tokens::kCrosSysPrimary
+                                         : cros_tokens::kCrosSysDisabled,
+                                     kIconSize));
 
   textfield_->set_show_selected_state(show_selected_state);
-  textfield_->SetAccessibleName(
+  textfield_->SetTooltipText(
+      is_network_connected
+          ? (show_selected_state ? textfield_->GetText() : std::u16string())
+          : l10n_util::GetStringUTF16(
+                IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_OFFLINE_TOOLTIP));
+  textfield_->GetViewAccessibility().SetName(
       show_selected_state
           ? l10n_util::GetStringFUTF16(
                 IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_TEXTFIELD_SELECTED_ACCESSIBLE_NAME,

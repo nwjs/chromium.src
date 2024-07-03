@@ -7,6 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
+#import "components/segmentation_platform/public/trigger.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_module.h"
 
 @protocol TabResumptionCommands;
@@ -43,17 +44,30 @@ enum TabResumptionItemType {
 // The time when the tab was synced.
 @property(nonatomic, assign) base::Time syncedTime;
 
-// The favicon image of the tab.
+// The favicon image of the tab if any.
 @property(nonatomic, strong) UIImage* faviconImage;
+
+// The favicon image of the tab if any.
+@property(nonatomic, strong) UIImage* salientImage;
 
 // Command handler for user actions.
 @property(nonatomic, weak) id<TabResumptionCommands> commandHandler;
+
+// The URL key used to log metrics when displaying or activating the item.
+@property(nonatomic, assign) std::string URLKey;
+
+// An ID used to collect metrics associated with the triggering visit for model
+// training purposes.
+@property(nonatomic, assign) segmentation_platform::TrainingRequestId requestID;
 
 // The Item's designated initializer.
 - (instancetype)initWithItemType:(TabResumptionItemType)itemType
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
+
+// Replaces all `self` properties by `item` ones.
+- (void)reconfigureWithItem:(TabResumptionItem*)item;
 
 @end
 

@@ -236,14 +236,14 @@ extern const char kChromeUIUntrustedHatsURL[];
 extern const char kChromeUIUntrustedImageEditorURL[];
 extern const char kChromeUIUntrustedPrintURL[];
 extern const char kChromeUIUntrustedThemeURL[];
+extern const char kChromeUIUntrustedDataSharingHost[];
+extern const char kChromeUIUntrustedDataSharingURL[];
 extern const char kChromeUIUsbInternalsHost[];
 extern const char kChromeUIUserActionsHost[];
 extern const char kChromeUIVersionHost[];
 extern const char kChromeUIVersionURL[];
 extern const char kChromeUIWelcomeHost[];
 extern const char kChromeUIWelcomeURL[];
-extern const char kChromeUIWhatsNewHost[];
-extern const char kChromeUIWhatsNewURL[];
 extern const char kChromeUIWebuiGalleryHost[];
 
 #if BUILDFLAG(IS_WIN)
@@ -377,6 +377,7 @@ extern const char kChromeUIPrintManagementUrl[];
 extern const char kChromeUIPowerHost[];
 extern const char kChromeUIPowerUrl[];
 extern const char kChromeUIRemoteManagementCurtainHost[];
+extern const char kChromeUISanitizeAppURL[];
 extern const char kChromeUIScanningAppURL[];
 extern const char kChromeUISetTimeHost[];
 extern const char kChromeUISetTimeURL[];
@@ -456,6 +457,8 @@ extern const char kChromeUIDiscardsURL[];
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 extern const char kChromeUIWebAppSettingsURL[];
 extern const char kChromeUIWebAppSettingsHost[];
+extern const char kChromeUIWhatsNewHost[];
+extern const char kChromeUIWhatsNewURL[];
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)

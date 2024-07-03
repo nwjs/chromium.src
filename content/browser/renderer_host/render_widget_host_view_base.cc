@@ -14,6 +14,7 @@
 #include "base/observer_list.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
+#include "components/input/event_with_latency_info.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/surfaces/subtree_capture_id.h"
 #include "components/viz/host/host_frame_sink_manager.h"
@@ -27,14 +28,13 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
-#include "content/browser/renderer_host/render_widget_host_input_event_router.h"
 #include "content/browser/renderer_host/render_widget_host_owner_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/browser/renderer_host/scoped_view_transition_resources.h"
 #include "content/browser/renderer_host/text_input_manager.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
 #include "content/common/content_switches_internal.h"
-#include "content/common/input/event_with_latency_info.h"
+#include "content/common/input/render_widget_host_input_event_router.h"
 #include "content/common/input/render_widget_host_view_input_observer.h"
 #include "content/public/common/page_visibility_state.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom.h"
@@ -145,7 +145,8 @@ void RenderWidgetHostViewBase::SelectionBoundsChanged(
         this, anchor_rect, anchor_dir, focus_rect, focus_dir, bounding_box,
         is_anchor_first);
 #else
-  NOTREACHED() << "Selection bounds should be routed through the compositor.";
+  NOTREACHED_IN_MIGRATION()
+      << "Selection bounds should be routed through the compositor.";
 #endif
 }
 
@@ -202,7 +203,7 @@ void RenderWidgetHostViewBase::CopyMainAndPopupFromSurface(
     return;
 
 #if BUILDFLAG(IS_ANDROID)
-  NOTREACHED()
+  NOTREACHED_IN_MIGRATION()
       << "RenderWidgetHostViewAndroid::CopyFromSurface calls "
          "DelegatedFrameHostAndroid::CopyFromCompositingSurface directly, "
          "and popups are not supported.";
@@ -462,18 +463,18 @@ void RenderWidgetHostViewBase::ForwardTouchpadZoomEventIfNecessary(
       }
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
 bool RenderWidgetHostViewBase::HasFallbackSurface() const {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return false;
 }
 
 viz::SurfaceId RenderWidgetHostViewBase::GetFallbackSurfaceIdForTesting()
     const {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return viz::SurfaceId();
 }
 
@@ -509,9 +510,9 @@ bool RenderWidgetHostViewBase::RequestRepaintForTesting() {
 }
 
 void RenderWidgetHostViewBase::ProcessAckedTouchEvent(
-    const TouchEventWithLatencyInfo& touch,
+    const input::TouchEventWithLatencyInfo& touch,
     blink::mojom::InputEventResultState ack_result) {
-  DUMP_WILL_BE_NOTREACHED_NORETURN();
+  DUMP_WILL_BE_NOTREACHED();
 }
 
 // Send system cursor size to the renderer via UpdateScreenInfo().
@@ -646,6 +647,8 @@ display::ScreenInfo RenderWidgetHostViewBase::GetScreenInfo() const {
 display::ScreenInfos RenderWidgetHostViewBase::GetScreenInfos() const {
   return screen_infos_;
 }
+
+void RenderWidgetHostViewBase::ResetGestureDetection() {}
 
 float RenderWidgetHostViewBase::GetDeviceScaleFactor() const {
   return screen_infos_.current().device_scale_factor;
@@ -782,7 +785,8 @@ void RenderWidgetHostViewBase::ProcessTouchEvent(
   }
 
   PreProcessTouchEvent(event);
-  host()->ForwardTouchEventWithLatencyInfo(event, latency);
+  host()->GetRenderInputRouter()->ForwardTouchEventWithLatencyInfo(event,
+                                                                   latency);
 }
 
 void RenderWidgetHostViewBase::ProcessGestureEvent(
@@ -813,7 +817,7 @@ bool RenderWidgetHostViewBase::TransformPointToCoordSpaceForView(
     const gfx::PointF& point,
     RenderWidgetHostViewInput* target_view,
     gfx::PointF* transformed_point) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return true;
 }
 

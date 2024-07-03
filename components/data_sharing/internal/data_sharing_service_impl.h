@@ -11,6 +11,7 @@
 #include "components/data_sharing/internal/collaboration_group_sync_bridge.h"
 #include "components/data_sharing/public/data_sharing_sdk_delegate.h"
 #include "components/data_sharing/public/data_sharing_service.h"
+#include "components/data_sharing/public/data_sharing_ui_delegate.h"
 #include "components/sync/model/model_type_controller_delegate.h"
 #include "components/sync/model/model_type_store.h"
 #include "components/sync/model/model_type_sync_bridge.h"
@@ -27,7 +28,9 @@ class IdentityManager;
 namespace data_sharing_pb {
 
 class CreateGroupResult;
+class LookupGaiaIdByEmailResult;
 class ReadGroupsResult;
+class LookupGaiaIdByEmailResult;
 
 }  // namespace data_sharing_pb
 
@@ -45,7 +48,8 @@ class DataSharingServiceImpl : public DataSharingService,
       signin::IdentityManager* identity_manager,
       syncer::OnceModelTypeStoreFactory model_type_store_factory,
       version_info::Channel channel,
-      std::unique_ptr<DataSharingSDKDelegate> sdk_delegate);
+      std::unique_ptr<DataSharingSDKDelegate> sdk_delegate,
+      std::unique_ptr<DataSharingUIDelegate> ui_delegate);
   ~DataSharingServiceImpl() override;
 
   // Disallow copy/assign.
@@ -132,6 +136,7 @@ class DataSharingServiceImpl : public DataSharingService,
       collaboration_group_sync_bridge_;
   // Nullable.
   std::unique_ptr<DataSharingSDKDelegate> sdk_delegate_;
+  std::unique_ptr<DataSharingUIDelegate> ui_delegate_;
 
   base::ObserverList<DataSharingService::Observer> observers_;
 

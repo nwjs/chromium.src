@@ -30,6 +30,9 @@
 #include "base/feature_list.h"
 #include "cc/base/features.h"
 #include "cc/layers/texture_layer.h"
+#include "cc/layers/texture_layer_impl.h"
+#include "components/viz/common/features.h"
+#include "components/viz/common/resources/transferable_resource.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/client/context_support.h"
 #include "gpu/command_buffer/client/raster_interface.h"
@@ -98,14 +101,6 @@ static void HibernateWrapper(base::WeakPtr<Canvas2DLayerBridge> bridge,
     local_logger.ReportHibernationEvent(
         Canvas2DLayerBridge::
             kHibernationAbortedDueToDestructionWhileHibernatePending);
-  }
-}
-
-static void LoseContextInBackgroundWrapper(
-    base::WeakPtr<Canvas2DLayerBridge> bridge,
-    base::TimeTicks /*idleDeadline*/) {
-  if (bridge) {
-    bridge->LoseContext();
   }
 }
 
@@ -191,28 +186,6 @@ void Canvas2DLayerBridge::Hibernate() {
   }
 }
 
-void Canvas2DLayerBridge::LoseContext() {
-  DCHECK(!lose_context_in_background_);
-  DCHECK(lose_context_in_background_scheduled_);
-
-  lose_context_in_background_scheduled_ = false;
-
-  // If canvas becomes visible again or canvas already lost its resource,
-  // return here.
-  if (!resource_host_ || !resource_host_->ResourceProvider() ||
-      resource_host_->IsPageVisible() || !resource_host_->IsResourceValid() ||
-      resource_host_->context_lost()) {
-    return;
-  }
-
-  // Frees canvas resource.
-  lose_context_in_background_ = true;
-  ResetResourceProvider();
-
-  resource_host_->ClearLayerTexture();
-  resource_host_->SetNeedsCompositingUpdate();
-}
-
 CanvasResourceProvider* Canvas2DLayerBridge::ResourceProvider() const {
   return resource_host_ ? resource_host_->ResourceProvider() : nullptr;
 }
@@ -243,8 +216,7 @@ CanvasResourceProvider* Canvas2DLayerBridge::GetOrCreateResourceProvider() {
   // attempts of Restore(), the layer would not exist, therefore, it will not
   // fall through this clause to try Restore() again
   if (resource_host_->CcLayer() &&
-      adjusted_hint == RasterModeHint::kPreferGPU &&
-      !lose_context_in_background_ && !IsHibernating()) {
+      adjusted_hint == RasterModeHint::kPreferGPU && !IsHibernating()) {
     return nullptr;
   }
 
@@ -254,11 +226,6 @@ CanvasResourceProvider* Canvas2DLayerBridge::GetOrCreateResourceProvider() {
       resource_host_->GetOrCreateCanvasResourceProviderImpl(adjusted_hint);
   if (!resource_provider || !resource_provider->IsValid())
     return nullptr;
-
-  // After the page becomes visible and successfully restored the canvas
-  // resource provider, set |lose_context_in_background_| to false.
-  if (lose_context_in_background_)
-    lose_context_in_background_ = false;
 
   if (!IsHibernating())
     return resource_provider;
@@ -303,20 +270,9 @@ void Canvas2DLayerBridge::PageVisibilityChanged() {
     }
   }
 
-  if (!lose_context_in_background_ && !lose_context_in_background_scheduled_ &&
-      ResourceProvider() && !resource_host_->context_lost() &&
-      !page_is_visible &&
-      base::FeatureList::IsEnabled(
-          ::features::kCanvasContextLostInBackground)) {
-    lose_context_in_background_scheduled_ = true;
-    ThreadScheduler::Current()->PostIdleTask(
-        FROM_HERE, WTF::BindOnce(&LoseContextInBackgroundWrapper,
-                                 weak_ptr_factory_.GetWeakPtr()));
-  } else if (IsHibernationEnabled() && ResourceProvider() &&
-             resource_host_->GetRasterMode() == RasterMode::kGPU &&
-             !page_is_visible && !hibernation_scheduled_ &&
-             !base::FeatureList::IsEnabled(
-                 ::features::kCanvasContextLostInBackground)) {
+  if (IsHibernationEnabled() && ResourceProvider() &&
+      resource_host_->GetRasterMode() == RasterMode::kGPU && !page_is_visible &&
+      !hibernation_scheduled_) {
     resource_host_->ClearLayerTexture();
     logger_->ReportHibernationEvent(kHibernationScheduled);
     hibernation_scheduled_ = true;
@@ -327,8 +283,7 @@ void Canvas2DLayerBridge::PageVisibilityChanged() {
 
   // The impl tree may have dropped the transferable resource for this canvas
   // while it wasn't visible. Make sure that it gets pushed there again, now
-  // that we've visible. See TextureLayerImpl::SetInInvisibleLayerTree() for
-  // details.
+  // that we've visible.
   //
   // This is done all the time, but it is especially important when canvas
   // hibernation is disabled. In this case, when the impl-side active tree
@@ -343,12 +298,14 @@ void Canvas2DLayerBridge::PageVisibilityChanged() {
   // This makes sure that we do push properties. It is a not needed when canvas
   // hibernation is enabled (since the resource will have changed, it will be
   // pushed), but we do it anyway, since these interactions are subtle.
-  if (page_is_visible && base::FeatureList::IsEnabled(
-                             ::features::kClearCanvasResourcesInBackground)) {
+  bool resource_may_have_been_dropped =
+      cc::TextureLayerImpl::MayEvictResourceInBackground(
+          viz::TransferableResource::ResourceSource::kCanvas);
+  if (page_is_visible && resource_may_have_been_dropped) {
     resource_host_->SetNeedsPushProperties();
   }
 
-  if (page_is_visible && (IsHibernating() || lose_context_in_background_)) {
+  if (page_is_visible && IsHibernating()) {
     GetOrCreateResourceProvider();  // Rude awakening
   }
 }

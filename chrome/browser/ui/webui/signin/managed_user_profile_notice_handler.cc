@@ -82,7 +82,8 @@ ManagedUserProfileNoticeHandler::ManagedUserProfileNoticeHandler(
     bool profile_creation_required_by_policy,
     bool show_link_data_option,
     const AccountInfo& account_info,
-    signin::SigninChoiceCallback proceed_callback)
+    signin::SigninChoiceCallback process_user_choice_callback,
+    base::OnceClosure done_callback)
     : browser_(browser),
       type_(type),
       profile_creation_required_by_policy_(profile_creation_required_by_policy),
@@ -97,8 +98,10 @@ ManagedUserProfileNoticeHandler::ManagedUserProfileNoticeHandler(
               ? std::string()
               : gaia::ExtractDomainName(account_info.email)),
       account_id_(account_info.account_id),
-      proceed_callback_(std::move(proceed_callback)) {
-  DCHECK(proceed_callback_);
+      process_user_choice_callback_(std::move(process_user_choice_callback)),
+      done_callback_(std::move(done_callback)) {
+  DCHECK(process_user_choice_callback_);
+  DCHECK(done_callback_);
   DCHECK(
       browser_ ||
       type_ !=
@@ -195,18 +198,25 @@ void ManagedUserProfileNoticeHandler::HandleInitializedWithSize(
 void ManagedUserProfileNoticeHandler::HandleProceed(
     const base::Value::List& args) {
   CHECK_EQ(1u, args.size());
-  if (proceed_callback_) {
+  if (process_user_choice_callback_) {
     bool use_existing_profile = args[0].GetIfBool().value_or(false);
-    std::move(proceed_callback_)
+    std::move(process_user_choice_callback_)
         .Run(use_existing_profile ? signin::SIGNIN_CHOICE_CONTINUE
                                   : signin::SIGNIN_CHOICE_NEW_PROFILE);
+  }
+  if (done_callback_) {
+    std::move(done_callback_).Run();
   }
 }
 
 void ManagedUserProfileNoticeHandler::HandleCancel(
     const base::Value::List& args) {
-  if (proceed_callback_)
-    std::move(proceed_callback_).Run(signin::SIGNIN_CHOICE_CANCEL);
+  if (process_user_choice_callback_) {
+    std::move(process_user_choice_callback_).Run(signin::SIGNIN_CHOICE_CANCEL);
+  }
+  if (done_callback_) {
+    std::move(done_callback_).Run();
+  }
 }
 
 void ManagedUserProfileNoticeHandler::UpdateProfileInfo(
@@ -312,12 +322,11 @@ base::Value::Dict ManagedUserProfileNoticeHandler::GetProfileInfoValue() {
       dict.Set("proceedLabel", l10n_util::GetStringUTF8(IDS_DONE));
       break;
     case ManagedUserProfileNoticeUI::ScreenType::kEnterpriseOIDC:
-      title = l10n_util::GetStringUTF8(
-          IDS_ENTERPRISE_WELCOME_PROFILE_REQUIRED_TITLE);
+      title =
+          l10n_util::GetStringUTF8(IDS_ENTERPRISE_WELCOME_PROFILE_SETUP_TITLE);
       dict.Set("showEnterpriseBadge", true);
-      subtitle = l10n_util::GetStringFUTF8(
-          IDS_ENTERPRISE_PROFILE_WELCOME_PROFILE_SEPARATION_DEVICE_MANAGED,
-          email_);
+      subtitle = l10n_util::GetStringUTF8(
+          IDS_ENTERPRISE_PROFILE_WELCOME_PROFILE_SEPARATION_ACCOUNT_MANAGED);
       enterprise_info = l10n_util::GetStringUTF8(
           IDS_ENTERPRISE_PROFILE_WELCOME_MANAGED_DESCRIPTION_WITH_SYNC);
       dict.Set("proceedLabel",
@@ -412,6 +421,8 @@ ManagedUserProfileNoticeHandler::GetTypeForTesting() {
 
 void ManagedUserProfileNoticeHandler::CallProceedCallbackForTesting(
     signin::SigninChoice choice) {
-  if (proceed_callback_)
-    std::move(proceed_callback_).Run(choice);
+  auto done_callback = std::move(done_callback_);
+  if (process_user_choice_callback_) {
+    std::move(process_user_choice_callback_).Run(choice);
+  }
 }

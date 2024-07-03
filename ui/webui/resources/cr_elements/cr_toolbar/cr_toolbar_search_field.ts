@@ -73,16 +73,19 @@ export class CrToolbarSearchFieldElement extends
       },
 
       iconOverride: {type: String},
+
+      inputAriaDescription: {type: String},
     };
   }
 
-  narrow: boolean;
+  narrow: boolean = false;
   showingSearch: boolean = false;
   disabled: boolean = false;
   override autofocus: boolean = false;
-  spinnerActive: boolean;
+  spinnerActive: boolean = false;
   private searchFocused_: boolean = false;
   iconOverride?: string;
+  inputAriaDescription: string = '';
 
   override firstUpdated() {
     this.addEventListener('click', e => this.showSearch_(e));

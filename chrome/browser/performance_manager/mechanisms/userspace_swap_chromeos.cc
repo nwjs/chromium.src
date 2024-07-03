@@ -89,6 +89,7 @@ void InitializeProcessNodeOnGraph(int render_process_host_id,
     if (proc->GetRenderProcessHostId().GetUnsafeValue() ==
         render_process_host_id) {
       process_node = proc;
+      break;
     }
   }
 

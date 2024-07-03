@@ -69,10 +69,6 @@ class CORE_EXPORT HTMLVideoElement final
 
   gfx::Size videoVisibleSize() const;
 
-  bool IsDefaultIntrinsicSize() const {
-    return is_default_overridden_intrinsic_size_;
-  }
-
   // Fullscreen
   void webkitEnterFullscreen();
   void webkitExitFullscreen();
@@ -119,7 +115,7 @@ class CORE_EXPORT HTMLVideoElement final
       FlushReason,
       SourceImageStatus*,
       const gfx::SizeF&,
-      const AlphaDisposition alpha_disposition = kPremultiplyAlpha) override;
+      const AlphaDisposition alpha_disposition) override;
   bool IsVideoElement() const override { return true; }
   bool WouldTaintOrigin() const override;
   gfx::SizeF ElementSize(const gfx::SizeF&,
@@ -214,6 +210,8 @@ class CORE_EXPORT HTMLVideoElement final
   // interface, fully implemented in the parent class HTMLMediaElement.
   void RequestEnterPictureInPicture() final;
   void RequestMediaRemoting() final;
+  void RequestVisibility(
+      HTMLMediaElement::RequestVisibilityCallback request_visibility_cb) final;
 
   void DidMoveToNewDocument(Document& old_document) override;
 
@@ -259,8 +257,6 @@ class CORE_EXPORT HTMLVideoElement final
   // to display type and other UI features. This does not mean the DOM element
   // is fullscreen.
   bool is_effectively_fullscreen_ : 1;
-
-  bool is_default_overridden_intrinsic_size_ : 1;
 
   bool video_has_played_ : 1;
 

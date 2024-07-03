@@ -960,9 +960,10 @@ class ThirdPartyCookieDeprecationObserverMechanismBrowserTest
           browser()->profile());
       auto request_origin = url::Origin::Create(third_party_url);
       auto partition_origin = url::Origin::Create(first_party_url);
-      service->Update3pcdTrialSettingsForTesting(
+      service->Update3pcdTrialSettingsForTesting(OriginTrialStatusChangeDetails(
           request_origin, net::SchemefulSite(partition_origin).Serialize(),
-          /*match_subdomains=*/true, /*enabled=*/true);
+          /*match_subdomains=*/true, /*enabled=*/true,
+          /*source_id=*/std::nullopt));
     }
 
     auto tpcd_metadata_helper = [&](const std::string& source) {
@@ -1361,10 +1362,11 @@ class ThirdPartyCookieDeprecationObserverCookieReadBrowserTest
     CookieSettingsFactory::GetForProfile(browser()->profile())
         ->SetTemporaryCookieGrantForHeuristic(third_party_url, first_party_url,
                                               base::Seconds(60));
-    EXPECT_EQ(CookieSettingsFactory::GetForProfile(browser()->profile())
-                  ->GetCookieSetting(third_party_url, first_party_url,
-                                     net::CookieSettingOverrides()),
-              ContentSetting::CONTENT_SETTING_ALLOW);
+    EXPECT_EQ(
+        CookieSettingsFactory::GetForProfile(browser()->profile())
+            ->GetCookieSetting(third_party_url, net::SiteForCookies(),
+                               first_party_url, net::CookieSettingOverrides()),
+        ContentSetting::CONTENT_SETTING_ALLOW);
   }
 };
 

@@ -19,24 +19,25 @@ class WebContents;
 
 namespace tab_groups {
 
-class SavedTabGroupModel;
+class SavedTabGroupKeyedService;
 
 class SavedTabGroupWebContentsListener : public content::WebContentsObserver,
                                          public favicon::FaviconDriverObserver {
  public:
   SavedTabGroupWebContentsListener(content::WebContents* web_contents,
                                    base::Token token,
-                                   SavedTabGroupModel* model);
+                                   SavedTabGroupKeyedService* service);
   SavedTabGroupWebContentsListener(content::WebContents* web_contents,
                                    content::NavigationHandle* navigation_handle,
                                    base::Token token,
-                                   SavedTabGroupModel* model);
+                                   SavedTabGroupKeyedService* service);
   ~SavedTabGroupWebContentsListener() override;
 
   // content::WebContentsObserver
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
   void TitleWasSet(content::NavigationEntry* entry) override;
+  void DidGetUserInteraction(const blink::WebInputEvent& event) override;
 
   // favicon::FaviconDriverObserver
   void OnFaviconUpdated(
@@ -52,11 +53,19 @@ class SavedTabGroupWebContentsListener : public content::WebContentsObserver,
   content::WebContents* web_contents() const { return web_contents_; }
 
  private:
+  // Creates the tab state for the current tab. Once this completes, this tab
+  // will be restricted on certain activities.
+  void SetTabState();
+
+  // Removes the tab state for the current tab. Once this completes, this tab
+  // will be treated like a normal tab and certain activities will be permitted.
+  void ResetTabState();
+
   const base::Token token_;
   const raw_ptr<content::WebContents> web_contents_;
   // Used to update the favicon for this tab.
   const raw_ptr<favicon::FaviconDriver> favicon_driver_;
-  const raw_ptr<SavedTabGroupModel> model_;
+  const raw_ptr<SavedTabGroupKeyedService> service_;
 
   // The NavigationHandle that resulted from the last sync update. Ignored by
   // `DidFinishNavigation` to prevent synclones.

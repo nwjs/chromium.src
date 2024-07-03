@@ -16,8 +16,6 @@
 #include "android_webview/browser/network_service/aw_web_resource_request.h"
 #include "android_webview/browser/safe_browsing/aw_safe_browsing_allowlist_manager.h"
 #include "android_webview/browser/safe_browsing/aw_safe_browsing_ui_manager.h"
-#include "android_webview/browser_jni_headers/AwSafeBrowsingConfigHelper_jni.h"
-#include "android_webview/browser_jni_headers/AwSafeBrowsingSafeModeAction_jni.h"
 #include "base/android/jni_android.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -36,6 +34,10 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "ui/base/page_transition_types.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "android_webview/browser_jni_headers/AwSafeBrowsingConfigHelper_jni.h"
+#include "android_webview/browser_jni_headers/AwSafeBrowsingSafeModeAction_jni.h"
 
 namespace android_webview {
 
@@ -96,7 +98,7 @@ void AwUrlCheckerDelegateImpl::
     StartObservingInteractionsForDelayedBlockingPageHelper(
         const security_interstitials::UnsafeResource& resource,
         bool is_main_frame) {
-  NOTREACHED() << "Delayed warnings not implemented for WebView";
+  NOTREACHED_IN_MIGRATION() << "Delayed warnings not implemented for WebView";
 }
 
 bool AwUrlCheckerDelegateImpl::IsUrlAllowlisted(const GURL& url) {
@@ -274,7 +276,7 @@ void AwUrlCheckerDelegateImpl::DoApplicationResponse(
       proceed = false;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   if (!proceed) {

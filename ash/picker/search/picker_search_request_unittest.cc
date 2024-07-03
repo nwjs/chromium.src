@@ -684,71 +684,6 @@ TEST_F(PickerSearchRequestTest, DoesNotTruncateResultsFromDriveOnlySearch) {
        ash::PickerSearchResult::Text(u"4.jpg")});
 }
 
-TEST_F(PickerSearchRequestTest, SendsEmptyDriveResultsOnTimeout) {
-  MockSearchResultsCallback search_results_callback;
-  EXPECT_CALL(search_results_callback, Call).Times(AnyNumber());
-  EXPECT_CALL(search_results_callback,
-              Call(PickerSearchSource::kDrive, IsEmpty(),
-                   /*has_more_results=*/false))
-      .Times(1);
-
-  PickerSearchRequest request(
-      u"cat", std::nullopt,
-      base::BindRepeating(&MockSearchResultsCallback::Call,
-                          base::Unretained(&search_results_callback)),
-      &client(), &emoji_search(), kAllCategories);
-  task_environment().FastForwardBy(PickerSearchRequest::kDriveSearchTimeout);
-}
-
-TEST_F(PickerSearchRequestTest, IgnoresDriveResultsAfterTimeout) {
-  MockSearchResultsCallback search_results_callback;
-  EXPECT_CALL(search_results_callback, Call).Times(AnyNumber());
-  EXPECT_CALL(search_results_callback,
-              Call(PickerSearchSource::kDrive, IsEmpty(),
-                   /*has_more_results=*/false))
-      .Times(1);
-  EXPECT_CALL(search_results_callback,
-              Call(PickerSearchSource::kDrive, Not(IsEmpty()), _))
-      .Times(0);
-
-  PickerSearchRequest request(
-      u"cat", std::nullopt,
-      base::BindRepeating(&MockSearchResultsCallback::Call,
-                          base::Unretained(&search_results_callback)),
-      &client(), &emoji_search(), kAllCategories);
-  task_environment().FastForwardBy(PickerSearchRequest::kDriveSearchTimeout);
-  client().cros_search_callback().Run(
-      ash::AppListSearchResultType::kDriveSearch,
-      {ash::PickerSearchResult::Text(u"1.jpg")});
-}
-
-TEST_F(PickerSearchRequestTest, CancelsTimeoutTimerOnReceivingDriveResults) {
-  MockSearchResultsCallback search_results_callback;
-  EXPECT_CALL(search_results_callback, Call).Times(AnyNumber());
-  EXPECT_CALL(search_results_callback,
-              Call(PickerSearchSource::kDrive,
-                   ElementsAre(Property(
-                       "data", &PickerSearchResult::data,
-                       VariantWith<PickerSearchResult::TextData>(Field(
-                           "text", &PickerSearchResult::TextData::primary_text,
-                           u"1.jpg")))),
-                   /*has_more_results=*/false))
-      .Times(1);
-  EXPECT_CALL(search_results_callback,
-              Call(PickerSearchSource::kDrive, IsEmpty(), _))
-      .Times(0);
-
-  PickerSearchRequest request(
-      u"cat", std::nullopt,
-      base::BindRepeating(&MockSearchResultsCallback::Call,
-                          base::Unretained(&search_results_callback)),
-      &client(), &emoji_search(), kAllCategories);
-  client().cros_search_callback().Run(
-      ash::AppListSearchResultType::kDriveSearch,
-      {ash::PickerSearchResult::Text(u"1.jpg")});
-  task_environment().FastForwardBy(PickerSearchRequest::kDriveSearchTimeout);
-}
-
 TEST_F(PickerSearchRequestTest, RecordsDriveMetrics) {
   base::HistogramTester histogram;
   NiceMock<MockSearchResultsCallback> search_results_callback;
@@ -1037,14 +972,7 @@ TEST_F(PickerSearchRequestTest, PublishesDateResultsWhenDateCategorySelected) {
       &client(), &emoji_search(), kAllCategories);
 }
 
-// TODO: crbug.com/40240570 - Re-enable once MSan stops failing on Rust-side
-// allocations.
-#if defined(MEMORY_SANITIZER)
-#define MAYBE_PublishesMathResultsOnlyOnce DISABLED_PublishesMathResultsOnlyOnce
-#else
-#define MAYBE_PublishesMathResultsOnlyOnce PublishesMathResultsOnlyOnce
-#endif
-TEST_F(PickerSearchRequestTest, MAYBE_PublishesMathResultsOnlyOnce) {
+TEST_F(PickerSearchRequestTest, PublishesMathResultsOnlyOnce) {
   MockSearchResultsCallback search_results_callback;
   EXPECT_CALL(search_results_callback, Call).Times(AnyNumber());
   EXPECT_CALL(search_results_callback,
@@ -1058,14 +986,7 @@ TEST_F(PickerSearchRequestTest, MAYBE_PublishesMathResultsOnlyOnce) {
       &client(), &emoji_search(), kAllCategories);
 }
 
-// TODO: crbug.com/40240570 - Re-enable once MSan stops failing on Rust-side
-// allocations.
-#if defined(MEMORY_SANITIZER)
-#define MAYBE_RecordsMathMetricsOnlyOnce DISABLED_RecordsMathMetricsOnlyOnce
-#else
-#define MAYBE_RecordsMathMetricsOnlyOnce RecordsMathMetricsOnlyOnce
-#endif
-TEST_F(PickerSearchRequestTest, MAYBE_RecordsMathMetricsOnlyOnce) {
+TEST_F(PickerSearchRequestTest, RecordsMathMetricsOnlyOnce) {
   base::HistogramTester histogram;
   MockSearchResultsCallback search_results_callback;
   EXPECT_CALL(search_results_callback, Call).Times(AnyNumber());
@@ -1084,17 +1005,7 @@ TEST_F(PickerSearchRequestTest, MAYBE_RecordsMathMetricsOnlyOnce) {
   histogram.ExpectTotalCount("Ash.Picker.Search.MathProvider.QueryTime", 1);
 }
 
-// TODO: crbug.com/40240570 - Re-enable once MSan stops failing on Rust-side
-// allocations.
-#if defined(MEMORY_SANITIZER)
-#define MAYBE_PublishesMathResultsWhenMathCategorySelected \
-  DISABLED_PublishesMathResultsWhenMathCategorySelected
-#else
-#define MAYBE_PublishesMathResultsWhenMathCategorySelected \
-  PublishesMathResultsWhenMathCategorySelected
-#endif
-TEST_F(PickerSearchRequestTest,
-       MAYBE_PublishesMathResultsWhenMathCategorySelected) {
+TEST_F(PickerSearchRequestTest, PublishesMathResultsWhenMathCategorySelected) {
   MockSearchResultsCallback search_results_callback;
   EXPECT_CALL(search_results_callback, Call).Times(AnyNumber());
   EXPECT_CALL(search_results_callback,

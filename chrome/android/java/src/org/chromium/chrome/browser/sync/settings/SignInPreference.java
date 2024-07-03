@@ -71,6 +71,7 @@ public class SignInPreference extends Preference
     public SignInPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
         setLayoutResource(R.layout.account_management_account_row);
+        setViewId(R.id.account_management_account_row);
         mIsShowingSigninPromo = false;
     }
 
@@ -154,10 +155,17 @@ public class SignInPreference extends Preference
     }
 
     private void setupSigninDisabledByPolicy() {
-        setTitle(R.string.sync_promo_turn_on_sync);
-        setSummary(R.string.sign_in_to_chrome_disabled_summary);
         setFragment(null);
-        setIcon(ManagedPreferencesUtils.getManagedByEnterpriseIconId());
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            setTitle(R.string.signin_settings_title);
+            setSummary(R.string.settings_signin_disabled_by_administrator);
+            setIcon(R.drawable.ic_business_small_disabled_with_bg);
+        } else {
+            setTitle(R.string.sync_promo_turn_on_sync);
+            setSummary(R.string.sign_in_to_chrome_disabled_summary);
+            setIcon(ManagedPreferencesUtils.getManagedByEnterpriseIconId());
+        }
         setViewEnabledAndShowAlertIcon(/* enabled= */ false, /* alertIconVisible= */ false);
         setOnPreferenceClickListener(
                 pref -> {
@@ -182,7 +190,14 @@ public class SignInPreference extends Preference
         }
 
         setFragment(null);
-        setIcon(AppCompatResources.getDrawable(getContext(), R.drawable.logo_avatar_anonymous));
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            setIcon(
+                    AppCompatResources.getDrawable(
+                            getContext(), R.drawable.account_circle_with_bg));
+        } else {
+            setIcon(AppCompatResources.getDrawable(getContext(), R.drawable.logo_avatar_anonymous));
+        }
         setViewEnabledAndShowAlertIcon(/* enabled= */ true, /* alertIconVisible= */ false);
         OnPreferenceClickListener clickListener =
                 pref -> {
@@ -190,7 +205,7 @@ public class SignInPreference extends Preference
                             ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
                         AccountPickerBottomSheetStrings bottomSheetStrings =
                                 new AccountPickerBottomSheetStrings.Builder(
-                                                R.string.sign_in_to_chrome)
+                                                R.string.signin_account_picker_bottom_sheet_title)
                                         .build();
                         SigninAndHistoryOptInActivityLauncherImpl.get()
                                 .launchActivityIfAllowed(
@@ -198,7 +213,7 @@ public class SignInPreference extends Preference
                                         mProfile,
                                         bottomSheetStrings,
                                         SigninAndHistoryOptInCoordinator.NoAccountSigninMode
-                                                .ADD_ACCOUNT,
+                                                .BOTTOM_SHEET,
                                         SigninAndHistoryOptInCoordinator.WithAccountSigninMode
                                                 .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                                         SigninAndHistoryOptInCoordinator.HistoryOptInMode.OPTIONAL,

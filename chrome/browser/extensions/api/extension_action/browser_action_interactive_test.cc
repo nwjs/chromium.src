@@ -308,7 +308,14 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, MAYBE_TestOpenPopup) {
 }
 
 // Tests opening a popup in an incognito window.
-IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, TestOpenPopupIncognito) {
+// TODO(crbug.com/345091943): Extremely flaky on Mac release builds.
+#if BUILDFLAG(IS_MAC) && defined(NDEBUG)
+#define MAYBE_TestOpenPopupIncognito DISABLED_TestOpenPopupIncognito
+#else
+#define MAYBE_TestOpenPopupIncognito TestOpenPopupIncognito
+#endif
+IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest,
+                       MAYBE_TestOpenPopupIncognito) {
   // The creation of the incognito window is the first WebContents.
   content::CreateAndLoadWebContentsObserver frame_observer(
       /*num_expected_contents=*/2);
@@ -414,8 +421,10 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, FocusLossClosesPopup2) {
   ClosePopupViaFocusLoss();
 }
 
-// TODO(crbug.com/330684964): Test flaking frequently on Linux MSan builder.
-#if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
+// TODO(crbug.com/330684964): Test flaking frequently on Linux MSan builder
+// and Mac release builders.
+#if (BUILDFLAG(IS_MAC) && defined(NDEBUG)) || \
+    (BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER))
 #define MAYBE_TabSwitchClosesPopup DISABLED_TabSwitchClosesPopup
 #else
 #define MAYBE_TabSwitchClosesPopup TabSwitchClosesPopup

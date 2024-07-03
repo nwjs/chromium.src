@@ -225,6 +225,9 @@ enum class AccessPoint : int {
   // reauthentication is necessary to sign in with or save a passkey from the
   // Google Password Manager.
   ACCESS_POINT_WEBAUTHN_MODAL_DIALOG = 65,
+  // Signin button from the profile menu that is labelled as a "Signin" button,
+  // but is followed by a Sync confirmation screen as a promo.
+  ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO = 66,
 
   // Add values above this line with a corresponding label to the
   // "SigninAccessPoint" enum in
@@ -457,9 +460,10 @@ enum class SourceForRefreshTokenOperation {
   kLogoutTabHelper_PrimaryPageChanged = 19,
   kForceSigninReauthWithDifferentAccount = 20,
   kAccountReconcilor_RevokeTokensNotInCookies = 21,
-  kDiceResponseHandler_PasswordPromoSignin = 22,
+  // DEPRECATED on 05/2024
+  // kDiceResponseHandler_PasswordPromoSignin = 22,
 
-  kMaxValue = kDiceResponseHandler_PasswordPromoSignin,
+  kMaxValue = kAccountReconcilor_RevokeTokensNotInCookies,
 };
 
 // Different types of reporting. This is used as a histogram suffix.
@@ -497,14 +501,21 @@ enum class SyncButtonsType : int {
   // numeric values should never be reused.
   kSyncEqualWeighted = 0,
   kSyncNotEqualWeighted = 1,
-  kHistorySyncEqualWeighted = 2,
+
+  // kHistorySyncEqualWeighted = 2,  // no longer used, split into
+  // `kHistorySyncEqualWeightedFromDeadline` and
+  // `kHistorySyncEqualWeightedFromCapability`
+
   kHistorySyncNotEqualWeighted = 3,
 
   // Either use one of the two or kSyncEqualWeighted.
   kSyncEqualWeightedFromDeadline = 4,
   kSyncEqualWeightedFromCapability = 5,
 
-  kMaxValue = kSyncEqualWeightedFromCapability,
+  kHistorySyncEqualWeightedFromDeadline = 6,
+  kHistorySyncEqualWeightedFromCapability = 7,
+
+  kMaxValue = kHistorySyncEqualWeightedFromCapability,
 };
 
 // Tracks type of the button that was clicked by the user.

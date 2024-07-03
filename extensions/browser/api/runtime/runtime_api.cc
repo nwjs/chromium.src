@@ -770,7 +770,7 @@ ExtensionFunction::ResponseAction RuntimeRestartAfterDelayFunction::Run() {
       return RespondNow(NoArguments());
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return RespondNow(Error(kErrorInvalidStatus));
 }
 
@@ -893,7 +893,7 @@ RuntimeGetContextsFunction::GetFrameContexts() {
       case mojom::ViewType::kBackgroundContents:
       case mojom::ViewType::kComponent:
       case mojom::ViewType::kExtensionBackgroundPage:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
 
       case mojom::ViewType::kExtensionPopup:

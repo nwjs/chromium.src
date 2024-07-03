@@ -83,14 +83,14 @@ void RemoveAllocatorDispatchForTesting(AllocatorDispatch* dispatch);
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM)
 const AllocatorDispatch* GetAllocatorDispatchChainHeadForTesting();
 
-#if BUILDFLAG(IS_APPLE)
+#if PA_BUILDFLAG(IS_APPLE)
 // The fallback function to be called when try_free_default_function receives a
 // pointer which doesn't belong to the allocator.
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM)
 void TryFreeDefaultFallbackToFindZoneAndFree(void* ptr);
-#endif  // BUILDFLAG(IS_APPLE)
+#endif  // PA_BUILDFLAG(IS_APPLE)
 
-#if BUILDFLAG(IS_APPLE)
+#if PA_BUILDFLAG(IS_APPLE)
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM)
 void InitializeDefaultAllocatorPartitionRoot();
@@ -98,7 +98,7 @@ bool IsDefaultAllocatorPartitionRootInitialized();
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 // On macOS, the allocator shim needs to be turned on during runtime.
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM) void InitializeAllocatorShim();
-#endif  // BUILDFLAG(IS_APPLE)
+#endif  // PA_BUILDFLAG(IS_APPLE)
 
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM) void EnablePartitionAllocMemoryReclaimer();
@@ -118,6 +118,9 @@ using ZappingByFreeFlags =
 using UsePoolOffsetFreelists = partition_alloc::internal::base::
     StrongAlias<class UsePoolOffsetFreelistsTag, bool>;
 
+using UseSmallSingleSlotSpans = partition_alloc::internal::base::
+    StrongAlias<class UseSmallSingleSlotSpansTag, bool>;
+
 // If |thread_cache_on_non_quarantinable_partition| is specified, the
 // thread-cache will be enabled on the non-quarantinable partition. The
 // thread-cache on the main (malloc) partition will be disabled.
@@ -130,7 +133,8 @@ void ConfigurePartitions(
     SchedulerLoopQuarantine scheduler_loop_quarantine,
     size_t scheduler_loop_quarantine_branch_capacity_in_bytes,
     ZappingByFreeFlags zapping_by_free_flags,
-    UsePoolOffsetFreelists use_pool_offset_freelists);
+    UsePoolOffsetFreelists use_pool_offset_freelists,
+    UseSmallSingleSlotSpans use_small_single_slot_spans);
 
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM) uint32_t GetMainPartitionRootExtrasSize();
 

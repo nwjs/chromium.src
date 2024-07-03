@@ -20,6 +20,7 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -69,7 +70,6 @@
 #include "third_party/blink/public/common/media/display_type.h"
 #include "third_party/blink/public/common/media/watch_time_reporter.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
-#include "third_party/blink/public/platform/media/url_index.h"
 #include "third_party/blink/public/platform/web_audio_source_provider_impl.h"
 #include "third_party/blink/public/platform/web_content_decryption_module.h"
 #include "third_party/blink/public/platform/web_encrypted_media_types.h"
@@ -91,6 +91,7 @@
 #include "third_party/blink/public/web/web_view.h"
 #include "third_party/blink/renderer/platform/media/buffered_data_source_host_impl.h"
 #include "third_party/blink/renderer/platform/media/power_status_helper.h"
+#include "third_party/blink/renderer/platform/media/url_index.h"
 #include "third_party/blink/renderer/platform/media/video_decode_stats_reporter.h"
 #include "third_party/blink/renderer/platform/media/web_content_decryption_module_impl.h"
 #include "third_party/blink/renderer/platform/media/web_media_source_impl.h"
@@ -194,7 +195,7 @@ int GetSwitchToLocalMessage(
     case media::MediaObserverClient::ReasonToSwitchToLocal::ROUTE_TERMINATED:
       return WebMediaPlayerClient::kMediaRemotingStopNoText;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   // To suppress compiler warning on Windows.
   return WebMediaPlayerClient::kMediaRemotingStopNoText;
 }
@@ -511,7 +512,7 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
 
   // TODO(xhwang): When we use an external Renderer, many methods won't work,
   // e.g. GetCurrentFrameFromCompositor(). See http://crbug.com/434861
-  audio_source_provider_ = new WebAudioSourceProviderImpl(
+  audio_source_provider_ = base::MakeRefCounted<WebAudioSourceProviderImpl>(
       std::move(audio_renderer_sink), media_log_.get(),
       std::move(on_audio_source_provider_set_client_callback));
 
@@ -1019,7 +1020,6 @@ void WebMediaPlayerImpl::OnFrozen() {
 void WebMediaPlayerImpl::Seek(double seconds) {
   DVLOG(1) << __func__ << "(" << seconds << "s)";
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-  media_log_->AddEvent<MediaLogEvent::kSeek>(seconds);
   DoSeek(base::Seconds(seconds), true);
 }
 
@@ -1031,6 +1031,26 @@ void WebMediaPlayerImpl::DoSeek(base::TimeDelta time, bool time_updated) {
   ReadyState old_state = ready_state_;
   if (ready_state_ > WebMediaPlayer::kReadyStateHaveMetadata)
     SetReadyState(WebMediaPlayer::kReadyStateHaveMetadata);
+
+  // For zero duration video-only media, if we can elide the seek, use a large
+  // delay to avoid an expensive spin loop. Per spec we must still deliver all
+  // the requisite events, but we're not required to be timely about it.
+  //
+  // 250ms matches the max timeupdate interval used by the media element.
+  auto delay = base::TimeDelta();
+  bool is_at_eos = false;
+  if (ended_) {
+    if (time == base::Seconds(Duration())) {
+      is_at_eos = true;
+    } else if (!HasAudio()) {
+      if (auto frame = compositor_->GetCurrentFrameOnAnyThread()) {
+        if (frame->timestamp() == GetCurrentTimeInternal()) {
+          is_at_eos = true;
+          delay = base::Milliseconds(250);
+        }
+      }
+    }
+  }
 
   // When paused or ended, we know exactly what the current time is and can
   // elide seeks to it. However, there are three cases that are not elided:
@@ -1044,20 +1064,33 @@ void WebMediaPlayerImpl::DoSeek(base::TimeDelta time, bool time_updated) {
   //   3) For MSE.
   //      Because the buffers may have changed between seeks, MSE seeks are
   //      never elided.
-  if (paused_ && pipeline_controller_->IsStable() &&
-      (paused_time_ == time || (ended_ && time == base::Seconds(Duration()))) &&
+  if (((paused_ && paused_time_ == time) || (ended_ && is_at_eos)) &&
+      pipeline_controller_->IsStable() &&
       GetDemuxerType() != media::DemuxerType::kChunkDemuxer) {
     if (old_state == kReadyStateHaveEnoughData) {
       // This will in turn SetReadyState() to signal the demuxer seek, followed
       // by timeChanged() to signal the renderer seek.
       should_notify_time_changed_ = true;
-      main_task_runner_->PostTask(
-          FROM_HERE, base::BindOnce(&WebMediaPlayerImpl::OnBufferingStateChange,
-                                    weak_this_, media::BUFFERING_HAVE_ENOUGH,
-                                    media::BUFFERING_CHANGE_REASON_UNKNOWN));
+
+      // Seek will always emit a new frame -- even if the it's the same frame it
+      // will be decoded again with a new frame id, so simulate that here.
+      main_task_runner_->PostDelayedTask(
+          FROM_HERE,
+          base::BindOnce(&WebMediaPlayerImpl::OnNewFramePresentedCallback,
+                         weak_this_),
+          delay);
+
+      main_task_runner_->PostDelayedTask(
+          FROM_HERE,
+          base::BindOnce(&WebMediaPlayerImpl::OnBufferingStateChange,
+                         weak_this_, media::BUFFERING_HAVE_ENOUGH,
+                         media::BUFFERING_CHANGE_REASON_UNKNOWN),
+          delay);
       return;
     }
   }
+
+  media_log_->AddEvent<MediaLogEvent::kSeek>(time.InSecondsF());
 
   if (playback_events_recorder_)
     playback_events_recorder_->OnSeeking();
@@ -1633,7 +1666,7 @@ void WebMediaPlayerImpl::SetCdmInternal(WebContentDecryptionModule* cdm) {
       ToWebContentDecryptionModuleImpl(cdm);
   auto cdm_context_ref = web_cdm->GetCdmContextRef();
   if (!cdm_context_ref) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     OnCdmAttached(false);
     return;
   }
@@ -1826,7 +1859,7 @@ void WebMediaPlayerImpl::OnPipelineResumed() {
 
 void WebMediaPlayerImpl::OnChunkDemuxerOpened(media::ChunkDemuxer* demuxer) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-  client_->MediaSourceOpened(new WebMediaSourceImpl(demuxer));
+  client_->MediaSourceOpened(std::make_unique<WebMediaSourceImpl>(demuxer));
 }
 
 void WebMediaPlayerImpl::OnFallback(media::PipelineStatus status) {
@@ -1875,7 +1908,7 @@ void WebMediaPlayerImpl::RestartForHls() {
       media::RendererType::kMediaPlayer);
 #else
   // Shouldn't be reachable from desktop where hls is not enabled.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 #endif
   SetMemoryReportingState(false);
   StartPipeline();
@@ -1933,7 +1966,9 @@ void WebMediaPlayerImpl::OnEnded() {
     return;
 
   ended_ = true;
-  client_->TimeChanged();
+  if (!paused_) {
+    client_->TimeChanged();
+  }
 
   if (playback_events_recorder_)
     playback_events_recorder_->OnEnded();
@@ -2893,8 +2928,8 @@ void WebMediaPlayerImpl::StartPipeline() {
   auto create_demuxer_error = demuxer_manager_->CreateDemuxer(
       load_type_ == kLoadTypeMediaSource, preload_, needs_first_frame_,
       base::BindOnce(&WebMediaPlayerImpl::OnDemuxerCreated,
-                     base::Unretained(this)), 
-      headers);
+                     base::Unretained(this)),
+      std::move(headers));
 
   if (!create_demuxer_error.is_ok()) {
     return OnError(std::move(create_demuxer_error));

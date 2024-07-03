@@ -109,6 +109,7 @@
 #include "third_party/blink/public/common/loader/throttling_url_loader.h"
 #include "third_party/blink/public/common/mime_util/mime_util.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_router_rule.mojom.h"
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -457,9 +458,10 @@ void CheckParsedHeadersEquals(const network::mojom::ParsedHeadersPtr& lhs,
                      rhs->observe_browsing_topics));
   CHECK(mojo::Equals(adjusted_lhs->allow_cross_origin_event_reporting,
                      rhs->allow_cross_origin_event_reporting));
-  NOTREACHED() << "The parsed headers don't match, but we don't know which "
-                  "field does not match. Please add a DCHECK before this one "
-                  "checking for the missing field.";
+  NOTREACHED_IN_MIGRATION()
+      << "The parsed headers don't match, but we don't know which "
+         "field does not match. Please add a DCHECK before this one "
+         "checking for the missing field.";
 }
 #endif
 
@@ -980,6 +982,12 @@ void NavigationURLLoaderImpl::OnReceiveResponse(
     head->service_worker_router_info =
         std::move(head_update_params_.router_info);
   }
+  if (!head_update_params_.load_timing_info
+           .service_worker_router_evaluation_start.is_null()) {
+    head->load_timing.service_worker_router_evaluation_start =
+        head_update_params_.load_timing_info
+            .service_worker_router_evaluation_start;
+  }
 
   // If the default loader (network) was used to handle the URL load request
   // we need to see if the interceptors want to potentially create a new
@@ -1143,7 +1151,7 @@ void NavigationURLLoaderImpl::OnUploadProgress(
     int64_t current_position,
     int64_t total_size,
     OnUploadProgressCallback callback) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void NavigationURLLoaderImpl::OnTransferSizeUpdated(
@@ -1726,22 +1734,6 @@ void NavigationURLLoaderImpl::NotifyResponseStarted(
     }
   }
 
-  // When dispatching a ServiceWorker fetch event failed, controller is marked
-  // lost in `ServiceWorkerMainResourceLoader::DidDispatchFetchEvent`. In this
-  // case, the main resource loading should have already been fallen back to the
-  // network, and ServiceWorker subresource interception is reset here by
-  // detecting the controller lost, to completely cancel the ServiceWorker
-  // interception initially set in `MaybeCreateLoader()`.
-  //
-  // There might be other cases where the controller is lost here, but probably
-  // it's fine to reset ServiceWorker subresource interception as well, as the
-  // controller is anyway lost.
-  if (!subresource_loader_params_.service_worker_client ||
-      !subresource_loader_params_.service_worker_client->controller()) {
-    subresource_loader_params_.controller_service_worker_info = nullptr;
-    subresource_loader_params_.controller_service_worker_object_host = nullptr;
-  }
-
   // TODO(scottmg): This needs to do more of what
   // NavigationResourceHandler::OnResponseStarted() does.
   delegate_->OnResponseStarted(
@@ -1845,6 +1837,8 @@ void NavigationURLLoaderImpl::RecordServiceWorkerRouterEvaluationResults(
   builder
       .SetRouterRuleCount(ukm::GetExponentialBucketMinForCounts1000(
           router_info->route_rule_num))
+      .SetRouterEvaluationTime(
+          router_info->router_evaluation_time.InMicroseconds())
       .Record(ukm::UkmRecorder::Get());
 }
 

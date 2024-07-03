@@ -48,25 +48,6 @@
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/view_class_properties.h"
 
-// TODO(crbug.com/40688828): come up with a more general solution for this.
-// This layout auto-resizes the host view to always adapt to changes in the size
-// of the child views.
-class PasswordSaveUpdateView::AutoResizingLayout : public views::FillLayout {
- public:
-  AutoResizingLayout() = default;
-
- private:
-  PasswordSaveUpdateView* bubble_view() {
-    return static_cast<PasswordSaveUpdateView*>(host_view());
-  }
-
-  void OnLayoutChanged() override {
-    FillLayout::OnLayoutChanged();
-    if (bubble_view()->GetWidget())
-      bubble_view()->SizeToContents();
-  }
-};
-
 PasswordSaveUpdateView::PasswordSaveUpdateView(
     content::WebContents* web_contents,
     views::View* anchor_view,
@@ -111,8 +92,9 @@ PasswordSaveUpdateView::PasswordSaveUpdateView(
                                 DISTANCE_CONTROL_LIST_VERTICAL),
                             0));
 
-    if (destination_dropdown)
+    if (destination_dropdown) {
       AddChildView(std::move(destination_dropdown));
+    }
 
     const auto titles = GetCredentialLabelsForAccountChooser(password_form);
     AddChildView(
@@ -134,7 +116,7 @@ PasswordSaveUpdateView::PasswordSaveUpdateView(
     password_dropdown->SetCallback(base::BindRepeating(
         &PasswordSaveUpdateView::OnContentChanged, base::Unretained(this)));
     // Set up layout:
-    SetLayoutManager(std::make_unique<AutoResizingLayout>());
+    SetLayoutManager(std::make_unique<views::FillLayout>());
     views::View* root_view = AddChildView(std::make_unique<views::View>());
     views::AnimatingLayoutManager* animating_layout =
         root_view->SetLayoutManager(
@@ -172,12 +154,13 @@ PasswordSaveUpdateView::PasswordSaveUpdateView(
     animating_layout_for_iph_observation_.Observe(animating_layout);
 
     // The account picker is only visible in Save bubbble, not Update bubble.
-    if (destination_dropdown_)
+    if (destination_dropdown_) {
       destination_dropdown_->SetVisible(!controller_.IsCurrentStateUpdate());
+    }
 
     // Only non-federated credentials bubble has a username field and can
     // change states between Save and Update. Therefore, we need to have the
-    // `accessibility_alert_` to inform screen readers about thatchange.
+    // `accessibility_alert_` to inform screen readers about that change.
     accessibility_alert_ =
         root_view->AddChildView(std::make_unique<views::View>());
     AddChildView(accessibility_alert_.get());
@@ -266,13 +249,21 @@ bool PasswordSaveUpdateView::CloseOrReplaceWithPromo() {
   GetBubbleFrameView()->SetFootnoteView(nullptr);
   SetTitle(IDS_AUTOFILL_SIGNIN_PROMO_TITLE_PASSWORD);
 
+  // Add the accessibility alert view first so that it does not overlap with
+  // any other child view. Also make the view invisible.
+  auto accessibility_view = std::make_unique<views::View>();
+  accessibility_view->SetVisible(false);
+  accessibility_alert_ = AddChildView(std::move(accessibility_view));
+
   // Show the sign in promo.
   auto sign_in_promo = std::make_unique<AutofillBubbleSignInPromoView>(
       controller_.GetWebContents(),
       signin::SignInAutofillBubblePromoType::Passwords,
       controller_.pending_password());
   AddChildView(std::move(sign_in_promo));
-  SizeToContents();
+
+  // Notify the screen reader that the bubble changed.
+  AnnounceBubbleChange();
 
   is_signin_promo_bubble_ = true;
   GetBubbleFrameView()->SetProperty(views::kElementIdentifierKey,
@@ -303,13 +294,15 @@ void PasswordSaveUpdateView::DestinationChanged() {
   // The IPH shown upon failure in reauth is used to informs the user that the
   // password will be stored on device. This is why it's important to close it
   // if the user changes the destination to account.
-  if (failed_reauth_promo_bubble_)
+  if (failed_reauth_promo_bubble_) {
     CloseIPHBubbleIfOpen();
+  }
 }
 
 views::View* PasswordSaveUpdateView::GetInitiallyFocusedView() {
-  if (username_dropdown_ && username_dropdown_->GetText().empty())
+  if (username_dropdown_ && username_dropdown_->GetText().empty()) {
     return username_dropdown_;
+  }
   View* initial_view = PasswordBubbleViewBase::GetInitiallyFocusedView();
   // |initial_view| will normally be the 'Save' button, but in case it's not
   // focusable, we return nullptr so the Widget doesn't give focus to the next
@@ -335,30 +328,34 @@ void PasswordSaveUpdateView::AddedToWidget() {
   static_cast<views::Label*>(GetBubbleFrameView()->title())
       ->SetAllowCharacterBreak(true);
   SetBubbleHeader(IDR_SAVE_PASSWORD, IDR_SAVE_PASSWORD_DARK);
-  if (ShouldShowFailedReauthIPH())
+  if (ShouldShowFailedReauthIPH()) {
     MaybeShowIPH(IPHType::kFailedReauth);
-  else
+  } else {
     MaybeShowIPH(IPHType::kRegular);
+  }
 }
 
 void PasswordSaveUpdateView::OnLayoutIsAnimatingChanged(
     views::AnimatingLayoutManager* source,
     bool is_animating) {
-  if (!is_animating)
+  if (!is_animating) {
     MaybeShowIPH(IPHType::kRegular);
+  }
 }
 
 void PasswordSaveUpdateView::UpdateUsernameAndPasswordInModel() {
-  if (!username_dropdown_ && !password_dropdown_)
+  if (!username_dropdown_ && !password_dropdown_) {
     return;
+  }
   std::u16string new_username = controller_.pending_password().username_value;
   std::u16string new_password = controller_.pending_password().password_value;
   if (username_dropdown_) {
     new_username = username_dropdown_->GetText();
     base::TrimString(new_username, u" ", &new_username);
   }
-  if (password_dropdown_)
+  if (password_dropdown_) {
     new_password = password_dropdown_->GetText();
+  }
   controller_.OnCredentialEdited(std::move(new_username),
                                  std::move(new_password));
 }
@@ -388,23 +385,27 @@ void PasswordSaveUpdateView::UpdateBubbleUIElements() {
   SetTitle(controller_.GetTitle());
 
   // Nothing to do if the bubble isn't visible yet.
-  if (!GetWidget())
+  if (!GetWidget()) {
     return;
+  }
 
   UpdateFootnote();
 
-  if (should_announce_save_update_change)
-    AnnounceSaveUpdateChange();
+  if (should_announce_save_update_change) {
+    AnnounceBubbleChange();
+  }
 
   // Nothing else to do if the account picker hasn't been created.
-  if (!destination_dropdown_)
+  if (!destination_dropdown_) {
     return;
+  }
 
   // If it's not a save bubble anymore, close the IPH because the account picker
   // will disappear. If it has become a save bubble, the IPH will get triggered
   // after the animation finishes.
-  if (controller_.IsCurrentStateUpdate())
+  if (controller_.IsCurrentStateUpdate()) {
     CloseIPHBubbleIfOpen();
+  }
 
   destination_dropdown_->SetVisible(!controller_.IsCurrentStateUpdate());
 }
@@ -443,14 +444,16 @@ bool PasswordSaveUpdateView::ShouldShowFailedReauthIPH() {
 void PasswordSaveUpdateView::MaybeShowIPH(IPHType type) {
   // IPH is shown only where the destination dropdown is shown (i.e. only for
   // Save bubble).
-  if (!destination_dropdown_ || controller_.IsCurrentStateUpdate())
+  if (!destination_dropdown_ || controller_.IsCurrentStateUpdate()) {
     return;
+  }
 
   // The promo controller may not exist in tests.
   auto* const promo_controller =
       BrowserFeaturePromoController::GetForView(GetAnchorView());
-  if (!promo_controller)
+  if (!promo_controller) {
     return;
+  }
 
   switch (type) {
     case IPHType::kRegular:
@@ -490,19 +493,21 @@ void PasswordSaveUpdateView::CloseIPHBubbleIfOpen() {
   // The promo controller may not exist in tests.
   auto* const promo_controller =
       BrowserFeaturePromoController::GetForView(GetAnchorView());
-  if (!promo_controller)
+  if (!promo_controller) {
     return;
+  }
 
   promo_controller->EndPromo(
       feature_engagement::kIPHPasswordsAccountStorageFeature,
       user_education::EndFeaturePromoReason::kAbortPromo);
 }
 
-void PasswordSaveUpdateView::AnnounceSaveUpdateChange() {
+void PasswordSaveUpdateView::AnnounceBubbleChange() {
   // Federated credentials bubbles don't change the state between Update and
   // Save, and hence they don't have an `accessibility_alert_` view created.
-  if (!accessibility_alert_)
+  if (!accessibility_alert_) {
     return;
+  }
 
   std::u16string accessibility_alert_text = GetWindowTitle();
   if (destination_dropdown_ && !controller_.IsCurrentStateUpdate()) {
@@ -544,10 +549,6 @@ void PasswordSaveUpdateView::OnContentChanged() {
 void PasswordSaveUpdateView::UpdateFootnote() {
   DCHECK(GetBubbleFrameView());
   GetBubbleFrameView()->SetFootnoteView(CreateFooterView());
-
-  // The footnote size could have changed since it depends on whether it
-  // affects the account store, and hence resize.
-  SizeToContents();
 }
 
 void PasswordSaveUpdateView::TogglePasswordRevealed() {

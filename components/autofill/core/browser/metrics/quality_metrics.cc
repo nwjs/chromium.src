@@ -20,6 +20,7 @@
 #include "components/autofill/core/browser/metrics/field_filling_stats_and_score_metrics.h"
 #include "components/autofill/core/browser/metrics/granular_filling_metrics_utils.h"
 #include "components/autofill/core/browser/metrics/placeholder_metrics.h"
+#include "components/autofill/core/browser/metrics/quality_metrics_filling.h"
 #include "components/autofill/core/browser/metrics/shadow_prediction_metrics.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -48,6 +49,7 @@ void LogNumericQuantityMetrics(const FormStructure& form) {
     // If there was a collision, log if the NUMERIC_QUANTITY was a false
     // positive since the field was correctly filled.
     if ((field->is_autofilled() || field->previously_autofilled()) &&
+        field->filling_product() != FillingProduct::kAutocomplete &&
         field_has_non_empty_server_prediction &&
         !base::FeatureList::IsEnabled(
             features::kAutofillGivePrecedenceToNumericQuantities)) {
@@ -219,6 +221,7 @@ void LogFillingMetrics(
   LogPerfectFillingMetric(form);
   LogPreFillMetrics(form);
   autofill_metrics::LogFieldFillingStatsAndScore(form);
+  LogFillingQualityMetrics(form);
 
   FieldTypeSet autofilled_field_types;
   for (const std::unique_ptr<AutofillField>& field : form) {

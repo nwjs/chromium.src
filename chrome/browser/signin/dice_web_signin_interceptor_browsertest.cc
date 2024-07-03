@@ -71,7 +71,6 @@
 #include "google_apis/gaia/gaia_urls.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/ui_base_features.h"
 #include "url/gurl.h"
 
 namespace {
@@ -666,6 +665,12 @@ IN_PROC_BROWSER_TEST_F(
   // bubble.
   ASSERT_FALSE(IsChromeSignedIn());
 
+  SigninPrefs signin_prefs(*GetProfile()->GetPrefs());
+  ASSERT_FALSE(
+      signin_prefs
+          .GetChromeSigninInterceptionFirstDeclinedChoiceTime(account_info.gaia)
+          .has_value());
+
   ShowAndCompleteSigninBubbleWithResult(account_info,
                                         SigninInterceptionResult::kDeclined);
 
@@ -682,10 +687,13 @@ IN_PROC_BROWSER_TEST_F(
   histogram_tester.ExpectUniqueSample("Signin.SignIn.Completed", access_point,
                                       0);
 
-  ChromeSigninUserChoice user_choice =
-      GetChromeSigninUserChoicePref(account_info);
-  // User choice is remembered.
-  EXPECT_EQ(user_choice, ChromeSigninUserChoice::kDoNotSignin);
+  // User choice is remembered and decline time is stored.
+  EXPECT_EQ(GetChromeSigninUserChoicePref(account_info),
+            ChromeSigninUserChoice::kDoNotSignin);
+  EXPECT_TRUE(
+      signin_prefs
+          .GetChromeSigninInterceptionFirstDeclinedChoiceTime(account_info.gaia)
+          .has_value());
 
   histogram_tester.ExpectUniqueSample(
       "Signin.Intercept.ChromeSignin.DismissesBeforeDecline", 0, 1);
@@ -738,9 +746,90 @@ IN_PROC_BROWSER_TEST_F(
       pref_service, sync_service));
 }
 
+// Test the recording of the user entering or resolving an inconsistent state
+// (sign in pending with account A, sign in to web with account B).)
+IN_PROC_BROWSER_TEST_F(
+    DiceWebSigninInterceptorWithExplicitSigninEnabledBrowserTest,
+    RecordInconsistentStateResolvedAfterSignInPending) {
+  base::HistogramTester histogram_tester;
+
+  // Set up a primary account in sign in pending state and a secondary account
+  // signing into the web, therefore inducing an inconsistent state.
+  AccountInfo primary_account_info =
+      identity_test_env()->MakePrimaryAccountAvailable(
+          "bob@example.com", signin::ConsentLevel::kSignin);
+  identity_test_env()->SetInvalidRefreshTokenForPrimaryAccount();
+  AccountInfo secondary_account_info = MakeAccountInfoAvailableAndUpdate(
+      "alice@example.com", kNoHostedDomainFound);
+
+  // Add a tab.
+  GURL intercepted_url = embedded_test_server()->GetURL("/defaultresponse");
+  content::WebContents* web_contents = AddTab(intercepted_url);
+
+  // Intercept.
+  FakeDiceWebSigninInterceptorDelegate* source_interceptor_delegate =
+      GetInterceptorDelegate(GetProfile());
+  DiceWebSigninInterceptor* interceptor =
+      DiceWebSigninInterceptorFactory::GetForProfile(GetProfile());
+  source_interceptor_delegate->set_expected_interception_type(
+      WebSigninInterceptor::SigninInterceptionType::kMultiUser);
+  source_interceptor_delegate->set_expected_interception_result(
+      SigninInterceptionResult::kDismissed);
+  interceptor->MaybeInterceptWebSignin(
+      web_contents, secondary_account_info.account_id,
+      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+      /*is_new_account=*/false,
+      /*is_sync_signin=*/false);
+
+  histogram_tester.ExpectBucketCount(
+      "Signin.SigninPending.InconsistentStateInvoked", true, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    DiceWebSigninInterceptorWithExplicitSigninEnabledBrowserTest,
+    MultiUserSigninInterception) {
+  // Set up for Multi user signin interception.
+  AccountInfo primary_account_info =
+      identity_test_env()->MakePrimaryAccountAvailable(
+          "bob@example.com", signin::ConsentLevel::kSignin);
+  AccountInfo secondary_account_info = MakeAccountInfoAvailableAndUpdate(
+      "alice@example.com", kNoHostedDomainFound);
+
+  // Add a tab.
+  GURL intercepted_url = embedded_test_server()->GetURL("/defaultresponse");
+  content::WebContents* web_contents = AddTab(intercepted_url);
+
+  // Intercept.
+  FakeDiceWebSigninInterceptorDelegate* source_interceptor_delegate =
+      GetInterceptorDelegate(GetProfile());
+  DiceWebSigninInterceptor* interceptor =
+      DiceWebSigninInterceptorFactory::GetForProfile(GetProfile());
+  source_interceptor_delegate->set_expected_interception_type(
+      WebSigninInterceptor::SigninInterceptionType::kMultiUser);
+  source_interceptor_delegate->set_expected_interception_result(
+      SigninInterceptionResult::kAccepted);
+  ProfileWaiter waiter;
+  interceptor->MaybeInterceptWebSignin(
+      web_contents, secondary_account_info.account_id,
+      signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
+      /*is_new_account=*/true,
+      /*is_sync_signin=*/false);
+
+  // New Profile created from accepting the signin interception.
+  Profile* new_profile = waiter.WaitForProfileAdded();
+  // Should be signed in.
+  EXPECT_TRUE(IdentityManagerFactory::GetForProfile(new_profile)
+                  ->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+  // ChromeSignin setting should be set.
+  EXPECT_EQ(
+      SigninPrefs(*new_profile->GetPrefs())
+          .GetChromeSigninInterceptionUserChoice(secondary_account_info.gaia),
+      ChromeSigninUserChoice::kSignin);
+}
+
 // Test to sign in to Chrome from the Chrome Signin Bubble Intercept with
-// the full `switches::kExplicitBrowserSigninUIOnDesktop` enabled.
-class DiceWebSigninInterceptorWithBrowserSigninFullPhaseBrowserTest
+// `switches::kExplicitBrowserSigninUIOnDesktop` enabled.
+class DiceWebSigninInterceptorWithExplicitBrowserSigninBrowserTest
     : public DiceWebSigninInterceptorWithChromeSigninHelpersBrowserTest {
  private:
   base::test::ScopedFeatureList feature_list_{
@@ -758,8 +847,8 @@ class DiceWebSigninInterceptorWithBrowserSigninFullPhaseBrowserTest
 // - Account1 changes it's pref to always ask and should show the bubble even
 // after 5 dismisses.
 IN_PROC_BROWSER_TEST_F(
-    DiceWebSigninInterceptorWithBrowserSigninFullPhaseBrowserTest,
-    ChromeSigninInerceptDismissBehavior) {
+    DiceWebSigninInterceptorWithExplicitBrowserSigninBrowserTest,
+    ChromeSigninInterceptDismissBehavior) {
   base::HistogramTester histogram_tester;
 
   // Setup a first account for interception.
@@ -853,7 +942,7 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 IN_PROC_BROWSER_TEST_F(
-    DiceWebSigninInterceptorWithBrowserSigninFullPhaseBrowserTest,
+    DiceWebSigninInterceptorWithExplicitBrowserSigninBrowserTest,
     OverrideUserChoicePrefAfterAccept) {
   // Setup an account for interception.
   const std::string email("alice1@example.com");
@@ -888,7 +977,7 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 IN_PROC_BROWSER_TEST_F(
-    DiceWebSigninInterceptorWithBrowserSigninFullPhaseBrowserTest,
+    DiceWebSigninInterceptorWithExplicitBrowserSigninBrowserTest,
     OverrideUserChoicePrefAfterDecline) {
   // Setup an account for interception.
   const std::string email("alice1@example.com");
@@ -916,6 +1005,45 @@ IN_PROC_BROWSER_TEST_F(
   // Showing the bubble should succeed -- result is not important.
   ShowAndCompleteSigninBubbleWithResult(info,
                                         SigninInterceptionResult::kDismissed);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    DiceWebSigninInterceptorWithExplicitBrowserSigninBrowserTest,
+    ChromeSigninBubbleResultsWithAlwaysAskUserChoice) {
+  // Setup an account for interception.
+  const std::string email("alice1@example.com");
+  AccountInfo info = MakeAccountInfoAvailableAndUpdate(email);
+
+  // Set user choice to `ChromeSigninUserChoice::kAlwaysAsk` mode.
+  SigninPrefs(*GetProfile()->GetPrefs())
+      .SetChromeSigninInterceptionUserChoice(
+          info.gaia, ChromeSigninUserChoice::kAlwaysAsk);
+
+  int current_dismiss_count = GetChromeSigninInterceptDismissCountPref(info);
+
+  // Dismiss action.
+  ShowAndCompleteSigninBubbleWithResult(info,
+                                        SigninInterceptionResult::kDismissed);
+  // Should not alter the dismiss count when in
+  // `ChromeSigninUserChoice::kAlwaysAsk` mode.
+  EXPECT_EQ(current_dismiss_count,
+            GetChromeSigninInterceptDismissCountPref(info));
+
+  // Decline action.
+  ShowAndCompleteSigninBubbleWithResult(info,
+                                        SigninInterceptionResult::kDeclined);
+  // Choice should not be remembered when in
+  // `ChromeSigninUserChoice::kAlwaysAsk` mode.
+  EXPECT_EQ(GetChromeSigninUserChoicePref(info),
+            ChromeSigninUserChoice::kAlwaysAsk);
+
+  // Accept action.
+  ShowAndCompleteSigninBubbleWithResult(info,
+                                        SigninInterceptionResult::kAccepted);
+  // Choice should not be remembered when in
+  // `ChromeSigninUserChoice::kAlwaysAsk` mode.
+  EXPECT_EQ(GetChromeSigninUserChoicePref(info),
+            ChromeSigninUserChoice::kAlwaysAsk);
 }
 
 // Test Suite where PRE_* tests are with
@@ -1180,14 +1308,9 @@ IN_PROC_BROWSER_TEST_F(DiceWebSigninInterceptorBrowserTest,
   ASSERT_TRUE(entry);
   EXPECT_EQ("example.com", base::UTF16ToUTF8(entry->GetLocalProfileName()));
   // Check the profile color.
-  if (features::IsChromeWebuiRefresh2023()) {
-    EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
-                    ->GetUserColor()
-                    .has_value());
-  } else {
-    EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
-                    ->UsingAutogeneratedTheme());
-  }
+  EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
+                  ->GetUserColor()
+                  .has_value());
 
   // A browser has been created for the new profile and the tab was moved there.
   Browser* added_browser = ui_test_utils::WaitForBrowserToOpen();
@@ -1327,14 +1450,9 @@ IN_PROC_BROWSER_TEST_F(DiceWebSigninInterceptorBrowserTest,
   ASSERT_TRUE(entry);
   EXPECT_EQ("example.com", base::UTF16ToUTF8(entry->GetLocalProfileName()));
   // Check the profile color.
-  if (features::IsChromeWebuiRefresh2023()) {
-    EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
-                    ->GetUserColor()
-                    .has_value());
-  } else {
-    EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
-                    ->UsingAutogeneratedTheme());
-  }
+  EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
+                  ->GetUserColor()
+                  .has_value());
 
   // A browser has been created for the new profile and the tab was moved there.
   Browser* added_browser = ui_test_utils::WaitForBrowserToOpen();
@@ -1530,14 +1648,9 @@ IN_PROC_BROWSER_TEST_F(DiceWebSigninInterceptorBrowserTest,
   ASSERT_TRUE(entry);
   EXPECT_EQ("example.com", base::UTF16ToUTF8(entry->GetLocalProfileName()));
   // Check the profile color.
-  if (features::IsChromeWebuiRefresh2023()) {
-    EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
-                    ->GetUserColor()
-                    .has_value());
-  } else {
-    EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
-                    ->UsingAutogeneratedTheme());
-  }
+  EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
+                  ->GetUserColor()
+                  .has_value());
 
   // A browser has been created for the new profile and the tab was moved there.
   Browser* added_browser = ui_test_utils::WaitForBrowserToOpen();
@@ -1671,9 +1784,8 @@ IN_PROC_BROWSER_TEST_F(
       browser()->tab_strip_model()->GetActiveWebContents()->GetVisibleURL(),
       intercepted_url);
 
-  CheckHistograms(
-      histogram_tester,
-      SigninInterceptionHeuristicOutcome::kAbortAccountNotNew);
+  CheckHistograms(histogram_tester,
+                  SigninInterceptionHeuristicOutcome::kAbortAccountNotNew);
 }
 
 // Tests the complete profile switch flow when the profile is not loaded.
@@ -1908,14 +2020,9 @@ IN_PROC_BROWSER_TEST_P(DiceWebSigninInterceptorParametrizedBrowserTest,
   ASSERT_TRUE(entry);
   EXPECT_EQ("givenname", base::UTF16ToUTF8(entry->GetLocalProfileName()));
   // Check the profile color.
-  if (features::IsChromeWebuiRefresh2023()) {
-    EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
-                    ->GetUserColor()
-                    .has_value());
-  } else {
-    EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
-                    ->UsingAutogeneratedTheme());
-  }
+  EXPECT_TRUE(ThemeServiceFactory::GetForProfile(new_profile)
+                  ->GetUserColor()
+                  .has_value());
 
   if (WithSearchEngineChoiceEnabled()) {
     PrefService* new_pref_service = new_profile->GetPrefs();

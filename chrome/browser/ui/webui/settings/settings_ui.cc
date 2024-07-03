@@ -88,6 +88,7 @@
 #include "components/compose/core/browser/compose_features.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/favicon_base/favicon_url_parser.h"
+#include "components/history_embeddings/history_embeddings_features.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/performance_manager/public/features.h"
 #include "components/permissions/features.h"
@@ -225,14 +226,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   AddSettingsPageUIHandler(std::make_unique<NativeCertificatesHandler>());
 #endif  // BUILDFLAG(USE_NSS_CERTS)
 
-// Chrome Certificate Management UI V2. Not on for ChromeOS.
-#if BUILDFLAG(IS_CHROMEOS)
-  html_source->AddBoolean("enableCertManagementUIV2", false);
-#elif BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+  // Chrome Certificate Management UI V2.
   html_source->AddBoolean(
       "enableCertManagementUIV2",
       base::FeatureList::IsEnabled(features::kEnableCertManagementUIV2));
-#endif  // BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
 #if BUILDFLAG(IS_CHROMEOS)
   AddSettingsPageUIHandler(
@@ -387,9 +386,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
                           safe_browsing::hash_realtime_utils::
                               IsHashRealTimeLookupEligibleInSession());
 
-  html_source->AddBoolean(
-      "enableHttpsFirstModeNewSettings",
-      base::FeatureList::IsEnabled(features::kHttpsFirstModeIncognito));
+  html_source->AddBoolean("enableHttpsFirstModeNewSettings",
+                          base::FeatureList::IsEnabled(
+                              features::kHttpsFirstModeIncognitoNewSettings));
 
   html_source->AddBoolean(
       "enableKeyboardAndPointerLockPrompt",
@@ -408,6 +407,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(features::kPageContentOptIn) ||
           base::FeatureList::IsEnabled(
               companion::features::kCompanionEnablePageContent));
+
+  html_source->AddBoolean(
+      "enableHistorySearchSetting",
+      base::FeatureList::IsEnabled(history_embeddings::kHistoryEmbeddings));
 
   html_source->AddBoolean(
       "downloadBubblePartialViewControlledByPref",
@@ -543,17 +546,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
               privacy_sandbox::kTrackingProtectionSettingsLaunch));
   html_source->AddBoolean(
       "isIpProtectionV1Enabled",
-      base::FeatureList::IsEnabled(privacy_sandbox::kIpProtectionUx) && false);
+      base::FeatureList::IsEnabled(privacy_sandbox::kIpProtectionUx));
   html_source->AddBoolean("isFingerprintingProtectionEnabled",
                           base::FeatureList::IsEnabled(
                               privacy_sandbox::kFingerprintingProtectionUx));
-  auto* onboarding_service =
-      TrackingProtectionOnboardingFactory::GetForProfile(profile);
-  html_source->AddBoolean(
-      "showTrackingProtectionSettingsRollbackNotice",
-      onboarding_service && onboarding_service->IsOffboarded() &&
-          base::FeatureList::IsEnabled(
-              privacy_sandbox::kTrackingProtectionSettingsPageRollbackNotice));
 
   html_source->AddBoolean(
       "isProactiveTopicsBlockingEnabled",

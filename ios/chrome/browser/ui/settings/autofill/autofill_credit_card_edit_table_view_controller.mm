@@ -17,6 +17,7 @@
 #import "components/autofill/core/browser/payments_data_manager.h"
 #import "components/autofill/core/browser/personal_data_manager.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
+#import "components/autofill/core/common/credit_card_network_identifiers.h"
 #import "components/autofill/ios/browser/credit_card_util.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -26,10 +27,10 @@
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_edit_item_delegate.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
-#import "ios/chrome/browser/ui/autofill/autofill_ui_type.h"
+#import "ios/chrome/browser/ui/autofill/autofill_credit_card_ui_type.h"
+#import "ios/chrome/browser/ui/autofill/autofill_credit_card_util.h"
 #import "ios/chrome/browser/ui/autofill/autofill_ui_type_util.h"
 #import "ios/chrome/browser/ui/autofill/cells/autofill_credit_card_edit_item.h"
-#import "ios/chrome/browser/ui/settings/autofill/autofill_credit_card_util.h"
 #import "ios/chrome/browser/ui/settings/autofill/autofill_settings_constants.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -37,7 +38,7 @@
 #import "url/gurl.h"
 
 namespace {
-using ::AutofillTypeFromAutofillUIType;
+using ::AutofillTypeFromAutofillUITypeForCard;
 
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
   SectionIdentifierFields = kSectionIdentifierEnumZero,
@@ -96,11 +97,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   if (_creditCard.record_type() ==
           autofill::CreditCard::RecordType::kMaskedServerCard) {
     GURL paymentsURL =
-        base::FeatureList::IsEnabled(
-            autofill::features::kAutofillUpdateChromeSettingsLinkToGPayWeb)
-            ? autofill::payments::GetManageInstrumentUrl(
-                  _creditCard.instrument_id())
-            : autofill::payments::GetManageInstrumentsUrl();
+        autofill::payments::GetManageInstrumentUrl(_creditCard.instrument_id());
     OpenNewTabCommand* command =
         [OpenNewTabCommand commandWithURLFromChrome:paymentsURL];
     [self.applicationHandler closeSettingsUIAndOpenURL:command];
@@ -135,8 +132,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
         _creditCard.SetNickname(base::SysNSStringToUTF16(trimmedNickname));
       } else {
         _creditCard.SetInfo(
-            autofill::AutofillType(
-                AutofillTypeFromAutofillUIType(item.autofillUIType)),
+            autofill::AutofillType(AutofillTypeFromAutofillUITypeForCard(
+                item.autofillCreditCardUIType)),
             base::SysNSStringToUTF16(item.textFieldValue),
             GetApplicationContext()->GetApplicationLocale());
       }
@@ -192,7 +189,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
     // If the user is typing in the credit card number field, update the card
     // type icon (e.g. "Visa") to reflect the number being typed.
-    if (item.autofillUIType == AutofillUITypeCreditCardNumber) {
+    if (item.autofillCreditCardUIType == AutofillCreditCardUIType::kNumber) {
       const char* network = autofill::CreditCard::GetCardNetwork(
           base::SysNSStringToUTF16(item.textFieldValue));
       item.identifyingIcon = [self cardTypeIconFromNetwork:network];
@@ -322,7 +319,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
     case ItemTypeNickname:
       return YES;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return NO;
 }
 
@@ -360,7 +357,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
   cardholderNameItem.textFieldValue = autofill::GetCreditCardName(
       _creditCard, GetApplicationContext()->GetApplicationLocale());
   cardholderNameItem.textFieldEnabled = isEditing;
-  cardholderNameItem.autofillUIType = AutofillUITypeCreditCardHolderFullName;
+  cardholderNameItem.autofillCreditCardUIType =
+      AutofillCreditCardUIType::kFullName;
   cardholderNameItem.hideIcon = !isEditing;
   return cardholderNameItem;
 }
@@ -376,7 +374,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
           ? base::SysUTF16ToNSString(_creditCard.number())
           : base::SysUTF16ToNSString(_creditCard.NetworkAndLastFourDigits());
   cardNumberItem.textFieldEnabled = isEditing;
-  cardNumberItem.autofillUIType = AutofillUITypeCreditCardNumber;
+  cardNumberItem.autofillCreditCardUIType = AutofillCreditCardUIType::kNumber;
   cardNumberItem.keyboardType = UIKeyboardTypeNumberPad;
   cardNumberItem.hideIcon = !isEditing;
   cardNumberItem.delegate = self;
@@ -396,7 +394,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
   expirationMonthItem.textFieldValue =
       [NSString stringWithFormat:@"%02d", _creditCard.expiration_month()];
   expirationMonthItem.textFieldEnabled = isEditing;
-  expirationMonthItem.autofillUIType = AutofillUITypeCreditCardExpMonth;
+  expirationMonthItem.autofillCreditCardUIType =
+      AutofillCreditCardUIType::kExpMonth;
   expirationMonthItem.keyboardType = UIKeyboardTypeNumberPad;
   expirationMonthItem.hideIcon = !isEditing;
   expirationMonthItem.delegate = self;
@@ -412,7 +411,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
   expirationYearItem.textFieldValue =
       [NSString stringWithFormat:@"%04d", _creditCard.expiration_year()];
   expirationYearItem.textFieldEnabled = isEditing;
-  expirationYearItem.autofillUIType = AutofillUITypeCreditCardExpYear;
+  expirationYearItem.autofillCreditCardUIType =
+      AutofillCreditCardUIType::kExpYear;
   expirationYearItem.keyboardType = UIKeyboardTypeNumberPad;
   expirationYearItem.returnKeyType = UIReturnKeyDone;
   expirationYearItem.hideIcon = !isEditing;

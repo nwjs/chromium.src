@@ -546,10 +546,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_Success) {
           SK_ColorWHITE);
   handler->GetWallpaperSearchResults(std::move(result_descriptors),
                                      callback.Get());
-  EXPECT_EQ("foo", request.descriptors().descriptor_a());
-  EXPECT_EQ("bar", request.descriptors().descriptor_b());
-  EXPECT_EQ("baz", request.descriptors().descriptor_c());
-  EXPECT_EQ("#FFFFFF", request.descriptors().descriptor_d());
+  EXPECT_EQ("foo", request.descriptors().subject());
+  EXPECT_EQ("bar", request.descriptors().style());
+  EXPECT_EQ("baz", request.descriptors().mood());
+  EXPECT_EQ("#FFFFFF", request.descriptors().color());
 
   optimization_guide::proto::WallpaperSearchResponse response;
 
@@ -632,11 +632,11 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_Success) {
                            log_entry) {
             EXPECT_TRUE(log_entry->log_ai_data_request()
                             ->mutable_wallpaper_search()
-                            ->has_quality_data());
+                            ->has_quality());
             // Images should be cleared for logging.
             EXPECT_EQ(log_entry->log_ai_data_request()
                           ->mutable_wallpaper_search()
-                          ->mutable_response_data()
+                          ->mutable_response()
                           ->images_size(),
                       0);
 
@@ -645,7 +645,7 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_Success) {
                     optimization_guide::proto::WallpaperSearchQuality>(
                     log_entry->log_ai_data_request()
                         ->mutable_wallpaper_search()
-                        ->quality_data()));
+                        ->quality()));
           }));
 
   // Quality logs on destruction.
@@ -694,10 +694,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_MultipleRequests) {
           SK_ColorWHITE);
   handler->GetWallpaperSearchResults(std::move(result_descriptors),
                                      callback1.Get());
-  EXPECT_EQ("foo1", request1.descriptors().descriptor_a());
-  EXPECT_EQ("bar1", request1.descriptors().descriptor_b());
-  EXPECT_EQ("baz1", request1.descriptors().descriptor_c());
-  EXPECT_EQ("#FFFFFF", request1.descriptors().descriptor_d());
+  EXPECT_EQ("foo1", request1.descriptors().subject());
+  EXPECT_EQ("bar1", request1.descriptors().style());
+  EXPECT_EQ("baz1", request1.descriptors().mood());
+  EXPECT_EQ("#FFFFFF", request1.descriptors().color());
 
   // Serialize and set result to later send to done_callback.
   optimization_guide::proto::WallpaperSearchResponse response1;
@@ -755,10 +755,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_MultipleRequests) {
           SK_ColorRED);
   handler->GetWallpaperSearchResults(std::move(result_descriptors2),
                                      callback2.Get());
-  EXPECT_EQ("foo2", request2.descriptors().descriptor_a());
-  EXPECT_EQ("bar2", request2.descriptors().descriptor_b());
-  EXPECT_EQ("baz2", request2.descriptors().descriptor_c());
-  EXPECT_EQ("#FF0000", request2.descriptors().descriptor_d());
+  EXPECT_EQ("foo2", request2.descriptors().subject());
+  EXPECT_EQ("bar2", request2.descriptors().style());
+  EXPECT_EQ("baz2", request2.descriptors().mood());
+  EXPECT_EQ("#FF0000", request2.descriptors().color());
 
   optimization_guide::proto::WallpaperSearchResponse response2;
   std::string serialized_metadata2;
@@ -794,13 +794,13 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_MultipleRequests) {
                            log_entry) {
             EXPECT_TRUE(log_entry->log_ai_data_request()
                             ->mutable_wallpaper_search()
-                            ->has_quality_data());
+                            ->has_quality());
             qualities.push_back(
                 std::make_unique<
                     optimization_guide::proto::WallpaperSearchQuality>(
                     log_entry->log_ai_data_request()
                         ->mutable_wallpaper_search()
-                        ->quality_data()));
+                        ->quality()));
           }));
 
   // Simulate that front-end has received the images and rendered them.
@@ -858,10 +858,10 @@ TEST_F(WallpaperSearchHandlerTest,
   handler->GetWallpaperSearchResults(std::move(result_descriptors),
                                      callback.Get());
 
-  EXPECT_EQ("foo", request.descriptors().descriptor_a());
-  EXPECT_TRUE(request.descriptors().descriptor_b().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_c().empty());
-  EXPECT_EQ("#FF0000", request.descriptors().descriptor_d());
+  EXPECT_EQ("foo", request.descriptors().subject());
+  EXPECT_TRUE(request.descriptors().style().empty());
+  EXPECT_TRUE(request.descriptors().mood().empty());
+  EXPECT_EQ("#FF0000", request.descriptors().color());
 }
 
 TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_ConvertsHueToHex) {
@@ -891,10 +891,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_ConvertsHueToHex) {
   handler->GetWallpaperSearchResults(std::move(result_descriptors),
                                      callback.Get());
 
-  EXPECT_EQ("foo", request.descriptors().descriptor_a());
-  EXPECT_TRUE(request.descriptors().descriptor_b().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_c().empty());
-  EXPECT_EQ("#FF0000", request.descriptors().descriptor_d());
+  EXPECT_EQ("foo", request.descriptors().subject());
+  EXPECT_TRUE(request.descriptors().style().empty());
+  EXPECT_TRUE(request.descriptors().mood().empty());
+  EXPECT_EQ("#FF0000", request.descriptors().color());
 }
 
 TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_NoResponse) {
@@ -923,10 +923,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_NoResponse) {
   result_descriptors->subject = "foo";
   handler->GetWallpaperSearchResults(std::move(result_descriptors),
                                      callback.Get());
-  EXPECT_EQ("foo", request.descriptors().descriptor_a());
-  EXPECT_TRUE(request.descriptors().descriptor_b().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_c().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_d().empty());
+  EXPECT_EQ("foo", request.descriptors().subject());
+  EXPECT_TRUE(request.descriptors().style().empty());
+  EXPECT_TRUE(request.descriptors().mood().empty());
+  EXPECT_TRUE(request.descriptors().color().empty());
 
   std::vector<side_panel::customize_chrome::mojom::WallpaperSearchResultPtr>
       images;
@@ -959,13 +959,13 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_NoResponse) {
                            log_entry) {
             EXPECT_TRUE(log_entry->log_ai_data_request()
                             ->mutable_wallpaper_search()
-                            ->has_quality_data());
+                            ->has_quality());
             qualities.push_back(
                 std::make_unique<
                     optimization_guide::proto::WallpaperSearchQuality>(
                     log_entry->log_ai_data_request()
                         ->mutable_wallpaper_search()
-                        ->quality_data()));
+                        ->quality()));
           }));
 
   // Quality logs on destruction.
@@ -1003,10 +1003,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_NoImages) {
   result_descriptors->subject = "foo";
   handler->GetWallpaperSearchResults(std::move(result_descriptors),
                                      callback.Get());
-  EXPECT_EQ("foo", request.descriptors().descriptor_a());
-  EXPECT_TRUE(request.descriptors().descriptor_b().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_c().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_d().empty());
+  EXPECT_EQ("foo", request.descriptors().subject());
+  EXPECT_TRUE(request.descriptors().style().empty());
+  EXPECT_TRUE(request.descriptors().mood().empty());
+  EXPECT_TRUE(request.descriptors().color().empty());
 
   optimization_guide::proto::WallpaperSearchResponse response;
   std::string serialized_metadata;
@@ -1035,13 +1035,13 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_NoImages) {
                            log_entry) {
             EXPECT_TRUE(log_entry->log_ai_data_request()
                             ->mutable_wallpaper_search()
-                            ->has_quality_data());
+                            ->has_quality());
             qualities.push_back(
                 std::make_unique<
                     optimization_guide::proto::WallpaperSearchQuality>(
                     log_entry->log_ai_data_request()
                         ->mutable_wallpaper_search()
-                        ->quality_data()));
+                        ->quality()));
           }));
 
   EXPECT_EQ(status,
@@ -1083,10 +1083,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_RequestThrottled) {
   result_descriptors->subject = "foo";
   handler->GetWallpaperSearchResults(std::move(result_descriptors),
                                      callback.Get());
-  EXPECT_EQ("foo", request.descriptors().descriptor_a());
-  EXPECT_TRUE(request.descriptors().descriptor_b().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_c().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_d().empty());
+  EXPECT_EQ("foo", request.descriptors().subject());
+  EXPECT_TRUE(request.descriptors().style().empty());
+  EXPECT_TRUE(request.descriptors().mood().empty());
+  EXPECT_TRUE(request.descriptors().color().empty());
 
   std::vector<side_panel::customize_chrome::mojom::WallpaperSearchResultPtr>
       images;
@@ -1119,13 +1119,13 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_RequestThrottled) {
                            log_entry) {
             EXPECT_TRUE(log_entry->log_ai_data_request()
                             ->mutable_wallpaper_search()
-                            ->has_quality_data());
+                            ->has_quality());
             qualities.push_back(
                 std::make_unique<
                     optimization_guide::proto::WallpaperSearchQuality>(
                     log_entry->log_ai_data_request()
                         ->mutable_wallpaper_search()
-                        ->quality_data()));
+                        ->quality()));
           }));
 
   // Quality logs on destruction.
@@ -1299,10 +1299,10 @@ TEST_F(WallpaperSearchHandlerTest, SetBackgroundToWallpaperSearchResult) {
   result_descriptors->subject = "foo";
   handler->GetWallpaperSearchResults(std::move(result_descriptors),
                                      callback.Get());
-  EXPECT_EQ("foo", request.descriptors().descriptor_a());
-  EXPECT_TRUE(request.descriptors().descriptor_b().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_c().empty());
-  EXPECT_TRUE(request.descriptors().descriptor_d().empty());
+  EXPECT_EQ("foo", request.descriptors().subject());
+  EXPECT_TRUE(request.descriptors().style().empty());
+  EXPECT_TRUE(request.descriptors().mood().empty());
+  EXPECT_TRUE(request.descriptors().color().empty());
 
   optimization_guide::proto::WallpaperSearchResponse response;
 
@@ -1402,13 +1402,13 @@ TEST_F(WallpaperSearchHandlerTest, SetBackgroundToWallpaperSearchResult) {
                            log_entry) {
             EXPECT_TRUE(log_entry->log_ai_data_request()
                             ->mutable_wallpaper_search()
-                            ->has_quality_data());
+                            ->has_quality());
             qualities.push_back(
                 std::make_unique<
                     optimization_guide::proto::WallpaperSearchQuality>(
                     log_entry->log_ai_data_request()
                         ->mutable_wallpaper_search()
-                        ->quality_data()));
+                        ->quality()));
           }));
 
   // Advance clock to test complete latency.
@@ -1536,13 +1536,13 @@ TEST_F(WallpaperSearchHandlerTest, SetUserFeedback) {
                            log_entry) {
             EXPECT_TRUE(log_entry->log_ai_data_request()
                             ->mutable_wallpaper_search()
-                            ->has_quality_data());
+                            ->has_quality());
             qualities.push_back(
                 std::make_unique<
                     optimization_guide::proto::WallpaperSearchQuality>(
                     log_entry->log_ai_data_request()
                         ->mutable_wallpaper_search()
-                        ->quality_data()));
+                        ->quality()));
           }));
 
   // Quality logs on destruction.

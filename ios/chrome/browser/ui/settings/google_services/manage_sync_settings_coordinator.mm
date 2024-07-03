@@ -124,17 +124,6 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 @synthesize baseNavigationController = _baseNavigationController;
 
-- (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                                   browser:(Browser*)browser
-                              accountState:
-                                  (SyncSettingsAccountState)accountState {
-  if (self = [super initWithBaseViewController:viewController
-                                       browser:browser]) {
-    _accountState = accountState;
-  }
-  return self;
-}
-
 - (instancetype)initWithBaseNavigationController:
                     (UINavigationController*)navigationController
                                          browser:(Browser*)browser
@@ -161,7 +150,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
     case SyncSettingsAccountState::kSignedIn:
       break;
     case SyncSettingsAccountState::kSignedOut:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 
@@ -216,12 +205,9 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
   self.mediator.consumer = viewController;
 
-  if (_baseNavigationController) {
-    [self.baseNavigationController pushViewController:viewController
-                                             animated:YES];
-  } else {
-    [self presentViewController:viewController];
-  }
+  CHECK(_baseNavigationController, base::NotFatalUntil::M129);
+  [self.baseNavigationController pushViewController:viewController
+                                           animated:YES];
   _syncObserver = std::make_unique<SyncObserverBridge>(self, self.syncService);
 }
 
@@ -264,18 +250,6 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 #pragma mark - Private
-
-- (void)presentViewController:(UIViewController*)controller {
-  SettingsNavigationController* navigationController =
-      [[SettingsNavigationController alloc]
-          initWithRootViewController:controller
-                             browser:self.browser
-                            delegate:self];
-  _navigationControllerInModalView = navigationController;
-  [self.baseViewController presentViewController:navigationController
-                                        animated:YES
-                                      completion:nil];
-}
 
 - (void)stopBulkUpload {
   [_bulkUploadCoordinator stop];
@@ -326,9 +300,21 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
                                  completion:nil];
         }
       }
-      [self.baseNavigationController popToViewController:self.viewController
-                                                animated:NO];
-      [self.baseNavigationController popViewControllerAnimated:YES];
+      if (self.baseNavigationController.viewControllers.count == 1) {
+        // If the manage sync settings is the only view in
+        // `baseNavigationController`, `baseNavigationController` needs to be
+        // closed.
+        CHECK([self.baseNavigationController
+                  isKindOfClass:[SettingsNavigationController class]],
+              base::NotFatalUntil::M129);
+        [self.baseNavigationController
+            performSelector:@selector(closeSettings)];
+      } else {
+        [self.baseNavigationController popToViewController:self.viewController
+                                                  animated:NO];
+        [self.baseNavigationController popViewControllerAnimated:YES];
+        [self.delegate manageSyncSettingsCoordinatorWasRemoved:self];
+      }
     } else {
       [self.navigationControllerForChildPages.presentingViewController
           dismissViewControllerAnimated:YES
@@ -375,8 +361,9 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   _dismissWebAndAppSettingDetailsController =
       GetApplicationContext()
           ->GetSystemIdentityManager()
-          ->PresentWebAndAppSettingDetailsController(identity,
-                                                     self.viewController, YES);
+          ->PresentWebAndAppSettingDetailsController(
+              identity, self.viewController, /*animated=*/YES,
+              base::DoNothing());
 }
 
 - (void)openPersonalizeGoogleServices {
@@ -478,7 +465,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
               self.authService->GetPrimaryIdentity(
                   signin::ConsentLevel::kSignin),
               self.viewController,
-              /*animated=*/YES);
+              /*animated=*/YES, base::DoNothing());
 }
 
 #pragma mark - SignoutActionSheetCoordinatorDelegate
@@ -508,6 +495,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
     UINavigationController* navigationController =
         [[UINavigationController alloc]
             initWithRootViewController:controllerToPresent];
+    navigationController.modalPresentationStyle = UIModalPresentationFormSheet;
     [self.viewController
         configureHandlersForRootViewController:controllerToPresent];
     [self.viewController presentViewController:navigationController

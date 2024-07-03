@@ -131,11 +131,6 @@ const base::FeatureParam<std::string> kBoardingPassDetectorUrlParam(
 BASE_FEATURE(kBorealis, "Borealis", base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
-// Enables cco test1.
-BASE_FEATURE(kCcoTest1, "CcoTest1", base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 // Enables change picture video mode.
 BASE_FEATURE(kChangePictureVideoMode,
              "ChangePictureVideoMode",
@@ -235,7 +230,7 @@ BASE_FEATURE(kDMServerOAuthForChildUser,
 
 BASE_FEATURE(kEnableWatermarkView,
              "EnableWatermarkView",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
 // Whether to allow installed-by-default web apps to be installed or not.
@@ -331,9 +326,20 @@ BASE_FEATURE(kDesktopPWAsTabStripSettings,
 BASE_FEATURE(kChromeAppsDeprecation,
              "ChromeAppsDeprecation",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the new create shortcut flow where fire and forget entities are
+// created from three dot menu > Save and Share > Create Shortcut instead of
+// PWAs.
 BASE_FEATURE(kShortcutsNotApps,
              "ShortcutsNotApps",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the opening of the desktop and highlighting of the shortcut created
+// as part of the new Create Shortcut flow. Requires kShortcutsNotApps to be
+// enabled to work.
+BASE_FEATURE(kShortcutsNotAppsRevealDesktop,
+             "ShortcutsNotAppsRevealDesktop",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 // Enables notification permission revocation for origins that may send
@@ -341,40 +347,6 @@ BASE_FEATURE(kShortcutsNotApps,
 BASE_FEATURE(kDisruptiveNotificationPermissionRevocation,
              "DisruptiveNotificationPermissionRevocation",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable DNS over HTTPS (DoH).
-BASE_FEATURE(kDnsOverHttps,
-             "DnsOverHttps",
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-
-// Set whether fallback to insecure DNS is allowed by default. This setting may
-// be overridden for individual transactions.
-const base::FeatureParam<bool> kDnsOverHttpsFallbackParam{&kDnsOverHttps,
-                                                          "Fallback", true};
-
-// Sets whether the DoH setting is displayed in the settings UI.
-const base::FeatureParam<bool> kDnsOverHttpsShowUiParam{&kDnsOverHttps,
-                                                        "ShowUi",
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
-                                                        true
-#else
-                                                        false
-#endif
-};
-
-// Supply one or more space-separated DoH server URI templates to use when this
-// feature is enabled. If no templates are specified, then a hardcoded mapping
-// will be used to construct a list of DoH templates associated with the IP
-// addresses of insecure resolvers in the discovered configuration.
-const base::FeatureParam<std::string> kDnsOverHttpsTemplatesParam{
-    &kDnsOverHttps, "Templates", ""};
 
 #if !BUILDFLAG(IS_ANDROID)
 // Enable WebHID on extension service workers.
@@ -471,7 +443,7 @@ BASE_FEATURE(kHappinessTrackingSurveysConfiguration,
 
 const base::FeatureParam<std::string> kHappinessTrackingSurveysHostedUrl{
     &kHappinessTrackingSurveysConfiguration, "custom-url",
-    "https://storage.googleapis.com/chrome_hats/index.html"};
+    "https://www.google.com/chrome/hats/index.html"};
 
 // Enables or disables the Happiness Tracking System for COEP issues in Chrome
 // DevTools on Desktop.
@@ -730,6 +702,16 @@ BASE_FEATURE(kHappinessTrackingOsSettingsSearch,
 BASE_FEATURE(kHappinessTrackingBorealisGames,
              "HappinessTrackingBorealisGames",
              base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables the Happiness Tracking System for ChromeOS Launcher survey. This
+// survey is enabled to 25% of users.
+BASE_FEATURE(kHappinessTrackingLauncherAppsFinding,
+             "HappinessTrackingLauncherAppsFinding",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables the Happiness Tracking System for ChromeOS Launcher survey. This
+// survey is enabled to 75% of users.
+BASE_FEATURE(kHappinessTrackingLauncherAppsNeeding,
+             "HappinessTrackingLauncherAppsNeeding",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 // Hides the origin text from showing up briefly in WebApp windows.
@@ -757,11 +739,18 @@ BASE_FEATURE(kHttpsFirstModeV2ForTypicallySecureUsers,
 // Enables automatically upgrading main frame navigations to HTTPS.
 BASE_FEATURE(kHttpsUpgrades, "HttpsUpgrades", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables HTTPS-First Mode by default in Incognito Mode, changing the binary
-// opt-in to HTTPS-First Mode with a tri-state setting (HFM everywhere, HFM in
-// Incognito, or no HFM) with HFM-in-Incognito the new default setting.
+// Enables HTTPS-First Mode by default in Incognito Mode. (The related feature
+// kHttpsFirstModeIncognitoNewSettings controls whether new settings controls
+// are available for opting out of this default behavior.)
 BASE_FEATURE(kHttpsFirstModeIncognito,
              "HttpsFirstModeIncognito",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Changes the binary opt-in to HTTPS-First Mode with a tri-state setting (HFM
+// everywhere, HFM in Incognito, or no HFM) with HFM-in-Incognito the new
+// default setting. This feature is dependent on kHttpsFirstModeIncognito.
+BASE_FEATURE(kHttpsFirstModeIncognitoNewSettings,
+             "HttpsFirstModeIncognitoNewSettings",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC)
@@ -1114,7 +1103,19 @@ BASE_FEATURE(kSafetyHubExtensionsOffStoreTrigger,
 #endif
 
 // Enables Safety Hub feature.
-BASE_FEATURE(kSafetyHub, "SafetyHub", base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSafetyHub,
+             "SafetyHub",
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_ANDROID)
+);
+
+// Enables or disables the Trust Safety Sentiment Survey for Safety Hub.
+BASE_FEATURE(kSafetyHubTrustSafetySentimentSurvey,
+             "TrustSafetySentimentSurveyForSafetyHub",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Time between automated runs of the password check.
 const base::FeatureParam<base::TimeDelta> kBackgroundPasswordCheckInterval{
@@ -1232,6 +1233,12 @@ BASE_FEATURE(kSitePerProcess,
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+// The default behavior to opt devtools users out of
+// kProcessPerSiteUpToMainFrameThreshold.
+BASE_FEATURE(kProcessPerSiteSkipDevtoolsUsers,
+             "ProcessPerSiteSkipDevtoolsUsers",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Enables the SkyVault (cloud-first) changes, some of which are also controlled
@@ -1441,6 +1448,14 @@ const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2SafetyCheckProbability{
         &kTrustSafetySentimentSurveyV2, "safety-check-probability", 0.0};
 const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyV2SafetyHubNotificationProbability{
+        &kTrustSafetySentimentSurveyV2, "safety-hub-notification-probability",
+        0.0};
+const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyV2SafetyHubInteractionProbability{
+        &kTrustSafetySentimentSurveyV2, "safety-hub-interaction-probability",
+        0.0};
+const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2TrustedSurfaceProbability{
         &kTrustSafetySentimentSurveyV2, "trusted-surface-probability", 0.0};
 const base::FeatureParam<double>
@@ -1487,6 +1502,14 @@ extern const base::FeatureParam<std::string>
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2SafetyCheckTriggerId{
         &kTrustSafetySentimentSurveyV2, "safety-check-trigger-id", ""};
+const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyV2SafetyHubInteractionTriggerId{
+        &kTrustSafetySentimentSurveyV2, "safety-hub-interaction-trigger-id",
+        ""};
+const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyV2SafetyHubNotificationTriggerId{
+        &kTrustSafetySentimentSurveyV2, "safety-hub-notification-trigger-id",
+        ""};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2TrustedSurfaceTriggerId{
         &kTrustSafetySentimentSurveyV2, "trusted-surface-trigger-id", ""};
@@ -1537,10 +1560,6 @@ BASE_FEATURE(kUserActivityEventLogging,
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kWebAppDedupeInstallUrls,
-             "WebAppDedupeInstallUrls",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kWebAppManifestIconUpdating,
              "WebAppManifestIconUpdating",
              base::FEATURE_DISABLED_BY_DEFAULT);

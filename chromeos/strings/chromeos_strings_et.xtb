@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastellkollane</translation>
 <translation id="1056898198331236512">Hoiatus</translation>
 <translation id="1059913517121127803">Skannimist ei saanud alustada</translation>
+<translation id="1061864016440983342">Kasuta ilma asukohata</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> / <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Tuvastati tulemüür</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Rohkem seadeid</translation>
 <translation id="2082932131694554252">Määratud klaviatuuriklahv</translation>
 <translation id="2085089206770112532">Ekraanikuva ereduse vähendamine</translation>
+<translation id="2086091080968010660">Ajapõhised muudatused ei pruugi olla asjakohased. Lülitage seadetes sisse süsteemi juurdepääs asukohale.</translation>
 <translation id="2102231663024125441">Teksti muutmine</translation>
 <translation id="2105810540595158374">Seade on mängupult.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versioon <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN-i üksikasjade muutmine</translation>
 <translation id="2195732836444333448">Maht on praegu täis. Tulge varsti tagasi.</translation>
 <translation id="2201758491318984023">jalgratas</translation>
-<translation id="2203222757805818543">Praegune määratud ajakava: <ph name="SUNRISE" /> – <ph name="SUNSET" />. Tumeda režiimi automaatseks värskendamiseks <ph name="BEGIN_LINK" />lülitage sisse juurdepääs asukohale<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">kuumaveeallikas</translation>
 <translation id="2203642483788377106">kalju</translation>
 <translation id="2208388655216963643">impressionism</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Taasta vaikeväärtused</translation>
 <translation id="2286454467119466181">Lihtne</translation>
 <translation id="2287186687001756809">Pilte pole saadaval. Fotode lisamiseks minge saidile <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Praegune ajakava on seadistatud järgmiselt: <ph name="SUNRISE" />-<ph name="SUNSET" />. Päikesetõusu ja päikeseloojangu ajakava automaatseks värskendamiseks lülitage sisse süsteemi juurdepääs asukohale.</translation>
 <translation id="2305172810646967500">must</translation>
 <translation id="2307344026739914387">Kasuta praegust võtmepaari</translation>
 <translation id="2308243864813041101">Eemaldage seadme <ph name="DEVICE_NAME" /> USB-kaabel, et värskendamist jätkata</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">liivaluide</translation>
 <translation id="2619761439309613843">Igapäevane värskendamine</translation>
 <translation id="2620436844016719705">Süsteem</translation>
+<translation id="2637303424821734920">VÄLJAS – kohaliku ilma kuvamiseks <ph name="BEGIN_LINK" />lülitage sisse süsteemi asukohajuurdepääs<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Sisselogimispilt</translation>
 <translation id="2640549051766135490">Album <ph name="TITLE" /> <ph name="DESC" /> on valitud</translation>
 <translation id="2645380101799517405">Nupud</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Taust</translation>
 <translation id="3027578600144895987">Sulge kaamera</translation>
 <translation id="3031560714565892478">Seade on videokaamera.</translation>
+<translation id="3051968340259309715">See lubab süsteemiteenustel kasutada teie asukoha tuvastamiseks asukohatäpsust. Asukohatäpsus kasutab seadme asukoha määramiseks teavet juhtmeta signaalide (nt WiFi-pääsupunktid ja mobiilsidevõrgu mastid) kohta koos seadme andurite andmetega (nt kiirendusmõõtur ja güroskoop). Võite selle igal ajal välja lülitada menüüs Seaded &gt; Privaatsus ja turvalisus &gt; Privaatsuse seaded &gt; Juurdepääs asukohale. <ph name="LINK_BEGIN" />Lisateave<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Lõpp-punkt</translation>
 <translation id="3060579846059757016">Põhipunktid</translation>
+<translation id="3061850252076394168">luba funktsioon Vali ja kuula</translation>
 <translation id="3069085583900247081">Test ebaõnnestus</translation>
 <translation id="3078740164268491126">tabel</translation>
 <translation id="3081652522083185657">hele</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Kõikide hostide lahendamine ebaõnnestus</translation>
 <translation id="4593212453765072419">Vajalik on puhverserveri autentimine</translation>
 <translation id="4609350030397390689">Klaviatuuri ereduse vähendamine</translation>
-<translation id="4617553623719764431">Ilma ei kuvata, kuna rakendus ei tea teie asukohta. Kohaliku ilma kuvamiseks <ph name="BEGIN_LINK" />lülitage juurdepääs asukohale sisse<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" />. Prinditöö tühistamiseks vajutage sisestusklahvi.</translation>
 <translation id="463791356324567266">Skannimise tühistamine …</translation>
 <translation id="4646949265910132906">Turvaline WiFi-ühendus</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Käitati</translation>
 <translation id="4987769320337599931">Tulemüür</translation>
 <translation id="4988526792673242964">Leheküljed</translation>
+<translation id="4989542687859782284">Pole saadaval</translation>
 <translation id="4999333166442584738">Peida aruanne</translation>
 <translation id="500920857929044050">Lõpeta test</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">klaviatuuri heledus</translation>
 <translation id="6412715219990689313">Sisseehitatud klaviatuur</translation>
 <translation id="6417265370957905582">Google'i assistent</translation>
+<translation id="6419454453018688975">Lülita sisse süsteemi juurdepääs asukohale</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">See võimaldab süsteemiteenustel teie asukohta kasutada. Funktsioon Asukoht võib teie seadme asukoha tuvastamiseks kasutada selliseid allikaid nagu WiFi- ja mobiilsidevõrgud ning andurid. <ph name="LINK_BEGIN" />Lisateave<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Nõrk (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Ava konto seaded</translation>
 <translation id="6462978824459367242">APN-i nupp Lisa on nüüd lubatud</translation>

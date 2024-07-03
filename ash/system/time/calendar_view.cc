@@ -516,6 +516,7 @@ CalendarView::CalendarView(bool use_glanceables_container_style)
   // layout while reading the bounds of it.
   progress_bar_ = AddChildViewAt(std::make_unique<GlanceablesProgressBarView>(),
                                  kTitleRowProgressBarIndex + 1);
+  progress_bar_->SetPreferredSize(gfx::Size(0, kTitleRowProgressBarHeight));
   progress_bar_->UpdateProgressBarVisibility(/*visible=*/false);
 
   // Adds the calendar month header view and up/down buttons after the progress
@@ -642,7 +643,7 @@ views::View* CalendarView::CreateCalendarHeaderRow() {
       IDS_ASH_CALENDAR_INFO_BUTTON_ACCESSIBLE_DESCRIPTION);
   today_button->SetBackgroundColor(cros_tokens::kCrosSysBaseElevated);
   today_button->SetProperty(views::kMarginsKey, kHeaderIconButtonMargin);
-  today_button->SetAccessibleName(l10n_util::GetStringFUTF16(
+  today_button->GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
       IDS_ASH_CALENDAR_INFO_BUTTON_ACCESSIBLE_DESCRIPTION,
       calendar_utils::GetMonthDayYear(base::Time::Now())));
   today_button->SetTooltipText(
@@ -699,9 +700,10 @@ void CalendarView::CreateCalendarTitleRow() {
                           base::Unretained(this)),
       l10n_util::GetStringUTF16(IDS_ASH_CALENDAR_INFO_BUTTON),
       PillButton::Type::kDefaultWithoutIcon, /*icon=*/nullptr);
-  reset_to_today_button_->SetAccessibleName(l10n_util::GetStringFUTF16(
-      IDS_ASH_CALENDAR_INFO_BUTTON_ACCESSIBLE_DESCRIPTION,
-      calendar_utils::GetMonthDayYear(base::Time::Now())));
+  reset_to_today_button_->GetViewAccessibility().SetName(
+      l10n_util::GetStringFUTF16(
+          IDS_ASH_CALENDAR_INFO_BUTTON_ACCESSIBLE_DESCRIPTION,
+          calendar_utils::GetMonthDayYear(base::Time::Now())));
 
   reset_to_today_button_->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_ASH_CALENDAR_TODAY_BUTTON_TOOLTIP));
@@ -1876,7 +1878,7 @@ void CalendarView::OnEvent(ui::Event* event) {
       return;
     }
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -2148,8 +2150,8 @@ int CalendarView::CalculateFirstFullyVisibleRow() {
           (event_list_view_ ? GetExpandedCalendarPadding() : 0))) {
     ++row_index;
     if (row_index > kMaxRowsInOneMonth) {
-      NOTREACHED() << "CalendarMonthView's cannot have more than "
-                   << kMaxRowsInOneMonth << " rows.";
+      NOTREACHED_IN_MIGRATION() << "CalendarMonthView's cannot have more than "
+                                << kMaxRowsInOneMonth << " rows.";
       return kMaxRowsInOneMonth;
     }
   }

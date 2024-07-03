@@ -58,9 +58,7 @@ inline constexpr double kReadAnythingFontScaleIncrement = 0.25;
 
 // Display settings.
 inline constexpr bool kReadAnythingDefaultLinksEnabled = true;
-
-// The maximum number of times the label is shown in the omnibox icon.
-inline constexpr int kReadAnythingOmniboxIconLabelShownCountMax = 3;
+inline constexpr bool kReadAnythingDefaultImagesEnabled = false;
 
 const char* kLanguagesSupportedByPoppins[] = {
     "af", "ca", "cs", "da", "de", "en", "es", "et", "fi", "fil",

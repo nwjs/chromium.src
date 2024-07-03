@@ -35,8 +35,7 @@ class TrackingProtectionOnboarding : public KeyedService {
     kEligible = 1,
     kOnboarded = 2,
     kOffboarded = 3,
-    kOnboardingRequested = 4,
-    kMaxValue = kOnboardingRequested,
+    kMaxValue = kOffboarded,
   };
 
   // Enum value interfacing with the TrackingProtectionOnboarding service
@@ -165,15 +164,6 @@ class TrackingProtectionOnboarding : public KeyedService {
   // enum defined above.
   SilentOnboardingStatus GetSilentOnboardingStatus() const;
 
-  // Returns whether the profile has been offboarded.
-  bool IsOffboarded() const;
-
-  // To be called by UI code when we've requested the onboarding notice.
-  void OnboardingNoticeRequested();
-
-  // To be called by UI code when we've requested the notice.
-  void NoticeRequested(NoticeType notice_type);
-
   // To be Called by UI code when the user has been shown the notice.
   void NoticeShown(NoticeType notice_type);
 
@@ -210,8 +200,6 @@ class TrackingProtectionOnboarding : public KeyedService {
   virtual void OnOnboardingPrefChanged() const;
   // Called when the notice has been acked.
   virtual void OnOnboardingAckedChanged() const;
-  // Called when the underlying offboarding pref is changed.
-  virtual void OnOffboardingPrefChanged() const;
   // Called when the underlying silent onboarding pref is changed.
   virtual void OnSilentOnboardingPrefChanged() const;
 

@@ -373,6 +373,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             propertyModel.set(AppMenuItemProperties.SUPPORT_ENTER_ANIMATION, true);
             propertyModel.set(AppMenuItemProperties.MENU_ICON_AT_START, isMenuIconAtStart());
             propertyModel.set(AppMenuItemProperties.TITLE_CONDENSED, getContentDescription(item));
+            propertyModel.set(AppMenuItemProperties.MANAGED, isMenuItemManaged(item));
             if (item.hasSubMenu()) {
                 // Only support top level menu items have SUBMENU, and a SUBMENU item cannot have a
                 // SUBMENU.
@@ -1031,7 +1032,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         }
 
         // now try to insert it.
-        assert mReadAloudPos != 1 : "Unexpectedly missing position for the read aloud menu item";
+        assert mReadAloudPos != -1 : "Unexpectedly missing position for the read aloud menu item";
         if (mReadAloudPos != -1) {
             item.setVisible(true);
             mHasReadAloudInserted = true;
@@ -1043,6 +1044,15 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                     mReadAloudPos,
                     new MVCListAdapter.ListItem(AppMenuItemType.STANDARD, propertyModel));
         }
+    }
+
+    /** Return whether the given {@link MenuItem} is managed by policy. */
+    protected boolean isMenuItemManaged(MenuItem item) {
+        if (item.getItemId() == R.id.new_incognito_tab_menu_id) {
+            return IncognitoUtils.isIncognitoModeManaged(
+                    mTabModelSelector.getCurrentModel().getProfile());
+        }
+        return false;
     }
 
     /** Returns true if a badge (i.e. a red-dot) should be shown on the menu item icon. */
@@ -1353,7 +1363,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public boolean isIncognitoEnabled() {
-        return IncognitoUtils.isIncognitoModeEnabled();
+        return IncognitoUtils.isIncognitoModeEnabled(
+                mTabModelSelector.getCurrentModel().getProfile());
     }
 
     static void setPageBookmarkedForTesting(Boolean bookmarked) {

@@ -130,7 +130,6 @@
       {
         "id": "ExecutionWorld",
         "type": "string",
-        "nodoc": true,
         "enum": [
           "ISOLATED",
           "MAIN",

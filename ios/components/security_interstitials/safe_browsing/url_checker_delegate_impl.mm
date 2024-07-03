@@ -137,6 +137,6 @@ UrlCheckerDelegateImpl::GetDatabaseManager() {
 }
 
 safe_browsing::BaseUIManager* UrlCheckerDelegateImpl::GetUIManager() {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }

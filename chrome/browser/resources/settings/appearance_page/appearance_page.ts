@@ -66,6 +66,7 @@ export interface SettingsAppearancePageElement {
     colorSchemeModeSelect: HTMLSelectElement,
     defaultFontSize: SettingsDropdownMenuElement,
     showSavedTabGroups: SettingsToggleButtonElement,
+    autoPinNewTabGroups: SettingsToggleButtonElement,
     zoomLevel: HTMLSelectElement,
   };
 }
@@ -195,13 +196,6 @@ export class SettingsAppearancePageElement extends
       },
       // </if>
 
-      showSidePanelOptions_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('showSidePanelOptions');
-        },
-      },
-
       showHoverCardImagesOption_: {
         type: Boolean,
         value() {
@@ -210,6 +204,13 @@ export class SettingsAppearancePageElement extends
       },
 
       showSavedTabGroupsInBookmarksBar_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean('tabGroupsSaveUIUpdateEnabled');
+        },
+      },
+
+      showAutoPinNewTabGroups_: {
         type: Boolean,
         value() {
           return loadTimeData.getBoolean('tabGroupsSaveUIUpdateEnabled');
@@ -233,7 +234,6 @@ export class SettingsAppearancePageElement extends
   }
 
   pageVisibility: AppearancePageVisibility;
-  private showSidePanelOptions_: boolean;
   private defaultZoom_: number;
   private isWallpaperPolicyControlled_: boolean;
   private fontSizeOptions_: DropdownMenuOptionList;
@@ -248,6 +248,7 @@ export class SettingsAppearancePageElement extends
   private isForcedTheme_: boolean;
   private showHoverCardImagesOption_: boolean;
   private showSavedTabGroupsInBookmarksBar_: boolean;
+  private showAutoPinNewTabGroups_: boolean;
 
   // <if expr="is_linux">
   private showCustomChromeFrame_: boolean;

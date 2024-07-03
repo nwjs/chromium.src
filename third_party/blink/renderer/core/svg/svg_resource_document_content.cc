@@ -132,7 +132,7 @@ void SVGResourceDocumentContent::UpdateStatus(ResourceStatus new_status) {
 SVGResourceDocumentContent::UpdateResult
 SVGResourceDocumentContent::UpdateDocument(scoped_refptr<SharedBuffer> data,
                                            const KURL& request_url) {
-  if (data->empty()) {
+  if (data->empty() || was_disposed_) {
     return UpdateResult::kError;
   }
   auto* chrome_client = MakeGarbageCollected<ChromeClient>(this);
@@ -148,11 +148,6 @@ SVGResourceDocumentContent::UpdateDocument(scoped_refptr<SharedBuffer> data,
   // not, then we need to wait for the async load completion callback.
   if (!document_host_->IsLoaded()) {
     return UpdateResult::kAsync;
-  }
-  // Report an error if the document doesn't have an <svg> document root.
-  if (!document_host_->RootElement()) {
-    ClearDocument();
-    return UpdateResult::kError;
   }
   LoadingFinished();
   return UpdateResult::kCompleted;
@@ -172,6 +167,7 @@ void SVGResourceDocumentContent::AsyncLoadingFinished() {
 
 void SVGResourceDocumentContent::Dispose() {
   ClearDocument();
+  was_disposed_ = true;
 }
 
 void SVGResourceDocumentContent::ClearDocument() {

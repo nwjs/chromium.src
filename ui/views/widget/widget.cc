@@ -162,9 +162,11 @@ class Widget::PaintAsActiveLockImpl : public Widget::PaintAsActiveLock {
 ////////////////////////////////////////////////////////////////////////////////
 // Widget, InitParams:
 
-Widget::InitParams::InitParams() = default;
+Widget::InitParams::InitParams(Type type)
+    : InitParams(NATIVE_WIDGET_OWNS_WIDGET, type) {}
 
-Widget::InitParams::InitParams(Type type) : type(type) {}
+Widget::InitParams::InitParams(Ownership ownership, Type type)
+    : type(type), ownership(ownership) {}
 
 Widget::InitParams::InitParams(InitParams&& other) = default;
 
@@ -237,6 +239,8 @@ Widget::~Widget() {
     HandleWidgetDestroying();
     HandleWidgetDestroyed();
   }
+
+  RemoveObserver(&root_view_->GetViewAccessibility());
   // Destroy RootView after the native widget, so in case the WidgetDelegate is
   // a View in the RootView hierarchy it gets destroyed as a WidgetDelegate
   // first.
@@ -251,7 +255,7 @@ Widget::~Widget() {
 Widget* Widget::CreateWindowWithParent(WidgetDelegate* delegate,
                                        gfx::NativeView parent,
                                        const gfx::Rect& bounds) {
-  Widget::InitParams params;
+  Widget::InitParams params(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
   params.delegate = delegate;
   params.parent = parent;
   params.bounds = bounds;
@@ -261,7 +265,6 @@ Widget* Widget::CreateWindowWithParent(WidgetDelegate* delegate,
 Widget* Widget::CreateWindowWithParent(std::unique_ptr<WidgetDelegate> delegate,
                                        gfx::NativeView parent,
                                        const gfx::Rect& bounds) {
-  DCHECK(delegate->owned_by_widget());
   return CreateWindowWithParent(delegate.release(), parent, bounds);
 }
 
@@ -269,7 +272,7 @@ Widget* Widget::CreateWindowWithParent(std::unique_ptr<WidgetDelegate> delegate,
 Widget* Widget::CreateWindowWithContext(WidgetDelegate* delegate,
                                         gfx::NativeWindow context,
                                         const gfx::Rect& bounds) {
-  Widget::InitParams params;
+  Widget::InitParams params(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
   params.delegate = delegate;
   params.context = context;
   params.bounds = bounds;
@@ -281,7 +284,6 @@ Widget* Widget::CreateWindowWithContext(
     std::unique_ptr<WidgetDelegate> delegate,
     gfx::NativeWindow context,
     const gfx::Rect& bounds) {
-  DCHECK(delegate->owned_by_widget());
   return CreateWindowWithContext(delegate.release(), context, bounds);
 }
 
@@ -458,6 +460,10 @@ void Widget::Init(InitParams params) {
     owned_native_widget_ = base::WrapUnique(native_widget_raw_ptr);
   }
   root_view_.reset(CreateRootView());
+  // We need to add the RootView's ViewAccessibility as an observer of the
+  // widget, so that when the widget is closed, the accessible data is set
+  // accordingly.
+  AddObserver(&root_view_->GetViewAccessibility());
 
   // Copy the elements of params that will be used after it is moved.
   const InitParams::Type type = params.type;
@@ -1112,6 +1118,10 @@ void Widget::RunShellDrag(View* view,
                           const gfx::Point& location,
                           int operation,
                           ui::mojom::DragEventSource source) {
+  if (view) {
+    CHECK_EQ(view->GetWidget(), this);
+  }
+
   if (!native_widget_)
     return;
   dragged_view_ = view;
@@ -2141,6 +2151,16 @@ ui::ColorProviderKey Widget::GetColorProviderKeyForTesting() const {
 
 void Widget::SetCheckParentForFullscreen() {
   check_parent_for_fullscreen_ = true;
+}
+
+void Widget::SetAllowScreenshots(bool allow) {
+  if (native_widget_) {
+    native_widget_->SetAllowScreenshots(allow);
+  }
+}
+
+bool Widget::AreScreenshotsAllowed() {
+  return native_widget_ ? native_widget_->AreScreenshotsAllowed() : true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

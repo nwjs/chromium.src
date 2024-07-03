@@ -2780,6 +2780,8 @@ AtkRole AXPlatformNodeAuraLinux::GetAtkRole() const {
       return ATK_ROLE_IMAGE;
     case ax::mojom::Role::kGrid:
       return ATK_ROLE_TABLE;
+    case ax::mojom::Role::kGridCell:
+      return ATK_ROLE_TABLE_CELL;
     case ax::mojom::Role::kGroup:
       return ATK_ROLE_PANEL;
     case ax::mojom::Role::kHeading:
@@ -4488,7 +4490,7 @@ bool AXPlatformNodeAuraLinux::
       return child->GrabFocusOrSetSequentialFocusNavigationStartingPoint();
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return false;
 }
 
@@ -4912,7 +4914,7 @@ int AXPlatformNodeAuraLinux::FindStartOfStyle(
 
   switch (direction) {
     case ax::mojom::MoveDirection::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return start_offset;
     case ax::mojom::MoveDirection::kBackward: {
       auto iterator = offset_to_text_attributes_.upper_bound(start_offset);
@@ -4928,7 +4930,7 @@ int AXPlatformNodeAuraLinux::FindStartOfStyle(
     }
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return start_offset;
 }
 

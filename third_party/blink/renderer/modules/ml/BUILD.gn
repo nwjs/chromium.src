@@ -4,15 +4,9 @@
 
 import("//build/buildflag_header.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
-import("//third_party/blink/renderer/modules/ml/webnn/features.gni")
 import("//third_party/blink/renderer/modules/modules.gni")
 import("//third_party/libprotobuf-mutator/fuzzable_proto_library.gni")
 import("//third_party/protobuf/proto_library.gni")
-
-buildflag_header("buildflags") {
-  header = "buildflags.h"
-  flags = [ "BUILD_WEBNN_WITH_XNNPACK=$build_webnn_with_xnnpack" ]
-}
 
 blink_modules_sources("ml") {
   sources = [
@@ -32,16 +26,12 @@ blink_modules_sources("ml") {
     "webnn/ml_activation.h",
     "webnn/ml_buffer.cc",
     "webnn/ml_buffer.h",
-    "webnn/ml_buffer_mojo.cc",
-    "webnn/ml_buffer_mojo.h",
-    "webnn/ml_error_mojo.cc",
-    "webnn/ml_error_mojo.h",
+    "webnn/ml_error.cc",
+    "webnn/ml_error.h",
     "webnn/ml_graph.cc",
     "webnn/ml_graph.h",
     "webnn/ml_graph_builder.cc",
     "webnn/ml_graph_builder.h",
-    "webnn/ml_graph_mojo.cc",
-    "webnn/ml_graph_mojo.h",
     "webnn/ml_graph_type_converter.cc",
     "webnn/ml_graph_type_converter.h",
     "webnn/ml_graph_utils.cc",
@@ -53,21 +43,11 @@ blink_modules_sources("ml") {
   ]
 
   deps = [
-    ":buildflags",
     "//components/ml/mojom:mojom_blink",
     "//components/ml/webnn",
     "//components/ml/webnn:features",
     "//services/webnn/public/mojom:mojom_blink",
   ]
-
-  if (build_webnn_with_xnnpack) {
-    sources += [
-      "webnn/ml_graph_xnnpack.cc",
-      "webnn/ml_graph_xnnpack.h",
-    ]
-
-    deps += [ "//third_party/xnnpack" ]
-  }
 }
 
 source_set("unit_tests") {
@@ -81,13 +61,10 @@ source_set("unit_tests") {
     "webnn/ml_graph_builder_test.h",
     "webnn/ml_graph_builder_utils.cc",
     "webnn/ml_graph_builder_utils.h",
-    "webnn/ml_graph_mojo_test.cc",
-    "webnn/ml_graph_test_base.cc",
-    "webnn/ml_graph_test_base.h",
+    "webnn/ml_graph_test.cc",
   ]
 
   deps = [
-    ":buildflags",
     "//components/ml/mojom:mojom_blink",
     "//components/ml/webnn",
     "//services/webnn/public/mojom:mojom_blink",
@@ -100,14 +77,6 @@ source_set("unit_tests") {
     "//third_party/blink/renderer/platform:test_support",
     "//third_party/blink/renderer/platform/wtf",
   ]
-
-  if (build_webnn_with_xnnpack) {
-    sources += [
-      "webnn/ml_graph_test.cc",
-      "webnn/ml_graph_xnnpack_test.cc",
-    ]
-    deps += [ "//third_party/xnnpack" ]
-  }
 }
 
 if (use_fuzzing_engine_with_lpm) {

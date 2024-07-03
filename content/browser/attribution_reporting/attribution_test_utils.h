@@ -15,6 +15,8 @@
 #include "base/containers/flat_set.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
+#include "components/attribution_reporting/aggregatable_debug_reporting_config.h"
+#include "components/attribution_reporting/constants.h"
 #include "components/attribution_reporting/filters.h"
 #include "components/attribution_reporting/source_registration.h"
 #include "components/attribution_reporting/source_registration_time_config.mojom.h"
@@ -101,8 +103,11 @@ class SourceBuilder {
   SourceBuilder& SetAggregationKeys(
       attribution_reporting::AggregationKeys aggregation_keys);
 
-  SourceBuilder& SetAggregatableBudgetConsumed(
-      int64_t aggregatable_budget_consumed);
+  SourceBuilder& SetRemainingAggregatableAttributionBudget(
+      int remaining_aggregatable_attribution_budget);
+
+  SourceBuilder& SetRemainingAggregatableDebugBudget(
+      int remaining_aggregatable_debug_budget);
 
   SourceBuilder& SetRandomizedResponseRate(double randomized_response_rate);
 
@@ -122,6 +127,9 @@ class SourceBuilder {
 
   SourceBuilder& SetDebugCookieSet(bool debug_cookie_set);
 
+  SourceBuilder& SetAggregatableDebugReportingConfig(
+      attribution_reporting::SourceAggregatableDebugReportingConfig);
+
   StorableSource Build() const;
 
   StoredSource BuildStored() const;
@@ -140,11 +148,13 @@ class SourceBuilder {
   // Ensure that we don't use uninitialized memory.
   StoredSource::Id source_id_{0};
   std::vector<uint64_t> dedup_keys_;
-  int64_t aggregatable_budget_consumed_ = 0;
+  int remaining_aggregatable_attribution_budget_ =
+      attribution_reporting::kMaxAggregatableValue;
   double randomized_response_rate_ = 0;
   std::vector<uint64_t> aggregatable_dedup_keys_;
   bool is_within_fenced_frame_ = false;
   bool debug_cookie_set_ = false;
+  int remaining_aggregatable_debug_budget_ = 0;
 };
 
 // Returns a AttributionTrigger with default data which matches the default
@@ -206,6 +216,9 @@ class TriggerBuilder {
 
   TriggerBuilder& SetTriggerContextId(std::string trigger_context_id);
 
+  TriggerBuilder& SetAggregatableDebugReportingConfig(
+      attribution_reporting::AggregatableDebugReportingConfig);
+
   AttributionTrigger Build(bool generate_event_trigger_data = true) const;
 
  private:
@@ -230,6 +243,8 @@ class TriggerBuilder {
       source_registration_time_config_ =
           attribution_reporting::mojom::SourceRegistrationTimeConfig::kInclude;
   std::optional<std::string> trigger_context_id_;
+  attribution_reporting::AggregatableDebugReportingConfig
+      aggregatable_debug_reporting_config_;
 };
 
 // Helper class to construct an `AttributionInfo` for tests using default data.
@@ -427,8 +442,9 @@ MATCHER_P(AggregationKeysAre, matcher, "") {
   return ExplainMatchResult(matcher, arg.aggregation_keys(), result_listener);
 }
 
-MATCHER_P(AggregatableBudgetConsumedIs, matcher, "") {
-  return ExplainMatchResult(matcher, arg.aggregatable_budget_consumed(),
+MATCHER_P(RemainingAggregatableAttributionBudgetIs, matcher, "") {
+  return ExplainMatchResult(matcher,
+                            arg.remaining_aggregatable_attribution_budget(),
                             result_listener);
 }
 

@@ -17,7 +17,10 @@
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/events/pointer_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/screen.h"
+#include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/html/anchor_element_metrics.h"
 #include "third_party/blink/renderer/core/html/html_anchor_element.h"
 #include "third_party/blink/renderer/core/html/html_area_element.h"
@@ -25,9 +28,11 @@
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer_entry.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
+#include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/pointer_type_names.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
+#include "third_party/blink/renderer/platform/widget/frame_widget.h"
 #include "ui/gfx/geometry/mojom/geometry.mojom-shared.h"
 
 namespace blink {
@@ -56,14 +61,19 @@ wtf_size_t GetMaxNumberOfObservations() {
   return max_observations;
 }
 
-DOMHighResTimeStamp GetIntersectionObserverDelay() {
-  static const DOMHighResTimeStamp intersection_observer_delay = []() {
+base::TimeDelta GetIntersectionObserverDelay() {
+  static const base::TimeDelta intersection_observer_delay = []() {
     const base::FeatureParam<base::TimeDelta> param{
         &features::kNavigationPredictor, "intersection_observer_delay",
         base::Milliseconds(100)};
-    return static_cast<DOMHighResTimeStamp>(param.Get().InMillisecondsF());
+    return param.Get();
   }();
   return intersection_observer_delay;
+}
+
+bool ShouldReportViewportPositions() {
+  return base::FeatureList::IsEnabled(
+      features::kNavigationPredictorNewViewportFeatures);
 }
 
 }  // namespace
@@ -191,7 +201,9 @@ void AnchorElementMetricsSender::Trace(Visitor* visitor) const {
   visitor->Trace(anchor_elements_to_report_);
   visitor->Trace(metrics_host_);
   visitor->Trace(intersection_observer_);
+  visitor->Trace(anchors_in_viewport_);
   visitor->Trace(update_timer_);
+  visitor->Trace(position_update_timer_);
   Supplement<Document>::Trace(visitor);
 }
 
@@ -229,7 +241,12 @@ AnchorElementMetricsSender::AnchorElementMetricsSender(Document& document)
           blink::features::kNavigationPredictor,
           "random_anchor_sampling_period",
           100)),
-      clock_(base::DefaultTickClock::GetInstance()) {
+      clock_(base::DefaultTickClock::GetInstance()),
+      position_update_timer_(
+          document.GetExecutionContext()->GetTaskRunner(
+              TaskType::kInternalDefault),
+          this,
+          &AnchorElementMetricsSender::PositionUpdateTimerFired) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(document.IsInOutermostMainFrame());
   DCHECK(clock_);
@@ -293,11 +310,20 @@ void AnchorElementMetricsSender::UpdateVisibleAnchors(
                                        : To<HTMLAnchorElement>(*element);
     if (!entry->isIntersecting()) {
       // The anchor is leaving the viewport.
+      anchors_in_viewport_.erase(&anchor_element);
       EnqueueLeftViewport(anchor_element);
     } else {
       // The anchor is visible.
+      anchors_in_viewport_.insert(&anchor_element);
       EnqueueEnteredViewport(anchor_element);
     }
+  }
+
+  if (position_update_timer_.IsActive()) {
+    CHECK(ShouldReportViewportPositions());
+    CHECK(last_pointer_down_.has_value());
+    position_update_timer_.Stop();
+    should_compute_positions_after_next_lifecycle_update_ = true;
   }
 
   RegisterForLifecycleNotifications();
@@ -387,6 +413,33 @@ void AnchorElementMetricsSender::MaybeReportAnchorElementPointerEvent(
   }
 }
 
+void AnchorElementMetricsSender::MaybeReportAnchorElementsPositionOnScrollEnd(
+    double pointer_y) {
+  if (!ShouldReportViewportPositions()) {
+    return;
+  }
+
+  last_pointer_down_ = pointer_y;
+
+  // At this point, we're unsure of whether we have the latest
+  // IntersectionObserver data or not (|intersection_observer_| is configured
+  // with a delay), and the post-scroll intersection computations may or may not
+  // have happened yet. We set a timer for |GetIntersectionObserverDelay()| and
+  // wait for either:
+  // 1) UpdateVisibleAnchors to be called before the timer (we stop the timer)
+  // 2) The timer finishes (no intersection changes and UpdateVisibleAnchors
+  //    wasn't called)
+  // After either of the two conditions are met, we wait for a lifecycle update
+  // before computing anchor element position metrics.
+
+  // |position_update_timer_| might already be active in a scenario where a
+  // second scroll completes before the timer finishes.
+  if (!position_update_timer_.IsActive()) {
+    position_update_timer_.StartOneShot(GetIntersectionObserverDelay(),
+                                        FROM_HERE);
+  }
+}
+
 void AnchorElementMetricsSender::EnqueueLeftViewport(
     const HTMLAnchorElement& element) {
   const auto anchor_id = AnchorElementId(element);
@@ -435,6 +488,54 @@ void AnchorElementMetricsSender::RegisterForLifecycleNotifications() {
   if (LocalFrameView* view = GetSupplementable()->View()) {
     view->RegisterForLifecycleNotifications(this);
     is_registered_for_lifecycle_notifications_ = true;
+  }
+}
+
+void AnchorElementMetricsSender::PositionUpdateTimerFired(TimerBase*) {
+  CHECK(ShouldReportViewportPositions());
+  CHECK(last_pointer_down_.has_value());
+  should_compute_positions_after_next_lifecycle_update_ = true;
+  if (LocalFrameView* view = GetSupplementable()->View()) {
+    view->ScheduleAnimation();
+    RegisterForLifecycleNotifications();
+  }
+}
+
+void AnchorElementMetricsSender::ComputeAnchorElementsPositionUpdates() {
+  CHECK(ShouldReportViewportPositions());
+  CHECK(last_pointer_down_.has_value());
+
+  Screen* screen = GetSupplementable()->domWindow()->screen();
+  FrameWidget* widget =
+      GetSupplementable()->GetFrame()->GetWidgetForLocalRoot();
+  if (!screen || !widget) {
+    return;
+  }
+
+  const float screen_height = widget->DIPsToBlinkSpace(screen->height());
+  if (!screen_height) {
+    return;
+  }
+
+  Page* page = GetSupplementable()->GetPage();
+  VisualViewport* visual_viewport = page ? &page->GetVisualViewport() : nullptr;
+  float pointer_y = widget->DIPsToBlinkSpace(last_pointer_down_.value());
+  last_pointer_down_ = std::nullopt;
+
+  for (const HTMLAnchorElement* anchor : anchors_in_viewport_) {
+    gfx::RectF rect(anchor->VisibleBoundsInLocalRoot());
+    if (rect.IsEmpty()) {
+      continue;
+    }
+    if (visual_viewport) {
+      // Adjusts to visual viewport coordinates (to account for pinch zoom).
+      rect = visual_viewport->RootFrameToViewport(rect);
+    }
+    float distance_from_pointer_down =
+        (rect.CenterPoint().y() - pointer_y) / screen_height;
+    auto position_update = mojom::blink::AnchorElementPositionUpdate::New(
+        AnchorElementId(*anchor), distance_from_pointer_down);
+    position_update_messages_.push_back(std::move(position_update));
   }
 }
 
@@ -511,6 +612,10 @@ void AnchorElementMetricsSender::DidFinishLifecycleUpdate(
     }
   }
 
+  if (should_compute_positions_after_next_lifecycle_update_) {
+    ComputeAnchorElementsPositionUpdates();
+    should_compute_positions_after_next_lifecycle_update_ = false;
+  }
   MaybeUpdateMetrics();
 
   DCHECK_EQ(&local_frame_view, GetSupplementable()->View());
@@ -533,7 +638,8 @@ void AnchorElementMetricsSender::UpdateMetrics(TimerBase* /*timer*/) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (metrics_.empty() && metrics_removed_anchors_.empty() &&
-      entered_viewport_messages_.empty() && left_viewport_messages_.empty()) {
+      entered_viewport_messages_.empty() && left_viewport_messages_.empty() &&
+      position_update_messages_.empty()) {
     return;
   }
 
@@ -563,25 +669,17 @@ void AnchorElementMetricsSender::UpdateMetrics(TimerBase* /*timer*/) {
     WTF::HashMap<AnchorId, bool> newly_removed;
     wtf_size_t insert_idx = 0;
     wtf_size_t remove_idx = 0;
-    auto dump_if_id_is_invalid_key = [](AnchorId id) {
-      // TODO(https://crbug.com/331043758): Dump to investigate crash.
-      DUMP_WILL_BE_CHECK(
-          !WTF::IsHashTraitsEmptyOrDeletedValue<HashTraits<AnchorId>>(id))
-          << id;
-    };
     for (const auto& [insert_end, remove_end] : metrics_partitions_) {
       // For each partition, removals are processed before insertions.
       const auto removals = base::make_span(metrics_removed_anchors_)
                                 .subspan(remove_idx, (remove_end - remove_idx));
       for (AnchorId removed_id : removals) {
-        dump_if_id_is_invalid_key(removed_id);
         auto result = present.Set(removed_id, false);
         newly_removed.insert(removed_id, result.is_new_entry);
       }
       const auto insertions = base::make_span(metrics_).subspan(
           insert_idx, (insert_end - insert_idx));
       for (const auto& insertion : insertions) {
-        dump_if_id_is_invalid_key(insertion->anchor_id);
         present.Set(insertion->anchor_id, true);
       }
       insert_idx = insert_end;
@@ -634,6 +732,12 @@ void AnchorElementMetricsSender::UpdateMetrics(TimerBase* /*timer*/) {
     metrics_host_->ReportAnchorElementsLeftViewport(
         std::move(left_viewport_messages_));
     left_viewport_messages_.clear();
+  }
+  if (!position_update_messages_.empty()) {
+    CHECK(ShouldReportViewportPositions());
+    metrics_host_->ReportAnchorElementsPositionUpdate(
+        std::move(position_update_messages_));
+    position_update_messages_.clear();
   }
 }
 

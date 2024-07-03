@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">パステル イエロー</translation>
 <translation id="1056898198331236512">警告</translation>
 <translation id="1059913517121127803">スキャンを開始できませんでした</translation>
+<translation id="1061864016440983342">位置情報なしで使用する</translation>
 <translation id="1062823486781306604"><ph name="INDEX" />/<ph name="COUNT" />、<ph name="NAME" />。</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">ファイアウォールが検出されました</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">詳細設定</translation>
 <translation id="2082932131694554252">割り当てられたキーボード キー</translation>
 <translation id="2085089206770112532">ディスプレイの明るさを下げる</translation>
+<translation id="2086091080968010660">時刻に基づく変更は正確でない場合があります。設定でシステムの位置情報へのアクセスをオンにしてください。</translation>
 <translation id="2102231663024125441">テキスト編集</translation>
 <translation id="2105810540595158374">デバイスの種類はゲーム コントローラです。</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />、バージョン <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN の詳細の編集</translation>
 <translation id="2195732836444333448">キャパシティに達しています。しばらくしてからもう一度お試しください。</translation>
 <translation id="2201758491318984023">自転車</translation>
-<translation id="2203222757805818543">現在のスケジュールは <ph name="SUNRISE" />～<ph name="SUNSET" /> に設定されています。ダークモードのスケジュールを自動的に更新するには、<ph name="BEGIN_LINK" />位置情報へのアクセスをオンにしてください<ph name="END_LINK" />。</translation>
 <translation id="2203272733515928691">温泉</translation>
 <translation id="2203642483788377106">崖</translation>
 <translation id="2208388655216963643">印象派</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">初期設定に戻す</translation>
 <translation id="2286454467119466181">シンプル</translation>
 <translation id="2287186687001756809">画像がありません。写真を追加するには、<ph name="LINK" /> にアクセスしてください</translation>
+<translation id="2294577623958216786">現在のスケジュールは <ph name="SUNRISE" />～<ph name="SUNSET" /> に設定されています。日の入りと日の出のスケジュールを自動的に更新するには、システムの位置情報へのアクセスをオンにしてください。</translation>
 <translation id="2305172810646967500">黒い</translation>
 <translation id="2307344026739914387">現在の鍵ペアを使用</translation>
 <translation id="2308243864813041101">更新プロセスを続行するには、<ph name="DEVICE_NAME" /> の USB ケーブルを取り外してください</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">砂丘</translation>
 <translation id="2619761439309613843">毎日更新する</translation>
 <translation id="2620436844016719705">システム</translation>
+<translation id="2637303424821734920">オフ - 地域の天気情報を表示するには、<ph name="BEGIN_LINK" />システムの位置情報へのアクセスをオンにします<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">サインイン画像</translation>
 <translation id="2640549051766135490">アルバム「<ph name="TITLE" />」の <ph name="DESC" />を選択中</translation>
 <translation id="2645380101799517405">コントロール</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">背景</translation>
 <translation id="3027578600144895987">カメラを閉じる</translation>
 <translation id="3031560714565892478">デバイスの種類はビデオカメラです。</translation>
+<translation id="3051968340259309715">これにより、システム サービスは [位置情報の精度] の機能を使用してユーザーの現在地を特定できるようになります。[位置情報の精度] をオンにした場合、Wi-Fi アクセス ポイントやモバイル ネットワーク基地局、GPS などのワイヤレス シグナルに関する情報と、加速度計やジャイロスコープなどのデバイスのセンサーデータに基づき、デバイスの位置情報が推定されます。[位置情報の精度] は、[設定] &gt; [プライバシーとセキュリティ] &gt; [プライバシー管理] &gt; [位置情報へのアクセス] でオフにできます。<ph name="LINK_BEGIN" />詳細<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">エンドポイント</translation>
 <translation id="3060579846059757016">アウトライン</translation>
+<translation id="3061850252076394168">「選択して読み上げ」を有効にする</translation>
 <translation id="3069085583900247081">テストに失敗しました</translation>
 <translation id="3078740164268491126">表</translation>
 <translation id="3081652522083185657">ライト</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">すべてのホストを解決できませんでした</translation>
 <translation id="4593212453765072419">プロキシ認証が必要です</translation>
 <translation id="4609350030397390689">キーボードの明るさを下げる</translation>
-<translation id="4617553623719764431">現在地が不明なため、天気情報は表示されません。各地の天気を表示するには、<ph name="BEGIN_LINK" />位置情報へのアクセスをオンにしてください<ph name="END_LINK" />。</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />、<ph name="PRINTER_NAME" />、<ph name="CREATION_TIME" />、<ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" />。印刷ジョブをキャンセルするには、Enter キーを押します。</translation>
 <translation id="463791356324567266">スキャンをキャンセルしています...</translation>
 <translation id="4646949265910132906">安全な Wi-Fi 接続</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">実行</translation>
 <translation id="4987769320337599931">ファイアウォール</translation>
 <translation id="4988526792673242964">ページ</translation>
+<translation id="4989542687859782284">利用不可</translation>
 <translation id="4999333166442584738">レポートを非表示</translation>
 <translation id="500920857929044050">テストを停止</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">キーボードの明るさ</translation>
 <translation id="6412715219990689313">デバイス内蔵キーボード</translation>
 <translation id="6417265370957905582">Google アシスタント</translation>
+<translation id="6419454453018688975">システムの位置情報へのアクセスをオンにする</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">システム サービスによる位置情報の使用を許可するかどうかを指定します。デバイスの位置情報の特定には、Wi-Fi、モバイル ネットワーク、センサーなどのソースが使用される場合があります。<ph name="LINK_BEGIN" />詳細<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">弱い（<ph name="SIGNAL_STRENGTH" />）</translation>
 <translation id="6447630859861661624">アカウント設定に移動</translation>
 <translation id="6462978824459367242">[APN を追加] ボタンが有効になりました</translation>

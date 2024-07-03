@@ -748,6 +748,20 @@ namespace OmniboxFieldTrial {
 
 // Local history zero-prefix (aka zero-suggest) and prefix suggestions:
 
+// The debouncing delay (in milliseconds) to use when throttling ZPS prefetch
+// requests.
+const base::FeatureParam<int> kZeroSuggestPrefetchDebounceDelay(
+    &omnibox::kZeroSuggestPrefetchDebouncing,
+    "ZeroSuggestPrefetchDebounceDelay",
+    300);
+
+// Whether to calculate debouncing delay relative to the latest successful run
+// (instead of the latest run request).
+const base::FeatureParam<bool> kZeroSuggestPrefetchDebounceFromLastRun(
+    &omnibox::kZeroSuggestPrefetchDebouncing,
+    "ZeroSuggestPrefetchDebounceFromLastRun",
+    true);
+
 // The maximum number of entries stored by the in-memory zero-suggest cache at
 // at any given time (LRU eviction policy is used to enforce this limit).
 const base::FeatureParam<int> kZeroSuggestCacheMaxSize(
@@ -987,11 +1001,6 @@ MLConfig::MLConfig() {
       kMlUrlScoringMaxMatchesByProvider.Get();
 
   // `kMlUrlSearchBlending` parameters.
-  stable_search_blending =
-      base::FeatureParam<bool>(&omnibox::kMlUrlSearchBlending,
-                               "MlUrlSearchBlending_StableSearchBlending",
-                               stable_search_blending)
-          .Get();
   mapped_search_blending =
       base::FeatureParam<bool>(&omnibox::kMlUrlSearchBlending,
                                "MlUrlSearchBlending_MappedSearchBlending",
@@ -1012,6 +1021,30 @@ MLConfig::MLConfig() {
           &omnibox::kMlUrlSearchBlending,
           "MlUrlSearchBlending_MappedSearchBlendingGroupingThreshold",
           mapped_search_blending_grouping_threshold)
+          .Get();
+
+  // `kMlUrlPiecewiseMappedSearchBlending` parameters.
+  piecewise_mapped_search_blending =
+      base::FeatureParam<bool>(&omnibox::kMlUrlPiecewiseMappedSearchBlending,
+                               "MlUrlPiecewiseMappedSearchBlending",
+                               piecewise_mapped_search_blending)
+          .Get();
+  piecewise_mapped_search_blending_grouping_threshold =
+      base::FeatureParam<int>(
+          &omnibox::kMlUrlPiecewiseMappedSearchBlending,
+          "MlUrlPiecewiseMappedSearchBlending_GroupingThreshold",
+          piecewise_mapped_search_blending_grouping_threshold)
+          .Get();
+  piecewise_mapped_search_blending_break_points =
+      base::FeatureParam<std::string>(
+          &omnibox::kMlUrlPiecewiseMappedSearchBlending,
+          "MlUrlPiecewiseMappedSearchBlending_BreakPoints", "")
+          .Get();
+  piecewise_mapped_search_blending_relevance_bias =
+      base::FeatureParam<int>(
+          &omnibox::kMlUrlPiecewiseMappedSearchBlending,
+          "MlUrlPiecewiseMappedSearchBlending_RelevanceBias",
+          piecewise_mapped_search_blending_relevance_bias)
           .Get();
 
   url_scoring_model = base::FeatureList::IsEnabled(omnibox::kUrlScoringModel);
@@ -1078,6 +1111,26 @@ bool IsMlUrlScoreCachingEnabled() {
   return GetMLConfig().ml_url_score_caching;
 }
 
+std::vector<std::pair<double, int>> GetPiecewiseMappingBreakPoints() {
+  std::vector<std::pair<double, int>> break_points;
+
+  std::string param_value = OmniboxFieldTrial::GetMLConfig()
+                                .piecewise_mapped_search_blending_break_points;
+  base::StringPairs pairs;
+  if (base::SplitStringIntoKeyValuePairs(param_value, ',', ';', &pairs)) {
+    for (const auto& p : pairs) {
+      double ml_score;
+      base::StringToDouble(p.first, &ml_score);
+      int relevance;
+      base::StringToInt(p.second, &relevance);
+
+      break_points.push_back(std::make_pair(ml_score, relevance));
+    }
+  }
+
+  return break_points;
+}
+
 // <- ML Relevance Scoring
 // ---------------------------------------------------------
 // Touch Down Trigger For Prefetch ->
@@ -1107,6 +1160,13 @@ bool IsStarterPackIPHEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kStarterPackIPH);
 }
 // <- Site Search Starter Pack
+// ---------------------------------------------------------
+// Featured Enterprise Site Search ->
+bool IsFeaturedEnterpriseSearchIPHEnabled() {
+  return base::FeatureList::IsEnabled(
+      omnibox::kShowFeaturedEnterpriseSiteSearchIPH);
+}
+// <- Featured Enterprise Site Search
 // ---------------------------------------------------------
 
 }  // namespace OmniboxFieldTrial

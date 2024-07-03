@@ -4,10 +4,10 @@
 
 import {assert} from 'chrome://resources/js/assert.js';
 
-import {FakeDestinationProvider} from '../fakes/fake_destination_provider.js';
+import {DestinationProviderComposite} from '../data/destination_provider_composite.js';
 import {FakePrintPreviewPageHandler} from '../fakes/fake_print_preview_page_handler.js';
 
-import {DestinationProvider, type PrintPreviewPageHandler} from './print_preview_cros_app_types.js';
+import {DestinationProviderCompositeInterface, type PrintPreviewPageHandler} from './print_preview_cros_app_types.js';
 
 /**
  * @fileoverview
@@ -15,12 +15,13 @@ import {DestinationProvider, type PrintPreviewPageHandler} from './print_preview
  * well as an override method to be used in tests.
  */
 
+let useFakeProviders: boolean = false;
 let printPreviewPageHandler: PrintPreviewPageHandler|null = null;
-let destinationProvider: DestinationProvider|null = null;
+let destinationProvider: DestinationProviderCompositeInterface|null = null;
 
 // Returns shared instance of PrintPreviewPageHandler.
 export function getPrintPreviewPageHandler(): PrintPreviewPageHandler {
-  if (printPreviewPageHandler == null) {
+  if (printPreviewPageHandler === null && useFakeProviders) {
     printPreviewPageHandler = new FakePrintPreviewPageHandler();
   }
 
@@ -28,24 +29,22 @@ export function getPrintPreviewPageHandler(): PrintPreviewPageHandler {
   return printPreviewPageHandler;
 }
 
-// Override shared instance of PrintPreviewPageHandle for testing.
-export function setPrintPreviewPageHandlerForTesting(
-    handler: PrintPreviewPageHandler): void {
-  printPreviewPageHandler = handler;
-}
-
 // Returns shared instance of DestinationProvider.
-export function getDestinationProvider(): DestinationProvider {
-  if (destinationProvider == null) {
-    destinationProvider = new FakeDestinationProvider();
+export function getDestinationProvider():
+    DestinationProviderCompositeInterface {
+  if (destinationProvider === null) {
+    destinationProvider = new DestinationProviderComposite(useFakeProviders);
   }
 
   assert(destinationProvider);
   return destinationProvider;
 }
 
-// Override shared instance of DestinationProvider for testing.
-export function setDestinationProviderForTesting(provider: DestinationProvider):
-    void {
-  destinationProvider = provider;
+// Set useFakeProviders to true and providers to `null`. Needs to be
+// called before provider getters to ensure cached value in controllers and
+// managers match fake provider configured for testing.
+export function resetProvidersForTesting(): void {
+  useFakeProviders = true;
+  destinationProvider = null;
+  printPreviewPageHandler = null;
 }

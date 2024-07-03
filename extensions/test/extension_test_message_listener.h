@@ -67,7 +67,7 @@ class TestSendMessageFunction;
 //   else if (listener.message() == "baz")
 //     HandleBaz();
 //   else
-//     NOTREACHED();
+//     NOTREACHED_IN_MIGRATION();
 //
 // You can also use the class to listen for messages from a specified extension:
 //

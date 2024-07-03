@@ -127,7 +127,7 @@ class ToastOverlay::ToastHoverObserver : public ui::EventObserver {
         on_hover_state_changed_.Run(/*is_hovering=*/false);
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -162,18 +162,21 @@ ToastOverlay::ToastOverlay(Delegate* delegate,
           &ToastOverlay::OnButtonClicked,
           // Unretained is safe because `this` owns `overlay_view_`.
           base::Unretained(this)),
-      toast_data.leading_icon);
+      toast_data.leading_icon, /*use_custom_focus=*/!toast_data.activatable);
 
-  views::Widget::InitParams params;
-  params.type = views::Widget::InitParams::TYPE_POPUP;
+  views::Widget::InitParams params(
+      views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+      views::Widget::InitParams::TYPE_POPUP);
   params.name = "ToastOverlay";
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.accept_events = true;
   params.z_order = ui::ZOrderLevel::kFloatingUIElement;
   params.bounds = CalculateOverlayBounds();
   params.parent =
       root_window_->GetChildById(kShellWindowId_SettingBubbleContainer);
+  params.activatable = toast_data.activatable
+                           ? views::Widget::InitParams::Activatable::kYes
+                           : views::Widget::InitParams::Activatable::kNo;
   overlay_widget_->Init(std::move(params));
   overlay_widget_->SetVisibilityChangedAnimationsEnabled(true);
   overlay_widget_->SetContentsView(overlay_view_.get());
@@ -232,7 +235,7 @@ void ToastOverlay::Show(bool visible) {
   animation_settings.AddObserver(this);
 
   if (visible) {
-    overlay_widget_->Show();
+    overlay_widget_->ShowInactive();
 
     // Notify accessibility about the overlay.
     overlay_view_->NotifyAccessibilityEvent(ax::mojom::Event::kAlert, false);
@@ -245,8 +248,13 @@ void ToastOverlay::UpdateOverlayBounds() {
   overlay_widget_->SetBounds(CalculateOverlayBounds());
 }
 
-const std::u16string ToastOverlay::GetText() {
+const std::u16string ToastOverlay::GetText() const {
   return text_;
+}
+
+bool ToastOverlay::RequestFocusOnActiveToastDismissButton() {
+  overlay_view_->dismiss_button()->RequestFocus();
+  return overlay_view_->dismiss_button()->HasFocus();
 }
 
 bool ToastOverlay::MaybeToggleA11yHighlightOnDismissButton() {
@@ -270,8 +278,14 @@ void ToastOverlay::OnSliderBubbleHeightChanged() {
   }
 }
 
-bool ToastOverlay::IsDismissButtonHighlighted() const {
-  return overlay_view_->is_dismiss_button_highlighted();
+bool ToastOverlay::IsDismissButtonFocused() const {
+  if (overlay_view_->is_dismiss_button_highlighted()) {
+    return true;
+  }
+  if (auto* dismiss_button = overlay_view_->dismiss_button()) {
+    return dismiss_button->HasFocus();
+  }
+  return false;
 }
 
 gfx::Rect ToastOverlay::CalculateOverlayBounds() {

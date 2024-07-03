@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastellgul</translation>
 <translation id="1056898198331236512">Advarsel</translation>
 <translation id="1059913517121127803">Kunne ikke starte skanningen</translation>
+<translation id="1061864016440983342">Bruk uten posisjon</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> av <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Oppdaget en brannmur</translation>
@@ -179,7 +180,7 @@
 <translation id="1852934301711881861">Installer ChromeOS Flex</translation>
 <translation id="1854156910036166007">dovendyr</translation>
 <translation id="1856388568474281774">Nedoverpil</translation>
-<translation id="1858620243986915808">Legg ved skjermdump</translation>
+<translation id="1858620243986915808">Legg ved skjermbilde</translation>
 <translation id="1871413952174074704">APN-et kan ikke ha mer enn <ph name="CHAR_LIMIT" /> tegn</translation>
 <translation id="1871569928317311284">Slå av mørkt tema</translation>
 <translation id="1874612839560830905">MTU</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Flere innstillinger</translation>
 <translation id="2082932131694554252">Tilordnet tastaturtast</translation>
 <translation id="2085089206770112532">Skjermlysstyrke ned</translation>
+<translation id="2086091080968010660">Tidsbaserte endringer er kanskje ikke nøyaktige. Slå på posisjonstilgang for systemet i innstillingene.</translation>
 <translation id="2102231663024125441">Tekstbehandling</translation>
 <translation id="2105810540595158374">Enheten er en spillkontroller.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versjon <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Endre APN-detaljene</translation>
 <translation id="2195732836444333448">Full kapasitet akkurat nå. Kom tilbake senere.</translation>
 <translation id="2201758491318984023">sykkel</translation>
-<translation id="2203222757805818543">Den nåværende tidsplanen er satt til <ph name="SUNRISE" />–<ph name="SUNSET" />. For å oppdatere tidsplanen for mørk modus automatisk, <ph name="BEGIN_LINK" />slå på posisjonstilgang<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">varm kilde</translation>
 <translation id="2203642483788377106">klippe</translation>
 <translation id="2208388655216963643">impresjonisme</translation>
@@ -253,12 +254,13 @@
 <translation id="2240366984605217732">Oppsettsbytte</translation>
 <translation id="2244834438220057800">grønn</translation>
 <translation id="225692081236532131">Aktiveringsstatus</translation>
-<translation id="2267285889943769271">Legg til skjermdump</translation>
+<translation id="2267285889943769271">Legg til skjermbilde</translation>
 <translation id="2271469253353559191">Tidsplan for mørk modus</translation>
 <translation id="2276999893457278469">Populært hjelpeinnhold</translation>
 <translation id="2279051792571591988">Gjenopprett standardinnstillinger</translation>
 <translation id="2286454467119466181">Enkel</translation>
 <translation id="2287186687001756809">Ingen bilder er tilgjengelige. For å legge til bilder, gå til <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Gjeldende tidsplan er satt til <ph name="SUNRISE" />–<ph name="SUNSET" />. For å oppdatere tidsplanen for solnedgang og soloppgang automatisk, slå på posisjonstilgang for systemet.</translation>
 <translation id="2305172810646967500">svart</translation>
 <translation id="2307344026739914387">Bruk nåværende nøkkelpar</translation>
 <translation id="2308243864813041101">Koble fra USB-kabelen for <ph name="DEVICE_NAME" /> for å fortsette oppdateringsprosessen</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">sanddyne</translation>
 <translation id="2619761439309613843">Daglig oppdatering</translation>
 <translation id="2620436844016719705">System</translation>
+<translation id="2637303424821734920">AV – For å vise lokalt vær, <ph name="BEGIN_LINK" />slå på posisjonstilgang for systemet<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Påloggingsbilde</translation>
 <translation id="2640549051766135490">Albumet <ph name="TITLE" /> med <ph name="DESC" /> er valgt</translation>
 <translation id="2645380101799517405">Kontroller</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Bakgrunn</translation>
 <translation id="3027578600144895987">Lukk kameraet</translation>
 <translation id="3031560714565892478">Enheten er et videokamera.</translation>
+<translation id="3051968340259309715">Dette gjør at systemtjenester kan bruke Posisjonsnøyaktighet til å fastslå posisjonen din. Posisjonsnøyaktighet bruker informasjon om trådløse signaler, for eksempel wifi-tilgangspunkter, mobilnettverk og GPS, i tillegg til sensordata for enhet, for eksempel akselerometer og gyroskop, for å anslå enhetens posisjon. Du kan slå av posisjonen i Innstillinger &gt; Personvern og sikkerhet &gt; Personverninnstillinger &gt; Posisjonstilgang. <ph name="LINK_BEGIN" />Finn ut mer<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Sluttpunkt</translation>
 <translation id="3060579846059757016">Omriss</translation>
+<translation id="3061850252076394168">slå på tekstopplesing</translation>
 <translation id="3069085583900247081">Testen mislyktes</translation>
 <translation id="3078740164268491126">tabell</translation>
 <translation id="3081652522083185657">lys</translation>
@@ -507,7 +512,7 @@
 <translation id="3889914174935857450">Tilbakestillingsdato</translation>
 <translation id="3897092660631435901">Meny</translation>
 <translation id="391412459402535266">Kan ikke teste enheten. Bytt til laptopmodus for å teste.</translation>
-<translation id="3916998944874125962">ta skjermdump</translation>
+<translation id="3916998944874125962">ta skjermbilde</translation>
 <translation id="3923184630988645767">Databruk</translation>
 <translation id="3932043219784172185">Ingen enheter er koblet til</translation>
 <translation id="3934185438132762746">Ikke-tilordnet <ph name="CONTROL_TYPE" /></translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Kunne ikke finne tilknytning til alle vertene</translation>
 <translation id="4593212453765072419">Godkjenning av mellomtjener kreves</translation>
 <translation id="4609350030397390689">Tastaturlysstyrke ned</translation>
-<translation id="4617553623719764431">Været vises ikke fordi appen ikke vet hvor du er. For å vise lokalt vær, <ph name="BEGIN_LINK" />slå på posisjonstilgang<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> av <ph name="TOTAL_PAGE_NUMBER" />. Trykk på Enter for å avbryte utskriftsjobben.</translation>
 <translation id="463791356324567266">Avbryter skanningen …</translation>
 <translation id="4646949265910132906">Sikker Wifi-tilkobling</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Kjør</translation>
 <translation id="4987769320337599931">Brannmur</translation>
 <translation id="4988526792673242964">Sider</translation>
+<translation id="4989542687859782284">Utilgjengelig</translation>
 <translation id="4999333166442584738">Skjul rapporten</translation>
 <translation id="500920857929044050">Stans testen</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">tastaturlysstyrke</translation>
 <translation id="6412715219990689313">Innebygd tastatur</translation>
 <translation id="6417265370957905582">Google Assistent</translation>
+<translation id="6419454453018688975">Slå på posisjonstilgang for systemet</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Dette gjør at systemtjenester med tillatelse kan bruke posisjonen din. Posisjonstjenestene kan bruke kilder som wifi, mobilnettverk og sensorer for å anslå enhetens posisjon. <ph name="LINK_BEGIN" />Finn ut mer<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Svak (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Gå til kontoinnstillingene</translation>
 <translation id="6462978824459367242">Legg til APN-knappen er nå aktivert</translation>
@@ -1175,7 +1180,7 @@
 <translation id="7544126681856613971">tåkete skog</translation>
 <translation id="7550715992156305117">Diagnostikkrutiner</translation>
 <translation id="7551123448725492271">Enheten er en lydenhet.</translation>
-<translation id="7559239713112547082">Se forhåndsvisning av skjermdumpen</translation>
+<translation id="7559239713112547082">Se forhåndsvisning av skjermbildet</translation>
 <translation id="7561454561030345039">Denne handlingen administreres av administratoren</translation>
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
 <translation id="7570674786725311828">USB-berøringsskjerm</translation>

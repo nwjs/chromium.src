@@ -233,10 +233,6 @@ gfx::ExtensionSet GetGLExtensionsFromCurrentContext(
 EGLApi* g_current_egl_context;
 #endif
 
-#if defined(USE_GLX)
-GLXApi* g_current_glx_context;
-#endif
-
 GLImplementationParts GetNamedGLImplementation(const std::string& gl_name,
                                                const std::string& angle_name) {
   for (auto name_pair : kGLImplementationNamePairs) {
@@ -386,7 +382,7 @@ void SetGLGetProcAddressProc(GLGetProcAddressProc proc) {
 }
 
 NO_SANITIZE("cfi-icall")
-GLFunctionPointerType GetGLProcAddress(const char* name) {
+STDCALL GLFunctionPointerType GetGLProcAddress(const char* name) {
   DCHECK(g_gl_implementation.gl != kGLImplementationNone);
 
   if (g_libraries) {

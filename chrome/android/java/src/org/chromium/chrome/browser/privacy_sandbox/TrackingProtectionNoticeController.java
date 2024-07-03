@@ -21,7 +21,6 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.browser_ui.settings.SettingsLauncher;
@@ -46,7 +45,11 @@ import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 
-/** Controller for the Notice message for Tracking Protection. */
+/**
+ * @deprecated use {@link TrackingProtectionOnboardingController}.
+ *     <p>Controller for the Notice message for Tracking Protection.
+ *     <p>TODO(b/341968245): remove all the usages of this class
+ */
 public class TrackingProtectionNoticeController {
     private final Context mContext;
     private final TrackingProtectionBridge mTrackingProtectionBridge;
@@ -164,12 +167,6 @@ public class TrackingProtectionNoticeController {
             return;
         }
 
-        if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.TRACKING_PROTECTION_NOTICE_REQUEST_TRACKING)) {
-            // At this point, we're enqueuing the message, aka requesting the notice.
-            mTrackingProtectionBridge.noticeRequested(getNoticeType());
-        }
-
         mMessage =
                 new PropertyModel.Builder(MessageBannerProperties.ALL_KEYS)
                         .with(
@@ -280,21 +277,9 @@ public class TrackingProtectionNoticeController {
                                 SecurityStateModel.getSecurityLevelForWebContents(
                                         tab.getWebContents());
 
-                        // TODO(b/304202327): Offboarding notice should skip the non secure pages
-                        // check.
-                        if (shouldShowNotice(mTrackingProtectionBridge)
-                                && (ChromeFeatureList.isEnabled(
-                                                ChromeFeatureList
-                                                        .TRACKING_PROTECTION_ONBOARDING_SKIP_SECURE_PAGE_CHECK)
-                                        || securityLevel == ConnectionSecurityLevel.SECURE)) {
-                            showNoticeCallback.onResult(tab);
-                        } else if (shouldShowNotice(mTrackingProtectionBridge)) {
-                            if (securityLevel != ConnectionSecurityLevel.SECURE) {
-                                logNoticeControllerEvent(
-                                        NoticeControllerEvent.NON_SECURE_CONNECTION);
-                            }
-                            logNoticeControllerEvent(
-                                    NoticeControllerEvent.NOTICE_REQUESTED_BUT_NOT_SHOWN);
+                        if (shouldShowNotice(mTrackingProtectionBridge) &&
+                                securityLevel == ConnectionSecurityLevel.SECURE) {
+                              showNoticeCallback.onResult(tab);
                         }
                     }
                 };

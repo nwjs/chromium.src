@@ -118,6 +118,7 @@ chromium-metrics-reviews@google.com.
       label="Enable google bottom bar EXTRA_ENABLE_GOOGLE_BOTTOM_BAR"/>
   <int value="57"
       label="Google bottom bar buttons EXTRA_GOOGLE_BOTTOM_BAR_BUTTONS"/>
+  <int value="58" label="Support multi-network EXTRA_NETWORK"/>
 </enum>
 
 <enum name="CustomTabsMinimizedEvents">
@@ -153,14 +154,6 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Partial Custom Tab is full-size"/>
 </enum>
 
-<enum name="CustomTabsResizeType">
-  <obsolete>
-    Obsolete as of November 2022.
-  </obsolete>
-  <int value="0" label="Partial Custom Tab is expanded"/>
-  <int value="1" label="Partial Custom Tab is minimized"/>
-</enum>
-
 <enum name="CustomTabsResizeType2">
   <int value="0" label="Partial Custom Tab is manually expanded"/>
   <int value="1" label="Partial Custom Tab is manually minimized"/>
@@ -192,6 +185,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Embedder Save button"/>
   <int value="5" label="Chrome Share button"/>
   <int value="6" label="Embedder Share button"/>
+  <int value="7" label="Embedder Custom button"/>
 </enum>
 
 <enum name="GoogleBottomBarCreatedEvent">

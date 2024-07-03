@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "ui/accessibility/platform/ax_platform_node_textrangeprovider_win.h"
 
 #include "base/command_line.h"
@@ -4029,8 +4034,9 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
   EXPECT_UIA_DOUBLE_SAFEARRAY_EQ(rectangles.Get(), expected_values);
 }
 
+// TODO(crbug.com/340389557): This test is flaky.
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
-                       TextDeletedInTextFieldAdjustmentNeeded) {
+                       DISABLED_TextDeletedInTextFieldAdjustmentNeeded) {
   // This test, tests a scenario where an AT is used to make a deletion on some
   // text and then manually moves the caret around: On the input "hello world
   // red green<> blue" where the caret position is noted by <>:

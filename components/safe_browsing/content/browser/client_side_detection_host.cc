@@ -73,7 +73,12 @@ namespace {
 const char kCsdDebugFeatureDirectoryFlag[] = "csd-debug-feature-directory";
 const char kSkipCSDAllowlistOnPreclassification[] =
     "safe-browsing-skip-csd-allowlist";
-const float kProbabilityForSendingSampleRequest = 0.01;
+
+// Probability value used to sample pings on CSD allowlist match. For other safe
+// browsing countermeasures, we sample at 1 in 100 rate, but in this, we hit the
+// allowlist 1000 times more than the rate at which we send a ping due to local
+// model verdict. Therefore, we sample at 1 in 100,000 rate instead.
+const float kProbabilityForSendingSampleRequest = 0.00001;
 
 void WriteFeaturesToDisk(const ClientPhishingRequest& features,
                          const base::FilePath& base_path) {
@@ -119,6 +124,8 @@ std::string GetRequestTypeName(
       return "KeyboardLockRequested";
     case safe_browsing::ClientSideDetectionType::POINTER_LOCK_REQUESTED:
       return "PointerLockRequested";
+    case safe_browsing::ClientSideDetectionType::VIBRATION_API:
+      return "VibrationApi";
   }
 }
 
@@ -152,7 +159,7 @@ PhishingDetectorResult GetPhishingDetectorResult(
 
 }  // namespace
 
-typedef base::OnceCallback<void(bool)> ShouldClassifyUrlCallback;
+typedef base::OnceCallback<void(bool, bool)> ShouldClassifyUrlCallback;
 
 // This class is instantiated each time a new toplevel URL loads, and
 // asynchronously checks whether the phishing classifier should run
@@ -289,8 +296,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
       base::UmaHistogramEnumeration(
           "SBClientPhishing.PreClassificationCheckResult", reason,
           PreClassificationCheckResult::NO_CLASSIFY_MAX);
-      if (base::FeatureList::IsEnabled(kClientSideDetectionImagesCache) &&
-          base::FeatureList::IsEnabled(
+      if (base::FeatureList::IsEnabled(
               kClientSideDetectionDebuggingMetadataCache) &&
           host_ && host_->delegate_->GetPrefs() &&
           IsEnhancedProtectionEnabled(*host_->delegate_->GetPrefs())) {
@@ -304,7 +310,8 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
           debugging_metadata->set_preclassification_check_result(reason);
         }
       }
-      std::move(start_phishing_classification_cb_).Run(false);
+      std::move(start_phishing_classification_cb_)
+          .Run(false, send_sample_ping_);
     }
     start_phishing_classification_cb_.Reset();
   }
@@ -353,7 +360,10 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
                             PreClassificationCheckResult phishing_reason,
                             bool match_allowlist) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-    if (match_allowlist && !CanSendSamplePing()) {
+
+    // On CSD allowlist match, we still want to send a ping on a rare chance.
+    send_sample_ping_ = CanSendSamplePing();
+    if (match_allowlist && !send_sample_ping_) {
       phishing_reason =
           PreClassificationCheckResult::NO_CLASSIFY_MATCH_CSD_ALLOWLIST;
     }
@@ -401,8 +411,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
           "SBClientPhishing.PreClassificationCheckResult",
           PreClassificationCheckResult::CLASSIFY,
           PreClassificationCheckResult::NO_CLASSIFY_MAX);
-      if (base::FeatureList::IsEnabled(kClientSideDetectionImagesCache) &&
-          base::FeatureList::IsEnabled(
+      if (base::FeatureList::IsEnabled(
               kClientSideDetectionDebuggingMetadataCache) &&
           host_ && host_->delegate_->GetPrefs() &&
           IsEnhancedProtectionEnabled(*host_->delegate_->GetPrefs())) {
@@ -413,7 +422,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
             ->set_preclassification_check_result(
                 PreClassificationCheckResult::CLASSIFY);
       }
-      std::move(start_phishing_classification_cb_).Run(true);
+      std::move(start_phishing_classification_cb_).Run(true, send_sample_ping_);
       // Reset the callback to make sure ShouldClassifyForPhishing()
       // returns false.
       start_phishing_classification_cb_.Reset();
@@ -421,13 +430,16 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
   }
 
   bool CanSendSamplePing() {
-    return host_ && host_->delegate_->GetPrefs() &&
+    return phishing_detection_request_type_ ==
+               ClientSideDetectionType::TRIGGER_MODELS &&
+           host_ && host_->delegate_->GetPrefs() &&
            IsEnhancedProtectionEnabled(*host_->delegate_->GetPrefs()) &&
            base::RandDouble() <= kProbabilityForSendingSampleRequest &&
            base::FeatureList::IsEnabled(kClientSideDetectionSamplePing);
   }
 
   const GURL url_;
+  bool send_sample_ping_ = false;
   std::string mime_type_;
   net::IPEndPoint remote_endpoint_;
   raw_ptr<WebContents> web_contents_;
@@ -476,8 +488,7 @@ ClientSideDetectionHost::ClientSideDetectionHost(
   // Note: csd_service_ and sb_service will be nullptr here in testing.
   csd_service_ = delegate_->GetClientSideDetectionService();
 
-  if (csd_service_ &&
-      base::FeatureList::IsEnabled(kClientSideDetectionImagesCache)) {
+  if (csd_service_) {
     ClientSideDetectionFeatureCache::CreateForWebContents(web_contents());
     ClientSideDetectionFeatureCache::FromWebContents(web_contents())
         ->AddClearCacheSubscription(csd_service_);
@@ -586,9 +597,26 @@ void ClientSideDetectionHost::PointerLockRequested() {
   MaybeStartPreClassification(ClientSideDetectionType::POINTER_LOCK_REQUESTED);
 }
 
+void ClientSideDetectionHost::VibrationRequested() {
+  if (!IsEnhancedProtectionEnabled(*delegate_->GetPrefs()) ||
+      !base::FeatureList::IsEnabled(kClientSideDetectionVibrationApi)) {
+    return;
+  }
+  // Vibration API can be triggered on a page in intervals between 0 and 1
+  // seconds. Because of this, we want to only classify once per given URL since
+  // a page can send a request multiple vibration at a time.
+  ClientSideDetectionFeatureCache::CreateForWebContents(web_contents());
+  ClientSideDetectionFeatureCache* feature_cache_map =
+      ClientSideDetectionFeatureCache::FromWebContents(web_contents());
+  if (!feature_cache_map->WasVibrationClassificationTriggered(current_url_)) {
+    MaybeStartPreClassification(ClientSideDetectionType::VIBRATION_API);
+  }
+}
+
 void ClientSideDetectionHost::OnPhishingPreClassificationDone(
     ClientSideDetectionType request_type,
-    bool should_classify) {
+    bool should_classify,
+    bool is_sample_ping) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   if (should_classify) {
     content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
@@ -601,13 +629,15 @@ void ClientSideDetectionHost::OnPhishingPreClassificationDone(
       phishing_detector_->StartPhishingDetection(
           current_url_,
           base::BindOnce(&ClientSideDetectionHost::PhishingDetectionDone,
-                         weak_factory_.GetWeakPtr(), request_type));
+                         weak_factory_.GetWeakPtr(), request_type,
+                         is_sample_ping));
     }
   }
 }
 
 void ClientSideDetectionHost::PhishingDetectionDone(
     ClientSideDetectionType request_type,
+    bool is_sample_ping,
     mojom::PhishingDetectorResult result,
     std::optional<mojo_base::ProtoWrapper> wrapped_verdict) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -618,11 +648,9 @@ void ClientSideDetectionHost::PhishingDetectionDone(
 
   ClientSideDetectionFeatureCache* feature_cache_map = nullptr;
 
-  if (base::FeatureList::IsEnabled(kClientSideDetectionImagesCache)) {
-    ClientSideDetectionFeatureCache::CreateForWebContents(web_contents());
-    feature_cache_map =
-        ClientSideDetectionFeatureCache::FromWebContents(web_contents());
-  }
+  ClientSideDetectionFeatureCache::CreateForWebContents(web_contents());
+  feature_cache_map =
+      ClientSideDetectionFeatureCache::FromWebContents(web_contents());
 
   phishing_detector_.reset();
 
@@ -676,7 +704,11 @@ void ClientSideDetectionHost::PhishingDetectionDone(
                             verdict.has_value());
   if (csd_service_ && verdict.has_value()) {
     verdict->set_client_side_detection_type(request_type);
-
+    if (is_sample_ping) {
+      verdict->set_report_type(ClientPhishingRequest::SAMPLE_REPORT);
+    } else {
+      verdict->set_report_type(ClientPhishingRequest::FULL_REPORT);
+    }
     // We should only cache the verdict string if the result is SUCCESS, so that
     // in a situation where it is not, PG can retry the classification
     // because classifier can be ready or a new model is ready to address
@@ -788,8 +820,7 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
       "SBClientPhishing.ClientSideDetectionTypeRequest",
       verdict->client_side_detection_type(), ClientSideDetectionType_MAX + 1);
 
-  if (base::FeatureList::IsEnabled(kClientSideDetectionImagesCache) &&
-      base::FeatureList::IsEnabled(
+  if (base::FeatureList::IsEnabled(
           kClientSideDetectionDebuggingMetadataCache) &&
       IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
     ClientSideDetectionFeatureCache::CreateForWebContents(web_contents());
@@ -802,13 +833,16 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
     debugging_metadata->set_forced_request(force_request_from_rt_url_lookup);
   }
 
-  // We only send a phishing verdict if the verdict is phishing AND the client
-  // side detection type is |TRIGGER_MODELS|. The detection type can be
-  // changed to FORCE_REQUEST from a RTLookupResponse for a SBER/ESB user.
-  // This can also be changed when the request is made from a notification
-  // permission prompt.
-  if (!verdict->is_phishing() && verdict->client_side_detection_type() ==
-                                     ClientSideDetectionType::TRIGGER_MODELS) {
+  // We only send a phishing verdict if the verdict is phishing, the client
+  // side detection type is |TRIGGER_MODELS|, AND the request is not a sample
+  // ping. The detection type can be changed to FORCE_REQUEST from a
+  // RTLookupResponse for a SBER/ESB user. This can also be changed when the
+  // request is made from a notification permission prompt, keyboard & pointer
+  // lock API.
+  if (!verdict->is_phishing() &&
+      verdict->client_side_detection_type() ==
+          ClientSideDetectionType::TRIGGER_MODELS &&
+      verdict->report_type() == ClientPhishingRequest::FULL_REPORT) {
     return;
   }
 
@@ -903,8 +937,7 @@ void ClientSideDetectionHost::MaybeShowPhishingWarning(
         is_phishing);
   }
 
-  if (base::FeatureList::IsEnabled(kClientSideDetectionImagesCache) &&
-      base::FeatureList::IsEnabled(
+  if (base::FeatureList::IsEnabled(
           kClientSideDetectionDebuggingMetadataCache) &&
       IsEnhancedProtectionEnabled(*delegate_->GetPrefs()) &&
       response_code.has_value()) {

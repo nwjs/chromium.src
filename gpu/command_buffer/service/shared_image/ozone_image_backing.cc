@@ -12,6 +12,7 @@
 #include "base/containers/contains.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/numerics/checked_math.h"
 #include "build/build_config.h"
 #include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "gpu/command_buffer/common/mailbox.h"
@@ -156,7 +157,7 @@ gfx::GpuMemoryBufferHandle
 OzoneImageBacking::GetSinglePlaneGpuMemoryBufferHandle(uint32_t index) {
   gfx::GpuMemoryBufferHandle gmb_handle = GetGpuMemoryBufferHandle();
 #if BUILDFLAG(IS_FUCHSIA)
-  NOTREACHED() << "Cannot get single plane from GPU memory buffer";
+  NOTREACHED_IN_MIGRATION() << "Cannot get single plane from GPU memory buffer";
   return gmb_handle;
 #else
   DCHECK(gmb_handle.native_pixmap_handle.modifier == 0);
@@ -214,7 +215,7 @@ OzoneImageBacking::ProduceSkiaGraphite(
       std::move(dawn_representation), context_state,
       context_state->gpu_main_graphite_recorder(), manager, this, tracker);
 #else
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 #endif
 }
@@ -414,7 +415,7 @@ OzoneImageBacking::ProduceSkiaGanesh(
         manager, this, std::move(context_state), std::move(vulkan_images),
         tracker);
 #else
-    NOTREACHED() << "Vulkan is disabled.";
+    NOTREACHED_IN_MIGRATION() << "Vulkan is disabled.";
     return nullptr;
 #endif  // BUILDFLAG(ENABLE_VULKAN)
   }
@@ -487,16 +488,16 @@ OzoneImageBacking::OzoneImageBacking(
 }
 
 OzoneImageBacking::~OzoneImageBacking() {
-    for (auto& item : per_context_cached_textures_holders_) {
-      item.first->RemoveObserver(this);
-      // We only need to remove textures here. If the context was lost or
-      // destroyed, there would be no entries in the cache as this is managed
-      // via ::OnGLContextLostOrDestroy.
-      if (item.second->GetCacheCount() <= 1) {
-        DestroyTexturesOnContext(item.second.get(), item.first);
-      }
-      item.second->OnRemovedFromCache();
+  for (auto& [context, holder] : per_context_cached_textures_holders_) {
+    context->RemoveObserver(this);
+    // We only need to remove textures here. If the context was lost or
+    // destroyed, there would be no entries in the cache as this is managed
+    // via ::OnGLContextLostOrDestroy.
+    if (holder->GetCacheCount() <= 1) {
+      DestroyTexturesOnContext(holder.get(), context);
     }
+    holder->OnRemovedFromCache();
+  }
 }
 
 std::unique_ptr<VaapiImageRepresentation> OzoneImageBacking::ProduceVASurface(
@@ -521,11 +522,46 @@ std::unique_ptr<VulkanImageRepresentation> OzoneImageBacking::ProduceVulkan(
     SharedImageManager* manager,
     MemoryTypeTracker* tracker,
     gpu::VulkanDeviceQueue* vulkan_device_queue,
-    gpu::VulkanImplementation& vulkan_impl) {
+    gpu::VulkanImplementation& vulkan_impl,
+    bool needs_detiling) {
+  viz::SharedImageFormat image_format = format();
+  gfx::Size image_size = size();
+  gfx::GpuMemoryBufferHandle gmb_handle = GetGpuMemoryBufferHandle();
+  if (needs_detiling && image_format == viz::MultiPlaneFormat::kP010) {
+    // This buffer is actually an MT2T buffer. MT2T is a 10-bit pixel format
+    // that only occupies 1.25 bytes per element. We plumb it as P010 since
+    // that's the closest existing pixel format, but import it into Vulkan as a
+    // "tall" NV12 image. The height adjustment is designed to make the plane
+    // size math work out, since NV12 is an 8-bit pixel format. This is how
+    // downstream detiling shaders expect the VkImage to be constructed.
+
+    CHECK(image_size.height() % 4 == 0);
+    constexpr int kMT2TBppNumerator = 5;
+    constexpr int kMT2TBppDenominator = 4;
+    image_format = viz::MultiPlaneFormat::kNV12;
+    image_format.SetPrefersExternalSampler();
+    image_size =
+        gfx::Size(image_size.width(), image_size.height() * kMT2TBppNumerator /
+                                          kMT2TBppDenominator);
+    base::CheckedNumeric<uint32_t> stride =
+        gmb_handle.native_pixmap_handle.planes[0].stride;
+    stride *= kMT2TBppDenominator;
+    stride /= kMT2TBppNumerator;
+    if (!stride.IsValid()) {
+      return nullptr;
+    }
+    gmb_handle.native_pixmap_handle.planes[0].stride = stride.ValueOrDie();
+    gmb_handle.native_pixmap_handle.planes[1].stride =
+        gmb_handle.native_pixmap_handle.planes[0].stride;
+    gmb_handle.native_pixmap_handle.planes[0].size = image_size.GetArea();
+    gmb_handle.native_pixmap_handle.planes[1].offset = image_size.GetArea();
+    gmb_handle.native_pixmap_handle.planes[1].size = image_size.GetArea() / 2;
+  }
   auto vulkan_image = vulkan_impl.CreateImageFromGpuMemoryHandle(
-      vulkan_device_queue, GetGpuMemoryBufferHandle(), size(),
-      format().PrefersExternalSampler() ? ToVkFormatExternalSampler(format())
-                                        : ToVkFormatSinglePlanar(format()),
+      vulkan_device_queue, std::move(gmb_handle), image_size,
+      image_format.PrefersExternalSampler()
+          ? ToVkFormatExternalSampler(image_format)
+          : ToVkFormatSinglePlanar(image_format),
       color_space());
 
   if (!vulkan_image) {
@@ -688,12 +724,12 @@ bool OzoneImageBacking::BeginAccess(bool readonly,
 
   // We don't wait for read-after-read.
   if (!readonly) {
-    for (auto& fence : read_fences_) {
+    for (auto& [stream, fence] : read_fences_) {
       // Wait on fence only if reading from stream different than current
       // stream.
-      if (fence.first != access_stream) {
-        DCHECK(!fence.second.is_null());
-        fences->emplace_back(std::move(fence.second));
+      if (stream != access_stream) {
+        DCHECK(!fence.is_null());
+        fences->emplace_back(std::move(fence));
       }
     }
     read_fences_.clear();

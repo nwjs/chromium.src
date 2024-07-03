@@ -17,10 +17,6 @@ namespace {
 
 bool g_app_install_service_uri_enabled_for_testing = false;
 
-#if !BUILDFLAG(IS_CHROMEOS_LACROS)
-bool g_ignore_container_app_preinstall_key_for_testing = false;
-#endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
-
 }  // namespace
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -96,16 +92,14 @@ BASE_FEATURE(kCrosComponents,
 // with Finch.
 BASE_FEATURE(kCrosMall, "CrosMall", base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, the Mall app will be installed as an SWA. Only takes effect
+// when CrosMall is enabled. This flag will be enabled with Finch.
+BASE_FEATURE(kCrosMallSwa, "CrosMallSwa", base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables the behaviour difference between web apps and browser created
 // shortcut backed by the web app system on Chrome OS.
 BASE_FEATURE(kCrosShortstand,
              "CrosShortstand",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the more detailed, OS-level dialog for web app installs from the
-// omnibox.
-BASE_FEATURE(kCrosOmniboxInstallDialog,
-             "CrosOmniboxInstallDialog",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the more detailed, OS-level dialog for web app installs.
@@ -188,6 +182,9 @@ BASE_FEATURE(kKioskHeartbeatsViaERP,
              "KioskHeartbeatsViaERP",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls enabling / disabling the Magic Boost feature.
+BASE_FEATURE(kMagicBoost, "MagicBoost", base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls enabling / disabling the mahi feature.
 BASE_FEATURE(kMahi, "Mahi", base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
@@ -198,6 +195,12 @@ BASE_FEATURE(kSparky, "Sparky", base::FEATURE_DISABLED_BY_DEFAULT);
 // Controls enabling / disabling the mahi debugging.
 BASE_FEATURE(kMahiDebugging,
              "MahiDebugging",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Changes the ChromeOS notification width size from 360px to 400px for pop-up
+// notifications and 344px to 400px for notifications in the message center.
+BASE_FEATURE(kNotificationWidthIncrease,
+             "NotificationWidthIncrease",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls enabling / disabling the orca feature.
@@ -224,6 +227,12 @@ BASE_FEATURE(kFeatureManagementContainerAppPreinstall,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
 
+// Controls enabling / disabling the history embedding feature from the
+// feature management module.
+BASE_FEATURE(kFeatureManagementHistoryEmbedding,
+             "FeatureManagementHistoryEmbedding",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls enabling / disabling the orca feature from the feature management
 // module.
 BASE_FEATURE(kFeatureManagementOrca,
@@ -233,6 +242,11 @@ BASE_FEATURE(kFeatureManagementOrca,
 // Whether to disable chrome compose.
 BASE_FEATURE(kFeatureManagementDisableChromeCompose,
              "FeatureManagementDisableChromeCompose",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Whether PreinstalledWebApps should only install core apps.
+BASE_FEATURE(kPreinstalledWebAppsCoreOnly,
+             "PreinstalledWebAppsCoreOnly",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether to enable quick answers V2 settings sub-toggles.
@@ -359,6 +373,11 @@ bool IsCrosMallEnabled() {
 #endif
 }
 
+bool IsCrosMallSwaEnabled() {
+  return chromeos::features::IsCrosMallEnabled() &&
+         base::FeatureList::IsEnabled(chromeos::features::kCrosMallSwa);
+}
+
 bool IsCrosShortstandEnabled() {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   return chromeos::BrowserParamsProxy::Get()->IsCrosShortstandEnabled();
@@ -441,6 +460,14 @@ bool IsJellyrollEnabled() {
   return IsJellyEnabled() && base::FeatureList::IsEnabled(kJellyroll);
 }
 
+bool IsMagicBoostEnabled() {
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  return chromeos::BrowserParamsProxy::Get()->IsMagicBoostEnabled();
+#else
+  return base::FeatureList::IsEnabled(kMagicBoost);
+#endif
+}
+
 bool IsMahiEnabled() {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   return chromeos::BrowserParamsProxy::Get()->IsMahiEnabled();
@@ -455,6 +482,10 @@ bool IsSparkyEnabled() {
 
 bool IsMahiDebuggingEnabled() {
   return base::FeatureList::IsEnabled(kMahiDebugging);
+}
+
+bool IsNotificationWidthIncreaseEnabled() {
+  return base::FeatureList::IsEnabled(kNotificationWidthIncrease);
 }
 
 bool IsOrcaEnabled() {
@@ -552,11 +583,5 @@ int RoundedWindowsRadius() {
 base::AutoReset<bool> SetAppInstallServiceUriEnabledForTesting() {
   return {&g_app_install_service_uri_enabled_for_testing, true};
 }
-
-#if !BUILDFLAG(IS_CHROMEOS_LACROS)
-base::AutoReset<bool> SetIgnoreContainerAppPreinstallKeyForTesting() {
-  return {&g_ignore_container_app_preinstall_key_for_testing, true};
-}
-#endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
 
 }  // namespace chromeos::features

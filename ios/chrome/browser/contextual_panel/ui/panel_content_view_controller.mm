@@ -28,9 +28,16 @@ const CGFloat kCloseButtonTrailingMargin = 16;
 // Identifier for the one section in this collection view.
 NSString* const kSectionIdentifier = @"section1";
 
+NSString* const kViewAccessibilityIdentifier = @"PanelContentViewAXID";
+
+NSString* const kCloseButtonAccessibilityIdentifier = @"PanelCloseButtonAXID";
+
 }  // namespace
 
 @implementation PanelContentViewController {
+  // The background visual effect view behind all the content.
+  UIVisualEffectView* _backgroundVisualEffectView;
+
   // The header view at the top of the panel.
   UIVisualEffectView* _headerView;
 
@@ -52,16 +59,21 @@ NSString* const kSectionIdentifier = @"section1";
 - (void)viewDidLoad {
   [super viewDidLoad];
 
-  [self createCollectionView];
+  self.view.accessibilityIdentifier = kViewAccessibilityIdentifier;
 
+  [self createBackground];
+  [self.view addSubview:_backgroundVisualEffectView];
+  AddSameConstraints(self.view, _backgroundVisualEffectView);
+
+  [self createCollectionView];
   [self.view addSubview:_collectionView];
   AddSameConstraints(self.view, _collectionView);
 
   // Create and set up the header view. This should be added after the
   // collection view because the header should go above the collection view.
-  UIBlurEffect* blurEffect =
-      [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial];
-  _headerView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+  UIBlurEffect* headerBlurEffect =
+      [UIBlurEffect effectWithStyle:UIBlurEffectStyleRegular];
+  _headerView = [[UIVisualEffectView alloc] initWithEffect:headerBlurEffect];
   _headerView.translatesAutoresizingMaskIntoConstraints = NO;
   [self.view addSubview:_headerView];
 
@@ -84,6 +96,15 @@ NSString* const kSectionIdentifier = @"section1";
         constraintEqualToAnchor:_closeButton.trailingAnchor
                        constant:kCloseButtonTrailingMargin],
   ]];
+
+  // One of UIVisualEffectView's subviews has a white-ish background color,
+  // which is not desired for this feature.
+  for (UIView* subview in _headerView.subviews) {
+    // Replace any non-nil backgrounds with clear.
+    if (subview.backgroundColor) {
+      subview.backgroundColor = UIColor.clearColor;
+    }
+  }
 }
 
 #pragma mark - Public methods
@@ -164,6 +185,7 @@ NSString* const kSectionIdentifier = @"section1";
       [[UICollectionView alloc] initWithFrame:CGRectZero
                          collectionViewLayout:[self createLayout]];
   _collectionView.translatesAutoresizingMaskIntoConstraints = NO;
+  _collectionView.backgroundColor = UIColor.clearColor;
   _collectionView.contentInset = UIEdgeInsetsMake(kHeaderHeight, 0, 0, 0);
 
   __weak __typeof(self) weakSelf = self;
@@ -207,7 +229,23 @@ NSString* const kSectionIdentifier = @"section1";
                 primaryAction:[UIAction actionWithHandler:^(UIAction* action) {
                   [weakSelf closeButtonTapped];
                 }]];
+  _closeButton.accessibilityIdentifier = kCloseButtonAccessibilityIdentifier;
   _closeButton.translatesAutoresizingMaskIntoConstraints = NO;
+}
+
+- (void)createBackground {
+  UIBlurEffect* backgroundBlurEffect =
+      [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemThickMaterial];
+  _backgroundVisualEffectView =
+      [[UIVisualEffectView alloc] initWithEffect:backgroundBlurEffect];
+  _backgroundVisualEffectView.translatesAutoresizingMaskIntoConstraints = NO;
+
+  UIView* scrim = [[UIView alloc] init];
+  scrim.translatesAutoresizingMaskIntoConstraints = NO;
+  // The scrim should be black 3% opacity in both light and dark mode.
+  scrim.backgroundColor = [UIColor.blackColor colorWithAlphaComponent:0.03];
+  [_backgroundVisualEffectView.contentView addSubview:scrim];
+  AddSameConstraints(_backgroundVisualEffectView.contentView, scrim);
 }
 
 @end

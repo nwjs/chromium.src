@@ -7,11 +7,13 @@
 #include <memory>
 #include <optional>
 
+#include "ash/constants/ash_features.h"
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
+#include "base/version.h"
 #include "build/branding_buildflags.h"
 #include "build/buildflag.h"
 #include "chromeos/ash/components/growth/growth_metrics.h"
@@ -20,6 +22,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
+#include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/vector_icon_types.h"
@@ -31,6 +34,8 @@ inline constexpr char kTargetings[] = "targetings";
 
 inline constexpr char kId[] = "id";
 inline constexpr char kStudyId[] = "studyId";
+inline constexpr char kShouldRegisterTrialWithTriggerEventName[] =
+    "registerTrialWithTriggerEventName";
 
 // Targetings.
 // Demo Mode targeting paths.
@@ -46,9 +51,14 @@ inline constexpr char kMaxDemoModeAppVersion[] = "appVersion.max";
 
 // Device Targeting paths.
 inline constexpr char kDeviceTargeting[] = "device";
-inline constexpr char kDeviceLocales[] = "locales";
+inline constexpr char kApplicationLocales[] = "locales";
+inline constexpr char kUserLocales[] = "userLocales";
+inline constexpr char kIncludedCountries[] = "includedCountries";
+inline constexpr char kExcludedCountries[] = "excludedCountries";
 inline constexpr char kMinMilestone[] = "milestone.min";
 inline constexpr char kMaxMilestone[] = "milestone.max";
+inline constexpr char kMinVersion[] = "version.min";
+inline constexpr char kMaxVersion[] = "version.max";
 inline constexpr char kFeatureAware[] = "isFeatureAwareDevice";
 inline constexpr char kRegisteredTime[] = "registeredTime";
 inline constexpr char kDeviceAgeInHours[] = "deviceAgeInHours";
@@ -57,6 +67,8 @@ inline constexpr char kDeviceAgeInHours[] = "deviceAgeInHours";
 inline constexpr char kSessionTargeting[] = "session";
 
 // Experiment Tag Targeting paths.
+inline constexpr char kPredefinedFeatureIndex[] = "predefinedFeatureIndex";
+inline constexpr char kOneOffExpFeatureIndex[] = "oneOffExpFeatureIndex";
 inline constexpr char kExperimentTargetings[] = "experimentTags";
 
 // User Targeting paths.
@@ -75,7 +87,11 @@ inline constexpr int kDismissalCapDefaultValue = 1;
 inline constexpr char kRuntimeTargeting[] = "runtime";
 
 // Trigger Targeting paths.
-inline constexpr char kTriggerTargetings[] = "triggers";
+// Path `triggers` was used in M126 and has been deprecated since M127.
+// Path `triggersList` was added for M127.
+inline constexpr char kTriggerTargetings[] = "triggerList";
+inline constexpr char kTriggerType[] = "triggerType";
+inline constexpr char kTriggerEvents[] = "triggerEvents";
 
 // Scheduling Targeting paths.
 inline constexpr char kSchedulingTargetings[] = "schedulings";
@@ -109,42 +125,126 @@ inline constexpr char kActiveAppWindowAnchorType[] =
 inline constexpr char kShelfAppButtonId[] = "shelfAppButtonId";
 
 // Image Model.
-inline constexpr char kBuiltInIcon[] = "builtInIcon";
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+inline constexpr char kImage[] = "image";
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 inline constexpr int kIconSize = 60;
+inline constexpr char kVectorIcon[] = "vectorIcon";
+
+// Vector Icon
+inline constexpr char kBuiltInVectorIcon[] = "builtInVectorIcon";
+
+// Each feature will be used in one finch study.
+// These features are reusable if a feature is not currently used.
+// Entries should not be ordered as feature is selected by index defined in the
+// campaign.
+inline const base::Feature* kPredefinedFeaturesForExperimentTagTargeting[] = {
+    &ash::features::kGrowthCampaignsExperiment1,
+    &ash::features::kGrowthCampaignsExperiment2,
+    &ash::features::kGrowthCampaignsExperiment3,
+    &ash::features::kGrowthCampaignsExperiment4,
+    &ash::features::kGrowthCampaignsExperiment5,
+    &ash::features::kGrowthCampaignsExperiment6,
+    &ash::features::kGrowthCampaignsExperiment7,
+    &ash::features::kGrowthCampaignsExperiment8,
+    &ash::features::kGrowthCampaignsExperiment9,
+    &ash::features::kGrowthCampaignsExperiment10,
+    &ash::features::kGrowthCampaignsExperiment11,
+    &ash::features::kGrowthCampaignsExperiment12,
+    &ash::features::kGrowthCampaignsExperiment13,
+    &ash::features::kGrowthCampaignsExperiment14,
+    &ash::features::kGrowthCampaignsExperiment15,
+    &ash::features::kGrowthCampaignsExperiment16,
+    &ash::features::kGrowthCampaignsExperiment17,
+    &ash::features::kGrowthCampaignsExperiment18,
+    &ash::features::kGrowthCampaignsExperiment19,
+    &ash::features::kGrowthCampaignsExperiment20,
+};
+
+// List of one-off feature flags used for delivering finch params for
+// study/groups that refer to more than one feature flags.
+// Each feature will be used in one finch study.
+// These features are not reusable. It is tied to the finch config of a
+// particular experiment.
+// Entries should not be ordered as feature is selected by index defined in the
+// campaign.
+const base::Feature* kOneOffFeaturesForExperimentTagTargeting[] = {
+    &ash::features::kGrowthCampaignsExperimentG1Nudge,
+    &ash::features::kGrowthCampaignsExperimentFileAppGamgee,
+};
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+// Image
+inline constexpr char kBuiltInImage[] = "builtInImage";
+
 inline constexpr gfx::Size kBubbleIconSizeDip = gfx::Size(kIconSize, kIconSize);
 
 std::optional<int> GetBuiltInImageResourceId(
-    const std::optional<BuiltInIcon>& icon) {
-  if (!icon) {
+    const std::optional<BuiltInImage>& image_model_type) {
+  if (!image_model_type) {
     return std::nullopt;
   }
 
-  if (icon == BuiltInIcon::kContainerApp) {
-    return IDR_GROWTH_FRAMEWORK_CONTAINER_APP_PNG;
+  switch (image_model_type.value()) {
+    case BuiltInImage::kContainerApp:
+      return IDR_GROWTH_FRAMEWORK_CONTAINER_APP_PNG;
+    case BuiltInImage::kG1:
+      return IDR_GROWTH_FRAMEWORK_G1_PNG;
+    case BuiltInImage::kSparkRebuy:
+      return IDR_GROWTH_FRAMEWORK_SPARK_REBUY_PNG;
+    case BuiltInImage::kSpark1PApp:
+      return IDR_GROWTH_FRAMEWORK_SPARK_1P_APP_PNG;
   }
-
-  if (icon == BuiltInIcon::kG1) {
-    return IDR_GROWTH_FRAMEWORK_G1_PNG;
-  }
-
-  return std::nullopt;
 }
 
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
-std::optional<BuiltInIcon> GetBuiltInIconType(
+std::optional<BuiltInImage> GetBuiltInImageType(
     const base::Value::Dict* image_dict) {
-  auto built_in_icon_value = image_dict->FindInt(kBuiltInIcon);
-  if (!built_in_icon_value) {
+  auto built_in_image_value = image_dict->FindInt(kBuiltInImage);
+  if (!built_in_image_value) {
     return std::nullopt;
   }
 
-  return static_cast<BuiltInIcon>(built_in_icon_value.value());
+  return static_cast<BuiltInImage>(built_in_image_value.value());
+}
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
+std::optional<BuiltInVectorIcon> GetBuiltInVectorIconType(
+    const base::Value::Dict* vector_icon_dict) {
+  auto built_in_vector_icon_value =
+      vector_icon_dict->FindInt(kBuiltInVectorIcon);
+  if (!built_in_vector_icon_value) {
+    return std::nullopt;
+  }
+
+  return static_cast<BuiltInVectorIcon>(built_in_vector_icon_value.value());
+}
+
+std::optional<base::Version> StringToVersion(const std::string* version_value) {
+  if (!version_value) {
+    return std::nullopt;
+  }
+
+  const auto version = base::Version(*version_value);
+  if (!version.IsValid()) {
+    return std::nullopt;
+  }
+  return std::move(version);
+}
+
+const base::Feature* SelectFeatureByIndex(const base::Feature* features[],
+                                          int size,
+                                          int index) {
+  if (index < 0 || index >= size) {
+    // TODO: b/344673533 - Record error metrics.
+    return nullptr;
+  }
+
+  return features[index];
 }
 
 }  // namespace
+
+Trigger::Trigger(TriggerType type) : type(type) {}
 
 Campaigns* GetMutableCampaignsBySlot(CampaignsPerSlot* campaigns_per_slot,
                                      Slot slot) {
@@ -182,7 +282,7 @@ const Payload* GetPayloadBySlot(const Campaign* campaign, Slot slot) {
       return campaign->FindDictByDottedPath(
           base::StringPrintf(kPayloadPathTemplate, kNotificationPayloadPath));
     case Slot::kDemoModeFreePlayApps:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 
@@ -195,6 +295,11 @@ std::optional<int> GetCampaignId(const Campaign* campaign) {
 
 std::optional<int> GetStudyId(const Campaign* campaign) {
   return campaign->FindInt(kStudyId);
+}
+
+std::optional<bool> ShouldRegisterTrialWithTriggerEventName(
+    const Campaign* campaign) {
+  return campaign->FindBool(kShouldRegisterTrialWithTriggerEventName);
 }
 
 // Targeting Base.
@@ -256,12 +361,12 @@ const base::Value::List* DemoModeTargeting::GetCountries() const {
   return GetListCriteria(kDemoModeCountries);
 }
 
-const std::string* DemoModeTargeting::GetAppMinVersion() const {
-  return GetStringCriteria(kMinDemoModeAppVersion);
+const std::optional<base::Version> DemoModeTargeting::GetAppMinVersion() const {
+  return StringToVersion(GetStringCriteria(kMinDemoModeAppVersion));
 }
 
-const std::string* DemoModeTargeting::GetAppMaxVersion() const {
-  return GetStringCriteria(kMaxDemoModeAppVersion);
+const std::optional<base::Version> DemoModeTargeting::GetAppMaxVersion() const {
+  return StringToVersion(GetStringCriteria(kMaxDemoModeAppVersion));
 }
 
 const std::optional<bool> DemoModeTargeting::TargetCloudGamingDevice() const {
@@ -279,7 +384,19 @@ DeviceTargeting::DeviceTargeting(const Targeting* targeting_dict)
 DeviceTargeting::~DeviceTargeting() = default;
 
 const base::Value::List* DeviceTargeting::GetLocales() const {
-  return GetListCriteria(kDeviceLocales);
+  return GetListCriteria(kApplicationLocales);
+}
+
+const base::Value::List* DeviceTargeting::GetUserLocales() const {
+  return GetListCriteria(kUserLocales);
+}
+
+const base::Value::List* DeviceTargeting::GetIncludedCountries() const {
+  return GetListCriteria(kIncludedCountries);
+}
+
+const base::Value::List* DeviceTargeting::GetExcludedCountries() const {
+  return GetListCriteria(kExcludedCountries);
 }
 
 const std::optional<int> DeviceTargeting::GetMinMilestone() const {
@@ -288,6 +405,14 @@ const std::optional<int> DeviceTargeting::GetMinMilestone() const {
 
 const std::optional<int> DeviceTargeting::GetMaxMilestone() const {
   return GetIntCriteria(kMaxMilestone);
+}
+
+const std::optional<base::Version> DeviceTargeting::GetMinVersion() const {
+  return StringToVersion(GetStringCriteria(kMinVersion));
+}
+
+const std::optional<base::Version> DeviceTargeting::GetMaxVersion() const {
+  return StringToVersion(GetStringCriteria(kMaxVersion));
 }
 
 const std::optional<bool> DeviceTargeting::GetFeatureAwareDevice() const {
@@ -344,6 +469,20 @@ const base::Value::List* EventsTargeting::GetEventsConditions() const {
   return config_dict_->FindList(kEventsConditions);
 }
 
+// Trigger Targeting.
+TriggerTargeting::TriggerTargeting(const base::Value::Dict* trigger_dict)
+    : trigger_dict_(trigger_dict) {}
+
+TriggerTargeting::~TriggerTargeting() = default;
+
+std::optional<int> TriggerTargeting::GetTriggerType() const {
+  return trigger_dict_->FindInt(kTriggerType);
+}
+
+const base::Value::List* TriggerTargeting::GetTriggerEvents() const {
+  return trigger_dict_->FindList(kTriggerEvents);
+}
+
 // Time window Targeting.
 TimeWindowTargeting::TimeWindowTargeting(
     const base::Value::Dict* time_window_dict)
@@ -390,6 +529,27 @@ SessionTargeting::SessionTargeting(const Targeting* targeting_dict)
 
 SessionTargeting::~SessionTargeting() = default;
 
+std::optional<const base::Feature*> SessionTargeting::GetFeature() const {
+  const auto one_off_feature_index = GetIntCriteria(kOneOffExpFeatureIndex);
+  if (one_off_feature_index) {
+    return SelectFeatureByIndex(
+        kOneOffFeaturesForExperimentTagTargeting,
+        static_cast<int>(std::size(kOneOffFeaturesForExperimentTagTargeting)),
+        one_off_feature_index.value());
+  }
+
+  const auto predefined_feature_index = GetIntCriteria(kPredefinedFeatureIndex);
+  if (predefined_feature_index) {
+    return SelectFeatureByIndex(
+        kPredefinedFeaturesForExperimentTagTargeting,
+        static_cast<int>(
+            std::size(kPredefinedFeaturesForExperimentTagTargeting)),
+        predefined_feature_index.value());
+  }
+
+  return std::nullopt;
+}
+
 const base::Value::List* SessionTargeting::GetExperimentTags() const {
   return GetListCriteria(kExperimentTargetings);
 }
@@ -411,12 +571,12 @@ RuntimeTargeting::~RuntimeTargeting() = default;
 const std::vector<std::unique_ptr<TimeWindowTargeting>>
 RuntimeTargeting::GetSchedulings() const {
   std::vector<std::unique_ptr<TimeWindowTargeting>> schedulings;
-  auto* scheduling_dicts = GetListCriteria(kSchedulingTargetings);
-  if (!scheduling_dicts) {
+  auto* scheduling_list = GetListCriteria(kSchedulingTargetings);
+  if (!scheduling_list) {
     return schedulings;
   }
 
-  for (auto& scheduling_dict : *scheduling_dicts) {
+  for (auto& scheduling_dict : *scheduling_list) {
     if (!scheduling_dict.is_dict()) {
       // Ignore invalid scheduling.
       RecordCampaignsManagerError(CampaignsManagerError::kInvalidScheduling);
@@ -426,27 +586,6 @@ RuntimeTargeting::GetSchedulings() const {
         std::make_unique<TimeWindowTargeting>(&scheduling_dict.GetDict()));
   }
   return schedulings;
-}
-
-const std::vector<TriggeringType> RuntimeTargeting::GetTriggers() const {
-  std::vector<TriggeringType> triggers;
-  auto* triggers_list = GetListCriteria(kTriggerTargetings);
-  if (!triggers_list) {
-    return triggers;
-  }
-
-  for (auto& trigger : *triggers_list) {
-    if (!trigger.is_int()) {
-      // Ignore invalid trigger.
-      RecordCampaignsManagerError(CampaignsManagerError::kInvalidTrigger);
-      continue;
-    }
-
-    // TODO: b/330931877 - Add bounds check for casting to enum from value in
-    // campaign payload.
-    triggers.push_back(static_cast<TriggeringType>(trigger.GetInt()));
-  }
-  return triggers;
 }
 
 const std::vector<std::unique_ptr<AppTargeting>>
@@ -497,6 +636,26 @@ std::unique_ptr<EventsTargeting> RuntimeTargeting::GetEventsConfig() const {
   }
 
   return std::make_unique<EventsTargeting>(config);
+}
+
+const std::vector<std::unique_ptr<TriggerTargeting>>
+RuntimeTargeting::GetTriggers() const {
+  std::vector<std::unique_ptr<TriggerTargeting>> triggers;
+  auto* triggers_list = GetListCriteria(kTriggerTargetings);
+  if (!triggers_list) {
+    return triggers;
+  }
+
+  for (const auto& trigger : *triggers_list) {
+    if (!trigger.is_dict()) {
+      // Ignore invalid trigger.
+      RecordCampaignsManagerError(CampaignsManagerError::kInvalidTrigger);
+      continue;
+    }
+
+    triggers.push_back(std::make_unique<TriggerTargeting>(&trigger.GetDict()));
+  }
+  return triggers;
 }
 
 // Action.
@@ -551,53 +710,98 @@ const std::string* Anchor::GetShelfAppButtonId() const {
   return anchor_dict_->FindString(kShelfAppButtonId);
 }
 
-// Image Model.
+// Image.
 Image::Image(const base::Value::Dict* image_dict) : image_dict_(image_dict) {}
 Image::~Image() = default;
 
-const gfx::VectorIcon* Image::GetVectorIcon() const {
-  const auto icon = GetBuiltInIconType(image_dict_);
-  if (!icon || icon.value() != BuiltInIcon::kRedeem) {
+const gfx::Image* Image::GetImage() const {
+  if (!image_dict_) {
+    return nullptr;
+  }
+
+  // TODO: b/329113710- Handle other image sources.
+  return GetBuiltInImage();
+}
+
+const gfx::Image* Image::GetBuiltInImage() const {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  const auto image_id =
+      GetBuiltInImageResourceId(GetBuiltInImageType(image_dict_));
+  if (image_id) {
+    return &ui::ResourceBundle::GetSharedInstance().GetImageNamed(
+        image_id.value());
+  }
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
+  // TODO: b/340895798 - record error metric.
+  LOG(ERROR) << "Unrecognized built in image.";
+
+  return nullptr;
+}
+
+// Vector Icon.
+VectorIcon::VectorIcon(const base::Value::Dict* vector_icon_dict)
+    : vector_icon_dict_(vector_icon_dict) {}
+VectorIcon::~VectorIcon() = default;
+
+const gfx::VectorIcon* VectorIcon::GetVectorIcon() const {
+  if (!vector_icon_dict_) {
+    return nullptr;
+  }
+
+  // TODO:b/329113710 - Handle other vector icon sources.
+  return GetBuiltInVectorIcon();
+}
+
+const gfx::VectorIcon* VectorIcon::GetBuiltInVectorIcon() const {
+  const auto icon = GetBuiltInVectorIconType(vector_icon_dict_);
+  if (!icon || icon.value() != BuiltInVectorIcon::kRedeem) {
+    // TODO: b/340895798 - record error metric.
+    LOG(ERROR) << "Unrecognized built in vector icon.";
+
     return nullptr;
   }
 
   return &chromeos::kRedeemIcon;
 }
 
-const std::optional<ui::ImageModel> Image::GetImage() const {
-  if (!image_dict_) {
+// Image Model.
+ImageModel::ImageModel(const base::Value::Dict* image_model_dict)
+    : image_model_dict_(image_model_dict) {}
+ImageModel::~ImageModel() = default;
+
+const std::optional<ui::ImageModel> ImageModel::GetImageModel() const {
+  if (!image_model_dict_) {
     return std::nullopt;
   }
 
   // TODO(b/329113710): Handle other image sources.
-  return GetBuiltInIcon();
+  return GetBuiltInImageModel();
 }
 
-const std::optional<ui::ImageModel> Image::GetBuiltInIcon() const {
-  const auto* vector_icon = GetVectorIcon();
+const std::optional<ui::ImageModel> ImageModel::GetBuiltInImageModel() const {
+  const auto* vector_icon =
+      VectorIcon(image_model_dict_->FindDict(kVectorIcon)).GetVectorIcon();
   if (vector_icon) {
     // Returns vector icon.
     return ui::ImageModel::FromVectorIcon(
         *vector_icon, cros_tokens::kCrosSysOnSurface, kIconSize);
   }
 
-  const auto icon = GetBuiltInIconType(image_dict_);
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  const auto resource_id = GetBuiltInImageResourceId(icon);
-  if (resource_id) {
-    gfx::ImageSkia* image =
-        ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-            resource_id.value());
+  const auto* image = Image(image_model_dict_->FindDict(kImage)).GetImage();
+  if (image) {
+    const gfx::ImageSkia* imageSkia = image->ToImageSkia();
     gfx::ImageSkia resized_image = gfx::ImageSkiaOperations::CreateResizedImage(
-        *image, skia::ImageOperations::RESIZE_BEST, kBubbleIconSizeDip);
+        *imageSkia, skia::ImageOperations::RESIZE_BEST, kBubbleIconSizeDip);
     resized_image.EnsureRepsForSupportedScales();
     return ui::ImageModel::FromImageSkia(resized_image);
   }
+  // TODO: b/340895798 - update the error type naming and description.
+  RecordCampaignsManagerError(CampaignsManagerError::kUnrecognizedBuiltInIcon);
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
-  RecordCampaignsManagerError(CampaignsManagerError::kUnrecognizedBuiltInIcon);
-  LOG(ERROR) << "Unrecognized built in icon: "
-             << static_cast<int>(icon.value());
+  LOG(ERROR) << "Unrecognized built in image model.";
   return std::nullopt;
 }
 

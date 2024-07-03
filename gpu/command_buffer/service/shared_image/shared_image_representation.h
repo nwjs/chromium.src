@@ -12,6 +12,7 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
@@ -167,13 +168,15 @@ class GPU_GLES2_EXPORT SharedImageRepresentation {
     }
 
    private:
-    const raw_ptr<RepresentationClass> representation_;
+    // RAW_PTR_EXCLUSION: Performance reasons (based on analysis of MotionMark).
+    RAW_PTR_EXCLUSION RepresentationClass* const representation_ = nullptr;
   };
 
  private:
-  const raw_ptr<SharedImageManager, DanglingUntriaged> manager_;
-  raw_ptr<SharedImageBacking> backing_;
-  const raw_ptr<MemoryTypeTracker> tracker_;
+  // RAW_PTR_EXCLUSION: Performance reasons (based on analysis of MotionMark).
+  RAW_PTR_EXCLUSION SharedImageManager* const manager_ = nullptr;
+  RAW_PTR_EXCLUSION SharedImageBacking* backing_ = nullptr;
+  RAW_PTR_EXCLUSION MemoryTypeTracker* const tracker_ = nullptr;
   bool has_context_ = true;
   AccessMode access_mode_ = AccessMode::kNone;
 };
@@ -415,7 +418,9 @@ class GPU_GLES2_EXPORT SkiaImageRepresentation
     // multiplanar formats.
     virtual sk_sp<SkImage> CreateSkImageForPlane(
         int plane_index,
-        SharedContextState* context_state) = 0;
+        SharedContextState* context_state,
+        SkImages::TextureReleaseProc texture_release_proc = nullptr,
+        SkImages::ReleaseContext release_context = nullptr) = 0;
 
     // NOTE: Implemented only for Ganesh.
     // Checks if there's a need to apply skgpu::MutableTextureState.
@@ -534,7 +539,9 @@ class GPU_GLES2_EXPORT SkiaGaneshImageRepresentation
     // multiplanar formats.
     sk_sp<SkImage> CreateSkImageForPlane(
         int plane_index,
-        SharedContextState* context_state) override;
+        SharedContextState* context_state,
+        SkImages::TextureReleaseProc texture_release_proc = nullptr,
+        SkImages::ReleaseContext release_context = nullptr) override;
 
     // Checks if there's a need to apply skgpu::MutableTextureState.
     bool HasBackendSurfaceEndState() override;
@@ -681,7 +688,9 @@ class GPU_GLES2_EXPORT SkiaGraphiteImageRepresentation
     // multiplanar formats.
     sk_sp<SkImage> CreateSkImageForPlane(
         int plane_index,
-        SharedContextState* context_state) override;
+        SharedContextState* context_state,
+        SkImages::TextureReleaseProc texture_release_proc = nullptr,
+        SkImages::ReleaseContext release_context = nullptr) override;
 
     bool HasBackendSurfaceEndState() override;
     void ApplyBackendSurfaceEndState() override;
@@ -778,12 +787,24 @@ class GPU_GLES2_EXPORT DawnImageRepresentation
       wgpu::TextureUsage usage,
       AllowUnclearedAccess allow_uncleared);
 
+  // Allawos passing internal usages to the created Dawn texture.
+  std::unique_ptr<ScopedAccess> BeginScopedAccess(
+      wgpu::TextureUsage usage,
+      wgpu::TextureUsage internal_usage,
+      AllowUnclearedAccess allow_uncleared);
+
   // For write usage, the update_rect is a hint to the backend about the portion
   // of the image that will be drawn to. Callers shouldn't draw outside of this
   // area, but aren't required to overwrite every pixel inside it.
   // For non-write usage, the update_rect can be ignored.
   std::unique_ptr<ScopedAccess> BeginScopedAccess(
       wgpu::TextureUsage usage,
+      AllowUnclearedAccess allow_uncleared,
+      const gfx::Rect& update_rect);
+
+  std::unique_ptr<ScopedAccess> BeginScopedAccess(
+      wgpu::TextureUsage usage,
+      wgpu::TextureUsage internal_usage,
       AllowUnclearedAccess allow_uncleared,
       const gfx::Rect& update_rect);
 
@@ -794,8 +815,10 @@ class GPU_GLES2_EXPORT DawnImageRepresentation
 
   // This can return null in case of a Dawn validation error, for example if
   // usage is invalid.
-  virtual wgpu::Texture BeginAccess(wgpu::TextureUsage usage) = 0;
   virtual wgpu::Texture BeginAccess(wgpu::TextureUsage usage,
+                                    wgpu::TextureUsage internal_usage) = 0;
+  virtual wgpu::Texture BeginAccess(wgpu::TextureUsage usage,
+                                    wgpu::TextureUsage internal_usage,
                                     const gfx::Rect& update_rect);
   virtual void EndAccess() = 0;
 };

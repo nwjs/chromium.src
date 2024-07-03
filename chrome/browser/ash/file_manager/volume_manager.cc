@@ -36,7 +36,7 @@
 #include "chrome/browser/ash/file_manager/snapshot_manager.h"
 #include "chrome/browser/ash/file_manager/volume_manager_factory.h"
 #include "chrome/browser/ash/file_manager/volume_manager_observer.h"
-#include "chrome/browser/ash/policy/local_user_files/policy_utils.h"
+#include "chrome/browser/ash/policy/skyvault/policy_utils.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/media_galleries/fileapi/mtp_device_map_service.h"
 #include "chrome/common/chrome_features.h"
@@ -322,8 +322,10 @@ void VolumeManager::Initialize() {
 
   local_user_files_allowed_ = policy::local_user_files::LocalUserFilesAllowed();
   if (local_user_files_allowed_) {
-    // Add local folders - My Files and ARC if enabled.
+    // Add local folders - MyFiles and ARC if enabled.
     OnLocalUserFilesEnabled();
+  } else {
+    OnLocalUserFilesDisabled();
   }
 
   // Subscribe to DriveIntegrationService.
@@ -687,7 +689,7 @@ void VolumeManager::OnAutoMountableDiskEvent(
 
       return;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void VolumeManager::OnDeviceEvent(
@@ -712,7 +714,7 @@ void VolumeManager::OnDeviceEvent(
       DVLOG(1) << "Ignore SCANNED event: " << device_path;
       return;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void VolumeManager::OnMountEvent(
@@ -742,7 +744,7 @@ void VolumeManager::OnMountEvent(
       return;
   }
 
-  NOTREACHED() << "Unexpected event type " << event;
+  NOTREACHED_IN_MIGRATION() << "Unexpected event type " << event;
 }
 
 void VolumeManager::OnFormatEvent(
@@ -780,7 +782,7 @@ void VolumeManager::OnFormatEvent(
       return;
   }
 
-  NOTREACHED() << "Unexpected FormatEvent " << event;
+  NOTREACHED_IN_MIGRATION() << "Unexpected FormatEvent " << event;
 }
 
 void VolumeManager::OnPartitionEvent(
@@ -818,7 +820,7 @@ void VolumeManager::OnPartitionEvent(
       return;
   }
 
-  NOTREACHED() << "Unexpected PartitionEvent " << event;
+  NOTREACHED_IN_MIGRATION() << "Unexpected PartitionEvent " << event;
 }
 
 void VolumeManager::OnRenameEvent(
@@ -866,7 +868,7 @@ void VolumeManager::OnRenameEvent(
       return;
   }
 
-  NOTREACHED() << "Unexpected RenameEvent " << event;
+  NOTREACHED_IN_MIGRATION() << "Unexpected RenameEvent " << event;
 }
 
 void VolumeManager::OnProvidedFileSystemMount(
@@ -1410,7 +1412,7 @@ void VolumeManager::OnDiskMountManagerRefreshed(bool success) {
         break;
       }
       case ash::MountType::kInvalid: {
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
       }
     }
   }
@@ -1604,13 +1606,12 @@ void VolumeManager::OnSftpGuestOsUnmountCallback(
   }
 }
 
-void VolumeManager::MountDownloadsVolume() {
+void VolumeManager::MountDownloadsVolume(bool read_only) {
   const base::FilePath localVolume =
       file_manager::util::GetMyFilesFolderForProfile(profile_);
   const bool success = RegisterDownloadsMountPoint(profile_, localVolume);
   DCHECK(success);
-
-  DoMountEvent(Volume::CreateForDownloads(localVolume));
+  DoMountEvent(Volume::CreateForDownloads(localVolume, {}, nullptr, read_only));
   if (ash::features::IsFileManagerFuseBoxDebugEnabled()) {
     if (auto volume = CreateForFuseBoxDownloads(profile_, fusebox_daemon_.get(),
                                                 "fusebox Downloads")) {
@@ -1720,6 +1721,12 @@ void VolumeManager::OnLocalUserFilesDisabled() {
   CHECK(!policy::local_user_files::LocalUserFilesAllowed());
   UnsubscribeAndUnmountArc();
   UnmountDownloadsVolume();
+  if (base::FeatureList::IsEnabled(features::kSkyVaultV2) &&
+      read_only_local_folders_) {
+    // Keep the volume in GA version. It will be removed after migration.
+    // TODO(aidazolic): Do not mount if the local files migration succeeded.
+    MountDownloadsVolume(true);
+  }
 }
 
 }  // namespace file_manager

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/accessibility/web_contents_accessibility_android.h"
 
 #include <algorithm>
@@ -25,9 +30,6 @@
 #include "content/browser/android/render_widget_host_connector.h"
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
 #include "content/browser/web_contents/web_contents_impl.h"
-#include "content/public/android/content_jni_headers/AccessibilityNodeInfoBuilder_jni.h"
-#include "content/public/android/content_jni_headers/AssistDataBuilder_jni.h"
-#include "content/public/android/content_jni_headers/WebContentsAccessibilityImpl_jni.h"
 #include "content/public/common/content_features.h"
 #include "net/base/data_url.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -36,6 +38,11 @@
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/platform/ax_android_constants.h"
 #include "ui/events/android/motion_event_android.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "content/public/android/content_jni_headers/AccessibilityNodeInfoBuilder_jni.h"
+#include "content/public/android/content_jni_headers/AssistDataBuilder_jni.h"
+#include "content/public/android/content_jni_headers/WebContentsAccessibilityImpl_jni.h"
 
 using base::android::AttachCurrentThread;
 using base::android::JavaParamRef;
@@ -226,8 +233,8 @@ WebContentsAccessibilityAndroid::WebContentsAccessibilityAndroid(
 
 WebContentsAccessibilityAndroid::WebContentsAccessibilityAndroid(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& obj,
-    const base::android::JavaParamRef<jobject>& jassist_data_builder,
+    const JavaParamRef<jobject>& obj,
+    const JavaParamRef<jobject>& jassist_data_builder,
     WebContents* web_contents)
     : java_ref_(env, obj),
       java_adb_ref_(env, jassist_data_builder),
@@ -672,7 +679,7 @@ jint WebContentsAccessibilityAndroid::GetEditableTextSelectionEnd(
   return node->GetSelectionEnd();
 }
 
-base::android::ScopedJavaLocalRef<jintArray>
+ScopedJavaLocalRef<jintArray>
 WebContentsAccessibilityAndroid::GetAbsolutePositionForNode(JNIEnv* env,
                                                             jint unique_id) {
   BrowserAccessibilityManagerAndroid* root_manager =
@@ -858,7 +865,8 @@ jboolean WebContentsAccessibilityAndroid::PopulateAccessibilityNodeInfo(
                                               node->GetStateDescription()));
 
   std::u16string element_id;
-  if (node->GetHtmlAttribute("id", &element_id)) {
+  if (node->GetString16Attribute(ax::mojom::StringAttribute::kHtmlId,
+                                 &element_id)) {
     Java_AccessibilityNodeInfoBuilder_setAccessibilityNodeInfoViewIdResourceName(
         env, obj, info,
         base::android::ConvertUTF16ToJavaString(env, element_id));
@@ -1370,7 +1378,7 @@ void WebContentsAccessibilityAndroid::LoadInlineTextBoxes(JNIEnv* env,
     node->manager()->LoadInlineTextBoxes(*node);
 }
 
-base::android::ScopedJavaLocalRef<jintArray>
+ScopedJavaLocalRef<jintArray>
 WebContentsAccessibilityAndroid::GetCharacterBoundingBoxes(JNIEnv* env,
                                                            jint unique_id,
                                                            jint start,
@@ -1414,7 +1422,7 @@ WebContentsAccessibilityAndroid::GetCharacterBoundingBoxes(JNIEnv* env,
 
 jboolean WebContentsAccessibilityAndroid::GetImageData(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& info,
+    const JavaParamRef<jobject>& info,
     jint unique_id,
     jboolean has_sent_previous_request) {
   BrowserAccessibilityManagerAndroid* root_manager =
@@ -1490,10 +1498,10 @@ void WebContentsAccessibilityAndroid::UpdateFrameInfo(float page_scale) {
 
 void WebContentsAccessibilityAndroid::RequestAccessibilityTreeSnapshot(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& view_structure_root,
-    const base::android::JavaParamRef<jobject>& accessibility_coordinates,
-    const base::android::JavaParamRef<jobject>& view,
-    const base::android::JavaParamRef<jobject>& on_done_callback) {
+    const JavaParamRef<jobject>& view_structure_root,
+    const JavaParamRef<jobject>& accessibility_coordinates,
+    const JavaParamRef<jobject>& view,
+    const JavaParamRef<jobject>& on_done_callback) {
   // This method should only be called by the unified snapshots feature.
   CHECK(base::FeatureList::IsEnabled(features::kAccessibilityUnifiedSnapshots));
 
@@ -1575,7 +1583,7 @@ void WebContentsAccessibilityAndroid::RecursivelyPopulateViewStructureTree(
   for (size_t child_index = 0; const auto& child : node->PlatformChildren()) {
     const auto& child_node =
         static_cast<const BrowserAccessibilityAndroid&>(child);
-    base::android::ScopedJavaLocalRef<jobject> java_side_child_object =
+    ScopedJavaLocalRef<jobject> java_side_child_object =
         Java_AssistDataBuilder_addChildNode(
             env, obj, java_side_assist_data_object, child_index);
     child_index++;

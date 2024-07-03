@@ -96,9 +96,7 @@ aggregate_vector_icons("components_vector_icons") {
     "folder_chrome_refresh.icon",
     "folder_managed.icon",
     "folder_managed_refresh.icon",
-    "folder_managed_touch.icon",
     "folder_open.icon",
-    "folder_touch.icon",
     "font_download.icon",
     "font_download_chrome_refresh.icon",
     "font_download_off_chrome_refresh.icon",
@@ -179,6 +177,7 @@ aggregate_vector_icons("components_vector_icons") {
     "photo_off_chrome_refresh.icon",
     "picture_in_picture.icon",
     "picture_in_picture_alt.icon",
+    "pip_exit.icon",
     "play_arrow.icon",
     "play_arrow_chrome_refresh.icon",
     "pointer_lock.icon",
@@ -216,6 +215,7 @@ aggregate_vector_icons("components_vector_icons") {
     "skip_next.icon",
     "skip_previous.icon",
     "sms.icon",
+    "stop_circle.icon",
     "storage_access.icon",
     "storage_access_off.icon",
     "submenu_arrow.icon",
@@ -285,6 +285,8 @@ aggregate_vector_icons("components_vector_icons") {
       "google_chrome/page_insights.icon",
       "google_chrome/page_insights_color.icon",
       "google_chrome/pen_spark.icon",
+      "google_chrome/plus_address_logo_large.icon",
+      "google_chrome/plus_address_logo_small.icon",
     ]
   }
 }

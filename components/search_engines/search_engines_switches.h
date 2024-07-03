@@ -38,6 +38,9 @@ extern const char kForceSearchEngineChoiceScreen[];
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kSearchEngineChoiceTrigger);
 
+COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
+BASE_DECLARE_FEATURE(kSearchEngineChoiceAttribution);
+
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kPersistentSearchEngineChoiceImport);
@@ -52,6 +55,11 @@ extern const base::FeatureParam<bool>
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 extern const base::FeatureParam<bool>
     kSearchEngineChoiceTriggerWithForceEeaCountry;
+
+// The string that's passed to
+// `switches::kSearchEngineChoiceTriggerRepromptParams` so that we don't
+// reprompt users with the choice screen.
+inline constexpr char kSearchEngineChoiceNoRepromptString[] = "NO_REPROMPT";
 
 // Reprompt params for the search engine choice.
 // This is a JSON dictionary where keys are country codes, and values are Chrome
@@ -92,6 +100,11 @@ BASE_DECLARE_FEATURE(kSearchEngineChoice);
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kSearchEnginePromoDialogRewrite);
 #endif
+
+// Kill switch to revert the fix of using assistedQueryStats for prefetch source
+// component. See crbug.com/345275145.
+COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
+BASE_DECLARE_FEATURE(kPrefetchParameterFix);
 }  // namespace switches
 
 #endif  // COMPONENTS_SEARCH_ENGINES_SEARCH_ENGINES_SWITCHES_H_

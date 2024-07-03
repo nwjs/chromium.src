@@ -129,6 +129,7 @@ public class PageInsightsCoordinatorTest {
     @Mock private BottomSheetController mOtherBottomSheetController;
     @Mock private ExpandedSheetHelper mExpandedSheetHelper;
     @Mock private BooleanSupplier mIsPageInsightsHubEnabled;
+    @Mock private BooleanSupplier mIsGoogleBottomBarEnabled;
     @Mock private ProcessScope mProcessScope;
     @Mock private Profile mProfile;
     @Mock private IdentityServicesProvider mIdentityServicesProvider;
@@ -180,9 +181,11 @@ public class PageInsightsCoordinatorTest {
         when(mInMotionSupplier.get()).thenReturn(false);
         mFeatureListValues = new FeatureList.TestValues();
         FeatureList.setTestValues(mFeatureListValues);
+        // Disable native because this test does not initialize native.
+        FeatureList.setDisableNativeForTesting(true);
         mFeatureListValues.addFieldTrialParamOverride(
-                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
-                PageInsightsMediator.PAGE_INSIGHTS_CAN_AUTOTRIGGER_AFTER_END,
+                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB_PEEK,
+                PageInsightsMediator.PAGE_INSIGHTS_PEEK_DELAY_PARAM,
                 String.valueOf(2000));
 
         TestThreadUtils.runOnUiThreadBlocking(
@@ -260,6 +263,7 @@ public class PageInsightsCoordinatorTest {
                                         mAppInsetSupplier,
                                         PageInsightsIntentParams.getDefaultInstance(),
                                         mIsPageInsightsHubEnabled,
+                                        mIsGoogleBottomBarEnabled,
                                         (request) ->
                                                 PageInsightsConfig.newBuilder()
                                                         .setIsInitialPage(true)

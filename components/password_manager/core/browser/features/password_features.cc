@@ -14,6 +14,12 @@ BASE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender,
              "AutoApproveSharedPasswordUpdatesFromSameSender",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
+BASE_FEATURE(kAutofillPasswordUserPerceptionSurvey,
+             "AutofillPasswordUserPerceptionSurvey",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
 #if BUILDFLAG(IS_WIN)
 BASE_FEATURE(kAuthenticateUsingNewWindowsHelloApi,
              "AuthenticateUsingNewWindowsHelloApi",
@@ -27,8 +33,12 @@ BASE_FEATURE(kBiometricTouchToFill,
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 BASE_FEATURE(kButterOnDesktopFollowup,
              "ButterOnDesktopFollowup",
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kClearUndecryptablePasswords,
              "ClearUndecryptablePasswords",
@@ -108,6 +118,12 @@ BASE_FEATURE(kRestartToGainAccessToKeychain,
 #endif
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+BASE_FEATURE(kScreenlockReauthPromoCard,
+             "ScreenlockReauthPromoCard",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+
 BASE_FEATURE(kSharedPasswordNotificationUI,
              "SharedPasswordNotificationUI",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -121,13 +137,20 @@ BASE_FEATURE(kSkipUndecryptablePasswords,
 #endif
 );
 
+BASE_FEATURE(kTriggerPasswordResyncAfterDeletingUndecryptablePasswords,
+             "TriggerPasswordResyncAfterDeletingUndecryptablePasswords",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kUnifiedPasswordManagerLocalPasswordsAndroidAccessLossWarning,
+             "UnifiedPasswordManagerLocalPasswordsAndroidAccessLossWarning",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration,
              "UnifiedPasswordManagerLocalPasswordsAndroidNoMigration",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kUnifiedPasswordManagerLocalPasswordsAndroidWithMigration,
              "UnifiedPasswordManagerLocalPasswordsAndroidWithMigration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // A parameter which reflects the delay when the local passwords migration is
 // triggered after Chrome startup in seconds.
 constexpr base::FeatureParam<int>
@@ -142,11 +165,11 @@ int GetLocalPasswordsMigrationToAndroidBackendDelay() {
 
 BASE_FEATURE(kUnifiedPasswordManagerSyncOnlyInGMSCore,
              "UnifiedPasswordManagerSyncOnlyInGMSCore",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClearLoginDatabaseForUPMUsers,
              "ClearLoginDatabaseForUPMUsers",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsUnifiedPasswordManagerSyncOnlyInGMSCoreEnabled() {
 #if BUILDFLAG(USE_LOGIN_DATABASE_AS_BACKEND)
@@ -155,14 +178,6 @@ bool IsUnifiedPasswordManagerSyncOnlyInGMSCoreEnabled() {
   return base::FeatureList::IsEnabled(kUnifiedPasswordManagerSyncOnlyInGMSCore);
 #endif
 }
-#endif
-
-BASE_FEATURE(kUseExtensionListForPSLMatching,
-             "UseExtensionListForPSLMatching",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kUsernameFirstFlowFallbackCrowdsourcing,

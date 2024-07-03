@@ -206,7 +206,7 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
 
   bounds::BoundsType bounds_type = bounds::GetBoundsType(params->bounds_type);
   if (bounds_type == bounds::INVALID_TYPE) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return RespondNow(Error(kInvalidParameters));
   }
 
@@ -243,7 +243,7 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
       break;
     }
     case bounds::INVALID_TYPE:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   if (original_window_bounds != window_bounds) {
@@ -266,7 +266,7 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetResizableFunction::Run() {
-  absl::optional<SetResizable::Params> params(SetResizable::Params::Create(args()));
+  std::optional<SetResizable::Params> params(SetResizable::Params::Create(args()));
   CHECK(params.has_value());
   window()->GetBaseWindow()->SetResizable(params->flag);
   window()->OnNativeWindowChanged();
@@ -282,7 +282,7 @@ AppCurrentWindowInternalSetSizeConstraintsFunction::Run() {
   bounds::BoundsType bounds_type = bounds::GetBoundsType(params->bounds_type);
   if (bounds_type != bounds::INNER_BOUNDS &&
       bounds_type != bounds::OUTER_BOUNDS) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return RespondNow(Error(kInvalidParameters));
   }
 

@@ -934,6 +934,11 @@ def main():
         '^.*Sanitizer-.*sunrpc.*cpp$',
         # sysroot/host glibc version mismatch, crbug.com/1506551
         '^.*Sanitizer.*mallinfo2.cpp$',
+        # Allocator tests fail after kernel upgrade on the builders. Suppress
+        # until the test fix has landed (crbug.com/342324064).
+        '^SanitizerCommon-Unit :: ./Sanitizer-x86_64-Test/.*$',
+        # This also seems to fail due to crbug.com/342324064.
+        '^DataFlowSanitizer-x86_64.*release_shadow_space.c$',
     ]
   elif sys.platform == 'darwin':
     lit_excludes += [
@@ -1124,7 +1129,9 @@ def main():
 
   chrome_tools = []
   if not args.no_tools:
-    default_tools = ['plugins', 'blink_gc_plugin', 'translation_unit']
+    default_tools = [
+        'plugins', 'blink_gc_plugin', 'raw_ptr_plugin', 'translation_unit'
+    ]
     chrome_tools = list(set(default_tools + args.extra_tools))
   if cc is not None:  base_cmake_args.append('-DCMAKE_C_COMPILER=' + cc)
   if cxx is not None: base_cmake_args.append('-DCMAKE_CXX_COMPILER=' + cxx)
@@ -1426,8 +1433,6 @@ def main():
   cmake_args.append('-DLLVM_BUILTIN_TARGETS=' + all_triples)
   cmake_args.append('-DLLVM_RUNTIME_TARGETS=' + all_triples)
 
-  # If we're bootstrapping, Goma doesn't know about the bootstrap compiler
-  # we're using as the host compiler.
   if not args.bootstrap:
     cmake_args.extend(ccache_cmake_args)
 
@@ -1513,7 +1518,7 @@ def main():
     VerifyZStdSupport()
 
   # Run tests.
-  if (not args.build_mac_arm and
+  if (chrome_tools and not args.build_mac_arm and
       (args.run_tests or args.llvm_force_head_revision)):
     RunCommand(['ninja', '-C', LLVM_BUILD_DIR, 'cr-check-all'], setenv=True)
 

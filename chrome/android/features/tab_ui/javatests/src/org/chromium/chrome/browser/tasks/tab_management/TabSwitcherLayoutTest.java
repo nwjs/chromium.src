@@ -51,7 +51,6 @@ import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.drawable.GradientDrawable;
@@ -63,7 +62,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
-import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.core.app.ApplicationProvider;
@@ -120,7 +118,6 @@ import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupColorUtils;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupTitleUtils;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.undo_tab_close_snackbar.UndoBarController;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
@@ -142,7 +139,6 @@ import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.test.util.DisableAnimationsTestRule;
 import org.chromium.ui.test.util.UiRestriction;
-import org.chromium.ui.test.util.ViewUtils;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.widget.ViewLookupCachingFrameLayout;
 
@@ -153,7 +149,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -175,8 +170,6 @@ public class TabSwitcherLayoutTest {
                     + "Study.Group:skip-slow-zooming/false/zooming-min-memory-mb/512";
 
     private static final String TEST_URL = "/chrome/test/data/android/google.html";
-
-    private static final int INVALID_COLOR_ID = -1;
 
     // Tests need animation on.
     @ClassRule
@@ -407,17 +400,12 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
         // Hardcode TabGroupColorId.GREY as the tab group color for render testing purposes.
         Tab tab = cta.getTabModelSelector().getCurrentTab();
-        TabGroupModelFilter filter =
-                (TabGroupModelFilter)
-                        cta.getTabModelSelectorSupplier()
-                                .get()
-                                .getTabModelFilterProvider()
-                                .getCurrentTabModelFilter();
+        TabGroupModelFilter filter = getTabGroupModelFilter();
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> filter.setTabGroupColor(tab.getRootId(), TabGroupColorId.GREY));
         // Leave and re enter GTS to refetch the favicon.
@@ -966,236 +954,6 @@ public class TabSwitcherLayoutTest {
     }
 
     @Test
-    @MediumTest
-    @Feature("TabSuggestion")
-    @EnableFeatures({
-        ChromeFeatureList.ARCHIVE_TAB_SERVICE + "<Study",
-        ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"
-    })
-    @CommandLineFlags.Add({
-        BASE_PARAMS
-                + "/baseline_tab_suggestions/true"
-                + "/baseline_archive_tab_service/true/min_time_between_prefetches/0"
-    })
-    @DisabledTest(message = "https://crbug.com/1458026 for RefactorDisabled")
-    public void testTabSuggestionMessageCard_dismiss() throws InterruptedException {
-        prepareTabs(3, 0, null);
-
-        // TODO(meiliang): Avoid using static variable for tracking state,
-        // TabSuggestionMessageService.isSuggestionAvailableForTesting(). Instead, we can add a
-        // mock/fake MessageObserver to track the availability of the suggestions.
-        CriteriaHelper.pollUiThread(TabSuggestionMessageService::isSuggestionAvailableForTesting);
-        CriteriaHelper.pollUiThread(
-                () -> Criteria.checkThat(getTabCountInCurrentTabModel(), Matchers.is(3)));
-
-        enterGTSWithThumbnailChecking();
-
-        // TODO(meiliang): Avoid using static variable for tracking state,
-        // TabSwitcherMessageManager::hasAppendedMessagesForTesting. Instead, we can query the
-        // number
-        // of items that the inner model of the TabSwitcher has.
-        CriteriaHelper.pollUiThread(TabSwitcherMessageManager::hasAppendedMessagesForTesting);
-        ViewUtils.onViewWaiting(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));
-        onView(allOf(withId(R.id.close_button), withParent(withId(R.id.tab_grid_message_item))))
-                .perform(click());
-        onView(withId(R.id.tab_grid_message_item)).check(doesNotExist());
-    }
-
-    @Test
-    @MediumTest
-    @Feature("TabSuggestion")
-    @EnableFeatures({
-        ChromeFeatureList.ARCHIVE_TAB_SERVICE + "<Study",
-        ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"
-    })
-    @CommandLineFlags.Add({
-        BASE_PARAMS
-                + "/baseline_tab_suggestions/true"
-                + "/baseline_archive_tab_service/true/min_time_between_prefetches/0"
-    })
-    @DisabledTest(message = "https://crbug.com/1447282 for refactor disabled case.")
-    public void testTabSuggestionMessageCard_review() throws InterruptedException {
-        prepareTabs(3, 0, null);
-
-        CriteriaHelper.pollUiThread(TabSuggestionMessageService::isSuggestionAvailableForTesting);
-        CriteriaHelper.pollUiThread(
-                () -> Criteria.checkThat(getTabCountInCurrentTabModel(), Matchers.is(3)));
-
-        enterGTSWithThumbnailChecking();
-
-        CriteriaHelper.pollUiThread(TabSwitcherMessageManager::hasAppendedMessagesForTesting);
-        ViewUtils.onViewWaiting(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));
-        ViewUtils.onViewWaiting(
-                        allOf(
-                                withId(R.id.action_button),
-                                withParent(withId(R.id.tab_grid_message_item))))
-                .perform(click());
-
-        TabListEditorTestingRobot tabListEditorTestingRobot = new TabListEditorTestingRobot();
-        tabListEditorTestingRobot.resultRobot.verifyTabListEditorIsVisible();
-
-        Espresso.pressBack();
-        tabListEditorTestingRobot.resultRobot.verifyTabListEditorIsHidden();
-    }
-
-    @Test
-    @MediumTest
-    @Feature("TabSuggestion")
-    @DisabledTest(message = "https://crbug.com/1230107, crbug.com/1130621")
-    @EnableFeatures({
-        ChromeFeatureList.ARCHIVE_TAB_SERVICE + "<Study",
-        ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"
-    })
-    @CommandLineFlags.Add({
-        BASE_PARAMS
-                + "/baseline_tab_suggestions/true"
-                + "/baseline_archive_tab_service/true/min_time_between_prefetches/0"
-    })
-    public void testShowOnlyOneTabSuggestionMessageCard_withSoftCleanup()
-            throws InterruptedException {
-        verifyOnlyOneTabSuggestionMessageCardIsShowing();
-    }
-
-    @Test
-    @MediumTest
-    @Feature("TabSuggestion")
-    @EnableFeatures({
-        ChromeFeatureList.ARCHIVE_TAB_SERVICE + "<Study",
-        ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"
-    })
-    @CommandLineFlags.Add({
-        BASE_PARAMS
-                + "/baseline_tab_suggestions/true"
-                + "/baseline_archive_tab_service/true/min_time_between_prefetches/0"
-    })
-    @DisabledTest(message = "https://crbug.com/1198484, crbug.com/1130621")
-    public void testShowOnlyOneTabSuggestionMessageCard_withHardCleanup()
-            throws InterruptedException {
-        verifyOnlyOneTabSuggestionMessageCardIsShowing();
-    }
-
-    @Test
-    @MediumTest
-    @Feature("TabSuggestion")
-    @EnableFeatures({
-        ChromeFeatureList.ARCHIVE_TAB_SERVICE + "<Study",
-        ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"
-    })
-    @CommandLineFlags.Add({
-        BASE_PARAMS
-                + "/baseline_tab_suggestions/true"
-                + "/baseline_archive_tab_service/true/min_time_between_prefetches/0"
-    })
-    @DisabledTest(message = "https://crbug.com/1311825")
-    public void testTabSuggestionMessageCardDismissAfterTabClosing() throws InterruptedException {
-        prepareTabs(3, 0, mUrl);
-        CriteriaHelper.pollUiThread(TabSuggestionMessageService::isSuggestionAvailableForTesting);
-        CriteriaHelper.pollUiThread(
-                () -> Criteria.checkThat(getTabCountInCurrentTabModel(), Matchers.is(3)));
-
-        enterGTSWithThumbnailChecking();
-        CriteriaHelper.pollUiThread(TabSwitcherMessageManager::hasAppendedMessagesForTesting);
-        ViewUtils.onViewWaiting(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));
-
-        closeFirstTabInTabSwitcher(mActivityTestRule.getActivity());
-
-        CriteriaHelper.pollUiThread(
-                () -> !TabSuggestionMessageService.isSuggestionAvailableForTesting());
-        CriteriaHelper.pollUiThread(
-                () -> Criteria.checkThat(getTabCountInCurrentTabModel(), Matchers.is(2)));
-
-        onView(tabSwitcherViewMatcher())
-                .check(
-                        TabUiTestHelper.ChildrenCountAssertion.havingTabSuggestionMessageCardCount(
-                                0));
-        onView(withId(R.id.tab_grid_message_item)).check(doesNotExist());
-    }
-
-    @Test
-    @MediumTest
-    @Feature("TabSuggestion")
-    @EnableFeatures({
-        ChromeFeatureList.ARCHIVE_TAB_SERVICE + "<Study",
-        ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"
-    })
-    @CommandLineFlags.Add({
-        BASE_PARAMS
-                + "/baseline_tab_suggestions/true"
-                + "/baseline_archive_tab_service/true/min_time_between_prefetches/0"
-    })
-    @DisabledTest(message = "https://crbug.com/1326533")
-    public void testTabSuggestionMessageCard_orientation() throws InterruptedException {
-        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
-        prepareTabs(3, 0, null);
-        View parentView = cta.getCompositorViewHolderForTesting();
-
-        CriteriaHelper.pollUiThread(TabSuggestionMessageService::isSuggestionAvailableForTesting);
-        CriteriaHelper.pollUiThread(
-                () -> Criteria.checkThat(getTabCountInCurrentTabModel(), Matchers.is(3)));
-
-        enterGTSWithThumbnailChecking();
-        CriteriaHelper.pollUiThread(TabSwitcherMessageManager::hasAppendedMessagesForTesting);
-
-        // Force portrait mode since the device can be wrongly in landscape. See crbug/1063639.
-        ActivityTestUtils.rotateActivityToOrientation(cta, Configuration.ORIENTATION_PORTRAIT);
-        CriteriaHelper.pollUiThread(() -> parentView.getHeight() > parentView.getWidth());
-
-        // Ensure the message card is visible so we can get its view holder.
-        onView(tabSwitcherViewMatcher())
-                .perform(RecyclerViewActions.scrollToPosition(3))
-                .check(MessageCardWidthAssertion.checkMessageItemSpanSize(3, 2));
-
-        ActivityTestUtils.rotateActivityToOrientation(cta, Configuration.ORIENTATION_LANDSCAPE);
-        CriteriaHelper.pollUiThread(() -> parentView.getHeight() < parentView.getWidth());
-
-        // Ensure the message card is visible so we can get its view holder.
-        onView(tabSwitcherViewMatcher())
-                .perform(RecyclerViewActions.scrollToPosition(3))
-                .check(MessageCardWidthAssertion.checkMessageItemSpanSize(3, 3));
-        ActivityTestUtils.clearActivityOrientation(mActivityTestRule.getActivity());
-    }
-
-    private static class MessageCardWidthAssertion implements ViewAssertion {
-        private int mIndex;
-        private int mSpanCount;
-
-        public static MessageCardWidthAssertion checkMessageItemSpanSize(int index, int spanCount) {
-            return new MessageCardWidthAssertion(index, spanCount);
-        }
-
-        public MessageCardWidthAssertion(int index, int spanCount) {
-            mIndex = index;
-            mSpanCount = spanCount;
-        }
-
-        @Override
-        public void check(View view, NoMatchingViewException noMatchException) {
-            if (noMatchException != null) throw noMatchException;
-            float tabListPadding = TabUiThemeProvider.getTabGridCardMargin(view.getContext());
-            float messageCardMargin =
-                    TabUiThemeProvider.getMessageCardMarginDimension(view.getContext());
-
-            assertTrue(view instanceof RecyclerView);
-            RecyclerView recyclerView = (RecyclerView) view;
-            GridLayoutManager layoutManager = (GridLayoutManager) recyclerView.getLayoutManager();
-            assertEquals(mSpanCount, layoutManager.getSpanCount());
-
-            RecyclerView.ViewHolder messageItemViewHolder =
-                    recyclerView.findViewHolderForAdapterPosition(mIndex);
-            assertNotNull(messageItemViewHolder);
-            assertEquals(TabProperties.UiType.MESSAGE, messageItemViewHolder.getItemViewType());
-            View messageItemView = messageItemViewHolder.itemView;
-
-            // The message card item width should always be recyclerView width minus padding and
-            // margin.
-            assertEquals(
-                    recyclerView.getWidth() - 2 * tabListPadding - 2 * messageCardMargin,
-                    (float) messageItemView.getWidth(),
-                    1.0f);
-        }
-    }
-
-    @Test
     @LargeTest
     @EnableFeatures({ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"})
     @DisabledTest(message = "https://crbug.com/1122657")
@@ -1516,67 +1274,6 @@ public class TabSwitcherLayoutTest {
 
     @Test
     @MediumTest
-    @Feature("TabSuggestion")
-    @EnableFeatures({ChromeFeatureList.ARCHIVE_TAB_SERVICE + "<Study"})
-    @DisableFeatures({ChromeFeatureList.TAB_TO_GTS_ANIMATION})
-    @CommandLineFlags.Add({
-        BASE_PARAMS
-                + "/baseline_tab_suggestions/true"
-                + "/baseline_archive_tab_service/true/min_time_between_prefetches/0"
-    })
-    @DisabledTest(message = "https://crbug.com/1449985")
-    public void testTabGroupManualSelection_AfterReviewTabSuggestion() throws InterruptedException {
-        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
-        TabListEditorTestingRobot robot = new TabListEditorTestingRobot();
-        createTabs(cta, false, 3);
-
-        // Review closing tab suggestion.
-        CriteriaHelper.pollUiThread(TabSuggestionMessageService::isSuggestionAvailableForTesting);
-        CriteriaHelper.pollUiThread(
-                () -> Criteria.checkThat(getTabCountInCurrentTabModel(), Matchers.is(3)));
-
-        // Entering GTS with thumbnail checking here is trying to reduce flakiness that is caused by
-        // the TabContextObserver. TabContextObserver listens to
-        // TabObserver#didFirstVisuallyNonEmptyPaint and invalidates the suggestion. Do the
-        // thumbnail checking here is to ensure the suggestion is valid when entering tab switcher.
-        enterGTSWithThumbnailChecking();
-        CriteriaHelper.pollUiThread(TabSwitcherMessageManager::hasAppendedMessagesForTesting);
-        onView(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));
-        onView(allOf(withId(R.id.action_button), withParent(withId(R.id.tab_grid_message_item))))
-                .perform(click());
-
-        robot.resultRobot
-                .verifyTabListEditorIsVisible()
-                .verifyToolbarActionViewEnabled(R.id.tab_list_editor_close_menu_item);
-
-        robot.actionRobot.clickToolbarActionView(R.id.tab_list_editor_close_menu_item);
-        robot.resultRobot.verifyTabListEditorIsHidden();
-        CriteriaHelper.pollUiThread(
-                () -> {
-                    Criteria.checkThat(
-                            mActivityTestRule.getActivity().getCurrentTabModel().getCount(),
-                            Matchers.is(0));
-                });
-
-        // Show Manual Selection Mode.
-        createTabs(cta, false, 3);
-
-        TabUiTestHelper.enterTabSwitcher(mActivityTestRule.getActivity());
-        enterTabListEditor(cta);
-        robot.resultRobot.verifyTabListEditorIsVisible();
-
-        // Group first two tabs.
-        robot.actionRobot.clickItemAtAdapterPosition(0);
-        robot.actionRobot.clickItemAtAdapterPosition(1);
-        robot.actionRobot.clickToolbarMenuButton().clickToolbarMenuItem("Group tabs");
-
-        // Exit manual selection mode, back to tab switcher.
-        robot.resultRobot.verifyTabListEditorIsHidden();
-        onViewWaiting(withText("2 tabs grouped"));
-    }
-
-    @Test
-    @MediumTest
     @EnableFeatures({ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"})
     @DisabledTest(message = "crbug.com/1187320 This doesn't work with FeedV2 and crbug.com/1096295")
     public void testActivityCanBeGarbageCollectedAfterFinished() {
@@ -1702,7 +1399,7 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
@@ -1735,7 +1432,7 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
@@ -1753,7 +1450,7 @@ public class TabSwitcherLayoutTest {
         onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
                 .check(matches(isDisplayed()));
         // Wait until the keyboard is showing.
-        KeyboardVisibilityDelegate delegate = KeyboardVisibilityDelegate.getInstance();
+        KeyboardVisibilityDelegate delegate = cta.getWindowAndroid().getKeyboardDelegate();
         CriteriaHelper.pollUiThread(
                 () -> delegate.isKeyboardShowing(cta, cta.getCompositorViewHolderForTesting()));
 
@@ -1791,7 +1488,7 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
@@ -1809,7 +1506,7 @@ public class TabSwitcherLayoutTest {
         onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
                 .check(matches(isDisplayed()));
         // Wait until the keyboard is showing.
-        KeyboardVisibilityDelegate delegate = KeyboardVisibilityDelegate.getInstance();
+        KeyboardVisibilityDelegate delegate = cta.getWindowAndroid().getKeyboardDelegate();
         CriteriaHelper.pollUiThread(
                 () -> delegate.isKeyboardShowing(cta, cta.getCompositorViewHolderForTesting()));
 
@@ -1847,7 +1544,7 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
@@ -1882,7 +1579,7 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
@@ -1917,7 +1614,7 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
@@ -1943,7 +1640,6 @@ public class TabSwitcherLayoutTest {
 
         // Regroup the tabs.
         mergeAllNormalTabsToAGroup(cta);
-        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
         // Click the ungroup action button to ungroup the group
@@ -1969,7 +1665,7 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
@@ -2006,7 +1702,7 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
@@ -2046,11 +1742,15 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 4);
 
         // Merge last two tabs into a group.
-        TabModel normalTabModel = cta.getTabModelSelector().getModel(false);
-        List<Tab> tabGroup =
-                new ArrayList<>(
-                        Arrays.asList(normalTabModel.getTabAt(2), normalTabModel.getTabAt(3)));
-        createTabGroup(cta, false, tabGroup);
+        TabListEditorTestingRobot robot = new TabListEditorTestingRobot();
+        enterTabListEditor(cta);
+        robot.resultRobot.verifyTabListEditorIsVisible();
+
+        robot.actionRobot.clickItemAtAdapterPosition(2);
+        robot.actionRobot.clickItemAtAdapterPosition(3);
+        robot.actionRobot.clickToolbarMenuButton().clickToolbarMenuItem("Group tabs");
+        robot.resultRobot.verifyTabListEditorIsHidden();
+
         // Verify the visual data dialog exists.
         verifyModalDialogShowingAnimationCompleteInTabSwitcher();
         onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
@@ -2064,10 +1764,15 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 3);
 
         // Merge first two tabs into a group.
-        List<Tab> tabGroup2 =
-                new ArrayList<>(
-                        Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
-        createTabGroup(cta, false, tabGroup2);
+        robot = new TabListEditorTestingRobot();
+        enterTabListEditor(cta);
+        robot.resultRobot.verifyTabListEditorIsVisible();
+
+        robot.actionRobot.clickItemAtAdapterPosition(0);
+        robot.actionRobot.clickItemAtAdapterPosition(1);
+        robot.actionRobot.clickToolbarMenuButton().clickToolbarMenuItem("Group tabs");
+        robot.resultRobot.verifyTabListEditorIsHidden();
+
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 2);
 
@@ -2112,13 +1817,33 @@ public class TabSwitcherLayoutTest {
     @DisableFeatures({
         ChromeFeatureList.TAB_GROUP_SYNC_ANDROID,
     })
+    public void testTabGroupDialogSingleTab() {
+        final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        createTabs(cta, false, 1);
+        enterTabSwitcher(cta);
+        verifyTabSwitcherCardCount(cta, 1);
+        // Create a tab group.
+        mergeNormalTabsToAGroupWithDialog(cta, 1);
+        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
+        verifyTabSwitcherCardCount(cta, 1);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.TAB_GROUP_PARITY_ANDROID,
+        ChromeFeatureList.TAB_GROUP_PANE_ANDROID,
+    })
+    @DisableFeatures({
+        ChromeFeatureList.TAB_GROUP_SYNC_ANDROID,
+    })
     public void testTabGroupOverflowMenuInTabSwitcher_deleteGroupNoShowSyncDisabled() {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         createTabs(cta, false, 2);
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
@@ -2138,7 +1863,7 @@ public class TabSwitcherLayoutTest {
         enterTabSwitcher(cta);
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
 
         // Expect that the the dialog is dismissed via another action.
         HistogramWatcher watcher =
@@ -2146,6 +1871,7 @@ public class TabSwitcherLayoutTest {
                         "Android.TabGroupParity.TabGroupCreationDialogResultAction", 2);
 
         verifyGroupVisualDataDialogOpenedAndDismiss(cta);
+
         // Verify the color icon exists.
         onView(allOf(withId(R.id.tab_favicon), withParent(withId(R.id.card_view))))
                 .check(matches(isDisplayed()));
@@ -2162,7 +1888,7 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 2);
 
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         // Verify the visual data dialog exists.
         verifyModalDialogShowingAnimationCompleteInTabSwitcher();
         onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
@@ -2209,7 +1935,7 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 2);
 
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         // Verify the visual data dialog exists.
         verifyModalDialogShowingAnimationCompleteInTabSwitcher();
         onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
@@ -2243,7 +1969,7 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 2);
 
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         // Verify the visual data dialog exists.
         verifyModalDialogShowingAnimationCompleteInTabSwitcher();
         onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
@@ -2281,7 +2007,7 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 2);
 
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         // Verify the visual data dialog exists.
         verifyModalDialogShowingAnimationCompleteInTabSwitcher();
         onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
@@ -2310,7 +2036,7 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 2);
 
         // Create a tab group.
-        mergeAllNormalTabsToAGroup(cta);
+        mergeNormalTabsToAGroupWithDialog(cta, 2);
         // Verify the visual data dialog exists.
         verifyModalDialogShowingAnimationCompleteInTabSwitcher();
         onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
@@ -2426,12 +2152,7 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 3);
 
         // Get the next suggested color id.
-        TabGroupModelFilter filter =
-                (TabGroupModelFilter)
-                        cta.getTabModelSelectorSupplier()
-                                .get()
-                                .getTabModelFilterProvider()
-                                .getCurrentTabModelFilter();
+        TabGroupModelFilter filter = getTabGroupModelFilter();
         int nextSuggestedColorId = TabGroupColorUtils.getNextSuggestedColorId(filter);
 
         // Merge first two tabs into a group.
@@ -2440,7 +2161,6 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup);
-        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> filter.setTabGroupTitle(normalTabModel.getTabAt(0).getRootId(), "Foo"));
         verifyTabSwitcherCardCount(cta, 2);
@@ -2448,7 +2168,7 @@ public class TabSwitcherLayoutTest {
         // Assert default color was set properly.
         assertEquals(
                 nextSuggestedColorId,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(0).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(0).getRootId()));
 
         // Merge tab group of 2 at first index with the 3rd tab.
         mergeAllNormalTabsToAGroup(cta);
@@ -2459,7 +2179,7 @@ public class TabSwitcherLayoutTest {
         // Assert the default color is still the tab group color
         assertEquals(
                 nextSuggestedColorId,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(0).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(0).getRootId()));
 
         // Undo merge in tab switcher.
         verifyTabSwitcherCardCount(cta, 1);
@@ -2469,20 +2189,14 @@ public class TabSwitcherLayoutTest {
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(
-                            "Foo",
-                            TabGroupTitleUtils.getTabGroupTitle(
-                                    normalTabModel.getTabAt(1).getRootId()));
-                    assertNull(
-                            TabGroupTitleUtils.getTabGroupTitle(
-                                    normalTabModel.getTabAt(2).getRootId()));
+                            "Foo", filter.getTabGroupTitle(normalTabModel.getTabAt(1).getRootId()));
+                    assertNull(filter.getTabGroupTitle(normalTabModel.getTabAt(2).getRootId()));
                     assertEquals(
                             nextSuggestedColorId,
-                            TabGroupColorUtils.getTabGroupColor(
-                                    normalTabModel.getTabAt(1).getRootId()));
+                            filter.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
                     assertEquals(
-                            INVALID_COLOR_ID,
-                            TabGroupColorUtils.getTabGroupColor(
-                                    normalTabModel.getTabAt(2).getRootId()));
+                            TabGroupColorUtils.INVALID_COLOR_ID,
+                            filter.getTabGroupColor(normalTabModel.getTabAt(2).getRootId()));
                 });
     }
 
@@ -2504,7 +2218,6 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup);
-        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
 
         // Merge tab group of 2 at first index with the 3rd tab.
         mergeAllNormalTabsToAGroup(cta);
@@ -2543,13 +2256,12 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(3), normalTabModel.getTabAt(4)));
         createTabGroup(cta, false, tabGroup);
-        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 4);
 
         // Assert default color 1 was set properly.
         assertEquals(
                 nextSuggestedColorId1,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(4).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(4).getRootId()));
 
         // Get the next suggested color id.
         int nextSuggestedColorId2 =
@@ -2565,7 +2277,6 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup2);
-        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 3);
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -2576,7 +2287,7 @@ public class TabSwitcherLayoutTest {
         // Assert default color 2 was set properly.
         assertEquals(
                 nextSuggestedColorId2,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
 
         // Merge the two tab groups into a group.
         List<Tab> tabGroup3 =
@@ -2590,7 +2301,7 @@ public class TabSwitcherLayoutTest {
         // Assert default color 2 was set as the overall merged group color.
         assertEquals(
                 nextSuggestedColorId2,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(3).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(3).getRootId()));
 
         // Undo merge in tab switcher.
         verifyTabSwitcherCardCount(cta, 2);
@@ -2600,21 +2311,15 @@ public class TabSwitcherLayoutTest {
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(
-                            "Foo",
-                            TabGroupTitleUtils.getTabGroupTitle(
-                                    normalTabModel.getTabAt(4).getRootId()));
+                            "Foo", filter.getTabGroupTitle(normalTabModel.getTabAt(4).getRootId()));
                     assertEquals(
-                            "Bar",
-                            TabGroupTitleUtils.getTabGroupTitle(
-                                    normalTabModel.getTabAt(0).getRootId()));
+                            "Bar", filter.getTabGroupTitle(normalTabModel.getTabAt(0).getRootId()));
                     assertEquals(
                             nextSuggestedColorId1,
-                            TabGroupColorUtils.getTabGroupColor(
-                                    normalTabModel.getTabAt(4).getRootId()));
+                            filter.getTabGroupColor(normalTabModel.getTabAt(4).getRootId()));
                     assertEquals(
                             nextSuggestedColorId2,
-                            TabGroupColorUtils.getTabGroupColor(
-                                    normalTabModel.getTabAt(0).getRootId()));
+                            filter.getTabGroupColor(normalTabModel.getTabAt(0).getRootId()));
                 });
     }
 
@@ -2643,7 +2348,6 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup);
-        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         int[] ungroupedRootId = new int[1];
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -2656,7 +2360,7 @@ public class TabSwitcherLayoutTest {
         // Assert default color was set properly.
         assertEquals(
                 nextSuggestedColorId,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
 
         // Merge tab group of 2 at first index with the 3rd tab.
         mergeAllNormalTabsToAGroup(cta);
@@ -2667,24 +2371,22 @@ public class TabSwitcherLayoutTest {
         // Assert default color was set properly for the overall merged group.
         assertEquals(
                 nextSuggestedColorId,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(2).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(2).getRootId()));
 
         // Check that the old group title was handed over when the group merge is committed
         // and no longer exists.
         TestThreadUtils.runOnUiThreadBlocking(() -> snackbarManager.dismissAllSnackbars());
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    assertNull(TabGroupTitleUtils.getTabGroupTitle(ungroupedRootId[0]));
+                    assertNull(filter.getTabGroupTitle(ungroupedRootId[0]));
                     assertEquals(
-                            "Foo",
-                            TabGroupTitleUtils.getTabGroupTitle(
-                                    normalTabModel.getTabAt(0).getRootId()));
+                            "Foo", filter.getTabGroupTitle(normalTabModel.getTabAt(0).getRootId()));
                 });
 
         // Assert color still exists post snackbar dismissal.
         assertEquals(
                 nextSuggestedColorId,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
     }
 
     @Test
@@ -2693,6 +2395,7 @@ public class TabSwitcherLayoutTest {
     public void testUndoClosure_UndoGroupClosure() {
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         SnackbarManager snackbarManager = mActivityTestRule.getActivity().getSnackbarManager();
+        TabGroupModelFilter filter = getTabGroupModelFilter();
         createTabs(cta, false, 2);
 
         enterTabSwitcher(cta);
@@ -2714,13 +2417,12 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup);
-        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
         // Assert default color was set properly.
         assertEquals(
                 nextSuggestedColorId,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
         TestThreadUtils.runOnUiThreadBlocking(() -> snackbarManager.dismissAllSnackbars());
 
         // Temporarily save the tab to get the rootId later.
@@ -2733,7 +2435,7 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 0);
 
         // Default color should still persist, though the root id might change.
-        assertEquals(nextSuggestedColorId, TabGroupColorUtils.getTabGroupColor(tab2.getRootId()));
+        assertEquals(nextSuggestedColorId, filter.getTabGroupColor(tab2.getRootId()));
 
         CriteriaHelper.pollInstrumentationThread(TabUiTestHelper::verifyUndoBarShowingAndClickUndo);
         verifyTabSwitcherCardCount(cta, 1);
@@ -2741,7 +2443,7 @@ public class TabSwitcherLayoutTest {
         // Assert default color still persists.
         assertEquals(
                 nextSuggestedColorId,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
     }
 
     @Test
@@ -2750,6 +2452,7 @@ public class TabSwitcherLayoutTest {
     public void testUndoClosure_AcceptGroupClosure() {
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         SnackbarManager snackbarManager = mActivityTestRule.getActivity().getSnackbarManager();
+        TabGroupModelFilter filter = getTabGroupModelFilter();
         createTabs(cta, false, 2);
 
         enterTabSwitcher(cta);
@@ -2771,13 +2474,12 @@ public class TabSwitcherLayoutTest {
                 new ArrayList<>(
                         Arrays.asList(normalTabModel.getTabAt(0), normalTabModel.getTabAt(1)));
         createTabGroup(cta, false, tabGroup);
-        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
         // Assert default color was set properly.
         assertEquals(
                 nextSuggestedColorId,
-                TabGroupColorUtils.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
+                filter.getTabGroupColor(normalTabModel.getTabAt(1).getRootId()));
         TestThreadUtils.runOnUiThreadBlocking(() -> snackbarManager.dismissAllSnackbars());
 
         // Temporarily save the rootID to check during closure.
@@ -2791,13 +2493,20 @@ public class TabSwitcherLayoutTest {
         verifyTabSwitcherCardCount(cta, 0);
 
         // Default color should still persist, though the root id might change.
-        assertEquals(nextSuggestedColorId, TabGroupColorUtils.getTabGroupColor(tab2.getRootId()));
+        assertEquals(nextSuggestedColorId, filter.getTabGroupColor(tab2.getRootId()));
 
         TestThreadUtils.runOnUiThreadBlocking(() -> snackbarManager.dismissAllSnackbars());
 
         // Assert default color is cleared.
-        assertEquals(INVALID_COLOR_ID, TabGroupColorUtils.getTabGroupColor(groupRootId));
-        assertEquals(INVALID_COLOR_ID, TabGroupColorUtils.getTabGroupColor(tab2.getRootId()));
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    assertEquals(
+                            TabGroupColorUtils.INVALID_COLOR_ID,
+                            filter.getTabGroupColor(groupRootId));
+                    assertEquals(
+                            TabGroupColorUtils.INVALID_COLOR_ID,
+                            filter.getTabGroupColor(tab2.getRootId()));
+                });
     }
 
     // TODO(crbug/324919909): Delete this test once Hub is launched. It is migrated to
@@ -3061,53 +2770,11 @@ public class TabSwitcherLayoutTest {
                         mActivityTestRule.getActivity().getBrowserControlsManager()));
     }
 
-    private void simulateAspectRatioChangedToPoint75() throws IOException {
-        TabModel currentModel = mActivityTestRule.getActivity().getCurrentTabModel();
-        for (int i = 0; i < currentModel.getCount(); i++) {
-            Tab tab = currentModel.getTabAt(i);
-            Bitmap bitmap = TabContentManager.getJpegForTab(tab.getId(), null);
-            bitmap =
-                    Bitmap.createScaledBitmap(
-                            bitmap,
-                            bitmap.getWidth(),
-                            (int) (bitmap.getWidth() * 1.0 / 0.75),
-                            false);
-            encodeJpeg(tab, bitmap);
-        }
-    }
-
     private void encodeJpeg(Tab tab, Bitmap bitmap) throws IOException {
         FileOutputStream outputStream =
                 new FileOutputStream(TabContentManager.getTabThumbnailFileJpeg(tab.getId()));
         bitmap.compress(Bitmap.CompressFormat.JPEG, 50, outputStream);
         outputStream.close();
-    }
-
-    private void verifyOnlyOneTabSuggestionMessageCardIsShowing() throws InterruptedException {
-        String suggestionMessageTemplate =
-                mActivityTestRule
-                        .getActivity()
-                        .getString(R.string.tab_suggestion_close_stale_message);
-        String suggestionMessage =
-                String.format(Locale.getDefault(), suggestionMessageTemplate, "3");
-        prepareTabs(3, 0, mUrl);
-        CriteriaHelper.pollUiThread(TabSuggestionMessageService::isSuggestionAvailableForTesting);
-        CriteriaHelper.pollUiThread(
-                () -> Criteria.checkThat(getTabCountInCurrentTabModel(), Matchers.is(3)));
-
-        enterGTSWithThumbnailChecking();
-        CriteriaHelper.pollUiThread(TabSwitcherMessageManager::hasAppendedMessagesForTesting);
-        onView(allOf(withText(suggestionMessage), withParent(withId(R.id.tab_grid_message_item))))
-                .check(matches(isDisplayed()));
-        leaveGTSAndVerifyThumbnailsAreReleased();
-
-        // With soft or hard clean up depends on the soft-cleanup-delay and cleanup-delay params.
-        enterGTSWithThumbnailChecking();
-        CriteriaHelper.pollUiThread(TabSwitcherMessageManager::hasAppendedMessagesForTesting);
-        // This will fail with error "matched multiple views" when there is more than one suggestion
-        // message card.
-        onView(allOf(withText(suggestionMessage), withParent(withId(R.id.tab_grid_message_item))))
-                .check(matches(isDisplayed()));
     }
 
     private Matcher<View> tabSwitcherViewMatcher() {
@@ -3119,13 +2786,43 @@ public class TabSwitcherLayoutTest {
                 withId(R.id.tab_list_recycler_view));
     }
 
+    private void mergeNormalTabsToAGroupWithDialog(ChromeTabbedActivity cta, int tabCount) {
+        TabListEditorTestingRobot robot = new TabListEditorTestingRobot();
+        enterTabListEditor(cta);
+        robot.resultRobot.verifyTabListEditorIsVisible();
+
+        for (int i = 0; i < tabCount; i++) {
+            robot.actionRobot.clickItemAtAdapterPosition(i);
+        }
+        robot.actionRobot
+                .clickToolbarMenuButton()
+                .clickToolbarMenuItem(tabCount == 1 ? "Group tab" : "Group tabs");
+        robot.resultRobot.verifyTabListEditorIsHidden();
+    }
+
+    private void verifyGroupVisualDataDialogOpenedAndDismiss(ChromeTabbedActivity cta) {
+        // Verify that the modal dialog is now showing.
+        verifyModalDialogShowingAnimationCompleteInTabSwitcher();
+        // Verify the visual data dialog exists.
+        onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
+                .check(matches(isDisplayed()));
+        // Wait until the keyboard is showing.
+        KeyboardVisibilityDelegate delegate = cta.getWindowAndroid().getKeyboardDelegate();
+        CriteriaHelper.pollUiThread(
+                () -> delegate.isKeyboardShowing(cta, cta.getCompositorViewHolderForTesting()));
+        // Dismiss the tab group visual data dialog.
+        dismissAllModalDialogs();
+        // Verify that the modal dialog is now hidden.
+        verifyModalDialogHidingAnimationCompleteInTabSwitcher();
+    }
+
     private void editGroupVisualDataDialogTitle(ChromeTabbedActivity cta, String title) {
         onView(withId(R.id.title_input_text))
                 .perform(click())
                 .perform(replaceText(title))
                 .perform(pressImeActionButton());
         // Wait until the keyboard is hidden to make sure the edit has taken effect.
-        KeyboardVisibilityDelegate delegate = KeyboardVisibilityDelegate.getInstance();
+        KeyboardVisibilityDelegate delegate = cta.getWindowAndroid().getKeyboardDelegate();
         CriteriaHelper.pollUiThread(
                 () -> !delegate.isKeyboardShowing(cta, cta.getCompositorViewHolderForTesting()));
     }
@@ -3171,22 +2868,6 @@ public class TabSwitcherLayoutTest {
                         });
     }
 
-    private void verifyGroupVisualDataDialogOpenedAndDismiss(ChromeTabbedActivity cta) {
-        // Verify that the modal dialog is now showing.
-        verifyModalDialogShowingAnimationCompleteInTabSwitcher();
-        // Verify the visual data dialog exists.
-        onViewWaiting(withId(R.id.visual_data_dialog_layout), /* checkRootDialog= */ true)
-                .check(matches(isDisplayed()));
-        // Wait until the keyboard is showing.
-        KeyboardVisibilityDelegate delegate = KeyboardVisibilityDelegate.getInstance();
-        CriteriaHelper.pollUiThread(
-                () -> delegate.isKeyboardShowing(cta, cta.getCompositorViewHolderForTesting()));
-        // Dismiss the tab group visual data dialog.
-        dismissAllModalDialogs();
-        // Verify that the modal dialog is now hidden.
-        verifyModalDialogHidingAnimationCompleteInTabSwitcher();
-    }
-
     private void verifyModalDialogShowingAnimationCompleteInTabSwitcher() {
         CriteriaHelper.pollUiThread(
                 () -> {
@@ -3206,5 +2887,15 @@ public class TabSwitcherLayoutTest {
                 () -> {
                     mModalDialogManager.dismissAllDialogs(DialogDismissalCause.UNKNOWN);
                 });
+    }
+
+    private TabGroupModelFilter getTabGroupModelFilter() {
+        return (TabGroupModelFilter)
+                mActivityTestRule
+                        .getActivity()
+                        .getTabModelSelectorSupplier()
+                        .get()
+                        .getTabModelFilterProvider()
+                        .getCurrentTabModelFilter();
     }
 }

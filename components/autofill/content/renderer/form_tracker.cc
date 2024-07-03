@@ -83,6 +83,10 @@ FieldRef::FieldRef(blink::WebElement content_editable)
   }
 }
 
+bool operator<(const FieldRef& lhs, const FieldRef& rhs) {
+  return lhs.field_renderer_id_ < rhs.field_renderer_id_;
+}
+
 blink::WebFormControlElement FieldRef::GetField() const {
   return ShouldReplaceElementsByRendererIds()
              ? form_util::GetFormControlByRendererId(field_renderer_id_)
@@ -94,8 +98,9 @@ blink::WebElement FieldRef::GetContentEditable() const {
       ShouldReplaceElementsByRendererIds()
           ? form_util::GetContentEditableByRendererId(field_renderer_id_)
           : field_;
-  return content_editable.IsContentEditable() ? content_editable
-                                              : blink::WebElement();
+  return content_editable && content_editable.IsContentEditable()
+             ? content_editable
+             : blink::WebElement();
 }
 
 FieldRendererId FieldRef::GetId() const {
@@ -239,6 +244,10 @@ void FormTracker::ElementDisappeared(const blink::WebElement& element) {
 void FormTracker::TrackAutofilledElement(const WebFormControlElement& element) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(form_tracker_sequence_checker_);
   DCHECK(element.IsAutofilled());
+  if (!form_util::GetFormControlByRendererId(
+          form_util::GetFieldRendererId(element))) {
+    return;
+  }
   blink::WebFormElement form_element = form_util::GetOwningForm(element);
   if (base::FeatureList::IsEnabled(
           features::kAutofillUnifyAndFixFormTracking)) {

@@ -15,6 +15,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/in_session_auth/in_session_auth_dialog_controller_impl.h"
 #include "ash/metrics/login_unlock_throughput_recorder.h"
+#include "ash/metrics/unlock_throughput_recorder.h"
 #include "ash/public/cpp/session/session_observer.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/public/cpp/system_sounds_delegate.h"
@@ -173,6 +174,7 @@ class InputDeviceKeyAliasManager;
 class InputDeviceSettingsControllerImpl;
 class InputDeviceSettingsDispatcher;
 class InputDeviceTracker;
+class WebAuthNDialogController;
 class WebAuthNDialogControllerImpl;
 class KeyAccessibilityEnabler;
 class KeyboardBacklightColorController;
@@ -266,7 +268,6 @@ class UserMetricsRecorder;
 class VideoActivityNotifier;
 class VideoDetector;
 class WallpaperControllerImpl;
-class WindowBoundsTracker;
 class WindowCycleController;
 class WindowRestoreController;
 class WindowTilingController;
@@ -601,9 +602,7 @@ class ASH_EXPORT Shell : public SessionObserver,
     return human_presence_orientation_controller_.get();
   }
   ImeControllerImpl* ime_controller() { return ime_controller_.get(); }
-  WebAuthNDialogControllerImpl* webauthn_dialog_controller() {
-    return webauthn_dialog_controller_.get();
-  }
+  WebAuthNDialogController* webauthn_dialog_controller();
   InSessionAuthDialogControllerImpl* in_session_auth_dialog_controller() {
     return in_session_auth_dialog_controller_.get();
   }
@@ -820,9 +819,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   }
   WindowTreeHostManager* window_tree_host_manager() {
     return window_tree_host_manager_.get();
-  }
-  WindowBoundsTracker* window_bounds_tracker() {
-    return window_bounds_tracker_.get();
   }
   BackGestureEventHandler* back_gesture_event_handler() {
     return back_gesture_event_handler_.get();
@@ -1147,7 +1143,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<VideoDetector> video_detector_;
   std::unique_ptr<WindowTreeHostManager> window_tree_host_manager_;
   std::unique_ptr<PersistentWindowController> persistent_window_controller_;
-  std::unique_ptr<WindowBoundsTracker> window_bounds_tracker_;
   std::unique_ptr<ColorEnhancementController> color_enhancement_controller_;
   std::unique_ptr<FullscreenMagnifierController>
       fullscreen_magnifier_controller_;
@@ -1261,6 +1256,8 @@ class ASH_EXPORT Shell : public SessionObserver,
 
   std::unique_ptr<LoginUnlockThroughputRecorder>
       login_unlock_throughput_recorder_;
+
+  std::unique_ptr<UnlockThroughputRecorder> unlock_throughput_recorder_;
 
   std::unique_ptr<OcclusionTrackerPauser> occlusion_tracker_pauser_;
 

@@ -83,7 +83,7 @@ class ScopedFetcherForTests final
     }
     exception_state.ThrowTypeError(
         "Unexpected call to fetch, no response available.");
-    return ScriptPromise<Response>();
+    return EmptyPromise();
   }
 
   // This does not take ownership of its parameter. The provided sample object
@@ -164,7 +164,7 @@ class ErrorCacheForTests : public mojom::blink::CacheStorageCache {
                             mojom::blink::CacheQueryOptionsPtr query_options,
                             int64_t trace_id,
                             GetAllMatchedEntriesCallback callback) override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
   void Keys(mojom::blink::FetchAPIRequestPtr fetch_api_request,
             mojom::blink::CacheQueryOptionsPtr query_options,
@@ -191,7 +191,7 @@ class ErrorCacheForTests : public mojom::blink::CacheStorageCache {
                      mojo_base::BigBuffer data,
                      int64_t trace_id,
                      WriteSideDataCallback callback) override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 
  protected:

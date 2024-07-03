@@ -5,28 +5,33 @@
 #include "ash/wm/snap_group/snap_group_controller.h"
 
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
+#include "ash/wm/desks/desks_util.h"
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/snap_group/snap_group.h"
 #include "ash/wm/snap_group/snap_group_constants.h"
 #include "ash/wm/snap_group/snap_group_metrics.h"
+#include "ash/wm/snap_group/snap_group_observer.h"
 #include "ash/wm/splitview/layout_divider_controller.h"
 #include "ash/wm/splitview/split_view_constants.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_state.h"
+#include "ash/wm/window_util.h"
 #include "ash/wm/wm_metrics.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/metrics/user_metrics.h"
+#include "base/numerics/ranges.h"
 #include "base/time/time.h"
 #include "chromeos/ui/base/window_state_type.h"
 #include "ui/display/screen.h"
@@ -91,6 +96,13 @@ SnapGroup* SnapGroupController::AddSnapGroup(
     return nullptr;
   }
 
+  // Disallow forming a Snap Group if either of the windows is configured to be
+  // "visible on all workspaces".
+  if (desks_util::IsWindowVisibleOnAllWorkspaces(window1) ||
+      desks_util::IsWindowVisibleOnAllWorkspaces(window2)) {
+    return nullptr;
+  }
+
   if (base::Contains(window_to_snap_group_map_, window1) ||
       base::Contains(window_to_snap_group_map_, window2)) {
     return nullptr;
@@ -119,8 +131,23 @@ SnapGroup* SnapGroupController::AddSnapGroup(
   return snap_group_ptr;
 }
 
-bool SnapGroupController::RemoveSnapGroup(SnapGroup* snap_group, bool replace) {
+bool SnapGroupController::RemoveSnapGroup(SnapGroup* snap_group,
+                                          SnapGroupExitPoint exit_point) {
   CHECK(snap_group);
+
+  const bool snap_to_replace = exit_point == SnapGroupExitPoint::kSnapToReplace;
+  if (!snap_to_replace) {
+    // Records persistence duration and Snap Groups count when the removal of
+    // `group_to_remove` is not due to 'Snap to Replace', as this is considered
+    // an extension of the snap group's lifespan.
+    RecordSnapGroupPersistenceDuration(base::TimeTicks::Now() -
+                                       snap_group->carry_over_creation_time_);
+  }
+
+  // We should always record the actual duration of the Snap Group upon removal.
+  RecordSnapGroupActualDuration(base::TimeTicks::Now() -
+                                snap_group->actual_creation_time_);
+
   aura::Window* window1 = snap_group->window1();
   aura::Window* window2 = snap_group->window2();
 
@@ -130,40 +157,43 @@ bool SnapGroupController::RemoveSnapGroup(SnapGroup* snap_group, bool replace) {
   auto iter =
       base::ranges::find_if(snap_groups_, base::MatchesUniquePtr(snap_group));
   DCHECK(iter != snap_groups_.end());
+
+  for (auto& observer : observers_) {
+    observer.OnSnapGroupRemoving(snap_group, exit_point);
+  }
+
   auto group_to_remove = std::move(*iter);
   snap_groups_.erase(iter);
   group_to_remove->Shutdown();
   base::SequencedTaskRunner::GetCurrentDefault()->DeleteSoon(
       FROM_HERE, std::move(group_to_remove));
 
-  if (!replace) {
-    // Records persistence duration and Snap Groups count when the removal of
-    // `group_to_remove` is not due to 'Snap to Replace'.
-    RecordSnapGroupPersistenceDuration(base::TimeTicks::Now() -
-                                       snap_group->carry_over_creation_time_);
+  if (!snap_to_replace) {
     ReportSnapGroupsCountHistogram(/*count=*/snap_groups_.size());
     base::RecordAction(base::UserMetricsAction("SnapGroups_RemoveSnapGroup"));
   }
 
-  // We should always record the actual duration of the Snap Group upon removal.
-  RecordSnapGroupActualDuration(base::TimeTicks::Now() -
-                                snap_group->actual_creation_time_);
+  RecordSnapGroupExitPoint(exit_point);
 
   return true;
 }
 
 bool SnapGroupController::RemoveSnapGroupContainingWindow(
-    aura::Window* window) {
+    aura::Window* window,
+    SnapGroupExitPoint exit_point) {
   SnapGroup* snap_group = GetSnapGroupForGivenWindow(window);
   if (snap_group == nullptr) {
     return false;
   }
 
-  return RemoveSnapGroup(snap_group);
+  return RemoveSnapGroup(snap_group, exit_point);
 }
 
 SnapGroup* SnapGroupController::GetSnapGroupForGivenWindow(
     const aura::Window* window) const {
+  if (!window) {
+    return nullptr;
+  }
   auto iter = window_to_snap_group_map_.find(window);
   return iter != window_to_snap_group_map_.end() ? iter->second : nullptr;
 }
@@ -173,13 +203,9 @@ bool SnapGroupController::OnSnappingWindow(
     WindowSnapActionSource snap_action_source) {
   // Early return when
   // 1. In tablet mode;
-  // 2. `snap_action_source` originates from `kDragOrSelectOverviewWindowToSnap`
-  // to avoid snap-to-replace within another snap group in Overview;
-  // 3. `to_be_snapped_window` belongs to a snap group, this can happen when
+  // 2. `to_be_snapped_window` belongs to a snap group, this can happen when
   // moving a snap group to another desk with snap groups.
   if (display::Screen::GetScreen()->InTabletMode() ||
-      snap_action_source ==
-          WindowSnapActionSource::kDragOrSelectOverviewWindowToSnap ||
       GetSnapGroupForGivenWindow(to_be_snapped_window)) {
     return false;
   }
@@ -244,7 +270,7 @@ bool SnapGroupController::OnSnappingWindow(
   // within the `snap_group`.
   const auto carry_over_creation_time =
       group_to_replace->carry_over_creation_time_;
-  RemoveSnapGroup(group_to_replace, /*replace=*/true);
+  RemoveSnapGroup(group_to_replace, SnapGroupExitPoint::kSnapToReplace);
   SnapGroup* new_snap_group = AddSnapGroup(
       new_primary_window, new_secondary_window, /*replace=*/true,
       /*carry_over_creation_time=*/
@@ -261,15 +287,10 @@ bool SnapGroupController::OnSnappingWindow(
   return true;
 }
 
-void SnapGroupController::MinimizeTopMostSnapGroup() {
-  auto* topmost_snap_group = GetTopmostSnapGroup();
-  topmost_snap_group->MinimizeWindows();
-}
-
 SnapGroup* SnapGroupController::GetTopmostVisibleSnapGroup(
     const aura::Window* target_root) const {
-  for (const aura::Window* top_window :
-       Shell::Get()->mru_window_tracker()->BuildAppWindowList(kActiveDesk)) {
+  for (const aura::Window* top_window : GetActiveDeskAppWindowsInZOrder(
+           const_cast<aura::Window*>(target_root))) {
     // Skip to the topmost window on `target_root`, ignoring occlusion-exempt
     // windows.
     if (ShouldExcludeForOcclusionCheck(top_window, target_root)) {
@@ -298,17 +319,87 @@ SnapGroup* SnapGroupController::GetTopmostSnapGroup() const {
   return nullptr;
 }
 
-void SnapGroupController::RestoreTopmostSnapGroup() {
-  auto windows =
-      Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk);
-  for (aura::Window* window : windows) {
-    if (auto* snap_group = GetSnapGroupForGivenWindow(window)) {
-      CHECK(WindowState::Get(snap_group->window1())->IsMinimized());
-      CHECK(WindowState::Get(snap_group->window2())->IsMinimized());
-      RestoreSnapState(snap_group);
-      return;
+std::optional<std::pair<aura::Window*, aura::Window*>>
+SnapGroupController::GetWindowPairForSnapToReplaceWithKeyboardShortcut() {
+  // Snap-to-replace targets only partially obscured Snap Group, which is the
+  // topmost Snap Group.
+  SnapGroup* top_snap_group = GetTopmostSnapGroup();
+  if (!top_snap_group) {
+    return std::nullopt;
+  }
+
+  aura::Window* root_window = window_util::GetRootWindowAt(
+      display::Screen::GetScreen()->GetCursorScreenPoint());
+  aura::Window::Windows windows = GetActiveDeskAppWindowsInZOrder(root_window);
+  for (size_t i = 0; i < windows.size(); i++) {
+    aura::Window* window = windows[i];
+    const auto* window_state = WindowState::Get(window);
+    if (!window->IsVisible() || window_state->IsMinimized() ||
+        desks_util::IsWindowVisibleOnAllWorkspaces(window)) {
+      continue;
+    }
+
+    // If the `window` being traversed belongs to a Snap Group and is the first
+    // window encountered in the list, we can immediately exit the loop. Since
+    // the other window in the group will also be on top, indicating the group
+    // is not partially obscured (a condition we need for snap-to-replace).
+    if (SnapGroup* snap_group_being_traversed =
+            GetSnapGroupForGivenWindow(window);
+        snap_group_being_traversed && i == 0 &&
+        window == snap_group_being_traversed->GetTopMostWindowInGroup()) {
+      break;
+    }
+
+    // Snap-to-Replace Eligibility Check:
+    //   - Upon finding a snapped window, assess its potential for
+    //   snap-to-replace.
+    //   - This entails checking against the `top_snap_group`.
+    //   - The combined snap ratios of the snapped window and the opposite
+    //   window within the `top_snap_group` must equal one. This signifies that
+    //   the two windows would perfectly fill the workspace if snapped together.
+    //  - If this eligibility check passes:
+    //     i. The snapped window is confirmed as a valid candidate for
+    //     snap-to-replace.
+    //     ii. The opposite snapped window within the `top_snap_group` is
+    //     identified as another member of the `window_pair` required to form
+    //     the new Snap Group after the snap-to-replace.
+    const auto window_state_type = window_state->GetStateType();
+    const auto snap_ratio = window_state->snap_ratio();
+    aura::Window* visible_snapped_window_in_snap_group = nullptr;
+    if (window_state_type == chromeos::WindowStateType::kPrimarySnapped) {
+      CHECK(snap_ratio);
+      visible_snapped_window_in_snap_group = top_snap_group->window2();
+      if (base::IsApproximatelyEqual(
+              *WindowState::Get(visible_snapped_window_in_snap_group)
+                      ->snap_ratio() +
+                  *snap_ratio,
+              1.f, std::numeric_limits<float>::epsilon())) {
+        return std::make_pair(window, visible_snapped_window_in_snap_group);
+      }
+    }
+
+    if (window_state_type == chromeos::WindowStateType::kSecondarySnapped) {
+      CHECK(snap_ratio);
+      visible_snapped_window_in_snap_group = top_snap_group->window1();
+      if (base::IsApproximatelyEqual(
+              *WindowState::Get(visible_snapped_window_in_snap_group)
+                      ->snap_ratio() +
+                  *snap_ratio,
+              1.f, std::numeric_limits<float>::epsilon())) {
+        return std::make_pair(visible_snapped_window_in_snap_group, window);
+      }
     }
   }
+
+  return std::nullopt;
+}
+
+void SnapGroupController::AddObserver(SnapGroupObserver* observer) {
+  observers_.AddObserver(observer);
+}
+
+void SnapGroupController::RemoveObserver(SnapGroupObserver* observer) {
+  observers_.RemoveObserver(observer);
 }
 
 void SnapGroupController::OnOverviewModeStarting() {
@@ -410,8 +501,8 @@ void SnapGroupController::RestoreSnapState(SnapGroup* snap_group) {
 void SnapGroupController::OnTabletModeStarted() {
   // TODO(b/327269057): Define tablet <-> clamshell transition.
   while (!snap_groups_.empty()) {
-    RecordSnapGroupExitPoint(SnapGroupExitPoint::kTabletTransition);
-    RemoveSnapGroup(snap_groups_.back().get());
+    RemoveSnapGroup(snap_groups_.back().get(),
+                    SnapGroupExitPoint::kTabletTransition);
   }
 }
 

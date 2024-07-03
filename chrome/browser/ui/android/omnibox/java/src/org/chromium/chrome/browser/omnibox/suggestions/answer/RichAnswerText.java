@@ -11,12 +11,14 @@ import android.text.style.MetricAffectingSpan;
 import android.text.style.TextAppearanceSpan;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.StyleRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.components.omnibox.AnswerDataProto.FormattedString;
 import org.chromium.components.omnibox.AnswerDataProto.FormattedString.ColorType;
 import org.chromium.components.omnibox.AnswerDataProto.FormattedString.FormattedStringFragment;
 import org.chromium.components.omnibox.AnswerType;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.RichAnswerTemplateProto.RichAnswerTemplate;
 
 import java.util.List;
@@ -60,6 +62,7 @@ class RichAnswerText implements AnswerText {
         RichAnswerText[] result = new RichAnswerText[2];
 
         int answerType = richAnswerTemplate.getAnswerType().getNumber();
+        int maxLines = getMaxLinesForAnswerType(answerType);
         if (answerType == AnswerType.DICTIONARY) {
             result[0] =
                     new RichAnswerText(
@@ -75,7 +78,7 @@ class RichAnswerText implements AnswerText {
                             answerType,
                             /* isAnswerLine= */ false,
                             reverseStockTextColor);
-            result[0].mMaxLines = 1;
+            result[1].mMaxLines = maxLines;
         } else {
             // Construct the Answer card presenting Answers in Suggest in Answer > Query order.
             result[0] =
@@ -92,10 +95,7 @@ class RichAnswerText implements AnswerText {
                             answerType,
                             /* isAnswerLine= */ false,
                             reverseStockTextColor);
-            result[1].mMaxLines = 1;
-            if (answerType == AnswerType.TRANSLATION) {
-                result[0].mMaxLines = 3;
-            }
+            result[0].mMaxLines = maxLines;
 
             // Note: Despite Answers in Suggest being presented in reverse order (first answer, then
             // query) we want to ensure that the query is announced first to visually impaired
@@ -124,28 +124,32 @@ class RichAnswerText implements AnswerText {
     private SpannableStringBuilder processFormattedString(FormattedString formattedString) {
         SpannableStringBuilder result = new SpannableStringBuilder();
         List<FormattedStringFragment> fragments = formattedString.getFragmentsList();
-        // TODO(b/327497146): handle the case where there are no fragments by using the default for
-        // the type of line.
-        for (int i = 0; i < fragments.size(); i++) {
-            FormattedStringFragment formattedStringFragment = fragments.get(i);
+        if (fragments.size() > 0) {
+            for (int i = 0; i < fragments.size(); i++) {
+                FormattedStringFragment formattedStringFragment = fragments.get(i);
+                String text =
+                        AnswerTextUtils.processAnswerText(
+                                formattedStringFragment.getText(), mIsAnswerLine, mAnswerType);
+                appendAndStyleText(
+                        text, getAppearanceForText(formattedStringFragment.getColor()), result);
+            }
+        } else {
+            String text =
+                    AnswerTextUtils.processAnswerText(
+                            formattedString.getText(), mIsAnswerLine, mAnswerType);
             appendAndStyleText(
-                    formattedStringFragment, getAppearanceForText(formattedStringFragment), result);
+                    text, getAppearanceForText(ColorType.COLOR_ON_SURFACE_DEFAULT), result);
         }
 
         return result;
     }
 
     private void appendAndStyleText(
-            FormattedStringFragment formattedStringFragment,
-            MetricAffectingSpan style,
-            SpannableStringBuilder result) {
+            String text, MetricAffectingSpan style, SpannableStringBuilder result) {
         if (!result.toString().isEmpty()) {
             result.append(" ");
         }
 
-        String text =
-                AnswerTextUtils.processAnswerText(
-                        formattedStringFragment.getText(), mIsAnswerLine, mAnswerType);
         int startIndex = result.length();
         result.append(text);
         result.setSpan(style, startIndex, result.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -156,36 +160,39 @@ class RichAnswerText implements AnswerText {
      *
      * @return MetricAffectingSpan specifying style to be used to present text field.
      */
-    private MetricAffectingSpan getAppearanceForText(
-            FormattedStringFragment formattedStringFragment) {
+    private MetricAffectingSpan getAppearanceForText(ColorType colorType) {
         return mIsAnswerLine
                 ? getAppearanceForAnswerText(
-                        mContext, formattedStringFragment, mAnswerType, mReverseStockTextColor)
+                        mContext, colorType, mAnswerType, mReverseStockTextColor)
                 : getAppearanceForQueryText();
     }
 
     /**
      * Return text style for elements in main line holding answer.
      *
-     * @param answerType the answer type for the suggestion answer
+     * @param colorType The color type for the text.
      * @param context Current context.
      * @return TextAppearanceSpan object defining style for the text.
      */
     @VisibleForTesting
     static MetricAffectingSpan getAppearanceForAnswerText(
             Context context,
-            FormattedStringFragment formattedStringFragment,
+            ColorType colorType,
             @AnswerType int answerType,
             boolean reverseStockTextColor) {
+        @StyleRes
+        int largeRes =
+                OmniboxFeatures.shouldShowRichAnswerCard()
+                        ? org.chromium.chrome.browser.omnibox.R.style
+                                .TextAppearance_OmniboxAnswerCardPrimaryMedium
+                        : org.chromium.chrome.browser.omnibox.R.style
+                                .TextAppearance_TextLarge_Primary;
         if (answerType != AnswerType.DICTIONARY && answerType != AnswerType.FINANCE) {
-            return new TextAppearanceSpan(
-                    context,
-                    org.chromium.chrome.browser.omnibox.R.style.TextAppearance_TextLarge_Primary);
+            return new TextAppearanceSpan(context, largeRes);
         }
 
         // TODO(b/327497146): skip color reversal when original data source is proto backend, which
         // should handle color reversal server side.
-        ColorType colorType = formattedStringFragment.getColor();
         return switch (colorType) {
             case COLOR_ON_SURFACE_POSITIVE, COLOR_ON_SURFACE_NEGATIVE -> {
                 boolean wantPositiveColor = (colorType == ColorType.COLOR_ON_SURFACE_POSITIVE);
@@ -199,9 +206,7 @@ class RichAnswerText implements AnswerText {
                                         .TextAppearance_OmniboxAnswerDescriptionNegativeSmall;
                 yield new TextAppearanceSpan(context, styleResource);
             }
-            default -> new TextAppearanceSpan(
-                    context,
-                    org.chromium.chrome.browser.omnibox.R.style.TextAppearance_TextLarge_Primary);
+            default -> new TextAppearanceSpan(context, largeRes);
                 // TODO(b/327497146): handle equivalent of
                 // AnswerTextType.SUGGESTION_SECONDARY_TEXT_MEDIUM
         };
@@ -213,8 +218,19 @@ class RichAnswerText implements AnswerText {
      * @return MetricAffectingSpan object defining style for the text.
      */
     private MetricAffectingSpan getAppearanceForQueryText() {
-        return new TextAppearanceSpan(
-                mContext,
-                org.chromium.chrome.browser.omnibox.R.style.TextAppearance_TextMedium_Secondary);
+        @StyleRes
+        int res =
+                OmniboxFeatures.shouldShowRichAnswerCard()
+                        ? org.chromium.chrome.browser.omnibox.R.style
+                                .TextAppearance_TextLarge_Secondary
+                        : org.chromium.chrome.browser.omnibox.R.style
+                                .TextAppearance_TextMedium_Secondary;
+        return new TextAppearanceSpan(mContext, res);
+    }
+
+    private static int getMaxLinesForAnswerType(int answerType) {
+        return (answerType == AnswerType.DICTIONARY || answerType == AnswerType.TRANSLATION)
+                ? 3
+                : 1;
     }
 }

@@ -69,7 +69,7 @@ class Clock;
 
 namespace blink {
 
-class BackgroundResponseProcessor;
+class BackgroundResponseProcessorFactory;
 class BlobDataHandle;
 class FetchParameters;
 class ResourceFinishObserver;
@@ -193,6 +193,8 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
   ResourceLoaderOptions& MutableOptions() { return options_; }
 
   void DidChangePriority(ResourceLoadPriority, int intra_priority_value);
+
+  void UpdateResourceWidth(const AtomicString& resource_width);
 
   // Returns two priorities:
   // - `first` is the priority with the fix of https://crbug.com/1369823.
@@ -442,8 +444,13 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
 
   bool IsLoadedFromMemoryCache() { return is_loaded_from_memory_cache_; }
 
-  virtual scoped_refptr<BackgroundResponseProcessor>
-  MaybeCreateBackgroundResponseProcessor();
+  virtual std::unique_ptr<BackgroundResponseProcessorFactory>
+  MaybeCreateBackgroundResponseProcessorFactory();
+
+  virtual bool HasClientsOrObservers() const {
+    return !clients_.empty() || !clients_awaiting_callback_.empty() ||
+           !finished_clients_.empty() || !finish_observers_.empty();
+  }
 
  protected:
   Resource(const ResourceRequestHead&,
@@ -454,11 +461,6 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
   virtual void NotifyFinished();
 
   void MarkClientFinished(ResourceClient*);
-
-  virtual bool HasClientsOrObservers() const {
-    return !clients_.empty() || !clients_awaiting_callback_.empty() ||
-           !finished_clients_.empty() || !finish_observers_.empty();
-  }
   virtual void DestroyDecodedDataForFailedRevalidation() {}
 
   void SetEncodedSize(size_t);

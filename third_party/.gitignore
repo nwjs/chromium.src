@@ -58,6 +58,7 @@
 /fuchsia-sdk/images-internal
 /fuchsia-sdk/sdk
 /glfw/src
+/glslang/src
 /gn/
 /gnu_binutils/
 /google-java-format/*.jar
@@ -66,7 +67,6 @@
 /guava/lib/
 /hamcrest/lib/
 /icu4j/lib/
-/instrumented_libraries/
 /instrumented_libs/
 /jacoco/coverage/
 /jacoco/doc/
@@ -86,9 +86,9 @@
 /leveldb
 /libassistant
 /libc++-static/libc++.a
-/libei/bin/
-/libei/include/
-/libei/lib64/
+/libei/cipd/bin/
+/libei/cipd/include/
+/libei/cipd/lib64/
 /libgifcodec
 /libjingle/source
 /libupnp
@@ -110,6 +110,7 @@
 /node/*.tar.gz
 /node/linux/
 /node/mac/
+/node/mac_arm64/
 /node/node_modules/
 /node/win
 /nss
@@ -150,6 +151,9 @@
 /soda-win32
 /soda-win64
 /speex
+/spirv-cross/src
+/spirv-headers/src
+/spirv-tools/src
 /sqlite4java/lib/
 /subresource-filter-ruleset/data/*
 /swift-format
@@ -158,12 +162,16 @@
 /syzygy
 /syzygy/binaries
 /tfhub_models/.*
-/tfhub_models/*.tar.gz
-/tfhub_models/models/
+/tfhub_models/testdata/
 /tint/src
 /turbine/*.jar
 /usb_ids
 /v8-i18n
+/vulkan-headers/src
+/vulkan-loader/src
+/vulkan-tools/src
+/vulkan-utility-libraries/src
+/vulkan-validation-layers/src
 /webdriver/python/selenium
 /webgl
 /webpagereplay

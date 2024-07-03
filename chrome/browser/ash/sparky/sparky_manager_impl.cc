@@ -24,6 +24,7 @@
 #include "chrome/browser/ash/crosapi/crosapi_manager.h"
 #include "chrome/browser/ash/mahi/mahi_browser_delegate_ash.h"
 #include "chrome/browser/ash/sparky/sparky_delegate_impl.h"
+#include "chromeos/ash/components/sparky/system_info_delegate_impl.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "components/manta/features.h"
@@ -54,7 +55,8 @@ SparkyManagerImpl::SparkyManagerImpl(Profile* profile,
                                      manta::MantaService* manta_service)
     : profile_(profile),
       sparky_provider_(manta_service->CreateSparkyProvider(
-          std::make_unique<SparkyDelegateImpl>(profile))) {
+          std::make_unique<SparkyDelegateImpl>(profile),
+          std::make_unique<sparky::SystemInfoDelegateImpl>())) {
   CHECK(manta::features::IsMantaServiceEnabled());
 }
 
@@ -93,7 +95,7 @@ void SparkyManagerImpl::AnswerQuestion(const std::u16string& question,
     sparky_provider_->QuestionAndAnswer(
         base::UTF16ToUTF8(current_panel_content_->page_content),
         current_panel_qa_, base::UTF16ToUTF8(question),
-        manta::proto::Task::TASK_PLANNER,
+        manta::proto::Task::TASK_PLANNER, nullptr,
         base::BindOnce(&SparkyManagerImpl::OnSparkyProviderQAResponse,
                        weak_ptr_factory_.GetWeakPtr(), question,
                        std::move(callback)));
@@ -128,10 +130,18 @@ void SparkyManagerImpl::OnContextMenuClicked(
     case MahiContextMenuActionType::kSummary:
     case MahiContextMenuActionType::kOutline:
       // TODO(b/318565610): Update the behaviour of kOutline.
-      ui_controller_.OpenMahiPanel(context_menu_request->display_id);
+      ui_controller_.OpenMahiPanel(
+          context_menu_request->display_id,
+          context_menu_request->mahi_menu_bounds.has_value()
+              ? context_menu_request->mahi_menu_bounds.value()
+              : gfx::Rect());
       return;
     case MahiContextMenuActionType::kQA:
-      ui_controller_.OpenMahiPanel(context_menu_request->display_id);
+      ui_controller_.OpenMahiPanel(
+          context_menu_request->display_id,
+          context_menu_request->mahi_menu_bounds.has_value()
+              ? context_menu_request->mahi_menu_bounds.value()
+              : gfx::Rect());
 
       // Ask question.
       if (!context_menu_request->question) {
@@ -158,6 +168,8 @@ bool SparkyManagerImpl::IsEnabled() {
          Shell::Get()->session_controller()->GetActivePrefService()->GetBoolean(
              ash::prefs::kMahiEnabled);
 }
+
+void SparkyManagerImpl::SetMediaAppPDFFocused() {}
 
 void SparkyManagerImpl::NotifyRefreshAvailability(bool available) {
   if (ui_controller_.IsMahiPanelOpen()) {
@@ -223,7 +235,7 @@ void SparkyManagerImpl::OnGetPageContentForQA(
   sparky_provider_->QuestionAndAnswer(
       base::UTF16ToUTF8(current_panel_content_->page_content),
       current_panel_qa_, base::UTF16ToUTF8(question),
-      manta::proto::Task::TASK_PLANNER,
+      manta::proto::Task::TASK_PLANNER, nullptr,
       base::BindOnce(&SparkyManagerImpl::OnSparkyProviderQAResponse,
                      weak_ptr_factory_.GetWeakPtr(), question,
                      std::move(callback)));

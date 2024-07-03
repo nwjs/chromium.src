@@ -75,6 +75,10 @@ BASE_FEATURE(kLauncherSearchFileScan,
              "kLauncherSearchFileScan",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLauncherKeyShortcutInBestMatch,
+             "LauncherKeyShortcutInBestMatch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // TODO(b/330386392): kLauncherGameSearch can be removed because if there's no
 // payload, there will be no result.
 bool IsLauncherGameSearchEnabled() {
@@ -101,8 +105,10 @@ bool IsLauncherFuzzyMatchForOmniboxEnabled() {
 
 // Only enable image search for ICA supported devices.
 bool IsLauncherImageSearchEnabled() {
-  return base::FeatureList::IsEnabled(
-             ash::features::kFeatureManagementLocalImageSearch) &&
+  return (base::FeatureList::IsEnabled(
+              ash::features::kFeatureManagementLocalImageSearch) ||
+          base::FeatureList::IsEnabled(
+              ash::features::kLocalImageSearchOnCore)) &&
          base::FeatureList::IsEnabled(kLauncherImageSearch);
 }
 
@@ -125,6 +131,10 @@ bool IsLauncherSystemInfoAnswerCardsEnabled() {
 
 bool IsLauncherSearchFileScanEnabled() {
   return base::FeatureList::IsEnabled(kLauncherSearchFileScan);
+}
+
+bool IskLauncherKeyShortcutInBestMatchEnabled() {
+  return base::FeatureList::IsEnabled(kLauncherKeyShortcutInBestMatch);
 }
 
 }  // namespace search_features

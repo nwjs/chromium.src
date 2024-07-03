@@ -6,20 +6,24 @@
 
 #include <cinttypes>
 
+#include "base/containers/span.h"
+#include "base/functional/callback.h"
 #include "base/numerics/checked_math.h"
 #include "base/types/expected_macros.h"
+#include "mojo/public/cpp/base/big_buffer.h"
+#include "services/webnn/public/mojom/webnn_context_provider.mojom-blink.h"
+#include "services/webnn/public/mojom/webnn_graph.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_compute_result.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
-#include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer_view.h"
-#include "third_party/blink/renderer/core/typed_arrays/dom_data_view.h"
-#include "third_party/blink/renderer/core/typed_arrays/dom_typed_array.h"
 #include "third_party/blink/renderer/modules/ml/ml_context.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_buffer.h"
+#include "third_party/blink/renderer/modules/ml/webnn/ml_error.h"
+#include "third_party/blink/renderer/modules/ml/webnn/ml_graph_utils.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_operand.h"
-#include "third_party/blink/renderer/modules/ml/webnn/ml_operator.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-#include "third_party/blink/renderer/platform/heap/collection_support/heap_deque.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 
 namespace blink {
@@ -32,10 +36,10 @@ namespace {
     return;                                                       \
   });
 
-#define REJECT_AND_RETURN_IF_ERROR(func, msg)              \
-  RETURN_IF_ERROR(func, [&resolver](const String& error) { \
-    resolver->RejectWithTypeError(msg + error);            \
-    return;                                                \
+#define THROW_AND_RETURN_TYPE_IF_ERROR(func, return_value, msg)   \
+  RETURN_IF_ERROR(func, [&exception_state](const String& error) { \
+    exception_state.ThrowTypeError(msg + error);                  \
+    return return_value;                                          \
   });
 
 base::expected<void, String> ValidateNamedArrayBufferViews(
@@ -139,55 +143,93 @@ base::expected<void, String> ValidateMLBufferUsage(
 
 }  // namespace
 
-MLGraph::MLGraph(MLContext* context) : ml_context_(context) {}
+MLGraph::MLGraph(ExecutionContext* execution_context,
+                 MLContext* context,
+                 mojo::PendingAssociatedRemote<webnn::mojom::blink::WebNNGraph>
+                     pending_graph_remote,
+                 HashMap<String, ResourceInfo> input_resources_info,
+                 HashMap<String, ResourceInfo> output_resources_info,
+                 base::PassKey<MLGraphBuilder> /*pass_key*/)
+    : input_resources_info_(std::move(input_resources_info)),
+      output_resources_info_(std::move(output_resources_info)),
+      ml_context_(context),
+      remote_graph_(execution_context) {
+  // Bind the end point of `WebNNGraph` mojo interface in the blink side.
+  remote_graph_.Bind(
+      std::move(pending_graph_remote),
+      execution_context->GetTaskRunner(TaskType::kMachineLearning));
+}
 
 MLGraph::~MLGraph() = default;
 
 void MLGraph::Trace(Visitor* visitor) const {
   visitor->Trace(ml_context_);
+  visitor->Trace(remote_graph_);
   ScriptWrappable::Trace(visitor);
 }
 
 const HashMap<String, MLGraph::ResourceInfo>& MLGraph::GetInputResourcesInfo()
     const {
-  DCHECK(resources_info_initialized_);
   return input_resources_info_;
 }
 
 const HashMap<String, MLGraph::ResourceInfo>& MLGraph::GetOutputResourcesInfo()
     const {
-  DCHECK(resources_info_initialized_);
   return output_resources_info_;
 }
 
-void MLGraph::Compute(ScopedMLTrace scoped_trace,
-                      const MLNamedArrayBufferViews& inputs,
-                      const MLNamedArrayBufferViews& outputs,
-                      ScriptPromiseResolver<MLComputeResult>* resolver,
-                      ExceptionState& exception_state) {
-  // The MLGraph object should be initialized before computing.
-  DCHECK(resources_info_initialized_);
-
+ScriptPromise<MLComputeResult> MLGraph::Compute(
+    ScopedMLTrace scoped_trace,
+    const MLNamedArrayBufferViews& inputs,
+    const MLNamedArrayBufferViews& outputs,
+    ScriptState* script_state,
+    ExceptionState& exception_state) {
   // Validate the MLNamedArrayBufferViews.
-  REJECT_AND_RETURN_IF_ERROR(
+  THROW_AND_RETURN_TYPE_IF_ERROR(
       ValidateNamedArrayBufferViews(inputs, input_resources_info_),
-      "Invalid inputs: ");
-  REJECT_AND_RETURN_IF_ERROR(
+      ScriptPromise<MLComputeResult>(), "Invalid inputs: ");
+  THROW_AND_RETURN_TYPE_IF_ERROR(
       ValidateNamedArrayBufferViews(outputs, output_resources_info_),
-      "Invalid outputs: ");
+      ScriptPromise<MLComputeResult>(), "Invalid outputs: ");
 
-  // Call ComputeImpl() implemented by an MLGraph backend.
-  ComputeImpl(std::move(scoped_trace), inputs, outputs, resolver,
-              exception_state);
+  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<MLComputeResult>>(
+      script_state, exception_state.GetContext());
+  auto promise = resolver->Promise();
+
+  HashMap<String, mojo_base::BigBuffer> name_to_buffer_map;
+  for (const auto& [name, array_buffer_view] : inputs) {
+    name_to_buffer_map.insert(
+        name, mojo_base::BigBuffer(array_buffer_view->ByteSpan()));
+  }
+
+  // TransferNamedArrayBufferViews deteches input and output array buffers, so
+  // JavaScript can't modify them during Compute().
+  auto inputs_info = TransferNamedArrayBufferViews(
+      resolver->GetScriptState()->GetIsolate(), inputs, exception_state);
+  if (!inputs_info) {
+    resolver->Reject(exception_state);
+    return promise;
+  }
+  auto outputs_info = TransferNamedArrayBufferViews(
+      resolver->GetScriptState()->GetIsolate(), outputs, exception_state);
+  if (!outputs_info) {
+    resolver->Reject(exception_state);
+    return promise;
+  }
+
+  remote_graph_->Compute(
+      std::move(name_to_buffer_map),
+      WTF::BindOnce(&MLGraph::DidCompute, WrapPersistent(this),
+                    std::move(scoped_trace), WrapPersistent(resolver),
+                    std::move(inputs_info), std::move(outputs_info)));
+
+  return promise;
 }
 
 void MLGraph::Dispatch(ScopedMLTrace scoped_trace,
                        const MLNamedBuffers& inputs,
                        const MLNamedBuffers& outputs,
                        ExceptionState& exception_state) {
-  // The MLGraph object should be initialized before dispatching.
-  DCHECK(resources_info_initialized_);
-
   // Validate the MLNamedBuffers.
   THROW_AND_RETURN_IF_ERROR(
       ValidateNamedMLBuffers(Context(), inputs, input_resources_info_),
@@ -198,123 +240,93 @@ void MLGraph::Dispatch(ScopedMLTrace scoped_trace,
   THROW_AND_RETURN_IF_ERROR(ValidateMLBufferUsage(inputs, outputs),
                             "Invalid dispatch: ");
 
-  // Call DispatchImpl() implemented by an MLGraph backend.
-  DispatchImpl(std::move(scoped_trace), inputs, outputs, exception_state);
-}
-
-void MLGraph::Build(ScopedMLTrace scoped_trace,
-                    const MLNamedOperands& named_outputs,
-                    ScriptPromiseResolver<MLGraph>* resolver) {
-  REJECT_AND_RETURN_IF_ERROR(ValidateAndInitializeResourcesInfo(named_outputs),
-                             "");
-  BuildImpl(std::move(scoped_trace), named_outputs, resolver);
-}
-
-base::expected<void, String> MLGraph::ValidateAndInitializeResourcesInfo(
-    const MLNamedOperands& named_outputs) {
-  DCHECK(!resources_info_initialized_);
-
-  // The outputs should not be empty.
-  if (named_outputs.empty()) {
-    return base::unexpected("At least one output needs to be provided.");
+  // Remote graph gets automatically unbound when the execution context
+  // destructs.
+  if (!remote_graph_.is_bound()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Invalid graph state");
+    return;
   }
 
-  // The queue and visited set of operators that help implement the
-  // breadth-first graph traversal:
-  // https://en.wikipedia.org/wiki/Breadth-first_search
-  HeapDeque<Member<const MLOperator>> operators_queue;
-  HeapHashSet<Member<const MLOperator>> visited_operators;
-
-  // Validate the named outputs, setup corresponding output resource info and
-  // initialize the queue and visited set with their dependent operators.
-  for (const auto& output : named_outputs) {
-    const auto& name = output.first;
-    const auto& operand = output.second;
-    // Validate whether it is an output operand.
-    if (operand->Kind() != webnn::mojom::blink::Operand::Kind::kOutput) {
-      return base::unexpected(String::Format(
-          "The operand with name \"%s\" is not an output operand.",
-          name.Utf8().c_str()));
+  // The inputs and outputs were already verified in the base class so we can
+  // pass the buffer directly with the input and output tensors.
+  HashMap<String, base::UnguessableToken> mojo_inputs;
+  for (const auto& [name, input_buffer] : inputs) {
+    if (!input_buffer->IsValid()) {
+      exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                        "Invalid input buffer state");
+      return;
     }
-    // Setup resource info for this output operand.
-    output_resources_info_.insert(
-        name, ResourceInfo({.data_type = operand->DataType(),
-                            .byte_length = operand->ByteLength()}));
-    // Mark its dependent operator is visited.
-    visited_operators.insert(operand->Operator());
-    // Enqueue its dependent operator.
-    operators_queue.push_back(operand->Operator());
+
+    mojo_inputs.insert(name, input_buffer->handle());
   }
 
-  // An input MLOperand may be used by more than one MLOperators. This set
-  // ensures an input MLOperand won't be validated multiple times.
-  HeapHashSet<Member<const MLOperand>> visited_input_operands;
-  while (operators_queue.size() > 0) {
-    // If the queue is not empty, dequeue an operator from the queue.
-    const auto current_operator = operators_queue.TakeFirst();
-    // Enumerate the current operator's input operands.
-    for (const auto& operand : current_operator->Inputs()) {
-      switch (operand->Kind()) {
-        case webnn::mojom::blink::Operand::Kind::kOutput:
-          DCHECK(operand->Operator());
-          // If the operand is an output operand and its dependent operator is
-          // not visited, mark the dependent operator is visited and enqueue
-          // it.
-          if (!visited_operators.Contains(operand->Operator())) {
-            visited_operators.insert(operand->Operator());
-            operators_queue.push_back(operand->Operator());
-          }
-          break;
-        case webnn::mojom::blink::Operand::Kind::kInput:
-          // If the operand has been validated, it doesn't need to be verified
-          // multiple times.
-          if (visited_input_operands.Contains(operand)) {
-            continue;
-          }
-          visited_input_operands.insert(operand);
-          // If the operand is an input operand, validate whether its name is
-          // unique.
-          if (input_resources_info_.Contains(operand->Name())) {
-            return base::unexpected(
-                String::Format("The input name \"%s\" is duplicated.",
-                               operand->Name().Utf8().c_str()));
-          }
-          // Setup resource info for this input operand.
-          input_resources_info_.insert(
-              operand->Name(),
-              ResourceInfo({.data_type = operand->DataType(),
-                            .byte_length = operand->ByteLength()}));
-          break;
-        case webnn::mojom::blink::Operand::Kind::kConstant:
-          // If the operand has been validated, it doesn't need to be verified
-          // multiple times.
-          if (visited_input_operands.Contains(operand)) {
-            continue;
-          }
-          visited_input_operands.insert(operand);
-          // If the operand is a constant operand, validate its ArrayBufferView
-          // is not detached, because the backends may access its content in
-          // `BuildImpl()`. A constant operand may carry a detached
-          // ArrayBufferView if the JS code first calls
-          // `MLGraphBuilder.constant()` to build a constant operand with a
-          // valid ArrayBufferView, then detaches the ArrayBufferView and calls
-          // `MLGraphBuilder.build()` to build the graph with this constant
-          // operand.
-          CHECK(operand->ArrayBufferView());
-          if (operand->ArrayBufferView()->IsDetached()) {
-            return base::unexpected(
-                "The array buffer view of the constant operand is detached.");
-          }
-          break;
-      }
+  HashMap<String, base::UnguessableToken> mojo_outputs;
+  for (const auto& [name, output_buffer] : outputs) {
+    if (!output_buffer->IsValid()) {
+      exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                        "Invalid output buffer state");
+      return;
     }
+
+    mojo_outputs.insert(name, output_buffer->handle());
   }
-  resources_info_initialized_ = true;
-  return base::ok();
+
+  remote_graph_->Dispatch(std::move(mojo_inputs), std::move(mojo_outputs));
 }
 
 const MLContext* MLGraph::Context() const {
   return ml_context_.Get();
+}
+
+void MLGraph::DidCompute(
+    ScopedMLTrace scoped_trace,
+    ScriptPromiseResolver<MLComputeResult>* resolver,
+    std::unique_ptr<Vector<std::pair<String, ArrayBufferViewInfo>>> inputs_info,
+    std::unique_ptr<Vector<std::pair<String, ArrayBufferViewInfo>>>
+        outputs_info,
+    webnn::mojom::blink::ComputeResultPtr mojo_result) {
+  if (mojo_result->is_error()) {
+    const auto& compute_error = mojo_result->get_error();
+    resolver->RejectWithDOMException(
+        WebNNErrorCodeToDOMExceptionCode(compute_error->code),
+        compute_error->message);
+    return;
+  }
+
+  const auto& mojo_outputs = mojo_result->get_named_outputs();
+  auto* outputs = MakeGarbageCollected<MLNamedArrayBufferViews>();
+  outputs->reserve(outputs_info->size());
+  for (auto& [output_name, output_view_info] : *outputs_info) {
+    // The verification before computing ensures the `ml_outputs` match graph's
+    // expectation, so we only need to verify the result `mojo_outputs` from
+    // WebNN Service here.
+    auto output_buffer_iter = mojo_outputs.find(output_name);
+    if (output_buffer_iter == mojo_outputs.end()) {
+      resolver->RejectWithDOMException(
+          DOMExceptionCode::kOperationError,
+          "There is an unknown output tensor in the computation result: " +
+              output_name);
+      return;
+    }
+    DOMArrayBufferView* output_view =
+        CreateArrayBufferView(std::move(output_view_info));
+    CHECK(output_view);
+    auto output_buffer = base::make_span(output_buffer_iter->value);
+    if (output_buffer.size() != output_view->byteLength()) {
+      resolver->RejectWithDOMException(
+          DOMExceptionCode::kUnknownError,
+          "The output tensor size does not match graph's expectation: " +
+              output_name);
+      return;
+    }
+    output_view->ByteSpan().copy_from(output_buffer);
+    outputs->push_back(std::make_pair(output_name, output_view));
+  }
+  auto* result = MLComputeResult::Create();
+  result->setInputs(*CreateNamedArrayBufferViews(std::move(inputs_info)));
+  result->setOutputs(*outputs);
+  resolver->Resolve(result);
 }
 
 }  // namespace blink

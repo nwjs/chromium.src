@@ -14,7 +14,7 @@
 namespace webnn::tflite {
 
 // `ContextImplCrOS` is created by `WebNNContextProviderImpl` and responsible
-// for creating a `GraphImpl` which uses TFLite for inference.
+// for creating a `GraphImplTflite` which uses TFLite for inference.
 class ContextImplCrOS final : public WebNNContextImpl {
  public:
   ContextImplCrOS(mojo::PendingReceiver<mojom::WebNNContext> receiver,
@@ -55,4 +55,4 @@ class ContextImplCrOS final : public WebNNContextImpl {
 
 }  // namespace webnn::tflite
 
-#endif  // SERVICES_WEBNN_DML_CONTEXT_IMPL_H_
+#endif  // SERVICES_WEBNN_TFLITE_CONTEXT_IMPL_CROS_H_

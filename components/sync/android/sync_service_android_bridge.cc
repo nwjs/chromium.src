@@ -20,12 +20,15 @@
 #include "base/time/time.h"
 #include "components/signin/public/base/gaia_id_hash.h"
 #include "components/signin/public/identity_manager/account_info.h"
-#include "components/sync/android/jni_headers/SyncServiceImpl_jni.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_service_utils.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "google_apis/gaia/google_service_auth_error.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "components/sync/android/jni_headers/SyncServiceImpl_jni.h"
+#include "components/sync/android/jni_headers/SyncService_jni.h"
 
 using base::android::AppendJavaStringArrayToStringVector;
 using base::android::AttachCurrentThread;
@@ -92,6 +95,18 @@ syncer::UserSelectableType IntToUserSelectableTypeChecked(int type) {
 
 }  // namespace
 
+// static
+syncer::SyncService* SyncServiceAndroidBridge::FromJavaObject(
+    const base::android::JavaRef<jobject>& j_sync_service) {
+  if (!j_sync_service) {
+    return nullptr;
+  }
+  auto* bridge = reinterpret_cast<SyncServiceAndroidBridge*>(
+      Java_SyncService_getNativeSyncServiceAndroidBridge(AttachCurrentThread(),
+                                                         j_sync_service));
+  return bridge ? bridge->native_sync_service_ : nullptr;
+}
+
 SyncServiceAndroidBridge::SyncServiceAndroidBridge(
     syncer::SyncService* native_sync_service)
     : native_sync_service_(native_sync_service) {
@@ -125,10 +140,6 @@ void SyncServiceAndroidBridge::OnSyncShutdown(syncer::SyncService* sync) {
 
 void SyncServiceAndroidBridge::SetSyncRequested(JNIEnv* env) {
   native_sync_service_->SetSyncFeatureRequested();
-}
-
-jboolean SyncServiceAndroidBridge::CanSyncFeatureStart(JNIEnv* env) {
-  return native_sync_service_->CanSyncFeatureStart();
 }
 
 jboolean SyncServiceAndroidBridge::IsSyncFeatureEnabled(JNIEnv* env) {

@@ -24,9 +24,6 @@ extern const char kPriceTrackingIconColorsDescription[];
 extern const char kProductSpecificationsName[];
 extern const char kProductSpecificationsDescription[];
 
-extern const char kProductSpecificationsSyncName[];
-extern const char kProductSpecificationsSyncDescription[];
-
 extern const char kShoppingIconColorVariantName[];
 extern const char kShoppingIconColorVariantDescription[];
 
@@ -45,6 +42,9 @@ extern const char kPriceInsightsDescription[];
 #if BUILDFLAG(IS_IOS)
 extern const char kPriceInsightsIosName[];
 extern const char kPriceInsightsIosDescription[];
+
+extern const char kPriceInsightsHighPriceIosName[];
+extern const char kPriceInsightsHighPriceIosDescription[];
 #endif
 
 extern const char kShoppingPageTypesName[];
@@ -52,6 +52,9 @@ extern const char kShoppingPageTypesDescription[];
 
 extern const char kTrackByDefaultOnMobileName[];
 extern const char kTrackByDefaultOnMobileDescription[];
+
+extern const char kPriceTrackingSubscriptionServiceLocaleKeyName[];
+extern const char kPriceTrackingSubscriptionServiceLocaleKeyDescription[];
 
 }  // namespace commerce::flag_descriptions
 

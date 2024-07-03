@@ -171,6 +171,10 @@ bool ContentRendererClient::IsLinkVisited(uint64_t link_hash) {
   return false;
 }
 
+void ContentRendererClient::AddOrUpdateVisitedLinkSalt(
+    const url::Origin& origin,
+    uint64_t salt) {}
+
 std::unique_ptr<blink::WebPrescientNetworking>
 ContentRendererClient::CreatePrescientNetworking(RenderFrame* render_frame) {
   return nullptr;
@@ -303,7 +307,8 @@ ContentRendererClient::GetBaseRendererFactory(
     media::MediaLog* media_log,
     media::DecoderFactory* decoder_factory,
     base::RepeatingCallback<media::GpuVideoAcceleratorFactories*()>
-        get_gpu_factories_cb) {
+        get_gpu_factories_cb,
+    int element_id) {
   return nullptr;
 }
 

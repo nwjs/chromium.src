@@ -69,11 +69,12 @@ void OomScorePolicyChromeOS::HandlePageNodeEvents() {
   PageDiscardingHelper* discarding_helper =
       PageDiscardingHelper::GetFromGraph(graph_);
 
-  std::vector<const PageNode*> page_nodes = graph_->GetAllPageNodes();
-
+  Graph::NodeSetView<const PageNode*> all_page_nodes =
+      graph_->GetAllPageNodes();
   std::vector<PageNodeSortProxy> candidates;
+  candidates.reserve(all_page_nodes.size());
 
-  for (const auto* page_node : page_nodes) {
+  for (const PageNode* page_node : all_page_nodes) {
     PageDiscardingHelper::CanDiscardResult can_discard_result =
         discarding_helper->CanDiscard(
             page_node, PageDiscardingHelper::DiscardReason::URGENT);

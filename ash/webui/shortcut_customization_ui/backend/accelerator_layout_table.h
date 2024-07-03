@@ -453,9 +453,14 @@ inline constexpr uint32_t kAcceleratorLayouts[] = {
     AcceleratorAction::kWindowCycleSnapRight,
     AcceleratorAction::kMoveActiveWindowBetweenDisplays,
     AcceleratorAction::kMinimizeTopWindowOnBack,
-    AcceleratorAction::kToggleSnapGroupWindowsGroupAndUngroup,
+    AcceleratorAction::kCreateSnapGroup,
     AcceleratorAction::kToggleSnapGroupWindowsMinimizeAndRestore,
     AcceleratorAction::kToggleFloating,
+    // TODO(b/343559364): Temporary location pending UI review.
+    AcceleratorAction::kTilingWindowResizeLeft,
+    AcceleratorAction::kTilingWindowResizeRight,
+    AcceleratorAction::kTilingWindowResizeUp,
+    AcceleratorAction::kTilingWindowResizeDown,
 
     // Windows and desks > Desks
     AcceleratorAction::kDesksNewDesk,
@@ -474,6 +479,7 @@ inline constexpr uint32_t kAcceleratorLayouts[] = {
     AcceleratorAction::kToggleSpokenFeedback,
 
     // Accessibility > Visibility
+    AcceleratorAction::kEnableSelectToSpeak,
     AcceleratorAction::kToggleHighContrast,
     AcceleratorAction::kToggleDockedMagnifier,
     AcceleratorAction::kToggleFullscreenMagnifier,

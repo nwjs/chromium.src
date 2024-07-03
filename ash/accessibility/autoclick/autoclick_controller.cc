@@ -56,11 +56,11 @@ base::TimeDelta CalculateStartGestureDelay(base::TimeDelta total_delay) {
 
 views::Widget::InitParams CreateAutoclickOverlayWidgetParams(
     aura::Window* root_window) {
-  views::Widget::InitParams params;
-  params.type = views::Widget::InitParams::TYPE_WINDOW_FRAMELESS;
+  views::Widget::InitParams params(
+      views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.accept_events = false;
   params.activatable = views::Widget::InitParams::Activatable::kNo;
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.parent =
       Shell::GetContainer(root_window, kShellWindowId_OverlayContainer);
@@ -262,7 +262,7 @@ void AutoclickController::DoScrollAction(ScrollPadAction action) {
       scroll_x = -kScrollDelta;
       break;
     case ScrollPadAction::kScrollClose:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   // Generate a scroll event at the current scroll location.

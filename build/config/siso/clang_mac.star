@@ -56,6 +56,17 @@ def __filegroups(ctx):
         "type": "glob",
         "includes": sdk_includes,
     }
+
+    # https://chromium-review.googlesource.com/c/chromium/src/+/5568662
+    fg[ctx.fs.canonpath("./sdk/xcode_links/MacOSX14.5.sdk") + ":headers"] = {
+        "type": "glob",
+        "includes": sdk_includes,
+    }
+    fg[ctx.fs.canonpath("./sdk/xcode_links/iPhoneSimulator17.5.sdk") + ":headers"] = {
+        "type": "glob",
+        "includes": sdk_includes,
+    }
+
     fg[ctx.fs.canonpath("./sdk/xcode_links/iPhoneSimulator.platform/Developer/Library/Frameworks") + ":headers"] = {
         "type": "glob",
         "includes": sdk_includes,
@@ -96,8 +107,6 @@ def __step_config(ctx, step_config):
             # see also b/256536089
             need_input_root_absolute_path_for_objc = True
 
-        # Disable remote compiles on Clang ToT builds.
-        remote = not config.get(ctx, "clang-tot")
         step_config["rules"].extend([
             {
                 "name": "clang/cxx",
@@ -108,7 +117,7 @@ def __step_config(ctx, step_config):
                 ],
                 "exclude_input_patterns": ["*.stamp"],
                 "platform_ref": "clang",
-                "remote": remote,
+                "remote": True,
                 "remote_wrapper": reproxy_config["remote_wrapper"],
                 "timeout": "2m",
             },
@@ -121,7 +130,7 @@ def __step_config(ctx, step_config):
                 ],
                 "exclude_input_patterns": ["*.stamp"],
                 "platform_ref": "clang",
-                "remote": remote,
+                "remote": True,
                 "remote_wrapper": reproxy_config["remote_wrapper"],
                 "timeout": "2m",
             },
@@ -134,7 +143,7 @@ def __step_config(ctx, step_config):
                 ],
                 "exclude_input_patterns": ["*.stamp"],
                 "platform_ref": "clang",
-                "remote": remote,
+                "remote": True,
                 "remote_wrapper": reproxy_config["remote_wrapper"],
                 "timeout": "2m",
                 "input_root_absolute_path": need_input_root_absolute_path_for_objc,
@@ -148,7 +157,7 @@ def __step_config(ctx, step_config):
                 ],
                 "exclude_input_patterns": ["*.stamp"],
                 "platform_ref": "clang",
-                "remote": remote,
+                "remote": True,
                 "remote_wrapper": reproxy_config["remote_wrapper"],
                 "timeout": "2m",
                 "input_root_absolute_path": need_input_root_absolute_path_for_objc,
@@ -163,7 +172,7 @@ def __step_config(ctx, step_config):
                 "exclude_input_patterns": ["*.stamp"],
                 "handler": "clang_compile_coverage",
                 "platform_ref": "clang",
-                "remote": remote,
+                "remote": True,
                 "remote_wrapper": reproxy_config["remote_wrapper"],
                 "timeout": "2m",
             },
@@ -177,7 +186,7 @@ def __step_config(ctx, step_config):
                 "exclude_input_patterns": ["*.stamp"],
                 "handler": "clang_compile_coverage",
                 "platform_ref": "clang",
-                "remote": remote,
+                "remote": True,
                 "remote_wrapper": reproxy_config["remote_wrapper"],
                 "timeout": "2m",
             },
@@ -191,7 +200,7 @@ def __step_config(ctx, step_config):
                 "exclude_input_patterns": ["*.stamp"],
                 "handler": "clang_compile_coverage",
                 "platform_ref": "clang",
-                "remote": remote,
+                "remote": True,
                 "remote_wrapper": reproxy_config["remote_wrapper"],
                 "timeout": "2m",
                 "input_root_absolute_path": need_input_root_absolute_path_for_objc,
@@ -206,7 +215,7 @@ def __step_config(ctx, step_config):
                 "exclude_input_patterns": ["*.stamp"],
                 "handler": "clang_compile_coverage",
                 "platform_ref": "clang",
-                "remote": remote,
+                "remote": True,
                 "remote_wrapper": reproxy_config["remote_wrapper"],
                 "timeout": "2m",
                 "input_root_absolute_path": need_input_root_absolute_path_for_objc,

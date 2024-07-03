@@ -600,11 +600,6 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
         Extension::NO_FLAGS, arc::kPlayStoreAppId, &error);
     extension_service_->AddExtension(extension_chrome_.get());
 
-    // Fake File Manager app.
-    extension_files_app_ = Extension::Create(
-        base::FilePath(), ManifestLocation::kUnpacked, manifest,
-        Extension::NO_FLAGS, extension_misc::kFilesManagerAppId, &error);
-
     if (StartWebAppProviderForMainProfile())
       StartWebAppProvider(profile());
   }
@@ -1033,8 +1028,6 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
             result += "Messages";
           } else if (app == web_app::kYoutubeAppId) {
             result += "Youtube";
-          } else if (app == extension_files_app_->id()) {
-            result += "Files";
           } else if (app == extension_platform_app_->id()) {
             result += "Platform_App";
           } else if (app == arc_support_host_->id()) {
@@ -1126,7 +1119,9 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
 
   // Creates app window and set optional ARC application id.
   views::Widget* CreateArcWindow(const std::string& window_app_id) {
-    views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
+    views::Widget::InitParams params(
+        views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+        views::Widget::InitParams::TYPE_WINDOW);
     params.bounds = gfx::Rect(5, 5, 20, 20);
     params.context = GetContext();
     views::Widget* widget = new views::Widget();
@@ -1184,7 +1179,9 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
 
   // Creates a window with TYPE_APP shelf item type and the given app_id.
   views::Widget* CreateShelfAppWindow(const std::string& app_id) {
-    views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
+    views::Widget::InitParams params(
+        views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+        views::Widget::InitParams::TYPE_WINDOW);
     params.context = GetContext();
     params.bounds = gfx::Rect(5, 5, 20, 20);
     views::Widget* widget = new views::Widget();
@@ -1367,7 +1364,6 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
   scoped_refptr<Extension> extension6_;
   scoped_refptr<Extension> extension7_;
   scoped_refptr<Extension> extension8_;
-  scoped_refptr<Extension> extension_files_app_;
   scoped_refptr<Extension> extension_platform_app_;
   scoped_refptr<Extension> arc_support_host_;
 
@@ -1890,15 +1886,11 @@ TEST_F(ChromeShelfControllerTest, PreinstalledApps) {
   AddWebApp(web_app::kMessagesAppId);
   EXPECT_EQ("Chrome, Messages, Youtube, App1", GetPinnedAppStatus());
 
-  AddExtension(extension_files_app_.get());
-  EXPECT_EQ("Chrome, Files, Messages, Youtube, App1", GetPinnedAppStatus());
-
   AddWebApp(web_app::kGoogleCalendarAppId);
-  EXPECT_EQ("Chrome, Calendar, Files, Messages, Youtube, App1",
-            GetPinnedAppStatus());
+  EXPECT_EQ("Chrome, Calendar, Messages, Youtube, App1", GetPinnedAppStatus());
 
   AddWebApp(web_app::kGmailAppId);
-  EXPECT_EQ("Chrome, Gmail, Calendar, Files, Messages, Youtube, App1",
+  EXPECT_EQ("Chrome, Gmail, Calendar, Messages, Youtube, App1",
             GetPinnedAppStatus());
 }
 

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include <iostream>
 #include <memory>
 #include <string_view>
@@ -368,7 +373,7 @@ bool GetResponseInfoForEntry(disk_cache::Entry* entry,
     bytes_read += rv;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return false;
 }
 
@@ -404,7 +409,7 @@ std::string GetMD5ForResponseBody(disk_cache::Entry* entry) {
     base::MD5Update(&ctx, std::string_view(buffer->data(), rv));
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "";
 }
 

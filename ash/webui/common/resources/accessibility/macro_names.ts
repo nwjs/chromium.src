@@ -152,6 +152,15 @@ export enum MacroName {
   // Generates a synthetic down arrow key event.
   KEY_PRESS_DOWN = 42,
 
+  // Shows/hides the overview of the user's active desktops.
+  KEY_PRESS_TOGGLE_OVERVIEW = 43,
+
+  // Pauses/plays active media.
+  KEY_PRESS_MEDIA_PLAY_PAUSE = 44,
+
+  // Generates a synthetic long click event.
+  MOUSE_LONG_CLICK_LEFT = 45,
+
   // Any new actions should match with Voice Access's semantic tags where
   // possible.
 }

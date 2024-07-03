@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ui/tabs/tab_features.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
+#include "chrome/browser/browsing_topics/browsing_topics_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
@@ -14,6 +15,8 @@
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
+#include "components/browsing_topics/browsing_topics_service.h"
+#include "components/permissions/permission_indicators_tab_data.h"
 
 namespace tabs {
 
@@ -53,6 +56,18 @@ void TabFeatures::Init(TabInterface* tab, Profile* profile) {
   // features should be instantiated in this block.
   if (tab->IsInNormalWindow()) {
     lens_overlay_controller_ = CreateLensController(tab, profile);
+
+    // Each time a new tab is created, validate the topics calculation schedule
+    // to help investigate a scheduling bug (crbug.com/343750866).
+    if (browsing_topics::BrowsingTopicsService* browsing_topics_service =
+            browsing_topics::BrowsingTopicsServiceFactory::GetForProfile(
+                profile)) {
+      browsing_topics_service->ValidateCalculationSchedule();
+    }
+
+    permission_indicators_tab_data_ =
+        std::make_unique<permissions::PermissionIndicatorsTabData>(
+            tab->GetContents());
   }
 }
 

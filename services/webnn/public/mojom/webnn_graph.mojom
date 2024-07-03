@@ -68,9 +68,6 @@ struct ArgMinMax {
 //
 // This operator performs the following batch normalization, defined as:
 // Output = Scale * ((Input - Mean) / sqrt(Variance + Epsilon)) + Bias
-//
-// If Activation is provided, the output will be further processed:
-// Output = Activation(Output)
 struct BatchNormalization {
   // The id of input operand is used to get the `Operand` description from
   // `GraphInfo.id_to_operand_map`.
@@ -97,9 +94,6 @@ struct BatchNormalization {
   // A float scalar which specifies a small value to prevent computational
   // error due to divide-by-zero.
   float epsilon = 1e-5;
-  // The optional activation function that immediately follows the
-  // batchNormalization.
-  Activation? activation;
 };
 
 // Clamp the input tensor element-wise within a range specified by the minimum
@@ -179,10 +173,13 @@ struct Conv2d {
   // The kind of 2-D convolution.
   Kind kind;
   // The id of input operand is used to get the `Operand` description from
-  // `GraphInfo.id_to_operand_map`.
+  // `GraphInfo.id_to_operand_map`. The input must be in the layout defined
+  // by ContextProperties.preferred_conv2d_input_layout.
   uint64 input_operand_id;
   // The id of filter operand is used to get the `Operand` description from
-  // `GraphInfo.id_to_operand_map`.
+  // `GraphInfo.id_to_operand_map`. The filter must be in OIHW order if the
+  // input is in NCHW order. Otherwise, it must be in IHWO if this is a
+  // depthwise convolution and OHWI order if it is not.
   uint64 filter_operand_id;
   // The id of output operand is used to get the `Operand` description from
   // `GraphInfo.id_to_operand_map`.
@@ -197,13 +194,9 @@ struct Conv2d {
   // The number of groups that input channels and output channels are divided
   // into.
   uint32 groups = 1;
-  // The layout format of the input.
-  InputOperandLayout input_layout;
   // The additional 1-D tensor with the shape of output channels whose values
   // are added to the convolution result.
   uint64? bias_operand_id;
-  // The optional activation function that immediately follows the convolution.
-  Activation? activation;
 };
 
 // Represents an element-wise binary operation, mathematically equivalent to:
@@ -976,8 +969,7 @@ struct Where {
   uint64 output_operand_id;
 };
 
-// Represents the `MLActivation` which describes an activation function type
-// to create other operations (Conv2d, BatchNormalization, for example).
+// Represents the `MLActivation` which describes an activation function type.
 union Activation {
   Clamp clamp;
   Elu elu;

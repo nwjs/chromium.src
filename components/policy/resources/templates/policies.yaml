@@ -1256,15 +1256,20 @@ policies:
   1255: ContextualGoogleIntegrationsConfiguration
   1256: PdfViewerOutOfProcessIframeEnabled
   1257: LockScreenAutoStartOnlineReauth
-  1258: ''
-  1259: ''
-  1260: ''
+  1258: KeyboardFocusableScrollersEnabled
+  1259: ExtensibleEnterpriseSSOEnabled
+  1260: CSSCustomStateDeprecatedSyntaxEnabled
   1261: MemorySaverModeSavings
-  1262: ''
-  1263: ''
-  1264: ''
-  1265: ''
+  1262: KioskVisionTelemetryEnabled
+  1263: GenAIWallpaperSettings
+  1264: GenAIVcBackgroundSettings
+  1265: DynamicCodeSettings
   1266: LensOverlaySettings
+  1267: ThirdPartyPasswordManagersAllowed
+  1268: DeviceAllowEnterpriseRemoteAccessConnections
+  1269: LocalUserFilesMigrationEnabled
+  1270: FocusModeSoundsEnabled
+
 atomic_groups:
   1: Homepage
   2: RemoteAccess
@@ -1318,3 +1323,4 @@ atomic_groups:
   50: FloatingSso
   51: WebPrintingSettings
   52: DirectSocketsSettings
+  53: SkyVaultSettings

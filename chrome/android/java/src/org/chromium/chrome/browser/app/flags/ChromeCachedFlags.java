@@ -34,12 +34,13 @@ import org.chromium.chrome.browser.omaha.VersionNumberGetter;
 import org.chromium.chrome.browser.optimization_guide.OptimizationGuidePushNotificationManager;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.searchwidget.SearchActivity;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabDataService;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils;
 import org.chromium.chrome.browser.tabpersistence.TabStateFileManager;
+import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementFieldTrial;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
-import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarCoordinator;
 import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.components.omnibox.OmniboxFeatures;
@@ -93,11 +94,8 @@ public class ChromeCachedFlags {
                         CustomTabIntentDataProvider.DENYLIST_ENTRIES,
                         CustomTabIntentDataProvider.ALLOWLIST_ENTRIES,
                         CustomTabIntentDataProvider.OMNIBOX_ALLOWED_PACKAGE_NAMES,
-                        DseNewTabUrlManager.EEA_COUNTRY_ONLY,
-                        DseNewTabUrlManager.SKIP_EEA_COUNTRY_CHECK,
                         DseNewTabUrlManager.SWAP_OUT_NTP,
                         GoogleBottomBarCoordinator.GOOGLE_BOTTOM_BAR_PARAM_BUTTON_LIST,
-                        HubFieldTrial.FLOATING_ACTION_BUTTON,
                         HubFieldTrial.PANE_SWITCHER_USES_TEXT,
                         HubFieldTrial.SUPPORTS_OTHER_TABS,
                         HubFieldTrial.SUPPORTS_SEARCH,
@@ -107,6 +105,7 @@ public class ChromeCachedFlags {
                         MinimizedFeatureUtils.MANUFACTURER_EXCLUDE_LIST,
                         MultiWindowUtils.BACK_TO_BACK_CTA_CREATION_TIMESTAMP_DIFF_THRESHOLD_MS,
                         OptimizationGuidePushNotificationManager.MAX_CACHE_SIZE,
+                        SearchActivity.SEARCH_IN_CCT_APPLY_REFERRER_ID,
                         ShoppingPersistedTabDataService
                                 .SKIP_SHOPPING_PERSISTED_TAB_DATA_DELAYED_INITIALIZATION,
                         StartSurfaceConfiguration.IS_DOODLE_SUPPORTED,
@@ -120,12 +119,15 @@ public class ChromeCachedFlags {
                         StartSurfaceConfiguration.START_SURFACE_HIDE_INCOGNITO_SWITCH_NO_TAB,
                         StartSurfaceConfiguration.START_SURFACE_OPEN_NTP_INSTEAD_OF_START,
                         StartSurfaceConfiguration.START_SURFACE_OPEN_START_AS_HOMEPAGE,
-                        StartSurfaceConfiguration.SURFACE_POLISH_SCROLLABLE_MVT,
                         StartSurfaceConfiguration.LOGO_POLISH_LARGE_SIZE,
                         StartSurfaceConfiguration.LOGO_POLISH_MEDIUM_SIZE,
                         TabManagementFieldTrial.DELAY_TEMP_STRIP_TIMEOUT_MS,
                         HomeModulesMetricsUtils.HOME_MODULES_SHOW_ALL_MODULES,
-                        HomeModulesMetricsUtils.HOME_MODULES_COMBINE_TABS,
+                        HomeModulesMetricsUtils.TAB_RESUMPTION_COMBINE_TABS,
+                        TabGroupModelFilter.SKIP_TAB_GROUP_CREATION_DIALOG,
+                        TabResumptionModuleUtils.TAB_RESUMPTION_DISABLE_BLEND,
+                        TabResumptionModuleUtils.TAB_RESUMPTION_FETCH_HISTORY_BACKEND,
+                        TabResumptionModuleUtils.TAB_RESUMPTION_FETCH_LOCAL_TABS_BACKEND,
                         TabResumptionModuleUtils.TAB_RESUMPTION_MAX_TILES_NUMBER,
                         TabResumptionModuleUtils.TAB_RESUMPTION_SHOW_SEE_MORE,
                         TabResumptionModuleUtils.TAB_RESUMPTION_USE_DEFAULT_APP_FILTER,
@@ -135,13 +137,6 @@ public class ChromeCachedFlags {
                         TabUiFeatureUtilities.ANIMATION_START_TIMEOUT_MS,
                         TabUiFeatureUtilities.ZOOMING_MIN_MEMORY,
                         TabUiFeatureUtilities.SKIP_SLOW_ZOOMING,
-                        TabUiFeatureUtilities.DISABLE_STRIP_TO_CONTENT_DD,
-                        TabUiFeatureUtilities.DISABLE_STRIP_TO_STRIP_DD,
-                        TabUiFeatureUtilities.DISABLE_STRIP_TO_STRIP_DIFF_MODEL_DD,
-                        TabUiFeatureUtilities.DISABLE_DRAG_TO_NEW_INSTANCE_DD,
-                        TabUiFeatureUtilities.ENABLE_NON_SPLIT_MODE_TAB_DRAG_MANUFACTURER_ALLOWLIST,
-                        ToolbarFeatures.DTC_TRANSITION_THRESHOLD_DP,
-                        ToolbarFeatures.USE_TOOLBAR_BG_COLOR_FOR_STRIP_TRANSITION_SCRIM,
                         VersionNumberGetter.MIN_SDK_VERSION);
 
         tryToCatchMissingParameters(

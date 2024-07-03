@@ -7,7 +7,7 @@ load("//lib/args.star", "args")
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_health_indicators.star", "health_spec")
-load("//lib/builders.star", "os", "reclient", "sheriff_rotations")
+load("//lib/builders.star", "gardener_rotations", "os", "siso")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -16,21 +16,23 @@ load("//lib/xcode.star", "xcode")
 ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
     builder_group = "chromium.memory",
+    builder_config_settings = builder_config.ci_settings(
+        retry_failed_shards = True,
+    ),
     pool = ci.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
-    sheriff_rotations = sheriff_rotations.CHROMIUM,
     tree_closing = True,
     main_console_view = "main",
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
+    gardener_rotations = gardener_rotations.CHROMIUM,
     health_spec = health_spec.DEFAULT,
-    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
-    siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 consoles.console_view(
@@ -78,7 +80,7 @@ linux_memory_builder(
             "fail_on_san_warnings",
             "release_try_builder",
             "minimal_symbols",
-            "reclient",
+            "remoteexec",
         ],
     ),
     ssd = True,
@@ -116,7 +118,7 @@ linux_memory_builder(
         short_name = "tst",
     ),
     cq_mirrors_console_view = "mirrors",
-    reclient_instance = None,
+    siso_project = None,
 )
 
 linux_memory_builder(
@@ -144,7 +146,7 @@ linux_memory_builder(
             "tsan",
             "fail_on_san_warnings",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -171,9 +173,6 @@ linux_memory_builder(
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    builder_config_settings = builder_config.ci_settings(
-        retry_failed_shards = True,
-    ),
     gn_args = gn_args.config(
         configs = [
             "cfi_full",
@@ -183,7 +182,7 @@ linux_memory_builder(
             "release",
             "static",
             "dcheck_always_on",
-            "reclient",
+            "remoteexec",
         ],
     ),
     cores = 32,
@@ -223,7 +222,7 @@ linux_memory_builder(
             "chromeos",
             "release_try_builder",
             "minimal_symbols",
-            "reclient",
+            "remoteexec",
         ],
     ),
     cores = 16,
@@ -260,14 +259,11 @@ linux_memory_builder(
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    builder_config_settings = builder_config.ci_settings(
-        retry_failed_shards = True,
-    ),
     console_view_entry = consoles.console_view_entry(
         category = "cros|asan",
         short_name = "tst",
     ),
-    reclient_instance = None,
+    siso_project = None,
 )
 
 linux_memory_builder(
@@ -295,13 +291,10 @@ linux_memory_builder(
             "chromeos",
             "msan",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     cores = 16,
-    # At this time, MSan is only compatibly with Focal. See
-    # //docs/linux/instrumented_libraries.md.
-    os = os.LINUX_FOCAL,
     ssd = True,
     console_view_entry = consoles.console_view_entry(
         category = "cros|msan",
@@ -332,15 +325,12 @@ linux_memory_builder(
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    # At this time, MSan is only compatibly with Focal. See
-    # //docs/linux/instrumented_libraries.md.
-    os = os.LINUX_FOCAL,
     console_view_entry = consoles.console_view_entry(
         category = "cros|msan",
         short_name = "tst",
     ),
     execution_timeout = 4 * time.hour,
-    reclient_instance = None,
+    siso_project = None,
 )
 
 linux_memory_builder(
@@ -366,12 +356,9 @@ linux_memory_builder(
         configs = [
             "msan",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
-    # At this time, MSan is only compatibly with Focal. See
-    # //docs/linux/instrumented_libraries.md.
-    os = os.LINUX_FOCAL,
     ssd = True,
     console_view_entry = consoles.console_view_entry(
         category = "linux|msan",
@@ -400,14 +387,11 @@ linux_memory_builder(
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
-    # At this time, MSan is only compatibly with Focal. See
-    # //docs/linux/instrumented_libraries.md.
-    os = os.LINUX_FOCAL,
     console_view_entry = consoles.console_view_entry(
         category = "linux|msan",
         short_name = "tst",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 linux_memory_builder(
@@ -437,7 +421,7 @@ linux_memory_builder(
             "lsan",
             "release_try_builder",
             "minimal_symbols",
-            "reclient",
+            "remoteexec",
             "lacros_on_linux",
             "also_build_ash_chrome",
         ],
@@ -476,7 +460,7 @@ ci.builder(
             "asan",
             "minimal_symbols",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "dcheck_always_on",
         ],
     ),
@@ -516,7 +500,7 @@ linux_memory_builder(
         short_name = "tst",
     ),
     cq_mirrors_console_view = "mirrors",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -545,7 +529,7 @@ ci.builder(
         category = "mac",
         short_name = "tst",
     ),
-    reclient_instance = None,
+    siso_project = None,
 )
 
 ci.builder(
@@ -573,7 +557,7 @@ ci.builder(
             "asan",
             "lsan",
             "release_builder_blink",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -604,7 +588,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "release_builder_blink",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -637,12 +621,9 @@ ci.builder(
         configs = [
             "msan",
             "release_builder_blink",
-            "reclient",
+            "remoteexec",
         ],
     ),
-    # At this time, MSan is only compatibly with Focal. See
-    # //docs/linux/instrumented_libraries.md.
-    os = os.LINUX_FOCAL,
     console_view_entry = consoles.console_view_entry(
         category = "linux|webkit",
         short_name = "msn",
@@ -672,18 +653,18 @@ ci.builder(
             "clang",
             "asan",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "strip_debug_info",
             "minimal_symbols",
         ],
     ),
     os = os.LINUX_DEFAULT,
-    sheriff_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "android",
         short_name = "asn",
     ),
+    gardener_rotations = args.ignore_default(None),
 )
 
 ci.builder(
@@ -710,7 +691,7 @@ ci.builder(
             "ubsan_vptr",
             "ubsan_vptr_no_recover_hack",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = 1,
@@ -720,7 +701,7 @@ ci.builder(
         category = "linux|ubsan",
         short_name = "vpt",
     ),
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.builder(
@@ -748,7 +729,7 @@ ci.builder(
             "v8_heap",
             "minimal_symbols",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     builderless = True,
@@ -761,7 +742,7 @@ ci.builder(
     # This builder is normally using 2.5 hours to run with a cached builder. And
     # 1.5 hours additional setup time without cache, https://crbug.com/1311134.
     execution_timeout = 5 * time.hour,
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.builder(
@@ -792,18 +773,18 @@ ci.builder(
             "ios_simulator",
             "x64",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "asan",
             "xctest",
         ],
     ),
     cores = None,
     os = os.MAC_DEFAULT,
-    sheriff_rotations = args.ignore_default(sheriff_rotations.IOS),
     console_view_entry = consoles.console_view_entry(
         category = "iOS",
         short_name = "asn",
     ),
+    gardener_rotations = args.ignore_default(gardener_rotations.IOS),
     xcode = xcode.xcode_default,
 )
 
@@ -815,7 +796,6 @@ ci.builder(
     schedule = "0 13 * * *",
     cores = 32,
     ssd = True,
-    sheriff_rotations = args.ignore_default(None),
     console_view_entry = [
         consoles.console_view_entry(
             category = "codeql-linux",
@@ -824,5 +804,6 @@ ci.builder(
     ],
     contact_team_email = "chrome-memory-safety-team@google.com",
     execution_timeout = 15 * time.hour,
+    gardener_rotations = args.ignore_default(None),
     notifies = ["codeql-infra"],
 )

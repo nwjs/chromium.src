@@ -141,19 +141,6 @@ if (android_64bit_target_cpu && skip_secondary_abi_for_cq) {
     bundle_name = "SystemWebView"
     min_sdk_version = default_min_sdk_version
   }
-
-  if (is_official_build) {
-    # Used for binary size monitoring.
-    create_app_bundle_minimal_apks("system_webview_minimal_apks") {
-      deps = [ ":$_main_system_webview_bundle_target" ]
-      bundle_path = "$root_build_dir/apks/SystemWebView.aab"
-    }
-
-    android_resource_sizes_test("resource_sizes_system_webview_bundle") {
-      file_path = "$root_build_dir/apks/SystemWebView.minimal.apks"
-      data_deps = [ ":system_webview_minimal_apks" ]
-    }
-  }
 }
 
 if (android_64bit_target_cpu) {
@@ -303,16 +290,11 @@ if (android_64bit_target_cpu) {
   }
 }
 
-if (is_official_build && !skip_secondary_abi_for_cq) {
+if (is_official_build && !android_64bit_target_cpu) {
   # Used for binary size monitoring.
   create_app_bundle_minimal_apks("trichrome_webview_minimal_apks") {
     deps = [ ":$_main_trichrome_webview_bundle_target" ]
     bundle_path = "$root_build_dir/apks/TrichromeWebView.aab"
-  }
-
-  android_resource_sizes_test("resource_sizes_trichrome_webview_bundle") {
-    file_path = "$root_build_dir/apks/TrichromeWebView.minimal.apks"
-    data_deps = [ ":trichrome_webview_minimal_apks" ]
   }
 }
 
@@ -391,6 +373,10 @@ if (android_64bit_target_cpu && !skip_secondary_abi_for_cq) {
 
   if (is_official_build) {
     # Used for binary size monitoring.
+    create_app_bundle_minimal_apks("trichrome_webview_64_minimal_apks") {
+      deps = [ ":trichrome_webview_64_bundle" ]
+      bundle_path = "$root_build_dir/apks/TrichromeWebView64.aab"
+    }
     create_app_bundle_minimal_apks("trichrome_webview_32_minimal_apks") {
       deps = [ ":trichrome_webview_32_bundle" ]
       bundle_path = "$root_build_dir/apks/TrichromeWebView32.aab"
@@ -530,6 +516,7 @@ generate_jni("browser_jni_headers") {
     "java/src/org/chromium/android_webview/AwFeatureMap.java",
     "java/src/org/chromium/android_webview/AwHttpAuthHandler.java",
     "java/src/org/chromium/android_webview/AwInterfaceRegistrar.java",
+    "java/src/org/chromium/android_webview/AwNetLogsConnection.java",
     "java/src/org/chromium/android_webview/AwPacProcessor.java",
     "java/src/org/chromium/android_webview/AwPdfExporter.java",
     "java/src/org/chromium/android_webview/AwProxyController.java",
@@ -596,6 +583,7 @@ android_library("browser_java") {
     "java/src/org/chromium/android_webview/AwKeyboardShortcuts.java",
     "java/src/org/chromium/android_webview/AwLayoutSizer.java",
     "java/src/org/chromium/android_webview/AwMediaIntegrityApiStatusConfig.java",
+    "java/src/org/chromium/android_webview/AwNetLogsConnection.java",
     "java/src/org/chromium/android_webview/AwNetworkChangeNotifierRegistrationPolicy.java",
     "java/src/org/chromium/android_webview/AwPacProcessor.java",
     "java/src/org/chromium/android_webview/AwPdfExporter.java",
@@ -639,7 +627,6 @@ android_library("browser_java") {
     "java/src/org/chromium/android_webview/NoopSafeModeAction.java",
     "java/src/org/chromium/android_webview/NullAwViewMethods.java",
     "java/src/org/chromium/android_webview/OverScrollGlow.java",
-    "java/src/org/chromium/android_webview/PlatformServiceBridgeAwContentsWrapper.java",
     "java/src/org/chromium/android_webview/PopupTouchHandleDrawable.java",
     "java/src/org/chromium/android_webview/ScriptHandler.java",
     "java/src/org/chromium/android_webview/ScrollAccessibilityHelper.java",
@@ -889,6 +876,7 @@ android_library("common_java") {
     "//content/public/common:common_java",
     "//gpu/config:config_java",
     "//media/base/android:media_java",
+    "//net:cookie_switches_java",
     "//net/base:features_java",
     "//services/network/public:features_java",
     "//services/tracing/public:features_java",
@@ -917,6 +905,7 @@ android_aidl("common_aidl") {
     "java/src/org/chromium/android_webview/common/services/IDeveloperUiService.aidl",
     "java/src/org/chromium/android_webview/common/services/IMetricsBridgeService.aidl",
     "java/src/org/chromium/android_webview/common/services/IMetricsUploadService.aidl",
+    "java/src/org/chromium/android_webview/common/services/INetLogService.aidl",
     "java/src/org/chromium/android_webview/common/services/ISafeModeService.aidl",
     "java/src/org/chromium/android_webview/common/services/IVariationsSeedServer.aidl",
     "java/src/org/chromium/android_webview/common/services/IVariationsSeedServerCallback.aidl",
@@ -1082,6 +1071,7 @@ android_resources("resources") {
     "java/res/drawable-xxhdpi/ic_play_circle_outline_black_48dp.png",
     "java/res/drawable-xxxhdpi/ic_play_circle_outline_black_48dp.png",
     "java/res/raw/histograms_allowlist.txt",
+    "java/res/values/styles.xml",
   ]
   deps = [ ":strings_grd" ]
 }

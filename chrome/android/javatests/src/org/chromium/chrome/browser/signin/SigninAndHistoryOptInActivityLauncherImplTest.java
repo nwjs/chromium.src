@@ -64,7 +64,9 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
             new BaseActivityTestRule(BlankUiTestActivity.class);
 
     private static final AccountPickerBottomSheetStrings BOTTOM_SHEET_STRINGS =
-            new AccountPickerBottomSheetStrings.Builder(R.string.sign_in_to_chrome).build();
+            new AccountPickerBottomSheetStrings.Builder(
+                            R.string.signin_account_picker_bottom_sheet_title)
+                    .build();
 
     @Mock private Context mContextMock;
     @Mock private IdentityServicesProvider mIdentityProviderMock;
@@ -101,7 +103,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     SigninAccessPoint.NTP_SIGNED_OUT_ICON);
                 });
 
-        verify(mContextMock).startActivity(notNull(), any());
+        verify(mContextMock).startActivity(notNull());
     }
 
     @Test
@@ -127,7 +129,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     SigninAccessPoint.NTP_SIGNED_OUT_ICON);
                 });
 
-        verify(mContextMock).startActivity(notNull(), any());
+        verify(mContextMock).startActivity(notNull());
     }
 
     @Test
@@ -149,7 +151,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     SigninAccessPoint.RECENT_TABS);
                 });
 
-        verify(mContextMock).startActivity(notNull(), any());
+        verify(mContextMock).startActivity(notNull());
     }
 
     @Test
@@ -175,7 +177,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     SigninAccessPoint.NTP_SIGNED_OUT_ICON);
                 });
 
-        verify(mContextMock, never()).startActivity(notNull(), any());
+        verify(mContextMock, never()).startActivity(notNull());
     }
 
     @Test
@@ -201,7 +203,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     SigninAccessPoint.NTP_SIGNED_OUT_ICON);
                 });
 
-        verify(mContextMock, never()).startActivity(notNull(), any());
+        verify(mContextMock, never()).startActivity(notNull());
     }
 
     @Test
@@ -228,7 +230,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     SigninAccessPoint.NTP_SIGNED_OUT_ICON);
                 });
 
-        verify(mContextMock, never()).startActivity(notNull(), any());
+        verify(mContextMock, never()).startActivity(notNull());
     }
 
     @Test
@@ -253,7 +255,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                     SigninAccessPoint.RECENT_TABS);
                 });
 
-        verify(mContextMock, never()).startActivity(notNull(), any());
+        verify(mContextMock, never()).startActivity(notNull());
     }
 
     @Test
@@ -323,5 +325,91 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
                                 not(mActivityTestRule.getActivity().getWindow().getDecorView())))
                 .check(matches(isDisplayed()));
         watchSigninDisabledToastShownHistogram.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    public void testLaunchUpgradePromoActivityIfAllowed() {
+        when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
+
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SigninAndHistoryOptInActivityLauncherImpl.get()
+                            .launchUpgradePromoActivityIfAllowed(mContextMock, mProfileMock);
+                });
+
+        verify(mContextMock).startActivity(notNull());
+    }
+
+    @Test
+    @MediumTest
+    public void testLaunchUpgradePromoActivityIfAllowedWhenSigninNotAllowed() {
+        when(IdentityServicesProvider.get().getIdentityManager(any()))
+                .thenReturn(mIdentityManagerMock);
+        when(mIdentityManagerMock.hasPrimaryAccount(eq(ConsentLevel.SIGNIN))).thenReturn(false);
+        when(mSigninManagerMock.isSigninAllowed()).thenReturn(false);
+
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SigninAndHistoryOptInActivityLauncherImpl.get()
+                            .launchUpgradePromoActivityIfAllowed(mContextMock, mProfileMock);
+                });
+
+        verify(mContextMock, never()).startActivity(notNull());
+    }
+
+    @Test
+    @MediumTest
+    public void testLaunchUpgradePromoActivityIfAllowedWhenAlreadySignedIn() {
+        when(IdentityServicesProvider.get().getIdentityManager(any()))
+                .thenReturn(mIdentityManagerMock);
+        when(mIdentityManagerMock.hasPrimaryAccount(eq(ConsentLevel.SIGNIN))).thenReturn(true);
+        when(mSigninManagerMock.isSigninAllowed()).thenReturn(false);
+        when(mHistorySyncHelperMock.shouldSuppressHistorySync()).thenReturn(false);
+        when(mHistorySyncHelperMock.isDeclinedOften()).thenReturn(false);
+
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SigninAndHistoryOptInActivityLauncherImpl.get()
+                            .launchUpgradePromoActivityIfAllowed(mContextMock, mProfileMock);
+                });
+
+        verify(mContextMock).startActivity(notNull());
+    }
+
+    @Test
+    @MediumTest
+    public void testLaunchUpgradePromoActivityIfAllowedWhenSignedInAndHistorySyncNotAllowed() {
+        when(IdentityServicesProvider.get().getIdentityManager(any()))
+                .thenReturn(mIdentityManagerMock);
+        when(mIdentityManagerMock.hasPrimaryAccount(eq(ConsentLevel.SIGNIN))).thenReturn(true);
+        when(mSigninManagerMock.isSigninAllowed()).thenReturn(false);
+        when(mHistorySyncHelperMock.shouldSuppressHistorySync()).thenReturn(true);
+
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SigninAndHistoryOptInActivityLauncherImpl.get()
+                            .launchUpgradePromoActivityIfAllowed(mContextMock, mProfileMock);
+                });
+
+        verify(mContextMock, never()).startActivity(notNull());
+    }
+
+    @Test
+    @MediumTest
+    public void testLaunchUpgradePromoActivityIfAllowedWhenSignedInAndHistorySyncDeclinedOften() {
+        when(IdentityServicesProvider.get().getIdentityManager(any()))
+                .thenReturn(mIdentityManagerMock);
+        when(mIdentityManagerMock.hasPrimaryAccount(eq(ConsentLevel.SIGNIN))).thenReturn(true);
+        when(mSigninManagerMock.isSigninAllowed()).thenReturn(false);
+        when(mHistorySyncHelperMock.isDeclinedOften()).thenReturn(true);
+
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SigninAndHistoryOptInActivityLauncherImpl.get()
+                            .launchUpgradePromoActivityIfAllowed(mContextMock, mProfileMock);
+                });
+
+        verify(mContextMock, never()).startActivity(notNull());
     }
 }

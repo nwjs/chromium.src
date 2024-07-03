@@ -123,8 +123,8 @@ void VirtualCardEnrollmentManager::Enroll(
       state_.virtual_card_enrollment_fields.virtual_card_enrollment_source;
   request_details.virtual_card_enrollment_request_type =
       VirtualCardEnrollmentRequestType::kEnroll;
-  request_details.billing_customer_number =
-      payments::GetBillingCustomerId(personal_data_manager_);
+  request_details.billing_customer_number = payments::GetBillingCustomerId(
+      &personal_data_manager_->payments_data_manager());
   request_details.instrument_id =
       state_.virtual_card_enrollment_fields.credit_card.instrument_id();
   request_details.vcn_context_token = state_.vcn_context_token;
@@ -163,8 +163,8 @@ void VirtualCardEnrollmentManager::Unenroll(
 
   request_details.virtual_card_enrollment_request_type =
       VirtualCardEnrollmentRequestType::kUnenroll;
-  request_details.billing_customer_number =
-      payments::GetBillingCustomerId(personal_data_manager_);
+  request_details.billing_customer_number = payments::GetBillingCustomerId(
+      &personal_data_manager_->payments_data_manager());
   request_details.instrument_id = instrument_id;
 
   virtual_card_enrollment_update_response_callback_ =
@@ -275,7 +275,7 @@ void VirtualCardEnrollmentManager::OnDidGetUpdateVirtualCardEnrollmentResponse(
 
 void VirtualCardEnrollmentManager::OnVirtualCardEnrollCompleted(
     bool is_vcn_enrolled) {
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_IOS)
   autofill_client_->GetPaymentsAutofillClient()->VirtualCardEnrollCompleted(
       /*is_vcn_enrolled=*/is_vcn_enrolled);
 #endif
@@ -338,7 +338,7 @@ void VirtualCardEnrollmentManager::ShowVirtualCardEnrollBubble() {
     }
   }
 
-  autofill_client_->ShowVirtualCardEnrollDialog(
+  autofill_client_->GetPaymentsAutofillClient()->ShowVirtualCardEnrollDialog(
       state_.virtual_card_enrollment_fields,
       base::BindOnce(
           &VirtualCardEnrollmentManager::Enroll, weak_ptr_factory_.GetWeakPtr(),
@@ -390,8 +390,8 @@ void VirtualCardEnrollmentManager::GetDetailsForEnroll() {
       request_details;
   request_details.app_locale = personal_data_manager_->app_locale();
   request_details.risk_data = state_.risk_data.value_or("");
-  request_details.billing_customer_number =
-      payments::GetBillingCustomerId(personal_data_manager_);
+  request_details.billing_customer_number = payments::GetBillingCustomerId(
+      &personal_data_manager_->payments_data_manager());
   request_details.instrument_id =
       state_.virtual_card_enrollment_fields.credit_card.instrument_id();
   request_details.source =
@@ -518,7 +518,8 @@ void VirtualCardEnrollmentManager::SetInitialVirtualCardEnrollFields(
   // Hide the bubble and icon if it is already showing for a previous enrollment
   // bubble.
   DCHECK(autofill_client_);
-  autofill_client_->HideVirtualCardEnrollBubbleAndIconIfVisible();
+  autofill_client_->GetPaymentsAutofillClient()
+      ->HideVirtualCardEnrollBubbleAndIconIfVisible();
 #endif
 
   state_.virtual_card_enrollment_fields.credit_card = credit_card;

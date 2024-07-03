@@ -420,7 +420,7 @@ bool WorkerThread::IsForciblyTerminated() {
     case ExitCode::kAsyncForciblyTerminated:
       return true;
   }
-  NOTREACHED() << static_cast<int>(exit_code_);
+  NOTREACHED_IN_MIGRATION() << static_cast<int>(exit_code_);
   return false;
 }
 
@@ -518,7 +518,7 @@ WorkerThread::TerminationState WorkerThread::ShouldTerminateScriptExecution() {
                  ? TerminationState::kTerminate
                  : TerminationState::kTerminationUnnecessary;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return TerminationState::kTerminationUnnecessary;
 }
 
@@ -581,6 +581,7 @@ void WorkerThread::InitializeSchedulerOnWorkerThread(
       TaskType::kJavascriptTimerDelayedLowNesting,
       TaskType::kJavascriptTimerDelayedHighNesting,
       TaskType::kMediaElementEvent,
+      TaskType::kMachineLearning,
       TaskType::kMicrotask,
       TaskType::kMiscPlatformAPI,
       TaskType::kNetworking,
@@ -611,6 +612,7 @@ void WorkerThread::InitializeOnWorkerThread(
     std::unique_ptr<GlobalScopeCreationParams> global_scope_creation_params,
     const std::optional<WorkerBackingThreadStartupData>& thread_startup_data,
     std::unique_ptr<WorkerDevToolsParams> devtools_params) {
+  base::ElapsedTimer timer;
   DCHECK(IsCurrentThread());
   backing_thread_weak_factory_.emplace(this);
 
@@ -638,6 +640,12 @@ void WorkerThread::InitializeOnWorkerThread(
     const KURL url_for_debugger = global_scope_creation_params->script_url;
 
     console_message_storage_ = MakeGarbageCollected<ConsoleMessageStorage>();
+    // Record this only for the DedicatedWorker.
+    if (global_scope_creation_params->dedicated_worker_start_time.has_value()) {
+      base::UmaHistogramTimes(
+          "Worker.TopLevelScript.Initialization2GlobalScopeCreation",
+          timer.Elapsed());
+    }
     global_scope_ =
         CreateWorkerGlobalScope(std::move(global_scope_creation_params));
     worker_scheduler_->InitializeOnWorkerThread(global_scope_);
@@ -843,7 +851,7 @@ void WorkerThread::PerformShutdownOnWorkerThread() {
 void WorkerThread::SetThreadState(ThreadState next_thread_state) {
   switch (next_thread_state) {
     case ThreadState::kNotStarted:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
     case ThreadState::kRunning:
       DCHECK_EQ(ThreadState::kNotStarted, thread_state_);

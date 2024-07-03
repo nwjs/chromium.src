@@ -288,12 +288,13 @@ class WrappedDawnCompoundImageRepresentation : public DawnImageRepresentation {
   }
 
   // DawnImageRepresentation implementation.
-  wgpu::Texture BeginAccess(wgpu::TextureUsage webgpu_usage) final {
+  wgpu::Texture BeginAccess(wgpu::TextureUsage webgpu_usage,
+                            wgpu::TextureUsage internal_usage) final {
     AccessMode access_mode =
         webgpu_usage & kWriteUsage ? AccessMode::kWrite : AccessMode::kRead;
     compound_backing()->NotifyBeginAccess(SharedImageAccessStream::kDawn,
                                           access_mode);
-    return wrapped_->BeginAccess(webgpu_usage);
+    return wrapped_->BeginAccess(webgpu_usage, internal_usage);
   }
   void EndAccess() final { wrapped_->EndAccess(); }
 
@@ -805,7 +806,7 @@ CompoundImageBacking::ElementHolder& CompoundImageBacking::GetElement(
       return element;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return elements_.back();
 }
 
@@ -825,7 +826,8 @@ void CompoundImageBacking::LazyCreateBacking(
 
   backing = factory->CreateSharedImage(
       mailbox(), format(), kNullSurfaceHandle, size(), color_space(),
-      surface_origin(), alpha_type(), usage() | SHARED_IMAGE_USAGE_CPU_UPLOAD,
+      surface_origin(), alpha_type(),
+      SharedImageUsageSet(usage()) | SHARED_IMAGE_USAGE_CPU_UPLOAD,
       std::move(debug_label), /*is_thread_safe=*/false);
   if (!backing) {
     DLOG(ERROR) << "Failed to allocate GPU backing";

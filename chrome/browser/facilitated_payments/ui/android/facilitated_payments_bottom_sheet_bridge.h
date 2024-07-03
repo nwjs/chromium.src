@@ -8,7 +8,10 @@
 #include <jni.h>
 
 #include "base/android/scoped_java_ref.h"
+#include "components/autofill/core/browser/data_model/bank_account.h"
 #include "ui/android/window_android.h"
+
+class FacilitatedPaymentsController;
 
 namespace content {
 class WebContents;
@@ -29,9 +32,18 @@ class FacilitatedPaymentsBottomSheetBridge {
 
   virtual ~FacilitatedPaymentsBottomSheetBridge();
 
-  virtual bool RequestShowContent(content::WebContents* web_contents);
+  // Show the payment prompt containing user's `bank_account_suggestions`.
+  // Return true if a new bottom sheet is created and shown. Otherwise, return
+  // false.
+  virtual bool RequestShowContent(
+      base::span<const autofill::BankAccount> bank_account_suggestions,
+      FacilitatedPaymentsController* controller,
+      content::WebContents* web_contents);
 
  private:
+  // The corresponding Java FacilitatedPaymentsPaymentMethodsViewBridge. This
+  // bridge is used to pass info and commands from native side to Java side for
+  // showing UI prompts.
   base::android::ScopedJavaGlobalRef<jobject> java_bridge_;
 };
 

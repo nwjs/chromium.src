@@ -4,8 +4,8 @@
 
 #include "services/webnn/dml/adapter.h"
 
-#include <dxcore.h>
 #include <string.h>
+
 #include <string_view>
 
 #include "base/check_is_test.h"
@@ -15,6 +15,7 @@
 #include "services/webnn/dml/platform_functions.h"
 #include "services/webnn/dml/utils.h"
 #include "services/webnn/public/mojom/webnn_error.mojom.h"
+#include "third_party/microsoft_dxheaders/src/include/directx/dxcore.h"
 
 namespace webnn::dml {
 
@@ -117,19 +118,41 @@ base::expected<scoped_refptr<Adapter>, mojom::ErrorPtr> Adapter::GetNpuInstance(
     return HandleAdapterFailure(mojom::Error::Code::kUnknownError,
                                 "Failed to create adapter factory.", hr);
   }
-  // With the `DXCORE_ADAPTER_ATTRIBUTE_D3D12_CORE_COMPUTE` filter, the
-  // adapter list only contains core-compute capable devices.
-  const std::array<GUID, 1> dx_guids = {
-      DXCORE_ADAPTER_ATTRIBUTE_D3D12_CORE_COMPUTE};
+
+  // First query for NPU devices that satisfy the generic machine learning
+  // property. Note this must be done as a separate query from core compute
+  // because `CreateAdapterList()` returns the logical intersection of all
+  // filter properties, not union.
+  const std::array<GUID, 1> dx_guids_generic_ml = {
+      DXCORE_ADAPTER_ATTRIBUTE_D3D12_GENERIC_ML};
   Microsoft::WRL::ComPtr<IDXCoreAdapterList> adapter_list;
-  hr = dxcore_factory->CreateAdapterList(dx_guids.size(), dx_guids.data(),
+  hr = dxcore_factory->CreateAdapterList(dx_guids_generic_ml.size(),
+                                         dx_guids_generic_ml.data(),
                                          IID_PPV_ARGS(&adapter_list));
   if (FAILED(hr)) {
     return HandleAdapterFailure(mojom::Error::Code::kUnknownError,
                                 "Failed to create adapter list.", hr);
   }
+  uint32_t adapter_count = adapter_list->GetAdapterCount();
 
-  const uint32_t adapter_count = adapter_list->GetAdapterCount();
+  // If no generic ML devices were found, then retry with the core compute
+  // filter, getting an adapter list that only contains core-compute capable
+  // devices.
+  if (adapter_count == 0) {
+    adapter_list.Reset();
+
+    const std::array<GUID, 1> dx_guids_core_compute = {
+        DXCORE_ADAPTER_ATTRIBUTE_D3D12_CORE_COMPUTE};
+    hr = dxcore_factory->CreateAdapterList(dx_guids_core_compute.size(),
+                                           dx_guids_core_compute.data(),
+                                           IID_PPV_ARGS(&adapter_list));
+    if (FAILED(hr)) {
+      return HandleAdapterFailure(mojom::Error::Code::kUnknownError,
+                                  "Failed to create adapter list.", hr);
+    }
+    adapter_count = adapter_list->GetAdapterCount();
+  }
+
   Microsoft::WRL::ComPtr<IDXCoreAdapter> dxcore_npu_adapter;
   for (uint32_t adapter_index = 0; adapter_index < adapter_count;
        ++adapter_index) {
@@ -141,14 +164,17 @@ base::expected<scoped_refptr<Adapter>, mojom::ErrorPtr> Adapter::GetNpuInstance(
     }
 
     // Because GPUs usually also have the core-compute capability, then we need
-    // to filter out the GPUs with `DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS` to
-    // just get the first NPU.
+    // to filter out the GPUs with `DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS` or
+    // `DXCORE_ADAPTER_ATTRIBUTE_D3D11_GRAPHICS` attribute to just get the first
+    // NPU.
     bool is_hardware;
     if (SUCCEEDED(dxcore_adapter->GetProperty(DXCoreAdapterProperty::IsHardware,
                                               &is_hardware)) &&
         is_hardware &&
         !dxcore_adapter->IsAttributeSupported(
-            DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS)) {
+            DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS) &&
+        !dxcore_adapter->IsAttributeSupported(
+            DXCORE_ADAPTER_ATTRIBUTE_D3D11_GRAPHICS)) {
       dxcore_npu_adapter = std::move(dxcore_adapter);
       break;
     }
@@ -200,7 +226,15 @@ base::expected<scoped_refptr<Adapter>, mojom::ErrorPtr> Adapter::Create(
   Microsoft::WRL::ComPtr<IDXCoreAdapter> dxcore_adapter;
   if (SUCCEEDED(dxgi_or_dxcore_adapter->QueryInterface(
           IID_PPV_ARGS(&dxcore_adapter)))) {
-    d3d_feature_level = D3D_FEATURE_LEVEL_1_0_CORE;
+    // Match the requested D3D feature level with the adapter's ability,
+    // either the more complete core compute or narrower generic ML.
+    if (dxcore_adapter->IsAttributeSupported(
+            DXCORE_ADAPTER_ATTRIBUTE_D3D12_CORE_COMPUTE)) {
+      d3d_feature_level = D3D_FEATURE_LEVEL_1_0_CORE;
+    } else if (dxcore_adapter->IsAttributeSupported(
+                   DXCORE_ADAPTER_ATTRIBUTE_D3D12_GENERIC_ML)) {
+      d3d_feature_level = D3D_FEATURE_LEVEL_1_0_GENERIC;
+    }
   }
 
   auto d3d12_create_device_proc =
@@ -269,6 +303,17 @@ base::expected<scoped_refptr<Adapter>, mojom::ErrorPtr> Adapter::Create(
                                 "Failed to create command queue.");
   }
 
+  // Create command queue to initialize graph for NPU adapter.
+  scoped_refptr<CommandQueue> init_command_queue_for_npu;
+  if (dxcore_adapter) {
+    init_command_queue_for_npu = CommandQueue::Create(d3d12_device.Get());
+    if (!init_command_queue_for_npu) {
+      return HandleAdapterFailure(
+          mojom::Error::Code::kUnknownError,
+          "Failed to create command queue for graph initialization.");
+    }
+  }
+
   D3D12_FEATURE_DATA_ARCHITECTURE arch = {};
   if (FAILED(d3d12_device->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE,
                                                &arch, sizeof(arch)))) {
@@ -281,6 +326,7 @@ base::expected<scoped_refptr<Adapter>, mojom::ErrorPtr> Adapter::Create(
   return WrapRefCounted(
       new Adapter(std::move(dxgi_or_dxcore_adapter), std::move(d3d12_device),
                   std::move(dml_device), std::move(command_queue),
+                  std::move(init_command_queue_for_npu),
                   max_supported_dml_feature_level, is_uma));
 }
 
@@ -294,12 +340,14 @@ Adapter::Adapter(Microsoft::WRL::ComPtr<IUnknown> dxgi_or_dxcore_adapter,
                  Microsoft::WRL::ComPtr<ID3D12Device> d3d12_device,
                  Microsoft::WRL::ComPtr<IDMLDevice> dml_device,
                  scoped_refptr<CommandQueue> command_queue,
+                 scoped_refptr<CommandQueue> init_command_queue_for_npu,
                  DML_FEATURE_LEVEL max_supported_dml_feature_level,
                  bool is_uma)
     : dxgi_or_dxcore_adapter_(std::move(dxgi_or_dxcore_adapter)),
       d3d12_device_(std::move(d3d12_device)),
       dml_device_(std::move(dml_device)),
       command_queue_(std::move(command_queue)),
+      init_command_queue_for_npu_(std::move(init_command_queue_for_npu)),
       max_supported_dml_feature_level_(max_supported_dml_feature_level),
       is_uma_(is_uma) {
   Microsoft::WRL::ComPtr<IDXGIAdapter> dxgi_adapter;
@@ -312,6 +360,10 @@ Adapter::Adapter(Microsoft::WRL::ComPtr<IUnknown> dxgi_or_dxcore_adapter,
                  IID_PPV_ARGS(&dxcore_adapter)))) {
     CHECK_EQ(npu_instance_, nullptr);
     npu_instance_ = this;
+
+    init_task_runner_for_npu_ = base::ThreadPool::CreateSequencedTaskRunner(
+        {base::TaskPriority::USER_BLOCKING,
+         base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN});
   } else {
     NOTREACHED_NORETURN();
   }

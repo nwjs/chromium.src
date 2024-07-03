@@ -12,11 +12,12 @@
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/pill_button.h"
+#include "ash/style/rounded_rect_cutout_path_builder.h"
 #include "ash/style/typography.h"
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/window_properties.h"
+#include "ash/wm/window_restore/informed_restore_contents_data.h"
 #include "ash/wm/window_restore/pine_constants.h"
-#include "ash/wm/window_restore/pine_contents_data.h"
 #include "ash/wm/window_restore/pine_context_menu_model.h"
 #include "ash/wm/window_restore/pine_controller.h"
 #include "ash/wm/window_restore/pine_items_container_view.h"
@@ -85,10 +86,10 @@ PineContentsView::PineContentsView() : creation_time_(base::TimeTicks::Now()) {
   SetInsideBorderInsets(kContentsInsets);
 
   // Update the value of `showing_list_view_` and record it.
-  const PineContentsData* pine_contents_data =
-      Shell::Get()->pine_controller()->pine_contents_data();
-  CHECK(pine_contents_data);
-  showing_list_view_ = pine_contents_data->image.isNull();
+  const InformedRestoreContentsData* contents_data =
+      Shell::Get()->pine_controller()->contents_data();
+  CHECK(contents_data);
+  showing_list_view_ = contents_data->image.isNull();
   RecordDialogScreenshotVisibility(!showing_list_view_);
 
   CreateChildViews();
@@ -119,14 +120,17 @@ std::unique_ptr<views::Widget> PineContentsView::Create(
   aura::Window* root = Shell::GetRootWindowForDisplayId(
       display::Screen::GetScreen()->GetDisplayMatching(contents_bounds).id());
 
-  views::Widget::InitParams params;
+  views::Widget::InitParams params(
+      views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  params.activatable = features::IsOverviewNewFocusEnabled()
+                           ? views::Widget::InitParams::Activatable::kYes
+                           : views::Widget::InitParams::Activatable::kNo;
   params.bounds = contents_bounds;
   params.init_properties_container.SetProperty(kHideInDeskMiniViewKey, true);
   params.init_properties_container.SetProperty(kOverviewUiKey, true);
   params.name = "PineWidget";
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.parent = desks_util::GetActiveDeskContainerForRoot(root);
-  params.type = views::Widget::InitParams::TYPE_WINDOW_FRAMELESS;
 
   auto widget = std::make_unique<views::Widget>(std::move(params));
   widget->SetContentsView(std::move(contents_view));
@@ -155,9 +159,9 @@ void PineContentsView::UpdateOrientation() {
 }
 
 void PineContentsView::OnRestoreButtonPressed() {
-  if (PineContentsData* pine_contents_data =
-          Shell::Get()->pine_controller()->pine_contents_data()) {
-    if (pine_contents_data->restore_callback) {
+  if (InformedRestoreContentsData* contents_data =
+          Shell::Get()->pine_controller()->contents_data()) {
+    if (contents_data->restore_callback) {
       RecordTimeToAction(base::TimeTicks::Now() - creation_time_,
                          showing_list_view_);
 
@@ -167,15 +171,15 @@ void PineContentsView::OnRestoreButtonPressed() {
       close_metric_recorded_ = true;
 
       // Destroys `this`.
-      std::move(pine_contents_data->restore_callback).Run();
+      std::move(contents_data->restore_callback).Run();
     }
   }
 }
 
 void PineContentsView::OnCancelButtonPressed() {
-  if (PineContentsData* pine_contents_data =
-          Shell::Get()->pine_controller()->pine_contents_data()) {
-    if (pine_contents_data->cancel_callback) {
+  if (InformedRestoreContentsData* contents_data =
+          Shell::Get()->pine_controller()->contents_data()) {
+    if (contents_data->cancel_callback) {
       RecordTimeToAction(base::TimeTicks::Now() - creation_time_,
                          showing_list_view_);
       RecordPineDialogClosing(
@@ -184,7 +188,7 @@ void PineContentsView::OnCancelButtonPressed() {
       close_metric_recorded_ = true;
 
       // Destroys `this`.
-      std::move(pine_contents_data->cancel_callback).Run();
+      std::move(contents_data->cancel_callback).Run();
     }
   }
 }
@@ -270,13 +274,13 @@ void PineContentsView::CreateChildViews() {
   SetOrientation(landscape_mode ? views::BoxLayout::Orientation::kHorizontal
                                 : views::BoxLayout::Orientation::kVertical);
 
-  const PineContentsData* pine_contents_data =
-      Shell::Get()->pine_controller()->pine_contents_data();
-  CHECK(pine_contents_data);
-  const int title_message_id = pine_contents_data->last_session_crashed
+  const InformedRestoreContentsData* contents_data =
+      Shell::Get()->pine_controller()->contents_data();
+  CHECK(contents_data);
+  const int title_message_id = contents_data->last_session_crashed
                                    ? IDS_ASH_PINE_DIALOG_CRASH_TITLE
                                    : IDS_ASH_PINE_DIALOG_TITLE;
-  const int description_message_id = pine_contents_data->last_session_crashed
+  const int description_message_id = contents_data->last_session_crashed
                                          ? IDS_ASH_PINE_DIALOG_CRASH_DESCRIPTION
                                          : IDS_ASH_PINE_DIALOG_DESCRIPTION;
 
@@ -316,9 +320,8 @@ void PineContentsView::CreateChildViews() {
   gfx::Size screenshot_size;
   views::BoxLayoutView* preview_container_view;
   if (showing_list_view_) {
-    preview_container_view =
-        AddChildView(std::make_unique<PineItemsContainerView>(
-            pine_contents_data->apps_infos));
+    preview_container_view = AddChildView(
+        std::make_unique<PineItemsContainerView>(contents_data->apps_infos));
     preview_container_view->SetID(pine::kPreviewContainerViewID);
     preview_container_view->SetPreferredSize(
         gfx::Size(pine::kPreviewContainerWidth, kItemsViewContainerHeight));
@@ -326,8 +329,8 @@ void PineContentsView::CreateChildViews() {
     // TODO(http://b/338666906): Fix the screenshot view when in portrait mode,
     // and after transitioning to landscape mode.
 
-    const gfx::ImageSkia& pine_image = pine_contents_data->image;
-    screenshot_size = pine_image.size();
+    const gfx::ImageSkia& image = contents_data->image;
+    screenshot_size = image.size();
     screenshot_size.set_height(
         std::max(kScreenshotMinHeight, screenshot_size.height()));
 
@@ -345,23 +348,25 @@ void PineContentsView::CreateChildViews() {
                     .SetLayoutManager(std::make_unique<views::FillLayout>())
                     .SetPreferredSize(screenshot_size)
                     .AddChildren(
-                        views::Builder<views::ImageView>()
-                            .CopyAddressTo(&image_view_)
-                            .SetImage(pine_image)
-                            .SetImageSize(screenshot_size),
                         views::Builder<views::BoxLayoutView>()
                             .CopyAddressTo(&icon_row_container)
                             .SetPaintToLayer()
                             .SetOrientation(
                                 views::BoxLayout::Orientation::kVertical)
                             .AddChildren(views::Builder<views::View>()
-                                             .CopyAddressTo(&icon_row_spacer))))
+                                             .CopyAddressTo(&icon_row_spacer)),
+                        views::Builder<views::ImageView>()
+                            .CopyAddressTo(&image_view_)
+                            .SetPaintToLayer()
+                            .SetImage(image)
+                            .SetImageSize(screenshot_size)))
             .Build());
 
     icon_row_container->layer()->SetFillsBoundsOpaquely(false);
+    icon_row_container->layer()->SetRoundedCornerRadius(
+        gfx::RoundedCornersF(pine::kPreviewContainerRadius));
     screenshot_icon_row_view_ = icon_row_container->AddChildView(
-        std::make_unique<PineScreenshotIconRowView>(
-            pine_contents_data->apps_infos));
+        std::make_unique<PineScreenshotIconRowView>(contents_data->apps_infos));
     icon_row_container->SetFlexForView(icon_row_spacer, 1);
   }
 
@@ -398,12 +403,15 @@ void PineContentsView::CreateChildViews() {
   // `kPreviewContainerWidth` while its height is calculated based on the
   // display's aspect ratio.
   const int screenshot_height = screenshot_size.height();
-  const int pine_contents_height =
+  const int primary_container_height =
       showing_list_view_
           ? kItemsViewContainerHeight
           : std::max(kScreenshotContainerMinHeight, screenshot_height);
-  primary_container_view->SetPreferredSize(
-      gfx::Size(kActionsContainerWidth, pine_contents_height));
+
+  primary_container_view->SetPreferredSize(gfx::Size(
+      kActionsContainerWidth,
+      landscape_mode ? primary_container_height
+                     : primary_container_view->GetPreferredSize().height()));
 
   // Set the screenshot preview container vertical margin based on the height of
   // the screenshot.
@@ -430,58 +438,16 @@ void PineContentsView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   }
 
   const gfx::Size icon_row_size = screenshot_icon_row_view_->GetPreferredSize();
-  const int icon_row_width = icon_row_size.width();
-  const int icon_row_height = icon_row_size.height();
-
-  const gfx::Size image_view_size = image_view_->GetPreferredSize();
-  const int image_view_width = image_view_size.width();
-  const int image_view_height = image_view_size.height();
-
-  const auto top_left = SkPoint::Make(0, 0);
-  const auto bottom_right = SkPoint::Make(image_view_width, image_view_height);
-  const auto top_right = SkPoint::Make(image_view_width, 0);
-
-  const int cutout_curve1_end_x = pine::kPreviewContainerRadius;
-  const int cutout_curve1_end_y =
-      image_view_height - icon_row_height + pine::kPreviewContainerRadius;
-
-  const int cutout_curve2_end_x =
-      icon_row_width - pine::kPreviewContainerRadius;
-  const int cutout_curve2_end_y = image_view_height;
-
-  auto clip_path =
-      SkPath()
-          // Start from the top-left point.
-          .moveTo(top_left)
-          // Draw the first concave arc at the bottom-left and a horizontal line
-          // connecting it to the bottom-right concave arc.
-          .arcTo(SkPoint::Make(0, cutout_curve1_end_y),
-                 SkPoint::Make(cutout_curve1_end_x, cutout_curve1_end_y),
-                 pine::kPreviewContainerRadius)
-          // Draw the bottom-right concave arc and a horizontal line connecting
-          // it to the bottom-right rounded corner.
-          .arcTo(SkPoint::Make(cutout_curve2_end_x, cutout_curve1_end_y),
-                 SkPoint::Make(cutout_curve2_end_x, cutout_curve2_end_y),
-                 pine::kPreviewContainerRadius)
-          .arcTo(SkPoint::Make(cutout_curve2_end_x, cutout_curve2_end_y),
-                 bottom_right, pine::kPreviewContainerRadius)
-          // Draw the bottom-right rounded corner.
-          .arcTo(
-              bottom_right,
-              SkPoint::Make(image_view_width,
-                            image_view_height - pine::kPreviewContainerRadius),
-              pine::kPreviewContainerRadius)
-          // Draw the top-right rounded corner.
-          .arcTo(top_right,
-                 SkPoint::Make(image_view_width - pine::kPreviewContainerRadius,
-                               0),
-                 pine::kPreviewContainerRadius)
-          // Draw the top-left rounded corner.
-          .arcTo(top_left, SkPoint::Make(0, pine::kPreviewContainerRadius),
-                 pine::kPreviewContainerRadius)
-          .close();
-  CHECK(image_view_);
-  image_view_->SetClipPath(clip_path);
+  auto builder =
+      RoundedRectCutoutPathBuilder(gfx::SizeF(image_view_->GetPreferredSize()));
+  builder.CornerRadius(pine::kPreviewContainerRadius);
+  builder.AddCutout(
+      RoundedRectCutoutPathBuilder::Corner::kLowerLeft,
+      gfx::SizeF(icon_row_size.width() - pine::kPreviewContainerRadius,
+                 icon_row_size.height() - pine::kPreviewContainerRadius));
+  builder.CutoutOuterCornerRadius(pine::kPreviewContainerRadius);
+  builder.CutoutInnerCornerRadius(pine::kPreviewContainerRadius);
+  image_view_->SetClipPath(builder.Build());
 }
 
 BEGIN_METADATA(PineContentsView)

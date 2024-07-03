@@ -4,7 +4,7 @@
 
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/cr_icons.css.js';
-import '//resources/cr_elements/icons.html.js';
+import '//resources/cr_elements/icons_lit.html.js';
 import '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import '//resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
 import './icons.html.js';
@@ -18,9 +18,9 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {DomRepeatEvent} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {openMenu} from './common.js';
+import {openMenu, ReadAloudSettingsChange, SPEECH_SETTINGS_CHANGE_UMA} from './common.js';
 import type {LanguageMenuElement} from './language_menu.js';
-import {areVoicesEqual, convertLangOrLocaleForVoicePackManager, isNatural, VoicePackStatus} from './voice_language_util.js';
+import {areVoicesEqual, convertLangOrLocaleForVoicePackManager, isNatural, VoiceClientSideStatusCode} from './voice_language_util.js';
 import {getTemplate} from './voice_selection_menu.html.js';
 
 export interface VoiceSelectionMenuElement {
@@ -58,7 +58,7 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase {
   // via one way data binding.
   private readonly paused: boolean;
   private readonly voicePackInstallStatus:
-      {[language: string]: VoicePackStatus};
+      {[language: string]: VoiceClientSideStatusCode};
   private voicePlayingWhenMenuOpened_: boolean = false;
 
   static get is() {
@@ -172,6 +172,9 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase {
   }
 
   private onVoiceSelectClick_(event: DomRepeatEvent<VoiceDropdownItem>) {
+    chrome.metricsPrivate.recordEnumerationValue(
+        SPEECH_SETTINGS_CHANGE_UMA, ReadAloudSettingsChange.VOICE_NAME_CHANGE,
+        ReadAloudSettingsChange.COUNT);
     const selectedVoice = event.model.item.voice;
 
     this.dispatchEvent(new CustomEvent('select-voice', {
@@ -201,6 +204,11 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase {
   private openLanguageMenu_() {
     this.$.voiceSelectionMenu.get().close();
     this.$.languageMenu.get().showDialog();
+    this.$.languageMenu.get().addEventListener('close', () => {
+      // TODO(b/345266392): Ensure menu is more correctly positioned after
+      // a re-open.
+      openMenu(this.$.voiceSelectionMenu.get(), this.$.voiceSelectionMenu);
+    });
   }
 
   private onClose_() {
@@ -285,9 +293,13 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase {
   }
 
   private computeDownloadingMessages_(
-      voicePackInstallStatus: {[language: string]: VoicePackStatus}): string[] {
+      voicePackInstallStatus: {[language: string]: VoiceClientSideStatusCode}):
+      string[] {
     return Object.entries(voicePackInstallStatus)
-        .filter(([_, status]) => status === VoicePackStatus.INSTALLING)
+        .filter(
+            ([_, status]) => status ===
+                    VoiceClientSideStatusCode.INSTALLED_AND_UNAVAILABLE ||
+                status === VoiceClientSideStatusCode.SENT_INSTALL_REQUEST)
         .map(([lang, _]) => this.getDisplayNameForLocale(lang))
         .filter(possibleName => possibleName.length > 0)
         .map(

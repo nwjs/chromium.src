@@ -6,7 +6,6 @@
 
 #include "base/time/time.h"
 #include "base/trace_event/base_tracing.h"
-#include "base/trace_event/trace_id_helper.h"
 #include "components/viz/common/frame_timing_details.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
@@ -52,7 +51,9 @@ void AnimationFrameTimingMonitor::Shutdown() {
   Thread::Current()->RemoveTaskTimeObserver(this);
 }
 
-void AnimationFrameTimingMonitor::BeginMainFrame(base::TimeTicks frame_time) {
+void AnimationFrameTimingMonitor::BeginMainFrame(
+    base::TimeTicks frame_time,
+    LocalDOMWindow& local_root_window) {
   base::TimeTicks now = base::TimeTicks::Now();
   if (!current_frame_timing_info_) {
     current_frame_timing_info_ =
@@ -62,6 +63,8 @@ void AnimationFrameTimingMonitor::BeginMainFrame(base::TimeTicks frame_time) {
   current_frame_timing_info_->SetRenderStartTime(now);
   state_ = State::kRenderingFrame;
   ApplyTaskDuration(now - current_task_start_);
+
+  RequestPresentationTimeForTracing(*local_root_window.GetFrame());
 }
 
 void AnimationFrameTimingMonitor::WillPerformStyleAndLayoutCalculation() {
@@ -259,7 +262,45 @@ ToProtoEnum(ScriptTimingInfo::InvokerType type) {
   }
   return ProtoType::UNDEFINED;
 }
+
+perfetto::protos::pbzero::AnimationFrameScriptTimingInfo::ThirdPartyTechnology
+ToProtoEnum(ThirdPartyScriptDetector::Technology technology) {
+  // The technology detector is a bitset so that multiple technologies can be
+  // reported to UKM for all the scripts that ran in a long animation frame.
+  // But for tracing, we report the detected technology of each script. So we
+  // return the first technology found in the bitset, or none if none are found.
+  using ProtoType = perfetto::protos::pbzero::AnimationFrameScriptTimingInfo::
+      ThirdPartyTechnology;
+  uint64_t technology_bits = static_cast<uint64_t>(technology);
+  if (technology_bits &
+      static_cast<uint64_t>(ThirdPartyScriptDetector::Technology::kWordPress)) {
+    return ProtoType::WORD_PRESS;
+  } else if (technology_bits &
+             static_cast<uint64_t>(
+                 ThirdPartyScriptDetector::Technology::kGoogleAnalytics)) {
+    return ProtoType::GOOGLE_ANALYTICS;
+  } else if (technology_bits &
+             static_cast<uint64_t>(
+                 ThirdPartyScriptDetector::Technology::kGoogleFontApi)) {
+    return ProtoType::GOOGLE_FONT_API;
+  }
+  return ProtoType::NONE;
+}
+
 }  // namespace
+
+void AnimationFrameTimingMonitor::RequestPresentationTimeForTracing(
+    LocalFrame& frame) {
+  bool tracing_enabled;
+  TRACE_EVENT_CATEGORY_GROUP_ENABLED("devtools.timeline", &tracing_enabled);
+  if (tracing_enabled) {
+    frame.GetChromeClient().NotifyPresentationTime(
+        frame, CrossThreadBindOnce(
+                   &AnimationFrameTimingMonitor::ReportPresentationTimeToTrace,
+                   WrapCrossThreadWeakPersistent(this),
+                   current_frame_timing_info_->GetTraceId()));
+  }
+}
 
 void AnimationFrameTimingMonitor::ReportPresentationTimeToTrace(
     uint64_t trace_id,
@@ -280,7 +321,7 @@ void AnimationFrameTimingMonitor::RecordLongAnimationFrameTrace(
     return;
   }
 
-  uint64_t trace_id = base::trace_event::GetNextGlobalTraceId();
+  uint64_t trace_id = info.GetTraceId();
   auto track_id = perfetto::Track::ThreadScoped(this);
   auto flow_id = perfetto::Flow::ProcessScoped(trace_id);
   if (!info.FirstUIEventTime().is_null()) {
@@ -304,6 +345,9 @@ void AnimationFrameTimingMonitor::RecordLongAnimationFrameTrace(
       TRACE_EVENT_END("devtools.timeline", track_id,
                       script->ExecutionStartTime());
     }
+    ThirdPartyScriptDetector::Technology third_party_technology =
+        ThirdPartyScriptDetector::From(window).Detect(
+            script->GetSourceLocation().url);
     TRACE_EVENT_BEGIN(
         "devtools.timeline", "AnimationFrame::Script::Execute", track_id,
         script->ExecutionStartTime(), [&](perfetto::EventContext ctx) {
@@ -315,9 +359,13 @@ void AnimationFrameTimingMonitor::RecordLongAnimationFrameTrace(
           data->set_pause_duration_ms(script->PauseDuration().InMilliseconds());
           data->set_class_like_name(script->ClassLikeName().Utf8());
           data->set_property_like_name(script->PropertyLikeName().Utf8());
+          data->set_source_location_url(script->GetSourceLocation().url.Utf8());
+          data->set_source_location_function_name(
+              script->GetSourceLocation().function_name.Utf8());
           data->set_source_location_char_position(
               script->GetSourceLocation().char_position);
           data->set_invoker_type(ToProtoEnum(script->GetInvokerType()));
+          data->set_third_party_technology(ToProtoEnum(third_party_technology));
         });
     TRACE_EVENT_END("devtools.timeline", track_id, script->EndTime());
   }
@@ -333,12 +381,6 @@ void AnimationFrameTimingMonitor::RecordLongAnimationFrameTrace(
   }
 
   TRACE_EVENT_END("devtools.timeline", track_id, info.RenderEndTime());
-
-  window.GetFrame()->GetChromeClient().NotifyPresentationTime(
-      *window.GetFrame(),
-      CrossThreadBindOnce(
-          &AnimationFrameTimingMonitor::ReportPresentationTimeToTrace,
-          WrapCrossThreadWeakPersistent(this), trace_id));
 }
 
 void AnimationFrameTimingMonitor::RecordLongAnimationFrameUKMAndTrace(

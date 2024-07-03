@@ -10,7 +10,6 @@ import android.graphics.drawable.Drawable;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
@@ -51,10 +50,11 @@ import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.ui.UiUtils;
 
 /**
- * Handles displaying IdentityDisc on toolbar depending on several conditions
- * (user sign-in state, whether NTP is shown)
+ * Handles displaying IdentityDisc on toolbar depending on several conditions (user sign-in state,
+ * whether NTP is shown)
  */
 public class IdentityDiscController
         implements NativeInitObserver,
@@ -210,7 +210,8 @@ public class IdentityDiscController
      */
     private Drawable getProfileImage(@Nullable String email) {
         if (email == null) {
-            return AppCompatResources.getDrawable(mContext, R.drawable.account_circle);
+            return UiUtils.getTintedDrawable(
+                    mContext, R.drawable.account_circle, R.color.signed_out_avatar_color);
         }
         return mProfileDataCache.getProfileDataOrDefault(email).getImage();
     }
@@ -378,7 +379,8 @@ public class IdentityDiscController
             // TODO(crbug.com/41496906): Implement the new sign-in flow for automotive.
             if (SigninUtils.shouldShowNewSigninFlow()) {
                 AccountPickerBottomSheetStrings bottomSheetStrings =
-                        new AccountPickerBottomSheetStrings.Builder(R.string.sign_in_to_chrome)
+                        new AccountPickerBottomSheetStrings.Builder(
+                                        R.string.signin_account_picker_bottom_sheet_title)
                                 .setSubtitleStringId(
                                         R.string
                                                 .signin_account_picker_bottom_sheet_benefits_subtitle)

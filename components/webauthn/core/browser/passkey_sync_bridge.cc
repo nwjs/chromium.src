@@ -207,8 +207,8 @@ PasskeySyncBridge::ApplyIncrementalSyncChanges(
   return std::nullopt;
 }
 
-void PasskeySyncBridge::GetData(StorageKeyList storage_keys,
-                                DataCallback callback) {
+void PasskeySyncBridge::GetDataForCommit(StorageKeyList storage_keys,
+                                         DataCallback callback) {
   auto batch = std::make_unique<syncer::MutableDataBatch>();
   for (const std::string& sync_id : storage_keys) {
     if (auto it = data_.find(sync_id); it != data_.end()) {
@@ -468,27 +468,16 @@ void PasskeySyncBridge::OnCreateStore(
   }
   DCHECK(store);
   store_ = std::move(store);
-  store_->ReadAllData(base::BindOnce(&PasskeySyncBridge::OnStoreReadAllData,
-                                     weak_ptr_factory_.GetWeakPtr()));
+  store_->ReadAllDataAndMetadata(
+      base::BindOnce(&PasskeySyncBridge::OnStoreReadAllDataAndMetadata,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
-void PasskeySyncBridge::OnStoreReadAllData(
+void PasskeySyncBridge::OnStoreReadAllDataAndMetadata(
     const std::optional<syncer::ModelError>& error,
-    std::unique_ptr<syncer::ModelTypeStore::RecordList> entries) {
-  if (error) {
-    change_processor()->ReportError(*error);
-    return;
-  }
-  store_->ReadAllMetadata(
-      base::BindOnce(&PasskeySyncBridge::OnStoreReadAllMetadata,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(entries)));
-}
-
-void PasskeySyncBridge::OnStoreReadAllMetadata(
     std::unique_ptr<syncer::ModelTypeStore::RecordList> entries,
-    const std::optional<syncer::ModelError>& error,
     std::unique_ptr<syncer::MetadataBatch> metadata_batch) {
-  TRACE_EVENT0("sync", "PasskeySyncBridge::OnStoreReadAllMetadata");
+  TRACE_EVENT0("sync", "PasskeySyncBridge::OnStoreReadAllDataAndMetadata");
   if (error) {
     change_processor()->ReportError(*error);
     return;

@@ -24,14 +24,14 @@
 #include "components/attribution_reporting/privacy_math.h"
 #include "content/browser/attribution_reporting/attribution_config.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
-#include "content/browser/attribution_reporting/attribution_storage_delegate.h"
+#include "content/browser/attribution_reporting/attribution_resolver_delegate.h"
 #include "content/browser/attribution_reporting/attribution_test_utils.h"
 #include "services/network/public/cpp/trigger_verification.h"
 
 namespace content {
 
 ConfigurableStorageDelegate::ConfigurableStorageDelegate()
-    : AttributionStorageDelegate([]() {
+    : AttributionResolverDelegate([]() {
         AttributionConfig c;
         c.max_sources_per_origin = std::numeric_limits<int>::max(),
         c.max_destinations_per_source_site_reporting_site =
@@ -98,7 +98,7 @@ base::Uuid ConfigurableStorageDelegate::NewReportID() const {
   return DefaultExternalReportID();
 }
 
-std::optional<AttributionStorageDelegate::OfflineReportDelayConfig>
+std::optional<AttributionResolverDelegate::OfflineReportDelayConfig>
 ConfigurableStorageDelegate::GetOfflineReportDelayConfig() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return offline_report_delay_config_;
@@ -129,7 +129,7 @@ double ConfigurableStorageDelegate::GetRandomizedResponseRate(
   return randomized_response_rate_;
 }
 
-AttributionStorageDelegate::GetRandomizedResponseResult
+AttributionResolverDelegate::GetRandomizedResponseResult
 ConfigurableStorageDelegate::GetRandomizedResponse(
     attribution_reporting::mojom::SourceType,
     const attribution_reporting::TriggerSpecs&,
@@ -190,6 +190,13 @@ void ConfigurableStorageDelegate::set_destination_rate_limit(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Intentionally allows `limit` to be invalid for testing.
   config_.destination_rate_limit = limit;
+}
+
+void ConfigurableStorageDelegate::set_aggregatable_debug_rate_limit(
+    AttributionConfig::AggregatableDebugRateLimit limit) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Intentionally allows `limit` to be invalid for testing.
+  config_.aggregatable_debug_rate_limit = std::move(limit);
 }
 
 void ConfigurableStorageDelegate::set_delete_expired_sources_frequency(

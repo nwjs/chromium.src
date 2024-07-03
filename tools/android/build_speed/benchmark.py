@@ -262,7 +262,12 @@ def _emulator(emulator_avd_name):
     is_verbose = logging.getLogger().isEnabledFor(logging.INFO)
     # Always start with --wipe-data to get consistent results. It adds around
     # 20 seconds to startup timing but is essential to avoid Timeout errors.
-    cmd = [_AVD_SCRIPT, 'start', '--wipe-data', '--avd-config', avd_config]
+    # Set disk size to 16GB since the default 8GB is insufficient. Turns out
+    # 32GB takes too long to startup (370 seconds).
+    cmd = [
+        _AVD_SCRIPT, 'start', '--wipe-data', '--avd-config', avd_config,
+        '--disk-size', '16000'
+    ]
     if not is_verbose:
         cmd.append('-q')
     logging.debug('Running AVD cmd: %s', cmd)
@@ -401,7 +406,7 @@ def run_benchmarks(benchmarks: List[str], gn_args: List[str],
     with _backup_file(args_gn_path):
         with open(args_gn_path, 'w') as f:
             # Use newlines instead of spaces since autoninja.py uses regex to
-            # determine whether use_goma is turned on or off.
+            # determine whether use_remoteexec is turned on or off.
             f.write('\n'.join(gn_args))
         for run_num in range(repeat):
             logging.info(f'Run number: {run_num + 1}')

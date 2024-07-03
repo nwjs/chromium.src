@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/code_cache/generated_code_cache.h"
 
 #include <iostream>
@@ -189,7 +194,7 @@ net::CacheType CodeCacheTypeToNetCacheType(
     case GeneratedCodeCache::CodeCacheType::kWebUIJavaScript:
       return net::GENERATED_WEBUI_BYTE_CODE_CACHE;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 }  // namespace

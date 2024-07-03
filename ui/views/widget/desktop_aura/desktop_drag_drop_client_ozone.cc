@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if defined(UNSAFE_BUFFERS_BUILD)
+// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
+// then remove this pragma.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "ui/views/widget/desktop_aura/desktop_drag_drop_client_ozone.h"
 
 #include <memory>
@@ -55,25 +61,24 @@ bool IsValidDragImage(const gfx::ImageSkia& image) {
   return false;
 }
 
-std::unique_ptr<views::Widget> CreateDragWidget(
+std::unique_ptr<Widget> CreateDragWidget(
     const gfx::Point& root_location,
     const gfx::ImageSkia& image,
     const gfx::Vector2d& drag_widget_offset) {
-  auto widget = std::make_unique<views::Widget>();
-  views::Widget::InitParams params(views::Widget::InitParams::TYPE_DRAG);
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                            Widget::InitParams::TYPE_DRAG);
   params.accept_events = false;
-  params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
+  params.opacity = Widget::InitParams::WindowOpacity::kTranslucent;
 
   gfx::Point location = root_location - drag_widget_offset;
   params.bounds = gfx::Rect(location, image.size());
   widget->set_focus_on_creation(false);
-  widget->set_frame_type(views::Widget::FrameType::kForceNative);
+  widget->set_frame_type(Widget::FrameType::kForceNative);
   widget->Init(std::move(params));
   widget->GetNativeWindow()->SetName("DragWindow");
 
-  std::unique_ptr<views::ImageView> image_view =
-      std::make_unique<views::ImageView>();
+  auto image_view = std::make_unique<ImageView>();
   image_view->SetImage(ui::ImageModel::FromImageSkia(image));
   widget->SetContentsView(std::move(image_view));
   widget->Show();

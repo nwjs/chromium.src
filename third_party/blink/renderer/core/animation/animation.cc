@@ -73,6 +73,7 @@
 #include "third_party/blink/renderer/core/inspector/inspector_trace_events.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/platform/animation/compositor_animation.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -97,7 +98,15 @@ bool SupportedTimeValue(double time_in_ms) {
                                     1000;
 }
 
-enum class PseudoPriority { kNone, kMarker, kBefore, kOther, kAfter };
+enum class PseudoPriority {
+  kNone,
+  kScrollMarkerBefore,
+  kMarker,
+  kBefore,
+  kOther,
+  kAfter,
+  kScrollMarkerAfter
+};
 
 unsigned NextSequenceNumber() {
   static unsigned next = 0;
@@ -107,12 +116,18 @@ unsigned NextSequenceNumber() {
 PseudoPriority ConvertPseudoIdtoPriority(const PseudoId& pseudo) {
   if (pseudo == kPseudoIdNone)
     return PseudoPriority::kNone;
+  if (pseudo == kPseudoIdScrollMarkerGroupBefore) {
+    return PseudoPriority::kScrollMarkerBefore;
+  }
   if (pseudo == kPseudoIdMarker)
     return PseudoPriority::kMarker;
   if (pseudo == kPseudoIdBefore)
     return PseudoPriority::kBefore;
   if (pseudo == kPseudoIdAfter)
     return PseudoPriority::kAfter;
+  if (pseudo == kPseudoIdScrollMarkerGroupAfter) {
+    return PseudoPriority::kScrollMarkerAfter;
+  }
   return PseudoPriority::kOther;
 }
 
@@ -1031,7 +1046,7 @@ void Animation::setTimeline(AnimationTimeline* timeline) {
         break;
 
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   } else if (old_current_time && old_timeline &&
              !old_timeline->IsMonotonicallyIncreasing()) {
@@ -1310,7 +1325,7 @@ const char* Animation::PlayStateString(AnimationPlayState play_state) {
     case kFinished:
       return "finished";
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return "";
   }
 }
@@ -1982,7 +1997,7 @@ void Animation::updatePlaybackRate(double playback_rate,
 
     case kUnset:
     case kPending:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -2517,7 +2532,7 @@ bool Animation::OnValidateSnapshot(bool snapshot_changed) {
       break;
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   if (snapshot_changed || needs_new_start_time || range_changed) {
@@ -2805,12 +2820,15 @@ bool Animation::IsEventDispatchAllowed() const {
 
 std::optional<AnimationTimeDelta> Animation::TimeToEffectChange() {
   DCHECK(!outdated_);
-  if (!start_time_ || hold_time_ || !playback_rate_)
+  if (!start_time_ || hold_time_ || !playback_rate_) {
     return std::nullopt;
+  }
 
   if (!content_) {
     std::optional<AnimationTimeDelta> current_time = CurrentTimeInternal();
-    DCHECK(current_time);
+    if (!current_time) {
+      return std::nullopt;
+    }
     return -current_time.value() / playback_rate_;
   }
 
@@ -3196,7 +3214,7 @@ String Animation::replaceState() {
       return "persisted";
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return "";
   }
 }

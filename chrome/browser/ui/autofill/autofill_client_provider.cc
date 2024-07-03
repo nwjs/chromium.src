@@ -27,6 +27,9 @@ bool UsesVirtualViewStructureForAutofill(const PrefService* prefs) {
           features::kAutofillVirtualViewStructureAndroid)) {
     return false;
   }
+  if (!prefs->GetBoolean(prefs::kAutofillThirdPartyPasswordManagersAllowed)) {
+    return false;
+  }
   if (!prefs->GetBoolean(prefs::kAutofillUsingVirtualViewStructure)) {
     return false;
   }
@@ -58,7 +61,7 @@ void AutofillClientProvider::CreateClientForWebContents(
 #if BUILDFLAG(IS_ANDROID)
     android_autofill::AndroidAutofillClient::CreateForWebContents(web_contents);
 #else
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
 #endif
   } else {
     ChromeAutofillClient::CreateForWebContents(web_contents);

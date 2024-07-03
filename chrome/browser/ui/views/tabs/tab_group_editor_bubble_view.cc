@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_keyed_service.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_pref_names.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
@@ -65,7 +66,6 @@
 #include "ui/base/models/dialog_model_field.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/pointer/touch_ui_controller.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/events/types/event_type.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/insets.h"
@@ -74,6 +74,7 @@
 #include "ui/gfx/range/range.h"
 #include "ui/gfx/text_constants.h"
 #include "ui/native_theme/native_theme.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
@@ -95,9 +96,10 @@ namespace {
 
 constexpr base::TimeDelta kTemporaryBookmarkBarDuration = base::Seconds(15);
 constexpr int kDialogWidth = 240;
-constexpr const char kLearnMoreURL[] =
-    "https://support.google.com/chrome/answer/165139";
 static constexpr int kDefaultIconSize = 20;
+// The maximum number of times we will show the footer section with the learn
+// more link.
+constexpr int kFooterDisplayLimit = 5;
 
 std::unique_ptr<views::LabelButton> CreateMenuItem(
     int button_id,
@@ -118,14 +120,14 @@ std::unique_ptr<views::LabelButton> CreateMenuItem(
   auto button =
       CreateBubbleMenuItem(button_id, name, std::move(callback), icon);
   button->SetBorder(views::CreateEmptyBorder(control_insets));
-  if (features::IsChromeRefresh2023()) {
-    button->SetLabelStyle(views::style::STYLE_BODY_3_EMPHASIS);
-  }
+  button->SetLabelStyle(views::style::STYLE_BODY_3_EMPHASIS);
 
   return button;
 }
 
 }  // namespace
+
+namespace saved_tab_group_prefs = tab_groups::saved_tab_groups::prefs;
 
 // static
 views::Widget* TabGroupEditorBubbleView::Show(
@@ -180,9 +182,7 @@ void TabGroupEditorBubbleView::AddedToWidget() {
     const SkColor text_color = menu_item->GetCurrentTextColor();
 
     const SkColor enabled_icon_color =
-        features::IsChromeRefresh2023()
-            ? color_provider->GetColor(kColorTabGroupDialogIconEnabled)
-            : color_utils::DeriveDefaultIconColor(text_color);
+        color_provider->GetColor(kColorTabGroupDialogIconEnabled);
     const SkColor icon_color = enabled ? enabled_icon_color : text_color;
 
     const std::optional<ui::ImageModel>& old_image_model =
@@ -203,9 +203,7 @@ void TabGroupEditorBubbleView::AddedToWidget() {
     const bool enabled = save_group_icon_->GetEnabled();
     const SkColor text_color = save_group_label_->GetEnabledColor();
     const SkColor enabled_icon_color =
-        features::IsChromeRefresh2023()
-            ? color_provider->GetColor(kColorTabGroupDialogIconEnabled)
-            : color_utils::DeriveDefaultIconColor(text_color);
+        color_provider->GetColor(kColorTabGroupDialogIconEnabled);
     const SkColor icon_color = enabled ? enabled_icon_color : text_color;
 
     const ui::ImageModel& old_image_model = save_group_icon_->GetImageModel();
@@ -269,7 +267,7 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
   title_field_ =
       AddChildView(std::make_unique<TitleField>(stop_context_menu_propagation));
   title_field_->SetText(title);
-  title_field_->SetAccessibleName(l10n_util::GetStringUTF16(
+  title_field_->GetViewAccessibility().SetName(l10n_util::GetStringUTF16(
       IDS_TAB_GROUP_HEADER_CXMENU_TAB_GROUP_TITLE_ACCESSIBLE_NAME));
   title_field_->SetPlaceholderText(
       l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_BUBBLE_TITLE_PLACEHOLDER));
@@ -343,12 +341,25 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
         l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_CXMENU_DELETE_GROUP),
         base::BindRepeating(&TabGroupEditorBubbleView::DeleteGroupPressed,
                             base::Unretained(this)),
-        ui::ImageModel::FromVectorIcon(kTrashCanRefreshIcon)));
+        ui::ImageModel::FromVectorIcon(kTrashCanRefreshIcon, ui::kColorMenuIcon,
+                                       kDefaultIconSize)));
     menu_items_.push_back(std::move(delete_group_menu_item));
-    delete_group_menu_item->SetProperty(
-        views::kMarginsKey, gfx::Insets::TLBR(0, 0, kSeparatorPadding, 0));
 
-    footer_ = AddChildView(std::make_unique<Footer>(browser_));
+    PrefService* pref_service = browser_->profile()->GetPrefs();
+    tab_groups::SavedTabGroupKeyedService* const saved_tab_group_service =
+        tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+            browser_->profile());
+
+    if (saved_tab_group_service && pref_service &&
+        saved_tab_group_prefs::GetLearnMoreFooterShownCount(pref_service) <
+            kFooterDisplayLimit) {
+      // Add additional padding before the footer if it is visible.
+      delete_group_menu_item->SetProperty(
+          views::kMarginsKey, gfx::Insets::TLBR(0, 0, kSeparatorPadding, 0));
+      footer_ = AddChildView(std::make_unique<Footer>(browser_));
+      saved_tab_group_prefs::IncrementLearnMoreFooterShownCountPref(
+          pref_service);
+    }
   }
 
   // The move menu item must be added to the menu by this point.
@@ -496,7 +507,8 @@ void TabGroupEditorBubbleView::OnSaveTogglePressed() {
 
     saved_tab_group_service->SaveGroup(
         group_,
-        /*is_pinned=*/tab_groups::IsTabGroupsSaveUIUpdateEnabled());
+        /*is_pinned=*/tab_groups::SavedTabGroupUtils::ShouldAutoPinNewTabGroups(
+            browser_->profile()));
 
     views::ElementTrackerViews::GetInstance()->NotifyCustomEvent(
         kTabGroupSavedCustomEventId, save_group_toggle_);
@@ -514,7 +526,8 @@ void TabGroupEditorBubbleView::OnSaveTogglePressed() {
     saved_tab_group_service->UnsaveGroup(group_);
   }
 
-  save_group_toggle_->SetAccessibleName(GetSaveToggleAccessibleName());
+  save_group_toggle_->GetViewAccessibility().SetName(
+      GetSaveToggleAccessibleName());
   UpdateGroup();
 }
 
@@ -633,9 +646,7 @@ views::View* TabGroupEditorBubbleView::CreateSavedTabGroupItem() {
       save_group_line_container->AddChildView(std::make_unique<views::Label>(
           l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_CXMENU_SAVE_GROUP)));
   save_group_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  if (features::IsChromeRefresh2023()) {
-    save_group_label_->SetTextStyle(views::style::STYLE_BODY_3_EMPHASIS);
-  }
+  save_group_label_->SetTextStyle(views::style::STYLE_BODY_3_EMPHASIS);
 
   save_group_toggle_ = save_group_line_container->AddChildView(
       std::make_unique<views::ToggleButton>(
@@ -650,7 +661,8 @@ views::View* TabGroupEditorBubbleView::CreateSavedTabGroupItem() {
 
   save_group_toggle_->SetIsOn(
       saved_tab_group_service->model()->Contains(group_));
-  save_group_toggle_->SetAccessibleName(GetSaveToggleAccessibleName());
+  save_group_toggle_->GetViewAccessibility().SetName(
+      GetSaveToggleAccessibleName());
   save_group_toggle_->SetProperty(views::kElementIdentifierKey,
                                   kTabGroupEditorBubbleSaveToggleId);
 
@@ -756,12 +768,14 @@ TabGroupEditorBubbleView::Footer::Footer(const Browser* browser) {
           : IDS_TAB_GROUP_EDITOR_BUBBLE_FOOTER_SYNC_DISABLED));
 
   // Learn more link for the footer.
-  footer_text_substr.push_back(l10n_util::GetStringUTF16(IDS_LEARN_MORE));
+  footer_text_substr.push_back(
+      l10n_util::GetStringUTF16(IDS_TAB_GROUP_EDITOR_BUBBLE_FOOTER_LEARN_MORE));
 
   std::vector<size_t> offsets;
   std::u16string styled_text =
       base::ReplaceStringPlaceholders(u"$1 $2", footer_text_substr, &offsets);
   footer_label->SetText(styled_text);
+  footer_label->SetDefaultEnabledColorId(ui::kColorLabelForegroundSecondary);
 
   gfx::Range details_range(offsets[1], styled_text.length());
 
@@ -789,8 +803,8 @@ TabGroupEditorBubbleView::Footer::Footer(const Browser* browser) {
 // static
 void TabGroupEditorBubbleView::Footer::OpenLearnMorePage(
     const Browser* browser) {
-  browser->tab_strip_model()->delegate()->AddTabAt(GURL(kLearnMoreURL), -1,
-                                                   true);
+  browser->tab_strip_model()->delegate()->AddTabAt(
+      GURL(chrome::kTabGroupsLearnMoreURL), -1, true);
 }
 
 BEGIN_METADATA(TabGroupEditorBubbleView, Footer)

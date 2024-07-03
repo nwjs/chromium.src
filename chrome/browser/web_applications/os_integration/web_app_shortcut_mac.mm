@@ -64,7 +64,6 @@
 #include "chrome/common/chrome_switches.h"
 #import "chrome/common/mac/app_mode_common.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
-#include "components/crx_file/id_util.h"
 #include "components/variations/net/variations_command_line.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -240,9 +239,6 @@ namespace {
 
 WebAppAutoLoginUtil* g_auto_login_util_for_testing = nullptr;
 
-// UMA metric name for creating shortcut result.
-constexpr const char* kCreateShortcutResult = "Apps.CreateShortcuts.Mac.Result";
-
 // Result of creating app shortcut.
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -250,7 +246,7 @@ enum class CreateShortcutResult {
   kSuccess = 0,
   kApplicationDirNotFound = 1,
   kFailToLocalizeApplication = 2,
-  kFailToGetApplicationPaths = 3,
+  // Obsolete: kFailToGetApplicationPaths = 3,
   kFailToCreateTempDir = 4,
   kStagingDirectoryNotExist = 5,
   kFailToCreateExecutablePath = 6,
@@ -268,7 +264,7 @@ enum class CreateShortcutResult {
 
 // Records the result of creating shortcut to UMA.
 void RecordCreateShortcut(CreateShortcutResult result) {
-  UMA_HISTOGRAM_ENUMERATION(kCreateShortcutResult, result);
+  UMA_HISTOGRAM_ENUMERATION("Apps.CreateShortcuts.Mac.Result2", result);
 }
 
 // Remove the leading . from the entries of |extensions|. Any items that do not
@@ -1603,9 +1599,9 @@ bool WebAppShortcutCreator::UpdateShortcuts(
     app_paths.push_back(GetApplicationsShortcutPath(/*avoid_conflicts=*/true));
   }
   if (app_paths.empty()) {
-    RecordCreateShortcut(CreateShortcutResult::kFailToGetApplicationPaths);
-    LOG(ERROR) << "Failed to get application paths.";
-    return false;
+    // If `create_if_needed` is false, we've succesfully updated shortcuts if no
+    // shortcuts have been found.
+    return true;
   }
 
   CreateShortcutsAt(app_paths, updated_paths);

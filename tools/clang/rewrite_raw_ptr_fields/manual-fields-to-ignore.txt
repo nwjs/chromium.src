@@ -37,49 +37,10 @@ DownloadItemView::review_button_
 # implicitly casting raw_ptr<T> to T*).  This covers functions that return
 # |SomeClass*&| and local variables with that type.
 AllTabContentsesList::Iterator::cur_
-blink::NormalPage::CompactionContext::current_page_
-blink::Worklist::PrivateSegmentHolder::private_pop_segment
-blink::Worklist::PrivateSegmentHolder::private_push_segment
-content::(anonymous namespace)::AudioStreamMonitorTest::monitor_
-content::AudioStreamMonitor::clock_
 remoting::ChromotingHostTest::client1_
 remoting::ChromotingHostTest::client2_
 WTF::ICUConverterWrapper::converter
-(anonymous namespace)::WebAuthnCableSecondFactor::model_
-
-# Populated manually - always holds a pointer to an OilPan-allocated memory.
-blink::PersistentBase::raw_
-blink::SVGFilterBuilder::last_effect_
-
-# Populated manually - global-scope exclusions that are missing because the
-# global variable is in a build configuration specific code
-base::android::ReachedAddressesBitset::reached_
-
-# Populated manually - missing |.get()| in not-rewritten platform specific code
-viz::OverlayCandidate::rpdq
-viz::CALayerOverlay::rpdq
-viz::DrawQuad::shared_quad_state
-content::RenderWidgetHostInputEventRouter::wheel_target_
-NavigateParams::navigated_or_inserted_contents
-web_app::WebAppTabStripBrowserTest::App::web_contents
-policy::ChromePolicyConversionsClient::profile_
-
-# Populated manually - reference to raw_ptr in not-rewritten platform specific code
-viz::DirectRenderer::DrawingFrame::current_render_pass
-TabGroupViews::header_
-TabGroupViews::underline_
-TabGroupViews::highlight_
-views::LayoutManager::view_setting_visibility_on_
-FullscreenController::deactivated_contents_
-content::RenderWidgetHostInputEventRouter::touch_target_
-content::RenderWidgetHostInputEventRouter::touchpad_gesture_target_
-base::MessagePumpLibevent::run_state_
-
-# Populated manually - incompatibilities with tracing in not-rewritten platform specific code
-TabStripModelChange::RemovedTab::contents
-
-# Populated manually - extra .get() added in not-rewritten platform specific code
-SECItem::data
+(anonymous namespace)::WebAuthnCableSecondFactor::controller_
 
 # Populated manually - the rewriter has trouble appending |.get()| inside macros
 # that work with |XDisplay*|.
@@ -169,10 +130,11 @@ courgette::LabelManagerTest_SimpleIndexAssigner_Test::TestBody()::TestCase::expe
 # as a pointer to PA memory
 sandbox::TargetProcess::base_address_ # https://crbug.com/1173374
 
-# Populated manually - pointers that kernel sees as raw pointers
-# https://crbug.com/1395075
-base::(anonymous namespace)::kernel_sigaction::k_sa_handler
-base::(anonymous namespace)::kernel_sigaction::k_sa_restorer
+# Populated manually - pointers that other code (e.g. kernel code) sees a
+# different version of the struct/class, which uses a raw pointer.
+base::(anonymous namespace)::kernel_sigaction::k_sa_handler   # https://crbug.com/1395075
+base::(anonymous namespace)::kernel_sigaction::k_sa_restorer  # as above
+SECItem::data
 
 # Populated manually - uninitialized memory reinterpret_cast to raw_ptr<T>
 # causing AddRef/Deref mismatch.
@@ -182,12 +144,6 @@ sql::SandboxedVfsFileSqliteBridge::sandboxed_vfs_file
 sandbox::SharedMemIPCServer::client_control_
 sandbox::SharedMemIPCServer::thread_provider_
 sandbox::SharedMemIPCServer::call_dispatcher_
-
-# Populated manually - pointer to stale non-PA allocation could be confused as a
-# pointer to PA memory when that address space is reused https://crbug.com/1173851
-base::PersistentMemoryAllocator::mem_base_ # https://crbug.com/1169582
-base::SharedMemoryMapping::memory_ # https://crbug.com/1169581
-mojo::core::PlatformSharedMemoryMapping::base_ # https://crbug.com/1173380
 
 # Populated manually - other compile-time reasons
 iovec::iov_base  # requires adding .get() in another repository, used e.g. in
@@ -279,6 +235,9 @@ AXPlatformNodeCocoa::_node
 ShellNativeAppWindowController::_appWindow
 WatchedLifetimeMenuController::_deallocCalled
 
+# Populated manually - end of buffer already protected by another raw_ptr.
+blink::SegmentedSubstring::data_last_char_
+
 #######
 # BackupRefPtr-specific sections
 #######
@@ -318,11 +277,6 @@ gpu::gles2::TextureManager::DoTexImageArguments::pixels
 
 # Populated manually - on-stack pointer + a large number of non-PA pointees
 base::AutoReset::scoped_variable_
-
-# Populated manually - on-stack pointee
-base::StackAllocator::source_
-
-# Populated manually - on-stack pointer + a large number of non-PA pointees
 mojo::core::ports::PortLocker::port_refs_
 
 # Populated manually - static pointee
@@ -330,6 +284,7 @@ mojo::core::RequestContext::tls_context_
 base::sequence_manager::LazyNow::tick_clock_
 
 # Populated manually - on-stack pointee
+base::StackAllocator::source_
 mojo::internal::ContainerValidateParams::key_validate_params
 mojo::internal::ContainerValidateParams::element_validate_params
 mojo::internal::ValidationContext::ScopedDepthTracker::ctx_
@@ -345,13 +300,23 @@ base::internal::LinkNodeBase::previous_
 # Populated manually - on-stack pointer
 base::internal::WeakLinkNode::list_
 
-# Populated manually - using mmap, MapViewOfFile or base::AllocPages directly
+# Populated manually - stack-scoped pointer, but embedding class/struct can't be
+# marked STACK_ALLOCATED (e.g. held in unique_ptr on stack)
+base::internal::BasicMovableAutoLock::lock_
+
+# Populated manually - pointer to memory not allocated by PartitionAlloc (e.g.
+# allocated using mmap/MapViewOfFile/OilPan,partition_alloc::AllocPages, or
+# a global, ...)
+base::MemoryMappedFile::bytes_
+base::PersistentMemoryAllocator::mem_base_
 blink::GCInfoTable::table_
 cc::(anonymous namespace)::BitmapRasterBufferImpl::pixels_
 # TODO(bartekn): This one has a malloc() path, consider rewriting after all.
 disk_cache::MappedFile::buffer_
 network::MojoToNetPendingBuffer::buffer_
 network::NetToMojoPendingBuffer::buffer_
+policy::PolicyMap::Entry::details
+blink::SVGFilterBuilder::last_effect_
 
 # Populated manually - Field initialized with non-nullptr value in constexpr.
 enterprise_connectors::ServiceProvider::analysis
@@ -493,16 +458,10 @@ viz::(anonymous namespace)::BspTreePerfTest::base_list_
 #######
 
 # Exclusions discovered during the rewrite in crrev.com/c/5232280.
-base::internal::BasicAutoLock::lock_
-base::internal::BasicAutoTryLock::lock_
-base::internal::BasicAutoUnlock::lock_
-base::internal::BasicAutoLockMaybe::lock_
-base::internal::BasicReleasableAutoLock::lock_
 base::CheckedContiguousIterator::start_
 base::CheckedContiguousIterator::current_
 base::CheckedContiguousIterator::end_
 base::internal::flat_tree::KeyValueCompare::comp_
-base::MemoryMappedFile::data_
 base::MadvFreeDiscardableMemoryPosix::data_
 base::i18n::IcuMergeableDataFile::lacros_data_
 base::internal::UnexpectedDeducer::lambda_
@@ -552,7 +511,7 @@ ReadAnythingLineSpacingModel::LineSpacingInfo::icon_asset
 ReadAnythingLetterSpacingModel::LetterSpacingInfo::icon_asset
 ToolbarButton::VectorIcons::icon
 ToolbarButton::VectorIcons::touch_icon
-updater::ScopedLockImpl::mutex_
+named_system_lock::ScopedLockImpl::mutex_
 ash::memory::userspace_swap::(anonymous namespace)::ScopedMemory::ptr_
 pdf::PdfStreamDelegate::StreamInfo::injected_script
 content::responsiveness::JankMonitorImpl::ThreadExecutionState::TaskMetadata::identifier
@@ -612,8 +571,63 @@ base::(anonymous namespace)::HandlerParams::stack_copy_bottom
 base::(anonymous namespace)::HandlerParams::maybe_timestamp
 base::(anonymous namespace)::HandlerParams::stack_copier_delegate
 
-# Excluded in crrev.com/c/5370959
+# Excluded in crrev.com/c/5370959.
 base::basic_cstring_view::ptr_
+
+# Excluded in crrev.com/c/5604742.
+viz::DrawQuad::shared_quad_state
+
+# Excluded in crrev.com/c/5546711.
+mahi::WebContentState::top_level_native_window
+
+# Excluded as part of performance investigations in the following CLs:
+# crrev.com/c/5423055
+base::internal::ThreadGroup::BaseScopedCommandsExecutor::outer_
+# crrev.com/c/5444919
+base::sequence_manager::internal::WorkQueueSets::OldestTaskOrder::value
+# crrev.com/c/5456638
+base::SequencedTaskRunner::CurrentDefaultHandle::previous_handle_
+base::SingleThreadTaskRunner::CurrentDefaultHandle::previous_handle_
+base::sequence_manager::internal::DelayedTaskHandleDelegate::outer_
+base::sequence_manager::internal::TaskQueueImpl::GuardedTaskPoster::outer_
+base::sequence_manager::internal::TaskQueueImpl::OnTaskPostedCallbackHandleImpl::task_queue_impl_
+base::sequence_manager::internal::WakeUpQueue::ScheduledWakeUp::queue
+base::sequence_manager::internal::WorkQueue::work_queue_sets_
+base::sequence_manager::internal::WorkQueue::task_queue_
+base::sequence_manager::internal::SyncWorkAuthorization::tracker_
+base::internal::RegisteredTaskSource::task_tracker_
+cc::RTree::Branch::subtree
+cc::PictureLayerImpl::twin_layer_
+cc::TileSizeCalculator::layer_impl_
+viz::(anonymous namespace)::DrawQuadCommon::shared_quad_state
+mojo::test::(anonymous namespace)::ReentrantMessageAccumulator::connector_
+mojo::InterfaceEndpointClient::HandleIncomingMessageThunk::owner_
+mojo::MessageDispatcher::sink_
+mojo::internal::ControlMessageHandler::owner_
+mojo::internal::ControlMessageProxy::owner_
+mojo::internal::MultiplexRouter::InterfaceEndpoint::client_
+mojo::internal::MultiplexRouter::InterfaceEndpoint::router_
+mojo::DrawQuadWithSharedQuadState::quad
+mojo::DrawQuadWithSharedQuadState::shared_quad_state
+mojo::OptSharedQuadState::sqs
+# crrev.com/c/5553525
+cc::PlaybackImageProvider::cache_
+# crrev.com/c/5552926
+cc::(anonymous namespace)::OopPixelTest::RasterOptions::image_cache
+cc::ImageController::cache_
+cc::LayerTreeHostImpl::ImageDecodeCacheHolder::image_decode_cache_ptr_
+blink::FakeWebGraphicsContext3DProvider::image_decode_cache_
+# crrev.com/c/5528378
+blink::MemoryManagedPaintRecorder::current_canvas_
+viz::DisplayResourceProvider::ScopedReadLockSharedImage::resource_
+viz::DisplayResourceProvider::ScopedReadLockSharedImage::resource_provider_
+media::VideoFrame::ScopedMapping::gpu_memory_buffer_  # duplicated in crrev.com/c/5581537
+gpu::ClientSharedImage::ScopedMapping::buffer_
+gpu::SharedImageRepresentation::ScopedAccessBase::representation_
+gpu::SharedImageRepresentation::manager_
+gpu::SharedImageRepresentation::backing_
+gpu::SharedImageRepresentation::tracker_
+gpu::SchedulerDfs::Sequence::scheduler_
 
 #######
 # End of recent manual exclusions

@@ -8,8 +8,8 @@
 
 #include "base/metrics/user_metrics.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/views/frame/browser_actions.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_util.h"
+#include "chrome/browser/ui/browser_actions.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
@@ -280,7 +280,7 @@ void PinnedActionToolbarButtonActionViewInterface::OnViewChangedImpl(
           ? l10n_util::GetStringFUTF16(
                 IDS_PINNED_ACTION_BUTTON_ACCESSIBLE_TITLE, accessible_name)
           : accessible_name;
-  action_view_->SetAccessibleName(stateful_accessible_name);
+  action_view_->GetViewAccessibility().SetName(stateful_accessible_name);
 }
 
 BEGIN_METADATA(PinnedActionToolbarButton)

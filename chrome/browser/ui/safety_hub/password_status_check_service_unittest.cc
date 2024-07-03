@@ -436,7 +436,8 @@ TEST_F(PasswordStatusCheckServiceBaseTest, PasswordCheck_FindCompromised) {
 }
 
 TEST_F(PasswordStatusCheckServiceBaseTest, PasswordCheck_Error) {
-  identity_test_env().MakeAccountAvailable(kTestEmail);
+  identity_test_env().MakePrimaryAccountAvailable(
+      kTestEmail, signin::ConsentLevel::kSignin);
   profile_store().AddLogin(MakeForm(kUsername1, kPassword, kOrigin1));
 
   UpdateInsecureCredentials();
@@ -757,7 +758,7 @@ TEST_P(PasswordStatusCheckServiceParameterizedCardTest, PasswordCardState) {
     return;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 TEST_F(PasswordStatusCheckServiceBaseTest, PasswordCardCheckTime) {

@@ -34,9 +34,9 @@ std::vector<Suggestion> CreateSuggestionsWithClearFormEntry(
   auto create_pw_suggestion = [](std::string_view password,
                                  std::string_view username,
                                  std::string_view origin) {
-    Suggestion s(/*main_text=*/username, /*label=*/origin,
+    Suggestion s(/*main_text=*/username, /*label=*/password,
                  Suggestion::Icon::kNoIcon, SuggestionType::kPasswordEntry);
-    s.additional_label = base::UTF8ToUTF16(password);
+    s.additional_label = base::UTF8ToUTF16(origin);
     return s;
   };
   std::vector<Suggestion> suggestions = {
@@ -152,7 +152,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
 TEST_F(AutofillKeyboardAccessoryControllerImplTest,
        GetRemovalConfirmationText_ServerCreditCard) {
   CreditCard server_card = test::GetMaskedServerCard();
-  personal_data().AddServerCreditCard(server_card);
+  personal_data().test_payments_data_manager().AddServerCreditCard(server_card);
 
   std::u16string title;
   std::u16string body;
@@ -335,6 +335,17 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
         client().popup_controller(manager()).Hide(
             SuggestionHidingReason::kAcceptSuggestion);
       });
+  client().popup_controller(manager()).AcceptSuggestion(/*index=*/0);
+}
+
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       DoesNotAcceptUnacceptableSuggestions) {
+  Suggestion suggestion(u"Open the pod bay doors, HAL");
+  suggestion.is_acceptable = false;
+  ShowSuggestions(manager(), {std::move(suggestion)});
+  task_environment()->FastForwardBy(base::Milliseconds(500));
+
+  EXPECT_CALL(manager().external_delegate(), DidAcceptSuggestion).Times(0);
   client().popup_controller(manager()).AcceptSuggestion(/*index=*/0);
 }
 

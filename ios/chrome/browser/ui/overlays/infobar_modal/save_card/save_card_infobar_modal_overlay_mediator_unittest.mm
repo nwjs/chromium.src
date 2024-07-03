@@ -13,6 +13,7 @@
 #import "components/autofill/core/browser/autofill_test_utils.h"
 #import "components/autofill/core/browser/data_model/credit_card.h"
 #import "components/autofill/core/browser/payments/test_legal_message_line.h"
+#import "components/autofill/core/common/autofill_payments_features.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "ios/chrome/browser/autofill/model/message/save_card_message_with_links.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
@@ -47,8 +48,9 @@
 @property(nonatomic, copy) NSString* expirationYear;
 @property(nonatomic, copy)
     NSMutableArray<SaveCardMessageWithLinks*>* legalMessages;
-@property(nonatomic, assign) BOOL currentCardSaved;
+@property(nonatomic, assign) BOOL currentCardSaveAccepted;
 @property(nonatomic, assign) BOOL supportsEditing;
+@property(nonatomic, assign) BOOL inLoadingState;
 @end
 
 @implementation FakeSaveCardModalConsumer
@@ -59,15 +61,20 @@
   self.expirationMonth = prefs[kExpirationMonthPrefKey];
   self.expirationYear = prefs[kExpirationYearPrefKey];
   self.legalMessages = prefs[kLegalMessagesPrefKey];
-  self.currentCardSaved = [prefs[kCurrentCardSavedPrefKey] boolValue];
+  self.currentCardSaveAccepted =
+      [prefs[kCurrentCardSaveAcceptedPrefKey] boolValue];
   self.supportsEditing = [prefs[kSupportsEditingPrefKey] boolValue];
+}
+
+- (void)showLoadingState {
+  self.inLoadingState = YES;
 }
 @end
 
 // Test fixture for SaveCardInfobarModalOverlayMediator.
 class SaveCardInfobarModalOverlayMediatorTest : public PlatformTest {
  public:
-  SaveCardInfobarModalOverlayMediatorTest()
+  SaveCardInfobarModalOverlayMediatorTest(bool for_upload = true)
       : mediator_delegate_(
             OCMStrictProtocolMock(@protocol(OverlayRequestMediatorDelegate))) {
     autofill::CreditCard credit_card(
@@ -75,7 +82,7 @@ class SaveCardInfobarModalOverlayMediatorTest : public PlatformTest {
         "https://www.example.com/");
     std::unique_ptr<MockAutofillSaveCardInfoBarDelegateMobile> delegate =
         MockAutofillSaveCardInfoBarDelegateMobileFactory::
-            CreateMockAutofillSaveCardInfoBarDelegateMobileFactory(true,
+            CreateMockAutofillSaveCardInfoBarDelegateMobileFactory(for_upload,
                                                                    credit_card);
     delegate_ = delegate.get();
     infobar_ = std::make_unique<InfoBarIOS>(InfobarType::kInfobarTypeSaveCard,
@@ -119,10 +126,25 @@ TEST_F(SaveCardInfobarModalOverlayMediatorTest, SetUpConsumer) {
               consumer.expirationMonth);
   EXPECT_NSEQ(base::SysUTF16ToNSString(delegate_->expiration_date_year()),
               consumer.expirationYear);
-  EXPECT_FALSE(consumer.currentCardSaved);
+  EXPECT_FALSE(consumer.currentCardSaveAccepted);
   EXPECT_TRUE(consumer.supportsEditing);
+  EXPECT_FALSE(consumer.inLoadingState);
   ASSERT_EQ(1U, [consumer.legalMessages count]);
   EXPECT_NSEQ(@"Test message", consumer.legalMessages[0].messageText);
+}
+
+// Tests that a SaveCardInfobarModalOverlayMediator shows Modal in loading state
+// when Modal has already been accepted for upload.
+TEST_F(SaveCardInfobarModalOverlayMediatorTest,
+       ShowLoadingStateForAcceptedInfobar) {
+  FakeSaveCardModalConsumer* consumer =
+      [[FakeSaveCardModalConsumer alloc] init];
+  infobar_->set_accepted(true);
+  mediator_.consumer = consumer;
+
+  EXPECT_TRUE(consumer.currentCardSaveAccepted);
+  EXPECT_FALSE(consumer.supportsEditing);
+  EXPECT_TRUE(consumer.inLoadingState);
 }
 
 // Tests that calling saveCardWithCardholderName:expirationMonth:expirationYear:
@@ -153,4 +175,60 @@ TEST_F(SaveCardInfobarModalOverlayMediatorTest, LoadURL) {
   [mediator_ dismissModalAndOpenURL:url];
   EXPECT_NSEQ(base::SysUTF8ToNSString(url.spec()),
               base::SysUTF8ToNSString(delegate.pendingURLToLoad.spec()));
+}
+
+class SaveCardInfobarModalOverlayMediatorWithLocalSave
+    : public SaveCardInfobarModalOverlayMediatorTest {
+ public:
+  SaveCardInfobarModalOverlayMediatorWithLocalSave()
+      : SaveCardInfobarModalOverlayMediatorTest(/*for_upload=*/false) {}
+};
+
+// Tests that a SaveCardInfobarModalOverlayMediator does not show Modal in
+// loading state when accepted Modal is for local save.
+TEST_F(SaveCardInfobarModalOverlayMediatorWithLocalSave,
+       DoNotShowLoadingStateForAcceptedInfobar) {
+  FakeSaveCardModalConsumer* consumer =
+      [[FakeSaveCardModalConsumer alloc] init];
+  infobar_->set_accepted(true);
+  mediator_.consumer = consumer;
+
+  EXPECT_TRUE(consumer.currentCardSaveAccepted);
+  EXPECT_FALSE(consumer.supportsEditing);
+  EXPECT_FALSE(consumer.inLoadingState);
+}
+
+class SaveCardInfobarModalOverlayMediatorWithLoadingAndConfirmationTest
+    : public SaveCardInfobarModalOverlayMediatorTest {
+ public:
+  SaveCardInfobarModalOverlayMediatorWithLoadingAndConfirmationTest() {
+    scoped_feature_list_.InitWithFeatureState(
+        autofill::features::kAutofillEnableSaveCardLoadingAndConfirmation,
+        true);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Tests that calling saveCardWithCardholderName shows loading state when
+// loading and confirmation flag is enabled.
+TEST_F(SaveCardInfobarModalOverlayMediatorWithLoadingAndConfirmationTest,
+       OnSaveShowLoading) {
+  FakeSaveCardModalConsumer* consumer =
+      [[FakeSaveCardModalConsumer alloc] init];
+  mediator_.consumer = consumer;
+  NSString* cardholderName = @"name";
+  NSString* month = @"3";
+  NSString* year = @"23";
+
+  EXPECT_CALL(*delegate_,
+              UpdateAndAccept(base::SysNSStringToUTF16(cardholderName),
+                              base::SysNSStringToUTF16(month),
+                              base::SysNSStringToUTF16(year)));
+  [mediator_ saveCardWithCardholderName:cardholderName
+                        expirationMonth:month
+                         expirationYear:year];
+
+  EXPECT_TRUE(consumer.inLoadingState);
 }

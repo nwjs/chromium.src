@@ -68,7 +68,7 @@ class FakeContentAutofillDriver : public mojom::AutofillDriver {
 
   SubmissionSource submission_source() const { return submission_source_; }
 
-  const FormFieldData* select_control_changed() const {
+  const FormData* select_control_changed() const {
     return select_control_changed_.get();
   }
 
@@ -86,29 +86,29 @@ class FakeContentAutofillDriver : public mojom::AutofillDriver {
   }
 
   void CaretMovedInFormField(const FormData& form,
-                             const FormFieldData& field,
+                             FieldRendererId field_id,
                              const gfx::Rect& caret_bounds) override {}
 
   void TextFieldDidChange(const FormData& form,
-                          const FormFieldData& field,
+                          FieldRendererId field_id,
                           base::TimeTicks timestamp) override {}
 
   void TextFieldDidScroll(const FormData& form,
-                          const FormFieldData& field) override {}
+                          FieldRendererId field_id) override {}
 
   void SelectControlDidChange(const FormData& form,
-                              const FormFieldData& field) override {
-    select_control_changed_ = std::make_unique<FormFieldData>(field);
+                              FieldRendererId field_id) override {
+    select_control_changed_ = std::make_unique<FormData>(form);
   }
 
   void JavaScriptChangedAutofilledValue(const FormData& form,
-                                        const FormFieldData& field,
+                                        FieldRendererId field_id,
                                         const std::u16string& old_value,
                                         bool formatting_only) override {}
 
   void AskForValuesToFill(
       const FormData& form,
-      const FormFieldData& field,
+      FieldRendererId field_id,
       const gfx::Rect& caret_bounds,
       AutofillSuggestionTriggerSource trigger_source) override {}
 
@@ -120,7 +120,7 @@ class FakeContentAutofillDriver : public mojom::AutofillDriver {
   }
 
   void FocusOnFormField(const FormData& form,
-                        const FormFieldData& field) override {}
+                        FieldRendererId field_id) override {}
 
   void DidFillAutofillFormData(const FormData& form,
                                base::TimeTicks timestamp) override {}
@@ -144,7 +144,7 @@ class FakeContentAutofillDriver : public mojom::AutofillDriver {
 
   SubmissionSource submission_source_;
 
-  std::unique_ptr<FormFieldData> select_control_changed_;
+  std::unique_ptr<FormData> select_control_changed_;
 
   mojo::AssociatedReceiverSet<mojom::AutofillDriver> receivers_;
 };
@@ -199,10 +199,10 @@ void VerifyNoSubmitMessagesReceived(
 // TODO(crbug.com/41495779): Update.
 FormData CreateAutofillFormData(blink::WebLocalFrame* main_frame) {
   FormData data;
-  data.name = u"name";
-  data.url = GURL("http://example.com/");
-  data.action = GURL("http://example.com/blade.php");
-  data.renderer_id = test::MakeFormRendererId();  // Default value.
+  data.set_name(u"name");
+  data.set_url(GURL("http://example.com/"));
+  data.set_action(GURL("http://example.com/blade.php"));
+  data.set_renderer_id(test::MakeFormRendererId());  // Default value.
 
   WebDocument document = main_frame->GetDocument();
   WebFormControlElement fname_element =
@@ -325,10 +325,10 @@ class FormAutocompleteTest : public ChromeRenderViewTest {
 
     // TODO(crbug.com/41495779): Update.
     FormData form;
-    form.name = u"name";
-    form.url = GURL("http://example.com/");
-    form.action = GURL("http://example.com/blade.php");
-    form.renderer_id = test::MakeFormRendererId();  // Default value.
+    form.set_name(u"name");
+    form.set_url(GURL("http://example.com/"));
+    form.set_action(GURL("http://example.com/blade.php"));
+    form.set_renderer_id(test::MakeFormRendererId());  // Default value.
 
     FormFieldData field;
     field.set_name(u"fname");
@@ -725,10 +725,11 @@ TEST_F(FormAutocompleteTest, SelectControlChanged) {
           *reinterpret_cast<blink::WebFormControlElement*>(&element));
   base::RunLoop().RunUntilIdle();
 
-  const FormFieldData* field = fake_driver_.select_control_changed();
-  ASSERT_TRUE(field);
-  EXPECT_EQ(u"color", field->name());
-  EXPECT_EQ(u"blue", field->value());
+  const FormData* form = fake_driver_.select_control_changed();
+  ASSERT_TRUE(form);
+  ASSERT_EQ(form->fields.size(), 1u);
+  EXPECT_EQ(u"color", form->fields[0].name());
+  EXPECT_EQ(u"blue", form->fields[0].value());
 }
 
 // Parameterized test for submission detection. The parameter dictates whether

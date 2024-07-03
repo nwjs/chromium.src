@@ -2,17 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "content/app/android/content_main_android.h"
+
 #include <memory>
 
 #include "base/lazy_instance.h"
 #include "base/no_destructor.h"
 #include "base/trace_event/trace_event.h"
-#include "content/app/android/content_main_android.h"
-#include "content/public/android/content_main_dex_jni/ContentMain_jni.h"
 #include "content/public/app/content_main.h"
 #include "content/public/app/content_main_delegate.h"
 #include "content/public/app/content_main_runner.h"
 #include "content/public/common/content_client.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "content/public/android/content_app_jni/ContentMain_jni.h"
 
 using base::LazyInstance;
 using base::android::JavaParamRef;

@@ -43,6 +43,11 @@ chromium-metrics-reviews@google.com.
     A bit field with each bit representing the presence of a potential OAuth
     query param in the URL. Recorded when the Custom Tab receives and handles
     the initial intent. Android only.
+
+    Available bit flags:
+
+    0b00001: client_id, 0b00010: redirect_uri, 0b00100: response_type, 0b01000:
+    scope, 0b10000: state
   </summary>
 </histogram>
 
@@ -189,7 +194,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.DetachedResourceRequest.FinalStatus"
-    enum="NetErrorCodes" expires_after="2024-09-22">
+    enum="NetErrorCodes" expires_after="2024-11-24">
   <owner>lizeb@chromium.org</owner>
   <owner>cct-team@google.com</owner>
   <summary>
@@ -239,7 +244,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="CustomTabs.GoogleBottomBar.ButtonClicked"
+<histogram name="CustomTabs.GoogleBottomBar.Button.Clicked"
     enum="GoogleBottomBarButtonEvent" expires_after="2025-05-16">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
@@ -251,7 +256,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="CustomTabs.GoogleBottomBar.ButtonShown"
+<histogram name="CustomTabs.GoogleBottomBar.Button.Shown"
     enum="GoogleBottomBarButtonEvent" expires_after="2025-05-16">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
@@ -262,7 +267,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="CustomTabs.GoogleBottomBar.ButtonUpdated"
+<histogram name="CustomTabs.GoogleBottomBar.Button.Updated"
     enum="GoogleBottomBarButtonEvent" expires_after="2025-05-16">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
@@ -347,7 +352,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.IncognitoCCTCallerId" enum="IncognitoCCTCallerId"
-    expires_after="2024-08-04">
+    expires_after="2024-11-10">
   <owner>arabm@google.com</owner>
   <owner>chrome-incognito@google.com</owner>
   <owner>cct-team@google.com</owner>
@@ -356,6 +361,18 @@ chromium-metrics-reviews@google.com.
     feature name is recorded, for external calls, either Google App or
     Non-Google App categories are recorded. The metric is recorded when an
     Incognito CCT opening intent is received.
+  </summary>
+</histogram>
+
+<histogram name="CustomTabs.IncognitoCCTCallerIsTrusted" enum="Boolean"
+    expires_after="2024-11-10">
+  <owner>dullweber@google.com</owner>
+  <owner>chrome-incognito@google.com</owner>
+  <owner>cct-team@google.com</owner>
+  <summary>
+    This metrics records whether a caller who requested Incognito CCT is
+    considered trusted. Only recorded when CCTIncognitoAvailableToThirdParty is
+    false.
   </summary>
 </histogram>
 
@@ -445,26 +462,6 @@ chromium-metrics-reviews@google.com.
     #onFinishNativeInitialization() when the availability is first checked to
     initialize the feature. Android only.
   </summary>
-</histogram>
-
-<histogram name="CustomTabs.MinimizeSuccessAfterException.{Exception}"
-    units="count" expires_after="2024-06-02">
-  <owner>sinansahin@google.com</owner>
-  <owner>chrome-connective-tissue@google.com</owner>
-  <summary>
-    Records the number of times {Exception} was thrown by
-    `Activity#enterPictureInPictureMode` when the said method succeeds. The
-    count includes exceptions seen since the last successful minimize event or
-    since the `CustomTabMinimizationManager` was created. This is recorded at
-    most once per CCT. Android only.
-  </summary>
-  <token key="Exception">
-    <variant name="IAE"
-        summary="IllegalStateException for addRootTaskReferenceIfNeeded"/>
-    <variant name="ISE_ACTIVITY" summary="IllegalStateException for Activity"/>
-    <variant name="ISE_DEVICE" summary="IllegalStateException for device"/>
-    <variant name="NPE" summary="NullPointerException for TaskDisplayArea"/>
-  </token>
 </histogram>
 
 <histogram name="CustomTabs.Omnibox.EnabledState" units="BooleanEnabled"

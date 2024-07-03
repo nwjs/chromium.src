@@ -14,7 +14,6 @@ import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
@@ -225,20 +224,6 @@ public interface TabManagementDelegate {
             @NonNull OneshotSupplier<HubManager> hubManagerSupplier,
             @NonNull Supplier<TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier,
             @NonNull Supplier<ModalDialogManager> modalDialogManagerSupplier);
-
-    /**
-     * Create a TabGroupCreationDialogManager when creating a new tab group.
-     *
-     * @param activity The {@link Activity} that hosts this dialog.
-     * @param modalDialogManager The modal dialog manager for the activity.
-     * @param tabModelSelector The current {@link TabModelSelector}.
-     * @param onDialogAccepted The action to run when the dialog is accepted.
-     */
-    Destroyable createTabGroupCreationDialogManager(
-            @NonNull Activity activity,
-            @NonNull ModalDialogManager modalDialogManager,
-            @NonNull TabModelSelector tabModelSelector,
-            @NonNull Runnable onDialogAccepted);
 
     /**
      * Create a {@link ColorPicker} when creating a custom color picker component.

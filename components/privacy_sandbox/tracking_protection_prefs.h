@@ -35,15 +35,6 @@ inline constexpr char kTrackingProtectionNoticeLastShown[] =
 inline constexpr char kTrackingProtectionOnboardingAckedSince[] =
     "tracking_protection.tracking_protection_onboarding_acked_since";
 
-// Unsynced Pref that indicates when the notice was first requested.
-inline constexpr char kTrackingProtectionOnboardingNoticeFirstRequested[] =
-    "tracking_protection.tracking_protection_onboarding_notice_first_requested";
-
-// Unsynced Pref that indicates when the notice was last requested. This is only
-// being tracked until the profile is fully Onboarded.
-inline constexpr char kTrackingProtectionOnboardingNoticeLastRequested[] =
-    "tracking_protection.tracking_protection_onboarding_notice_last_requested";
-
 // Unsynced boolean that indicates whether or not the user has acknowledged the
 // onboarding message. This is kept separate from the onboardingStatus
 // intentionally.
@@ -54,22 +45,6 @@ inline constexpr char kTrackingProtectionOnboardingAcked[] =
 // Notice.
 inline constexpr char kTrackingProtectionOnboardingAckAction[] =
     "tracking_protection.tracking_protection_onboarding_ack_action";
-
-// Offboarding
-
-// Unsynced boolean that indicates whether or not the user has been offboarded
-// (After being onboarded previously).
-inline constexpr char kTrackingProtectionOffboarded[] =
-    "tracking_protection.tracking_protection_offboarded";
-
-// Unsynced pref that indicates when the profile was offboarded.
-inline constexpr char kTrackingProtectionOffboardedSince[] =
-    "tracking_protection.tracking_protection_offboarded_since";
-
-// Unsynced pref that indicates the action taken to acknowledge the Offboarding
-// Notice.
-inline constexpr char kTrackingProtectionOffboardingAckAction[] =
-    "tracking_protection.tracking_protection_offboarding_ack_action";
 
 // Silent onboarding
 
@@ -87,6 +62,12 @@ inline constexpr char kTrackingProtectionSilentEligibleSince[] =
 // onto tracking protection control groups.
 inline constexpr char kTrackingProtectionSilentOnboardedSince[] =
     "tracking_protection.tracking_protection_silent_onboarded_since";
+
+// Tracking Protection Reminder Prefs.
+
+// Unsynced pref that indicates the reminder status for a profile.
+inline constexpr char kTrackingProtectionReminderStatus[] =
+    "tracking_protection.reminder_status";
 
 // Tracking Protection Settings Prefs.
 
@@ -110,6 +91,11 @@ inline constexpr char kTrackingProtectionLevel[] =
 // are enabled on the current device.
 inline constexpr char kTrackingProtection3pcdEnabled[] =
     "tracking_protection.tracking_protection_3pcd_enabled";
+
+// Synced boolean that indicates whether the user has had their IP protection
+// pref initialized. Used ONLY for Google dogfood.
+inline constexpr char kIpProtectionInitializedByDogfood[] =
+    "tracking_protection.ip_protection_initialized_by_dogfood";
 
 // Synced boolean that indicates whether the user has enabled IP protection
 // using either the UI setting or enterprise policy.
@@ -161,6 +147,17 @@ enum class TrackingProtectionOnboardingAckAction {
   // Acked by clicking the close button/ESC/Swipe away.
   kClosed = 5,
   kMaxValue = kClosed,
+};
+
+// Tracking protection reminder statues.
+enum class TrackingProtectionReminderStatus {
+  kUnset = 0,
+  kInvalid = 1,
+  kPendingReminder = 2,
+  kExperiencedReminder = 3,
+  kModeBUserSkipped = 4,
+  kFeatureDisabledSkipped = 5,
+  kMaxValue = kFeatureDisabledSkipped,
 };
 
 void RegisterProfilePrefs(PrefRegistrySimple* registry);

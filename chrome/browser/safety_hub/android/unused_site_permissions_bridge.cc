@@ -8,31 +8,22 @@
 
 #include <vector>
 
+#include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/check.h"
 #include "base/time/time.h"
-#include "chrome/browser/safety_hub/android/jni_headers/PermissionsData_jni.h"
-#include "chrome/browser/safety_hub/android/jni_headers/UnusedSitePermissionsBridge_jni.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/safety_hub/unused_site_permissions_service.h"
 #include "chrome/browser/ui/safety_hub/unused_site_permissions_service_factory.h"
 #include "components/content_settings/core/common/content_settings_constraints.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
-namespace jni_zero {
-
-template <>
-PermissionsData FromJniType<PermissionsData>(JNIEnv* env,
-                                             const JavaRef<jobject>& jobject) {
-  return FromJavaPermissionsData(env, jobject);
-}
-
-template <>
-ScopedJavaLocalRef<jobject> ToJniType(JNIEnv* env, const PermissionsData& obj) {
-  return ToJavaPermissionsData(env, obj);
-}
-
-}  // namespace jni_zero
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "chrome/browser/safety_hub/android/jni_headers/PermissionsData_jni.h"
+#include "chrome/browser/safety_hub/android/jni_headers/UnusedSitePermissionsBridge_jni.h"
 
 PermissionsData FromJavaPermissionsData(
     JNIEnv* env,
@@ -82,8 +73,73 @@ std::vector<PermissionsData> GetRevokedPermissions(Profile* profile) {
                                       service_result.end());
 }
 
+void RegrantPermissions(Profile* profile, std::string& primary_pattern) {
+  UnusedSitePermissionsService* service =
+      UnusedSitePermissionsServiceFactory::GetForProfile(profile);
+  CHECK(service);
+
+  url::Origin origin = url::Origin::Create(GURL(primary_pattern));
+  service->RegrantPermissionsForOrigin(origin);
+}
+
+void UndoRegrantPermissions(Profile* profile,
+                            PermissionsData& permissions_data) {
+  UnusedSitePermissionsService* service =
+      UnusedSitePermissionsServiceFactory::GetForProfile(profile);
+  CHECK(service);
+
+  service->UndoRegrantPermissionsForOrigin(permissions_data);
+}
+
+void ClearRevokedPermissionsReviewList(Profile* profile) {
+  UnusedSitePermissionsService* service =
+      UnusedSitePermissionsServiceFactory::GetForProfile(profile);
+  CHECK(service);
+
+  service->ClearRevokedPermissionsList();
+}
+
+void RestoreRevokedPermissionsReviewList(
+    Profile* profile,
+    std::vector<PermissionsData>& permissions_data_list) {
+  UnusedSitePermissionsService* service =
+      UnusedSitePermissionsServiceFactory::GetForProfile(profile);
+  CHECK(service);
+
+  for (const auto& permissions_data : permissions_data_list) {
+    service->StorePermissionInRevokedPermissionSetting(permissions_data);
+  }
+}
+
 static std::vector<PermissionsData>
 JNI_UnusedSitePermissionsBridge_GetRevokedPermissions(JNIEnv* env,
                                                       Profile* profile) {
   return GetRevokedPermissions(profile);
+}
+
+static void JNI_UnusedSitePermissionsBridge_RegrantPermissions(
+    JNIEnv* env,
+    Profile* profile,
+    std::string& primary_pattern) {
+  RegrantPermissions(profile, primary_pattern);
+}
+
+static void JNI_UnusedSitePermissionsBridge_UndoRegrantPermissions(
+    JNIEnv* env,
+    Profile* profile,
+    PermissionsData& permissions_data) {
+  UndoRegrantPermissions(profile, permissions_data);
+}
+
+static void JNI_UnusedSitePermissionsBridge_ClearRevokedPermissionsReviewList(
+    JNIEnv* env,
+    Profile* profile) {
+  ClearRevokedPermissionsReviewList(profile);
+}
+
+static void JNI_UnusedSitePermissionsBridge_RestoreRevokedPermissionsReviewList(
+    JNIEnv* env,
+    Profile* profile,
+    std::vector<PermissionsData>& permissions_data_list) {
+  RestoreRevokedPermissionsReviewList(profile, permissions_data_list);
 }

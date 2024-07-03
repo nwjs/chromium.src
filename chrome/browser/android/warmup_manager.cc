@@ -9,7 +9,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "url/gurl.h"
 
-// Must come after other includes, because FromJniType() uses Profile.
+// Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/WarmupManager_jni.h"
 
 using base::android::JavaParamRef;
@@ -34,7 +34,8 @@ static void JNI_WarmupManager_PreconnectUrlAndSubresources(
     auto* loading_predictor =
         predictors::LoadingPredictorFactory::GetForProfile(profile);
     if (loading_predictor) {
-      loading_predictor->PrepareForPageLoad(url,
+      loading_predictor->PrepareForPageLoad(/*initiator_origin=*/std::nullopt,
+                                            url,
                                             predictors::HintOrigin::EXTERNAL);
     }
   }

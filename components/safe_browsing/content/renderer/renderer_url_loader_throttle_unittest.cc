@@ -35,7 +35,6 @@ class FakeSafeBrowsing : public mojom::SafeBrowsing {
       const std::string& method,
       const net::HttpRequestHeaders& headers,
       int32_t load_flags,
-      network::mojom::RequestDestination request_destination,
       bool has_user_gesture,
       bool originated_from_service_worker,
       CreateCheckerAndCheckCallback callback) override {
@@ -49,7 +48,7 @@ class FakeSafeBrowsing : public mojom::SafeBrowsing {
   }
 
   void Clone(mojo::PendingReceiver<mojom::SafeBrowsing> receiver) override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 
   void EnableDelayCallback() { should_delay_callback_ = true; }

@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastel sariq</translation>
 <translation id="1056898198331236512">Ogohlantirish</translation>
 <translation id="1059913517121127803">Skanerlash ishga tushmadi</translation>
+<translation id="1061864016440983342">Joylashuvsiz foydalanish</translation>
 <translation id="1062823486781306604"><ph name="INDEX" />/<ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Himoya devori aniqlandi</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Kengaytirilgan sozlamalar</translation>
 <translation id="2082932131694554252">Tayinlangan tugma</translation>
 <translation id="2085089206770112532">Displey yorlinligini pasaytirish</translation>
+<translation id="2086091080968010660">Vaqt asosidagi oʻzgarishlar aniq boʻlmasligi mumkin. Sozlamalar orqali tizim darajasidagi joylashuv ruxsatini yoqing.</translation>
 <translation id="2102231663024125441">Matn tahrirlash</translation>
 <translation id="2105810540595158374">Qurilma — geympad</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versiya: <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN maʼlumotlarini tahrirlash</translation>
 <translation id="2195732836444333448">Imkoniyat doirasidan tashqaridamiz. Keyinroq qayta tekshiring.</translation>
 <translation id="2201758491318984023">velosiped</translation>
-<translation id="2203222757805818543">Mavzu rejimi sozlandi: <ph name="SUNRISE" /> - <ph name="SUNSET" />. Tungi mavzu reja asosida avtomatik yangilanishi uchun <ph name="BEGIN_LINK" />jjoylashuv axborotiga ruxsatni yoqing<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">issiq buloq</translation>
 <translation id="2203642483788377106">qoyatosh</translation>
 <translation id="2208388655216963643">impressionizm</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Andozalarni tiklash</translation>
 <translation id="2286454467119466181">Oddiy interfeys</translation>
 <translation id="2287186687001756809">Hech qanday rasm topilmadi. Suratlar kiritish uchun <ph name="LINK" /> sahifasini oching.</translation>
+<translation id="2294577623958216786">Jadval bunday sozlangan: <ph name="SUNRISE" />-<ph name="SUNSET" />. Quyosh chiqishi va botishi rejasini avtomatik yangilash uchun tizim darajasidagi joylashuv axborotiga ruxsatni yoqing.</translation>
 <translation id="2305172810646967500">qora</translation>
 <translation id="2307344026739914387">Joriy kalitlar juftligidan foydalanish</translation>
 <translation id="2308243864813041101">Yangilashda davom etish uchun <ph name="DEVICE_NAME" /> USB kabelini uzing</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">qumtepa</translation>
 <translation id="2619761439309613843">Kundalik yangilash</translation>
 <translation id="2620436844016719705">Tizim</translation>
+<translation id="2637303424821734920">OʻCHIQ - Mahalliy ob-havo axborotini chiqarish uchun <ph name="BEGIN_LINK" />tizim joylashuv ruxsatini yoqing<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Kirish sahifasidagi rasm</translation>
 <translation id="2640549051766135490">Albom: <ph name="TITLE" /> <ph name="DESC" /> tanlandi</translation>
 <translation id="2645380101799517405">Boshqaruv</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Orqa fon</translation>
 <translation id="3027578600144895987">Kamerani yopish</translation>
 <translation id="3031560714565892478">Qurilma — video kamera.</translation>
+<translation id="3051968340259309715">Bunda joylashuvingizni aniqlash uchun tizim xizmatlari Joylashuv aniqligidan foydalanishga ruxsat oladi. Joylashuv aniqligi qurilma joylashuvini taxmin qilishida GPS orqali simsiz signallar haqidagi axborot jamlanadi, jumladan, Wi-Fi ulanish nuqtalari, mobil tarmoq antennalari va hokazo. Shuningdek, funksiya akselerometr va giroskop kabi sensorlardan axborot olishi mumkin. Joylashuv ruxsatini faolsizlantirish uchun Sozlamalar &gt; Maxfiylik va xavfsizlik &gt; Maxfiylik sozlamalari &gt; Joylashuv axborotiga ruxsat sahifasini oching. <ph name="LINK_BEGIN" />Batafsil<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">Oxirgi nuqta</translation>
 <translation id="3060579846059757016">Konturlar</translation>
+<translation id="3061850252076394168">teginib tinglashni yoqish</translation>
 <translation id="3069085583900247081">Tekshiruv bajarilmadi</translation>
 <translation id="3078740164268491126">jadval</translation>
 <translation id="3081652522083185657">kunduzgi</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Hech qaysi host aniqlanmadi</translation>
 <translation id="4593212453765072419">Proksi hisob tekshiruvini talab qiladi</translation>
 <translation id="4609350030397390689">Klaviatura yorqinligi pasaytirish</translation>
-<translation id="4617553623719764431">Ob-havo koʻrsatilmaydi, chunki joylashuvingiz aniq emas. Mahalliy ob-havoni koʻrsatish uchun <ph name="BEGIN_LINK" />Joylashuv axborotiga ruxsatni yoqing<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" />. Chop etilishini bekor qilish uchun Enter tugmasini bosing.</translation>
 <translation id="463791356324567266">Skanerlash bekor qilinmoqda...</translation>
 <translation id="4646949265910132906">Xavfsiz WiFi aloqasi</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Ishga tushirish</translation>
 <translation id="4987769320337599931">Himoya devori</translation>
 <translation id="4988526792673242964">Sahifalar</translation>
+<translation id="4989542687859782284">Mavjud emas</translation>
 <translation id="4999333166442584738">Hisobotni yopish</translation>
 <translation id="500920857929044050">Tekshiruvni toʻxtatish</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">klaviatura yorqinligi</translation>
 <translation id="6412715219990689313">Ichki klaviatura</translation>
 <translation id="6417265370957905582">Google Assistent</translation>
+<translation id="6419454453018688975">Tizim darajasidagi joylashuvga ruxsatni yoqish</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Bu tizim xizmatlariga joylashuvingizdan foydalanishga ruxsat beradi. Joylashuvni aniqlash xizmati bu qurilmaning joylashuvini bilish uchun Wi-Fi, mobil tarmoqlar va sensorlar kabi manbalardan foydalanadi. <ph name="LINK_BEGIN" />Batafsil<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Zaif (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Hisob sozlamalarini ochish</translation>
 <translation id="6462978824459367242">APN kiritish tugmasi yoqildi</translation>

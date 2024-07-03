@@ -2,15 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import './icons.html.js';
+import './voice_selection_menu.js';
+import '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/cr_icons.css.js';
-import '//resources/cr_elements/icons.html.js';
-import '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
-import '//resources/cr_elements/md_select.css.js';
 import '//resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
-import './voice_selection_menu.js';
-import './icons.html.js';
+import '//resources/cr_elements/icons.html.js';
+import '//resources/cr_elements/icons_lit.html.js';
+import '//resources/cr_elements/md_select.css.js';
 
 import type {CrActionMenuElement} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import type {CrIconElement} from '//resources/cr_elements/cr_icon/cr_icon.js';
@@ -23,7 +24,7 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {DomRepeatEvent} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {Debouncer, PolymerElement, timeOut} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {minOverflowLengthToScroll, openMenu, validatedFontName} from './common.js';
+import {minOverflowLengthToScroll, openMenu, ReadAloudSettingsChange, SPEECH_SETTINGS_CHANGE_UMA, spinnerDebounceTimeout, validatedFontName} from './common.js';
 import {getTemplate} from './read_anything_toolbar.html.js';
 import type {VoiceSelectionMenuElement} from './voice_selection_menu.js';
 
@@ -76,18 +77,38 @@ enum ReadAnythingSettingsChange {
   LINE_HEIGHT_CHANGE = 3,
   LETTER_SPACING_CHANGE = 4,
   LINKS_ENABLED_CHANGE = 5,
+  IMAGES_ENABLED_CHANGE = 6,
 
   // Must be last.
-  COUNT = 6,
+  COUNT = 7,
 }
 
-const SETTINGS_CHANGE_UMA = 'Accessibility.ReadAnything.SettingsChange';
+// Enum for logging the reading highlight state.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum ReadAloudHighlightState {
+  HIGHLIGHT_ON = 0,
+  HIGHLIGHT_OFF = 1,
+
+  // Must be last.
+  COUNT = 2,
+}
+
+const TEXT_SETTINGS_CHANGE_UMA = 'Accessibility.ReadAnything.SettingsChange';
+const HIGHLIGHT_STATE_UMA =
+    'Accessibility.ReadAnything.ReadAloud.HighlightState';
+const VOICE_SPEED_UMA = 'Accessibility.ReadAnything.ReadAloud.VoiceSpeed';
 export const moreOptionsClass = '.more-options-icon';
 
 // Link toggle button constants.
 export const LINKS_ENABLED_ICON = 'read-anything:links-enabled';
 export const LINKS_DISABLED_ICON = 'read-anything:links-disabled';
 export const LINK_TOGGLE_BUTTON_ID = 'link-toggle-button';
+
+// Images toggle button constants.
+export const IMAGES_ENABLED_ICON = 'read-anything:images-enabled';
+export const IMAGES_DISABLED_ICON = 'read-anything:images-disabled';
+export const IMAGES_TOGGLE_BUTTON_ID = 'images-toggle-button';
 
 // Events emitted from the toolbar to the app
 export const LETTER_SPACING_EVENT = 'letter-spacing-change';
@@ -101,6 +122,7 @@ export const HIGHLIGHT_TOGGLE_EVENT = 'highlight-toggle';
 export const NEXT_GRANULARITY_EVENT = 'next-granularity-click';
 export const PREVIOUS_GRANULARITY_EVENT = 'previous-granularity-click';
 export const LINKS_EVENT = 'links-toggle';
+export const IMAGES_EVENT = 'images-toggle';
 
 // Constants for styling the toolbar when page zoom changes.
 const whiteSpaceTypical = 'nowrap';
@@ -380,6 +402,19 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
         (this.constructorTime - this.startTime),
         'Accessibility.ReadAnything.TimeFromToolbarStartedToConstructor');
     this.isReadAloudEnabled_ = chrome.readingMode.isReadAloudEnabled;
+
+    // Only add the button to the toolbar if the feature is enabled.
+    if (chrome.readingMode.imagesFeatureEnabled) {
+      this.textStyleToggles_.push({
+        id: IMAGES_TOGGLE_BUTTON_ID,
+        icon: chrome.readingMode.imagesEnabled ? IMAGES_ENABLED_ICON :
+                                                 IMAGES_DISABLED_ICON,
+        title: chrome.readingMode.imagesEnabled ?
+            loadTimeData.getString('disableImagesLabel') :
+            loadTimeData.getString('enableImagesLabel'),
+        callback: this.onToggleImagesClick_.bind(this),
+      });
+    }
   }
 
   override connectedCallback() {
@@ -672,11 +707,20 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   }
 
   private onHighlightClick_() {
+    chrome.metricsPrivate.recordEnumerationValue(
+        SPEECH_SETTINGS_CHANGE_UMA, ReadAloudSettingsChange.HIGHLIGHT_CHANGE,
+        ReadAloudSettingsChange.COUNT);
     if (this.isHighlightOn_) {
       chrome.readingMode.turnedHighlightOff();
     } else {
       chrome.readingMode.turnedHighlightOn();
     }
+
+    const newHighlightState = this.isHighlightOn_ ?
+        ReadAloudHighlightState.HIGHLIGHT_OFF :
+        ReadAloudHighlightState.HIGHLIGHT_ON;
+    chrome.metricsPrivate.recordEnumerationValue(
+        HIGHLIGHT_STATE_UMA, newHighlightState, ReadAloudHighlightState.COUNT);
     this.setHighlightState_(!this.isHighlightOn_);
   }
 
@@ -721,7 +765,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
       emitEventName: string) {
     event.model.item.callback();
     chrome.metricsPrivate.recordEnumerationValue(
-        SETTINGS_CHANGE_UMA, logVal, ReadAnythingSettingsChange.COUNT);
+        TEXT_SETTINGS_CHANGE_UMA, logVal, ReadAnythingSettingsChange.COUNT);
     this.emitEvent_(emitEventName, {data: event.model.item.data});
     this.setCheckMarkForMenu_(menuClicked, event.model.index);
     this.closeMenus_();
@@ -729,7 +773,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
 
   private onFontClick_(event: DomRepeatEvent<string>) {
     chrome.metricsPrivate.recordEnumerationValue(
-        SETTINGS_CHANGE_UMA, ReadAnythingSettingsChange.FONT_CHANGE,
+        TEXT_SETTINGS_CHANGE_UMA, ReadAnythingSettingsChange.FONT_CHANGE,
         ReadAnythingSettingsChange.COUNT);
     const fontName = event.model.item;
     this.propagateFontChange_(fontName);
@@ -752,6 +796,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   }
 
   private onRateClick_(event: DomRepeatEvent<number>) {
+    chrome.metricsPrivate.recordEnumerationValue(
+        SPEECH_SETTINGS_CHANGE_UMA, ReadAloudSettingsChange.VOICE_SPEED_CHANGE,
+        ReadAloudSettingsChange.COUNT);
+    // Log which rate is chosen by index rather than the rate value itself.
+    chrome.metricsPrivate.recordSmallCount(VOICE_SPEED_UMA, event.model.index);
     chrome.readingMode.onSpeechRateChange(event.model.item);
     this.emitEvent_(RATE_EVENT, {
       rate: event.model.item,
@@ -765,7 +814,8 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   private setRateIcon_(rate: number) {
     const button = this.$.toolbarContainer.querySelector('#rate');
     assert(button, 'no rate button');
-    button.setAttribute('iron-icon', 'voice-rate:' + rate);
+    button?.setAttribute('iron-icon', 'voice-rate:' + rate);
+    button?.setAttribute('aria-label', this.getVoiceSpeedLabel_(rate));
   }
 
   private setCheckMarkForMenu_(menu: CrActionMenuElement|null, index: number) {
@@ -811,12 +861,27 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     }
 
     chrome.metricsPrivate.recordEnumerationValue(
-        SETTINGS_CHANGE_UMA, ReadAnythingSettingsChange.LINKS_ENABLED_CHANGE,
+        TEXT_SETTINGS_CHANGE_UMA,
+        ReadAnythingSettingsChange.LINKS_ENABLED_CHANGE,
         ReadAnythingSettingsChange.COUNT);
 
     chrome.readingMode.onLinksEnabledToggled();
     this.emitEvent_(LINKS_EVENT);
     this.updateLinkToggleButton();
+  }
+
+  private onToggleImagesClick_(event: DomRepeatEvent<ToggleButton>) {
+    if (!event.target) {
+      return;
+    }
+    chrome.metricsPrivate.recordEnumerationValue(
+        TEXT_SETTINGS_CHANGE_UMA,
+        ReadAnythingSettingsChange.IMAGES_ENABLED_CHANGE,
+        ReadAnythingSettingsChange.COUNT);
+
+    chrome.readingMode.onImagesEnabledToggled();
+    this.emitEvent_(IMAGES_EVENT);
+    this.updateImagesToggleButton();
   }
 
   private updateLinkToggleButton() {
@@ -831,9 +896,21 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     }
   }
 
+  private updateImagesToggleButton() {
+    const button = this.shadowRoot?.getElementById(IMAGES_TOGGLE_BUTTON_ID) as
+        CrIconButtonElement;
+    if (button) {
+      button.ironIcon = chrome.readingMode.imagesEnabled ? IMAGES_ENABLED_ICON :
+                                                           IMAGES_DISABLED_ICON;
+      button.title = chrome.readingMode.imagesEnabled ?
+          loadTimeData.getString('disableImagesLabel') :
+          loadTimeData.getString('enableImagesLabel');
+    }
+  }
+
   private updateFontSize_(increase: boolean) {
     chrome.metricsPrivate.recordEnumerationValue(
-        SETTINGS_CHANGE_UMA, ReadAnythingSettingsChange.FONT_SIZE_CHANGE,
+        TEXT_SETTINGS_CHANGE_UMA, ReadAnythingSettingsChange.FONT_SIZE_CHANGE,
         ReadAnythingSettingsChange.COUNT);
     chrome.readingMode.onFontSizeChanged(increase);
     this.emitEvent_(FONT_SIZE_EVENT);
@@ -842,7 +919,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
 
   private onFontResetClick_() {
     chrome.metricsPrivate.recordEnumerationValue(
-        SETTINGS_CHANGE_UMA, ReadAnythingSettingsChange.FONT_SIZE_CHANGE,
+        TEXT_SETTINGS_CHANGE_UMA, ReadAnythingSettingsChange.FONT_SIZE_CHANGE,
         ReadAnythingSettingsChange.COUNT);
     chrome.readingMode.onFontSizeReset();
     this.emitEvent_(FONT_SIZE_EVENT);
@@ -970,8 +1047,8 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     // scheduled.
     // TODO (b/339860819) improve debouncer logic so that the spinner disappears
     // immediately when speech starts playing, or when the paused button is hit.
-    this.debouncer_ =
-        Debouncer.debounce(this.debouncer_, timeOut.after(150), () => {
+    this.debouncer_ = Debouncer.debounce(
+        this.debouncer_, timeOut.after(spinnerDebounceTimeout), () => {
           if (paused) {
             this.hideSpinner = true;
           } else {
@@ -1022,6 +1099,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     return this.isReadAloudEnabled_ ?
         this.i18n('readingModeReadAloudToolbarLabel') :
         this.i18n('readingModeToolbarLabel');
+  }
+
+  private getVoiceSpeedLabel_(rate: number = this.getCurrentSpeechRate()):
+      string {
+    return loadTimeData.getStringF('voiceSpeedWithRateLabel', rate);
   }
 }
 

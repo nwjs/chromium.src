@@ -20,10 +20,10 @@ import org.chromium.chrome.browser.tab.CurrentTabObserver;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.features.start_surface.StartSurface;
-import org.chromium.components.browser_ui.widget.InsetObserver;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
 import org.chromium.components.browser_ui.widget.TouchEventProvider;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.InsetObserver;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -47,6 +47,8 @@ public class HistoryNavigationCoordinator
     private OverscrollGlowOverlay mOverscrollGlowOverlay;
 
     private Supplier<TouchEventProvider> mTouchEventProvider;
+
+    private boolean mForceFeatureEnabledForTesting;
 
     /**
      * Creates the coordinator for gesture navigation and initializes internal objects.
@@ -187,6 +189,10 @@ public class HistoryNavigationCoordinator
      * @return {@code} true if the feature is enabled.
      */
     private boolean isFeatureEnabled() {
+        if (mForceFeatureEnabledForTesting) {
+            return true;
+        }
+
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             return true;
         } else {
@@ -339,5 +345,10 @@ public class HistoryNavigationCoordinator
 
     HistoryNavigationLayout getLayoutForTesting() {
         return mNavigationLayout;
+    }
+
+    void forceFeatureEnabledForTesting() {
+        mForceFeatureEnabledForTesting = true;
+        onNavigationStateChanged();
     }
 }

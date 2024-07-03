@@ -138,8 +138,7 @@ class JavaType:
   array_dimensions: int = 0
   primitive_name: Optional[str] = None
   java_class: Optional[JavaClass] = None
-  annotations: Dict[str, Optional[str]] = \
-      dataclasses.field(default_factory=dict, compare=False)
+  converted_type: Optional[str] = dataclasses.field(default=None, compare=False)
 
   @staticmethod
   def from_descriptor(descriptor):
@@ -182,6 +181,9 @@ class JavaType:
   def is_object_array(self):
     return self.array_dimensions > 1 or (self.primitive_name is None
                                          and self.array_dimensions > 0)
+
+  def is_collection(self):
+    return not self.is_array() and self.java_class in COLLECTION_CLASSES
 
   def is_void(self):
     return self.primitive_name == 'void'
@@ -236,23 +238,6 @@ class JavaType:
 
     # All other types should just be passed as Objects or Object arrays.
     return dataclasses.replace(self, java_class=OBJECT_CLASS)
-
-  def converted_type(self):
-    """Returns a C datatype listed in the JniType annotation for this type."""
-    ret = self.annotations.get('JniType', None)
-    # Allow "std::vector" as shorthand for:
-    #     std::vector<jni_zero::ScopedJavaLocalRef<jobject>>
-    if ret == 'std::vector':
-      if self.is_object_array():
-        ret += '<jni_zero::ScopedJavaLocalRef<jobject>>'
-      elif self.is_array():
-        cpp_type = _CPP_TYPE_BY_JAVA_TYPE[self.non_array_full_name_with_slashes]
-        ret += f'<{cpp_type}>'
-      else:
-        # TODO(agrieve): This should be checked at parse time.
-        raise Exception(
-            'Found non-templatized @JniType("std::vector") on non-array type')
-    return ret
 
 
 @dataclasses.dataclass(frozen=True)
@@ -366,8 +351,8 @@ class TypeResolver:
 
   def resolve(self, name):
     """Return a JavaClass for the given type name."""
-    assert name not in PRIMITIVES
-    assert ' ' not in name
+    assert name not in PRIMITIVES, 'Name: ' + name
+    assert ' ' not in name, 'Name: ' + name
 
     if '/' in name:
       # Coming from javap, use the fully qualified name directly.
@@ -413,8 +398,20 @@ class TypeResolver:
 CLASS_CLASS = JavaClass('java/lang/Class')
 OBJECT_CLASS = JavaClass('java/lang/Object')
 STRING_CLASS = JavaClass('java/lang/String')
-_EMPTY_TYPE_RESOLVER = TypeResolver(OBJECT_CLASS)
+_LIST_CLASS = JavaClass('java/util/List')
+
+# Collection and types that extend it (for use with toArray()).
+# More can be added here if the need arises.
+COLLECTION_CLASSES = (
+    _LIST_CLASS,
+    JavaClass('java/util/Collection'),
+    JavaClass('java/util/Set'),
+)
+
 CLASS = JavaType(java_class=CLASS_CLASS)
+LIST = JavaType(java_class=_LIST_CLASS)
 INT = JavaType(primitive_name='int')
 VOID = JavaType(primitive_name='void')
+
+_EMPTY_TYPE_RESOLVER = TypeResolver(OBJECT_CLASS)
 EMPTY_PARAM_LIST = JavaParamList()

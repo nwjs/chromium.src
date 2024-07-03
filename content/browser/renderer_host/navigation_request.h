@@ -1293,7 +1293,7 @@ class CONTENT_EXPORT NavigationRequest
     kNone = 0,
     kInitialFrame = 1,
     kCrashedFrame = 2,
-    kNavigationTransition = 3,
+    kNavigationTransition = 3,  // DEPRECATED
     kMaxValue = kNavigationTransition,
   };
 
@@ -1986,16 +1986,6 @@ class CONTENT_EXPORT NavigationRequest
   // `resume_commit_closure_` asynchronously.
   void PostResumeCommitTask();
 
-  // Used to detect if the page being navigated to is participating in the
-  // related deprecation trial and recording that in NavigationControllerImpl.
-  //
-  // Not called for same-document navigation requests nor for requests served
-  // from the back-forward cache or from prerendered pages as work would be
-  // redundant.
-  //
-  // TODO(crbug.com/40887671): Remove this when deprecation trial is complete.
-  void MaybeRegisterOriginForUnpartitionedSessionStorageAccess();
-
   // See https://crbug.com/1412365
   void CheckSoftNavigationHeuristicsInvariants();
 
@@ -2041,6 +2031,18 @@ class CONTENT_EXPORT NavigationRequest
   void MaybeRecordTraceEventsAndHistograms();
 
   void ResetViewTransitionState();
+
+  // This check is to prevent a race condition where a parent fenced frame
+  // initiates a nested fenced frame navigation right before the entire frame
+  // tree has network access disabled. If such navigation is allowed to commit,
+  // the navigated fenced frame will have network access. This allows parent
+  // fenced frame to communicate cross-site data into child fenced frame, which
+  // is bad. So we need to disable navigations when both the embedder and nested
+  // frames have already disabled network.
+  bool IsDisabledEmbedderInitiatedFencedFrameNavigation();
+
+  // Sets the expected process to the process of the current associated RFH.
+  void SetExpectedProcessIfAssociated();
 
   // Never null. The pointee node owns this navigation request instance.
   // This field is not a raw_ptr because of incompatibilities with tracing

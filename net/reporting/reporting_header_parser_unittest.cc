@@ -48,11 +48,12 @@ class ReportingHeaderParserTestBase
     policy.max_endpoint_count = 20;
     UsePolicy(policy);
 
-    if (GetParam())
-      store_ = std::make_unique<MockPersistentReportingStore>();
-    else
-      store_ = nullptr;
-    UseStore(store_.get());
+    std::unique_ptr<MockPersistentReportingStore> store;
+    if (GetParam()) {
+      store = std::make_unique<MockPersistentReportingStore>();
+    }
+    store_ = store.get();
+    UseStore(std::move(store));
   }
   ~ReportingHeaderParserTestBase() override = default;
 
@@ -66,7 +67,7 @@ class ReportingHeaderParserTestBase
     }
   }
 
-  MockPersistentReportingStore* mock_store() { return store_.get(); }
+  MockPersistentReportingStore* mock_store() { return store_; }
 
   base::test::ScopedFeatureList feature_list_;
   const GURL kUrl1_ = GURL("https://origin1.test/path");
@@ -103,7 +104,7 @@ class ReportingHeaderParserTestBase
       ReportingEndpointGroupKey(kNak_, kOrigin2_, kGroup2_);
 
  private:
-  std::unique_ptr<MockPersistentReportingStore> store_;
+  raw_ptr<MockPersistentReportingStore> store_;
 };
 
 // This test is parametrized on a boolean that represents whether to use a
@@ -112,10 +113,10 @@ class ReportingHeaderParserTest : public ReportingHeaderParserTestBase {
  protected:
   ReportingHeaderParserTest() {
     // This is a private API of the reporting service, so no need to test the
-    // case kPartitionNelAndReportingByNetworkIsolationKey is disabled - the
+    // case kPartitionConnectionsByNetworkIsolationKey is disabled - the
     // feature is only applied at the entry points of the service.
     feature_list_.InitAndEnableFeature(
-        features::kPartitionNelAndReportingByNetworkIsolationKey);
+        features::kPartitionConnectionsByNetworkIsolationKey);
   }
 
   ReportingEndpointGroup MakeEndpointGroup(
@@ -1745,7 +1746,7 @@ class ReportingHeaderParserStructuredHeaderTest
     // Enable kDocumentReporting to support new StructuredHeader-based
     // Reporting-Endpoints header.
     feature_list_.InitWithFeatures(
-        {features::kPartitionNelAndReportingByNetworkIsolationKey,
+        {features::kPartitionConnectionsByNetworkIsolationKey,
          features::kDocumentReporting},
         {});
   }

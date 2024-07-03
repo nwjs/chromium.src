@@ -15,6 +15,7 @@
 #include "ash/accelerators/accelerator_shift_disable_capslock_state_machine.h"
 #include "ash/accelerators/debug_commands.h"
 #include "ash/accelerators/suspend_state_machine.h"
+#include "ash/accelerators/top_row_key_usage_recorder.h"
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/devicetype.h"
@@ -50,6 +51,7 @@
 #include "ui/events/ash/keyboard_layout_util.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
+#include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/events/types/event_type.h"
 #include "ui/ozone/public/ozone_platform.h"
 
@@ -257,12 +259,30 @@ bool CanHandleDisableCapsLock(const ui::Accelerator& previous_accelerator,
   return Shell::Get()->ime_controller()->IsCapsLockEnabled();
 }
 
+bool CanHandleLockButton(const ui::Accelerator& accelerator) {
+  // Disable the lock button action if the key code is VKEY_F13, and the
+  // modifier split keyboard was enabled.
+  if (accelerator.key_code() == ui::VKEY_F13 &&
+      Shell::Get()->keyboard_capability()->HasFunctionKey(
+          accelerator.source_device_id())) {
+    CHECK(features::IsModifierSplitEnabled());
+    return false;
+  }
+  return true;
+}
+
 bool CanHandleToggleCapsLock(
     const ui::Accelerator& accelerator,
     const ui::Accelerator& previous_accelerator,
     const std::set<ui::KeyboardCode>& currently_pressed_keys,
     const AcceleratorCapslockStateMachine& capslock_state_machine,
     InputDeviceSettingsNotificationController* notification_controller) {
+  // The toggle of CapsLock is handled in the event rewriters and not as an
+  // accelerator.
+  if (accelerator.key_code() == ui::VKEY_CAPITAL) {
+    return false;
+  }
+
   if (base::FeatureList::IsEnabled(features::kShortcutStateMachines)) {
     if (capslock_state_machine.CanHandleCapsLock()) {
       // Check if from modifier split keyboard. if not, show notification.
@@ -420,6 +440,7 @@ AcceleratorControllerImpl::AcceleratorControllerImpl(
               ui::OzonePlatform::GetInstance()->GetInputController())),
       suspend_state_machine_(std::make_unique<SuspendStateMachine>(
           ui::OzonePlatform::GetInstance()->GetInputController())),
+      top_row_key_usage_recorder_(std::make_unique<TopRowKeyUsageRecorder>()),
       accelerator_configuration_(config),
       output_volume_metric_delay_timer_(
           FROM_HERE,
@@ -466,6 +487,9 @@ AcceleratorControllerImpl::AcceleratorControllerImpl(
         suspend_state_machine_.get(),
         ui::EventTarget::Priority::kAccessibility);
   }
+  aura::Env::GetInstance()->AddPreTargetHandler(
+      top_row_key_usage_recorder_.get(),
+      ui::EventTarget::Priority::kAccessibility);
 }
 
 AcceleratorControllerImpl::~AcceleratorControllerImpl() {
@@ -496,6 +520,8 @@ AcceleratorControllerImpl::~AcceleratorControllerImpl() {
     aura::Env::GetInstance()->RemovePreTargetHandler(
         suspend_state_machine_.get());
   }
+  aura::Env::GetInstance()->RemovePreTargetHandler(
+      top_row_key_usage_recorder_.get());
 }
 
 void AcceleratorControllerImpl::InputMethodChanged(InputMethodManager* manager,
@@ -856,6 +882,11 @@ bool AcceleratorControllerImpl::CanPerformAction(
     case AcceleratorAction::kSwitchToPreviousUser:
     case AcceleratorAction::kSwitchToNextUser:
       return accelerators::CanCycleUser();
+    case AcceleratorAction::kTilingWindowResizeLeft:
+    case AcceleratorAction::kTilingWindowResizeRight:
+    case AcceleratorAction::kTilingWindowResizeUp:
+    case AcceleratorAction::kTilingWindowResizeDown:
+      return accelerators::CanTilingWindowResize();
     case AcceleratorAction::kToggleAppList:
       return CanHandleToggleAppList(
           accelerator, previous_accelerator,
@@ -870,6 +901,8 @@ bool AcceleratorControllerImpl::CanPerformAction(
           *capslock_state_machine_, notification_controller_.get());
     case AcceleratorAction::kToggleClipboardHistory:
       return true;
+    case AcceleratorAction::kEnableSelectToSpeak:
+      return ::features::IsAccessibilitySelectToSpeakShortcutEnabled();
     case AcceleratorAction::kEnableOrToggleDictation:
       return accelerators::CanEnableOrToggleDictation();
     case AcceleratorAction::kToggleDockedMagnifier:
@@ -886,10 +919,10 @@ bool AcceleratorControllerImpl::CanPerformAction(
       return true;
     case AcceleratorAction::kToggleOverview:
       return accelerators::CanToggleOverview();
-    case AcceleratorAction::kToggleSnapGroupWindowsGroupAndUngroup:
-      return accelerators::CanGroupOrUngroupWindows();
+    case AcceleratorAction::kCreateSnapGroup:
+      return accelerators::CanCreateSnapGroup();
     case AcceleratorAction::kToggleSnapGroupWindowsMinimizeAndRestore:
-      return accelerators::CanMinimizeSnapGroupWindows();
+      return false;
     case AcceleratorAction::kToggleMultitaskMenu:
       return accelerators::CanToggleMultitaskMenu();
     case AcceleratorAction::kTouchHudClear:
@@ -917,6 +950,9 @@ bool AcceleratorControllerImpl::CanPerformAction(
       return accelerators::CanToggleResizeLockMenu();
     case AcceleratorAction::kDebugToggleVideoConferenceCameraTrayIcon:
       return true;
+    case AcceleratorAction::kLockPressed:
+    case AcceleratorAction::kLockReleased:
+      return CanHandleLockButton(accelerator);
 
     // The following are always enabled.
     case AcceleratorAction::kBrightnessDown:
@@ -937,8 +973,6 @@ bool AcceleratorControllerImpl::CanPerformAction(
     case AcceleratorAction::kLaunchApp6:
     case AcceleratorAction::kLaunchApp7:
     case AcceleratorAction::kLaunchLastApp:
-    case AcceleratorAction::kLockPressed:
-    case AcceleratorAction::kLockReleased:
     case AcceleratorAction::kMediaFastForward:
     case AcceleratorAction::kMediaNextTrack:
     case AcceleratorAction::kMediaPause:
@@ -1411,6 +1445,12 @@ void AcceleratorControllerImpl::PerformAction(
       // UMA metrics are recorded in the function.
       accelerators::MaybeTakeWindowScreenshot();
       break;
+    case AcceleratorAction::kTilingWindowResizeLeft:
+    case AcceleratorAction::kTilingWindowResizeRight:
+    case AcceleratorAction::kTilingWindowResizeUp:
+    case AcceleratorAction::kTilingWindowResizeDown:
+      accelerators::PerformTilingWindowResize(action);
+      break;
     case AcceleratorAction::kToggleAppList: {
       RecordToggleAppList(accelerator);
       accelerators::ToggleAppList(AppListShowSource::kSearchKey,
@@ -1426,6 +1466,9 @@ void AcceleratorControllerImpl::PerformAction(
       break;
     case AcceleratorAction::kToggleClipboardHistory:
       accelerators::ToggleClipboardHistory(/*is_plain_text_paste=*/false);
+      break;
+    case AcceleratorAction::kEnableSelectToSpeak:
+      accelerators::EnableSelectToSpeak();
       break;
     case AcceleratorAction::kEnableOrToggleDictation:
       // UMA metrics are recorded later in the call stack.
@@ -1474,12 +1517,10 @@ void AcceleratorControllerImpl::PerformAction(
       base::RecordAction(base::UserMetricsAction("Accel_Overview_F5"));
       accelerators::ToggleOverview();
       break;
-    case AcceleratorAction::kToggleSnapGroupWindowsGroupAndUngroup:
-      accelerators::GroupOrUngroupWindowsInSnapGroup();
+    case AcceleratorAction::kCreateSnapGroup:
+      accelerators::CreateSnapGroup();
       break;
     case AcceleratorAction::kToggleSnapGroupWindowsMinimizeAndRestore:
-      base::RecordAction(base::UserMetricsAction(
-          "Accel_Toggle_Snap_Group_Windows_Minimize_Restore"));
       accelerators::ToggleSnapGroupsMinimize();
       break;
     case AcceleratorAction::kToggleResizeLockMenu:

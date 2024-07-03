@@ -41,6 +41,10 @@ BASE_DECLARE_FEATURE(kClientSideDetectionNotificationPrompt);
 // preclassification check conditions pass.
 BASE_DECLARE_FEATURE(kClientSideDetectionSamplePing);
 
+// Expand CSPP beyond phishing and trigger when vibration API is called on the
+// web page.
+BASE_DECLARE_FEATURE(kClientSideDetectionVibrationApi);
+
 // Creates and sends CSBRRs when notification permissions are accepted for an
 // abusive site whose interstitial has been bypassed.
 BASE_DECLARE_FEATURE(kCreateNotificationsAcceptedClientSafeBrowsingReports);
@@ -152,6 +156,9 @@ BASE_DECLARE_FEATURE(kFriendlierSafeBrowsingSettingsEnhancedProtection);
 // security settings page for the standard protection security option.
 BASE_DECLARE_FEATURE(kFriendlierSafeBrowsingSettingsStandardProtection);
 
+// Prompt users to re-enable Android app verification on APK download.
+BASE_DECLARE_FEATURE(kGooglePlayProtectPrompt);
+
 // Sends hash-prefix real-time lookup requests on navigations for Standard Safe
 // Browsing users instead of hash-prefix database lookups.
 BASE_DECLARE_FEATURE(kHashPrefixRealTimeLookups);
@@ -160,14 +167,18 @@ BASE_DECLARE_FEATURE(kHashPrefixRealTimeLookups);
 // to the Safe Browsing server.
 extern const base::FeatureParam<std::string> kHashPrefixRealTimeLookupsRelayUrl;
 
+// Enable faster OHTTP key rotation for hash-prefix real-time lookups.
+BASE_DECLARE_FEATURE(kHashPrefixRealTimeLookupsFasterOhttpKeyRotation);
+
 // UX improvements to download warnings on chrome://downloads page.
 BASE_DECLARE_FEATURE(kImprovedDownloadPageWarnings);
 
+// Show referrer URL on download item on chrome://downloads page. This will
+// replace the downloads url.
+BASE_DECLARE_FEATURE(kDownloadsPageReferrerUrl);
+
 // Enable logging of the account enhanced protection setting in Protego pings.
 BASE_DECLARE_FEATURE(kLogAccountEnhancedProtectionStateInProtegoPings);
-
-// If enabled, do not run Maldoca over downloaded office documents.
-BASE_DECLARE_FEATURE(kMaldocaSkipCheck);
 
 // If enabled, the Safe Browsing database will be stored in a separate file and
 // mapped into memory.
@@ -307,8 +318,6 @@ extern const base::FeatureParam<std::string> kRedWarningSurveyReportTypeFilter;
 // the warning or not. Note: specifying any combination of TRUE and FALSE
 // corresponds to "don't care."
 extern const base::FeatureParam<std::string> kRedWarningSurveyDidProceedFilter;
-
-BASE_DECLARE_FEATURE(kClientSideDetectionImagesCache);
 
 BASE_DECLARE_FEATURE(kClientSideDetectionDebuggingMetadataCache);
 

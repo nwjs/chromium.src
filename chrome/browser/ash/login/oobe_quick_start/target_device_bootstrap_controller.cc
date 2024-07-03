@@ -89,7 +89,12 @@ TargetDeviceBootstrapController::GetAsWeakPtrForClient() {
 }
 
 void TargetDeviceBootstrapController::StartAdvertisingAndMaybeGetQRCode() {
-  CHECK_EQ(status_.step, Step::NONE);
+  // Status may be SETUP_COMPLETE here if a user "completed" Quick Start upon
+  // selecting an unsupported account type (edu, enterprise, or unicorn), but
+  // then goes back and attempts to setup with Quick Start again.
+  constexpr Step kPossibleSteps[] = {Step::NONE, Step::SETUP_COMPLETE};
+  CHECK(base::Contains(kPossibleSteps, status_.step))
+      << "Unexpected status step: " << status_.step;
   session_context_.FillOrResetSession();
 
   bool use_pin_authentication =
@@ -98,10 +103,10 @@ void TargetDeviceBootstrapController::StartAdvertisingAndMaybeGetQRCode() {
   if (use_pin_authentication || session_context_.is_resume_after_update()) {
     status_.step = Step::ADVERTISING_WITHOUT_QR_CODE;
   } else {
-    auto qr_code = std::make_unique<QRCode>(session_context_.advertising_id(),
-                                            session_context_.shared_secret());
     status_.step = Step::ADVERTISING_WITH_QR_CODE;
-    status_.payload.emplace<QRCode::PixelData>(qr_code->pixel_data());
+    QRCode qr_code{session_context_.advertising_id(),
+                   session_context_.shared_secret()};
+    status_.payload = std::move(qr_code);
   }
 
   connection_broker_->StartAdvertising(

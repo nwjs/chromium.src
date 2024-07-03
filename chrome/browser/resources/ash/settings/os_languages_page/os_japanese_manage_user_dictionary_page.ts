@@ -8,16 +8,20 @@
  * methods.
  */
 
+import './os_japanese_dictionary_expand.js';
 import '../settings_shared.css.js';
+import 'chrome://resources/ash/common/cr_elements/cr_shared_style.css.js';
+import 'chrome://resources/polymer/v3_0/iron-collapse/iron-collapse.js';
 
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import * as mojom from '../mojom-webui/input_method_user_data.mojom-webui.js';
 import {GlobalScrollTargetMixin} from '../common/global_scroll_target_mixin.js';
+import {JapaneseDictionary} from '../mojom-webui/user_data_japanese_dictionary.mojom-webui.js';
 import {routes} from '../router.js';
 
 import {getTemplate} from './os_japanese_manage_user_dictionary_page.html.js';
+import {UserDataServiceProvider} from './user_data_service_provider.js';
 
 // TODO(b/265559727): Remove I18nMixin if `this.i18n` methods are not being used
 // by this element.
@@ -51,23 +55,34 @@ class OsSettingsJapaneseManageUserDictionaryPageElement extends
   // From GlobalScrollTargetMixin.
   override subpageRoute = routes.OS_LANGUAGES_JAPANESE_MANAGE_USER_DICTIONARY;
 
-  private userDataRemote_?: mojom.InputMethodUserDataServiceRemote = undefined;
+  // All Japanese user dictionary data that is loaded into the app.
+  private dictionaries_: JapaneseDictionary[] = [];
+
+  override ready(): void {
+    super.ready();
+    this.addEventListener('dictionary-saved', this.getDictionaries_);
+  }
 
   // Loads the dictionary objects from IME user data service.
   private async getDictionaries_(): Promise<void> {
-    if (!this.userDataRemote_) {
-      this.userDataRemote_ = mojom.InputMethodUserDataService.getRemote();
-    }
     const response =
-        (await this.userDataRemote_.fetchJapaneseDictionary()).response;
+        (await UserDataServiceProvider.getRemote().fetchJapaneseDictionary())
+            .response;
     if (response.errorReason !== undefined) {
       this.status = response.errorReason;
     }
 
     if (response.dictionaries !== undefined) {
-      // TODO(b/336226897): handle dictionaries value.
-      this.status = `number of dictionaries=${response.dictionaries.length}`;
+      this.dictionaries_ = [...response.dictionaries];
+      this.status = `number of dictionaries=${this.dictionaries_.length}`;
     }
+  }
+
+  // Used to get the last index of the synced entries of each dictionary so that
+  // dictionary components can figure out whether to add or edit entries when
+  // saving to storage.
+  private getLastIndex_(x: Object[]): number {
+    return x.length - 1;
   }
 }
 

@@ -102,6 +102,8 @@ static_library("devtools") {
 
   deps = [
     "//base",
+    "//chrome/browser/search_engines",
+    "//chrome/browser/sync",
 
     # To prevent circular GN dependencies, this target does not depend on
     # //chrome/browser:browser, even though it has a real build dependency on
@@ -140,11 +142,13 @@ static_library("devtools") {
       "//chrome/browser/apps/app_service:constants",
       "//chrome/browser/media/router:media_router_feature",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/themes",
       "//chrome/browser/web_applications",
       "//chrome/common",
       "//components/guest_view/browser",
       "//components/infobars/content",
       "//components/infobars/core",
+      "//components/input",
       "//components/javascript_dialogs",
       "//components/keep_alive_registry",
       "//components/keyed_service/content",

@@ -8,6 +8,7 @@ import("//testing/test.gni")
 
 mojom("mojom") {
   sources = [
+    "debug_types.mojom",
     "os_registration_error.mojom",
     "registration_eligibility.mojom",
     "source_registration_error.mojom",
@@ -40,6 +41,8 @@ component("features") {
 
 component("attribution_reporting") {
   sources = [
+    "aggregatable_debug_reporting_config.cc",
+    "aggregatable_debug_reporting_config.h",
     "aggregatable_dedup_key.cc",
     "aggregatable_dedup_key.h",
     "aggregatable_trigger_config.cc",
@@ -53,6 +56,8 @@ component("attribution_reporting") {
     "aggregation_keys.cc",
     "aggregation_keys.h",
     "constants.h",
+    "debug_types.cc",
+    "debug_types.h",
     "destination_set.cc",
     "destination_set.h",
     "eligibility.cc",
@@ -135,6 +140,7 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [
+    "aggregatable_debug_reporting_config_unittest.cc",
     "aggregatable_dedup_key_unittest.cc",
     "aggregatable_trigger_config_unittest.cc",
     "aggregatable_trigger_data_unittest.cc",
@@ -374,6 +380,23 @@ mojom("registration_mojom") {
           cpp = "::attribution_reporting::TriggerSpecs"
           forward_declaration =
               "namespace attribution_reporting { class TriggerSpecs; }"
+        },
+        {
+          mojom = "attribution_reporting.mojom.SourceAggregatableDebugReportingConfig"
+          cpp =
+              "::attribution_reporting::SourceAggregatableDebugReportingConfig"
+          forward_declaration = "namespace attribution_reporting { class SourceAggregatableDebugReportingConfig; }"
+        },
+        {
+          mojom = "attribution_reporting.mojom.AggregatableDebugReportingConfig"
+          cpp = "::attribution_reporting::AggregatableDebugReportingConfig"
+          forward_declaration = "namespace attribution_reporting { struct AggregatableDebugReportingConfig; }"
+        },
+        {
+          mojom = "attribution_reporting.mojom.AggregatableDebugReportingContribution"
+          cpp =
+              "::attribution_reporting::AggregatableDebugReportingContribution"
+          forward_declaration = "namespace attribution_reporting { class AggregatableDebugReportingContribution; }"
         },
       ]
       traits_headers = [ "registration_mojom_traits.h" ]

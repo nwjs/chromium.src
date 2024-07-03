@@ -131,6 +131,22 @@ class ReadAnythingAppModel {
   void set_requires_post_process_selection(bool value) {
     requires_post_process_selection_ = value;
   }
+  bool reset_draw_timer() { return reset_draw_timer_; }
+  void set_reset_draw_timer(bool value) { reset_draw_timer_ = value; }
+
+  const ui::AXNodeID& last_expanded_node_id() { return last_expanded_node_id_; }
+
+  void set_last_expanded_node_id(const ui::AXNodeID& node_id) {
+    last_expanded_node_id_ = node_id;
+  }
+
+  void reset_last_expanded_node_id() {
+    set_last_expanded_node_id(ui::kInvalidAXNodeID);
+  }
+
+  bool redraw_required() { return redraw_required_; }
+  void reset_redraw_required() { redraw_required_ = false; }
+
   const ui::AXNodeID& image_to_update_node_id() {
     return image_to_update_node_id_;
   }
@@ -162,6 +178,7 @@ class ReadAnythingAppModel {
   void set_font_name(const std::string& font) { font_name_ = font; }
   float font_size() const { return font_size_; }
   bool links_enabled() const { return links_enabled_; }
+  bool images_enabled() const { return images_enabled_; }
   float letter_spacing() const { return letter_spacing_; }
   float line_spacing() const { return line_spacing_; }
   int color_theme() const { return color_theme_; }
@@ -241,6 +258,7 @@ class ReadAnythingAppModel {
       const std::string& font,
       double font_size,
       bool links_enabled,
+      bool images_enabled,
       read_anything::mojom::Colors color,
       double speech_rate,
       base::Value::Dict* voices,
@@ -298,6 +316,7 @@ class ReadAnythingAppModel {
   void DecreaseTextSize();
   void ResetTextSize();
   void ToggleLinksEnabled();
+  void ToggleImagesEnabled();
 
   std::string GetHtmlTag(const ui::AXNodeID& ax_node_id) const;
   std::string GetAltText(const ui::AXNodeID& ax_node_id) const;
@@ -383,6 +402,8 @@ class ReadAnythingAppModel {
   // node isn't in the current segment.
   int GetCurrentTextEndIndex(const ui::AXNodeID& node_id);
 
+  void ResetReadAloudState();
+
   void IncrementMetric(const std::string& metric_name);
 
   // Log speech count events.
@@ -423,8 +444,6 @@ class ReadAnythingAppModel {
   // Uses the current AXNodePosition to return the next node that should be
   // spoken by Read Aloud.
   ui::AXNode* GetNodeFromCurrentPosition() const;
-
-  void ResetReadAloudState();
 
   bool IsTextForReadAnything(const ui::AXNodeID& ax_node_id) const;
 
@@ -477,6 +496,9 @@ class ReadAnythingAppModel {
   int GetNextGranularity(const std::u16string& text,
                          ax::mojom::TextBoundary boundary);
 
+  // We want to group superscripts with the utterance preceding it.
+  bool IsSuperscript(ui::AXNode* node);
+
   // State.
   std::map<ui::AXTreeID, std::unique_ptr<ReadAnythingAppModel::AXTreeInfo>>
       tree_infos_;
@@ -527,6 +549,12 @@ class ReadAnythingAppModel {
 
   // The current base language code used for fonts or reading aloud.
   std::string base_language_code_ = "en";
+  // The current language code used for fonts or reading aloud.
+  std::string language_code_ = "en-US";
+  std::map<ui::AXNodeID, std::string> aria_expanded_node_states_;
+
+  bool redraw_required_ = false;
+  ui::AXNodeID last_expanded_node_id_ = ui::kInvalidAXNodeID;
 
   // The default language code, used as a fallback in case base_language_code_
   // is invalid. It's not guaranteed that default_language_code_ will always
@@ -539,6 +567,7 @@ class ReadAnythingAppModel {
   std::string font_name_ = string_constants::kReadAnythingPlaceholderFontName;
   float font_size_ = kReadAnythingDefaultFontScale;
   bool links_enabled_ = kReadAnythingDefaultLinksEnabled;
+  bool images_enabled_ = kReadAnythingDefaultImagesEnabled;
   float letter_spacing_ =
       (int)read_anything::mojom::LetterSpacing::kDefaultValue;
   float line_spacing_ = (int)read_anything::mojom::LineSpacing::kDefaultValue;
@@ -558,6 +587,7 @@ class ReadAnythingAppModel {
   int32_t start_offset_ = -1;
   int32_t end_offset_ = -1;
   bool requires_distillation_ = false;
+  bool reset_draw_timer_ = false;
   bool requires_post_process_selection_ = false;
   ui::AXNodeID image_to_update_node_id_ = ui::kInvalidAXNodeID;
   bool selection_from_action_ = false;

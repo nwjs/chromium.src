@@ -20,7 +20,10 @@ if (chrome_root_store_cert_management_ui) {
 
     enabled_features = []
     if (is_win || is_mac) {
-      enabled_features += [ "enable_provisioned_client_certs" ]
+      enabled_features += [
+        "enable_provisioned_client_certs",
+        "native_cert_management",
+      ]
     }
   }
 }
@@ -52,6 +55,7 @@ build_webui("build") {
   if (chrome_root_store_cert_management_ui) {
     web_component_files += [
       "certificate_entry_v2.ts",
+      "certificate_list_v2.ts",
       "certificate_manager_v2.ts",
     ]
     non_web_component_files += [ "certificates_v2_browser_proxy.ts" ]

@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_SUPERVISED_USER_SUPERVISED_USER_EXTENSIONS_METRICS_RECORDER_H_
 
 #include "chrome/browser/extensions/extension_install_prompt.h"
+#include "extensions/browser/supervised_user_extensions_delegate.h"
 
 // Records UMA metrics for supervised users using extensions.
 class SupervisedUserExtensionsMetricsRecorder
@@ -80,11 +81,13 @@ class SupervisedUserExtensionsMetricsRecorder
     // Recorded when the supervised user has no parents, an error. Note that
     // this error triggers the kFailed metric as well.
     kNoParentError = 4,
+    // Recorded when the parent provides a wrong password.
+    kIncorrectParentPasswordProvided = 5,
     // Add future entries above this comment, in sync with
     // "SupervisedUserParentPermissionDialog" in
     // src/tools/metrics/histograms/enums.xml.
     // Update kMaxValue to the last value.
-    kMaxValue = kNoParentError
+    kMaxValue = kIncorrectParentPasswordProvided
   };
 
   // These enum values represent supervised user actions to enable or disable an
@@ -110,6 +113,27 @@ class SupervisedUserExtensionsMetricsRecorder
     kMaxValue = kFailedToEnable
   };
 
+  // These enum values represent the supervised user flows that grant
+  // automatic parent approval to an extension.
+  // These values are logged to UMA. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(ImplicitExtensionApprovalEntryPoint)
+  enum class ImplicitExtensionApprovalEntryPoint : int {
+    // Recorded when an extension is granted it,
+    // when the Family Link "Extensions" toggle if flipped to On.
+    kOnExtensionsSwitchFlippedToEnabled = 0,
+    // Recorded when an extension is granted parent approval at the
+    // time of its installation, when the "Extensions" toggle set to On.
+    OnExtensionInstallationWithExtensionsSwitchEnabled = 1,
+    // Add future entries above this comment, in sync with
+    // "SupervisedUserAutomaticParentApprovalGrantEntryPoint" in
+    // src/tools/metrics/histograms/metadata/families/enums.xml.
+    // Update kMaxValue to the last value.
+    kMaxValue = OnExtensionInstallationWithExtensionsSwitchEnabled
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/families/enums.xml:SupervisedUserImplicitParentApprovalGrantEntryPoint)
+
   // UMA metrics for adding to or removing from the set of approved extension
   // ids in the kSupervisedUserApprovedExtensions synced pref.
   static const char kExtensionsHistogramName[];
@@ -118,6 +142,7 @@ class SupervisedUserExtensionsMetricsRecorder
   static const char kApprovalRemovedActionName[];
   static const char kApprovalGrantedByDefaultName[];
   static const char kLocalApprovalGrantedName[];
+  static const char kIncorrectParentPasswordProvidedActionName[];
   // UMA metrics for the Extension Install Dialog.
   static const char kExtensionInstallDialogHistogramName[];
   static const char kExtensionInstallDialogOpenedActionName[];
@@ -135,6 +160,10 @@ class SupervisedUserExtensionsMetricsRecorder
   static const char kEnabledActionName[];
   static const char kDisabledActionName[];
   static const char kFailedToEnableActionName[];
+
+  // UMA metrics for tracking approval entry points.
+  static const char kImplicitParentApprovalGrantEntryPointHistogramName[];
+  static const char kExtensionParentApprovalEntryPointHistogramName[];
 
   SupervisedUserExtensionsMetricsRecorder();
   ~SupervisedUserExtensionsMetricsRecorder() override = default;
@@ -158,6 +187,17 @@ class SupervisedUserExtensionsMetricsRecorder
   // Record UMA metrics related to the Parent Permission Dialog.
   void RecordParentPermissionDialogUmaMetrics(
       ParentPermissionDialogState state);
+
+  // Record UMA metrics related to the entry point that grants implicit parent
+  // approval to an extension.
+  static void RecordImplicitParentApprovalGrantEntryPointEntryPointUmaMetrics(
+      ImplicitExtensionApprovalEntryPoint extension_approval_entry_point);
+
+  // Record UMA metrics related to the entry point leading to the display of the
+  // Parent Approval Dialog.
+  static void RecordExtensionParentApprovalDialogEntryPointUmaMetrics(
+      SupervisedUserExtensionParentApprovalEntryPoint
+          extension_approval_entry_point);
 
   // Records when the supervised user enables or disables an approved extension.
   static void RecordEnablementUmaMetrics(EnablementState state);

@@ -64,12 +64,12 @@ bool SupportsInvalidation(CSSSelector::MatchType match) {
     case CSSSelector::kUnknown:
     case CSSSelector::kPagePseudoClass:
       // These should not appear in StyleRule selectors.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
     default:
       // New match type added. Figure out if it needs a subtree invalidation or
       // not.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
   }
 }
@@ -121,6 +121,7 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoInvalid:
     case CSSSelector::kPseudoIndeterminate:
     case CSSSelector::kPseudoTarget:
+    case CSSSelector::kPseudoCurrent:
     case CSSSelector::kPseudoBefore:
     case CSSSelector::kPseudoAfter:
     case CSSSelector::kPseudoMarker:
@@ -142,6 +143,7 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoScrollbarThumb:
     case CSSSelector::kPseudoScrollbarTrack:
     case CSSSelector::kPseudoScrollbarTrackPiece:
+    case CSSSelector::kPseudoScrollMarkerGroup:
     case CSSSelector::kPseudoWindowInactive:
     case CSSSelector::kPseudoSelection:
     case CSSSelector::kPseudoCornerPresent:
@@ -192,6 +194,7 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoIs:
     case CSSSelector::kPseudoWhere:
     case CSSSelector::kPseudoParent:  // Same as kPseudoIs.
+    case CSSSelector::kPseudoSearchText:
     case CSSSelector::kPseudoTargetText:
     case CSSSelector::kPseudoHighlight:
     case CSSSelector::kPseudoSpellingError:
@@ -212,12 +215,12 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoRightPage:
     case CSSSelector::kPseudoFirstPage:
       // These should not appear in StyleRule selectors.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
     default:
       // New pseudo type added. Figure out if it needs a subtree invalidation or
       // not.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
   }
 }
@@ -1375,7 +1378,7 @@ void RuleFeatureSet::UpdateFeaturesFromCombinatorForLogicalCombinationInHas(
       combinator = CSSSelector::kIndirectAdjacent;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 

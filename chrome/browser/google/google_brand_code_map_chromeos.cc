@@ -728,7 +728,7 @@ std::string GetRlzBrandCode(
       // treat it as enterprise enrolled.
       return entry.enterprise_enrolled_brand_code;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return static_brand_code;
 }
 

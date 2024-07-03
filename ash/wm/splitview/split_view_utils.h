@@ -127,6 +127,9 @@ void DoSplitviewClipRectAnimation(
     const gfx::Rect& target_clip_rect,
     std::unique_ptr<ui::ImplicitAnimationObserver> animation_observer);
 
+// Returns true if `window` is currently snapped.
+bool IsSnapped(aura::Window* window);
+
 // Returns whether `window`'s snap position is actually in the left or top
 // position based on whether the display is in primary screen orientation.
 // TODO(sophiewen): Consolidate with `IsPhysicallyLeftOrTop(SnapPostiion)`.
@@ -268,6 +271,10 @@ ASH_EXPORT bool CanSnapActionSourceStartFasterSplitView(
 // partial overview or consider the window for snap to replace.
 bool ShouldExcludeForOcclusionCheck(const aura::Window* window,
                                     const aura::Window* target_root);
+
+// Returns the set of windows which can be cycled through in the stacking order
+// of the children of the active desk container of `root`.
+aura::Window::Windows GetActiveDeskAppWindowsInZOrder(aura::Window* root);
 
 // Returns the window that is fully visible (without occlusion) and snapped to
 // the opposite side of the given `window`. Returns nullptr if no such window

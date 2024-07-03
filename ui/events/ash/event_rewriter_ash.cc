@@ -576,7 +576,7 @@ void RecordSearchPlusDigitFKeyRewrite(ui::EventType event_type,
       base::RecordAction(base::UserMetricsAction("SearchPlusDigitRewrite_F12"));
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 }
@@ -624,7 +624,7 @@ void RecordSixPackEventRewrites(EventRewriterAsh::Delegate* delegate,
             base::UserMetricsAction("SearchBasedKeyRewrite_PageDown"));
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   } else {
@@ -652,7 +652,7 @@ void RecordSixPackEventRewrites(EventRewriterAsh::Delegate* delegate,
             base::UserMetricsAction("AltBasedKeyRewrite_PageDown"));
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -725,7 +725,7 @@ void RecordFunctionKeyFromKeyCode(ui::KeyboardCode key_code,
                                 event_enum);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 }
@@ -1003,6 +1003,39 @@ void NotifySixPackRewriteBlockedByFnKey(
                                    : mojom::SixPackShortcutModifier::kAlt);
     }
   }
+}
+
+bool MaybeNotifyTopRowKeyBlockedByFnKey(
+    EventRewriterAsh::Delegate* delegate,
+    const KeyboardCapability* keyboard_capability,
+    const ui::KeyEvent& key_event,
+    int device_id) {
+  if (!keyboard_capability->HasFunctionKey(device_id)) {
+    return false;
+  }
+
+  if (!(key_event.flags() & EF_COMMAND_DOWN)) {
+    return false;
+  }
+  const auto* scan_code_vector_ptr =
+      keyboard_capability->GetTopRowScanCodes(device_id);
+  if (!scan_code_vector_ptr || scan_code_vector_ptr->empty()) {
+    LOG(WARNING) << "Found no top row key mapping for device " << device_id;
+    return false;
+  }
+  const auto& scan_code_vector = *scan_code_vector_ptr;
+  const auto& key_iter =
+      base::ranges::find(scan_code_vector, key_event.scan_code());
+
+  // If the scan code appears in the top row mapping it is an action key then
+  // notify the user the key has been blocked.
+  const bool is_action_key = (key_iter != scan_code_vector.end());
+  if (is_action_key) {
+    delegate->NotifyTopRowRewriteBlockedByFnKey();
+    return true;
+  }
+
+  return false;
 }
 
 // Rewrites the incoming key event to a Six Pack (PageUp, PageDown, Home, End,
@@ -1654,8 +1687,9 @@ EventRewriteStatus EventRewriterAsh::RewriteKeyEvent(
       // event is rewritten to ALTGR. A false return is not an error.
       if (RewriteModifierKeys(key_event, device_id, &state)) {
         if (should_record_modifier_key_press_metrics) {
-          RecordModifierKeyPressedAfterRemapping(*keyboard_capability_,
-                                                 device_id, state.code);
+          RecordModifierKeyPressedAfterRemapping(
+              *keyboard_capability_, device_id, state.code, key_event.code(),
+              state.key_code == VKEY_RIGHT_ALT);
         }
         // Early exit with completed event.
         BuildRewrittenKeyEvent(key_event, state, rewritten_event);
@@ -1667,7 +1701,8 @@ EventRewriteStatus EventRewriterAsh::RewriteKeyEvent(
 
   if (should_record_modifier_key_press_metrics) {
     RecordModifierKeyPressedAfterRemapping(*keyboard_capability_, device_id,
-                                           state.code);
+                                           state.code, key_event.code(),
+                                           state.key_code == VKEY_RIGHT_ALT);
   }
 
   if (delegate_ &&
@@ -1950,6 +1985,11 @@ void EventRewriterAsh::RewriteFunctionKeys(const KeyEvent& key_event,
       state->key_code = VKEY_ZOOM;
       state->key = DomKey::F12;
     }
+  }
+
+  if (MaybeNotifyTopRowKeyBlockedByFnKey(delegate_, keyboard_capability_,
+                                         key_event, device_id)) {
+    return;
   }
 
   KeyboardCapability::KeyboardTopRowLayout layout =

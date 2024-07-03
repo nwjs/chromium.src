@@ -356,11 +356,7 @@ class VideoImageReaderImageBacking::SkiaGraphiteDawnImageRepresentation
 
     // Set the Dawn texture and SharedTextureMemory parameters.
 
-    // TODO(crbug.com/41488897): Need to set the external format.
-    wgpu::TextureFormat webgpu_format = ToDawnFormat(format());
-    if (webgpu_format == wgpu::TextureFormat::Undefined) {
-      LOG(ERROR) << "Unable to find a suitable WebGPU format.";
-    }
+    wgpu::TextureFormat webgpu_format = wgpu::TextureFormat::External;
     auto device = context_state_->dawn_context_provider()->GetDevice();
 
     wgpu::TextureDescriptor texture_descriptor;
@@ -421,17 +417,31 @@ class VideoImageReaderImageBacking::SkiaGraphiteDawnImageRepresentation
     wgpu::SharedTextureMemoryAHardwareBufferDescriptor
         stm_ahardwarebuffer_desc = {};
     stm_ahardwarebuffer_desc.handle = scoped_hardware_buffer_->buffer();
+    stm_ahardwarebuffer_desc.useExternalFormat = true;
     desc.nextInChain = &stm_ahardwarebuffer_desc;
     shared_texture_memory_ = device.ImportSharedTextureMemory(&desc);
 
-    // Create the Dawn texture and wrap it in a Skia texture.
+    // Create the Dawn texture.
     texture_ = shared_texture_memory_.CreateTexture(&texture_descriptor);
     if (!shared_texture_memory_.BeginAccess(texture_, &begin_access_desc)) {
       LOG(ERROR) << "Failed to begin access for texture";
     }
-    // TODO(crbug.com/41488897): Obtain the needed YCbCr info and pass it in a
-    // DawnTextureInfo when creating the BackendTexture.
-    return {skgpu::graphite::BackendTexture(texture_.Get())};
+
+    // Obtain the YCbCr info from the device.
+    wgpu::AHardwareBufferProperties ahb_properties;
+    if (!device.GetAHardwareBufferProperties(scoped_hardware_buffer_->buffer(),
+                                             &ahb_properties)) {
+      LOG(ERROR) << "Failed to get the ycbcr info";
+    }
+
+    // Wrap the Dawn texture in a Skia texture, passing the YCbCr info.
+    skgpu::graphite::DawnTextureInfo dawn_texture_info(
+        /*sampleCount=*/1, skgpu::Mipmapped::kNo, webgpu_format, webgpu_format,
+        texture_descriptor.usage, wgpu::TextureAspect::All, /*slice=*/0,
+        ahb_properties.yCbCrInfo);
+    return {skgpu::graphite::BackendTexture(
+        SkISize::Make(ahb_desc.width, ahb_desc.height), dawn_texture_info,
+        texture_.Get())};
   }
 
   void EndReadAccess() override {

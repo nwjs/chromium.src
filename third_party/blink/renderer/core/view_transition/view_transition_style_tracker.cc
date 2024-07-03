@@ -100,7 +100,7 @@ mojom::blink::ViewTransitionPropertyId ToTranstionPropertyId(CSSPropertyID id) {
     case CSSPropertyID::kWritingMode:
       return mojom::blink::ViewTransitionPropertyId::kWritingMode;
     default:
-      NOTREACHED() << "Unknown id " << static_cast<uint32_t>(id);
+      NOTREACHED_IN_MIGRATION() << "Unknown id " << static_cast<uint32_t>(id);
   }
   return mojom::blink::ViewTransitionPropertyId::kMinValue;
 }
@@ -500,6 +500,14 @@ ViewTransitionStyleTracker::ViewTransitionStyleTracker(
     element_data_map_.insert(name, std::move(element_data));
   }
 
+  // Re-create the layer to display the old Document's cached content until the
+  // new Document is render-blocked. This is conceptually the same layer as on
+  // the ViewTransition on the old Document since it uses the same resource ID.
+  if (transition_state.subframe_snapshot_id.IsValid()) {
+    subframe_snapshot_layer_ = cc::ViewTransitionContentLayer::Create(
+        transition_state.subframe_snapshot_id, /*is_live_content_layer=*/false);
+  }
+
   // The aim of this flag is to serialize/deserialize SPA state using MPA
   // machinery. The intent is to use SPA tests to test MPA implementation as
   // well. To that end, if the flag is enabled we should invalidate styles and
@@ -585,7 +593,7 @@ bool ViewTransitionStyleTracker::MatchForOnlyChild(
     }
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   return false;
@@ -797,6 +805,14 @@ bool ViewTransitionStyleTracker::Capture(bool snap_browser_controls) {
   DCHECK(!snapshot_root_layout_size_at_capture_.has_value());
   snapshot_root_layout_size_at_capture_ = GetSnapshotRootSize();
 
+  if (RuntimeEnabledFeatures::PaintHoldingForLocalIframesEnabled() &&
+      !document_->GetFrame()->IsLocalRoot()) {
+    subframe_snapshot_layer_ = cc::ViewTransitionContentLayer::Create(
+        GenerateResourceId(), /*is_live_content_layer=*/true);
+    capture_resource_ids_.push_back(
+        subframe_snapshot_layer_->ViewTransitionResourceId());
+  }
+
   return true;
 }
 
@@ -821,6 +837,12 @@ void ViewTransitionStyleTracker::CaptureResolved() {
     element_data->target_element = nullptr;
   }
   is_root_transitioning_ = false;
+
+  if (subframe_snapshot_layer_) {
+    auto resource_id = subframe_snapshot_layer_->ViewTransitionResourceId();
+    subframe_snapshot_layer_ = cc::ViewTransitionContentLayer::Create(
+        resource_id, /*is_live_content_layer=*/false);
+  }
 }
 
 VectorOf<Element> ViewTransitionStyleTracker::GetTransitioningElements() const {
@@ -847,6 +869,8 @@ ViewTransitionStyleTracker::GetViewTransitionClassList(
 
 bool ViewTransitionStyleTracker::Start() {
   DCHECK_EQ(state_, State::kCaptured);
+
+  subframe_snapshot_layer_.reset();
 
   // Flatten `pending_transition_element_names_` into a vector of names and
   // elements. This process also verifies that the name-element combinations are
@@ -1007,6 +1031,11 @@ viz::ViewTransitionElementResourceId ViewTransitionStyleTracker::GetSnapshotId(
   return resource_id;
 }
 
+const scoped_refptr<cc::ViewTransitionContentLayer>&
+ViewTransitionStyleTracker::GetSubframeSnapshotLayer() const {
+  return subframe_snapshot_layer_;
+}
+
 PseudoElement* ViewTransitionStyleTracker::CreatePseudoElement(
     Element* parent,
     PseudoId pseudo_id,
@@ -1071,7 +1100,7 @@ PseudoElement* ViewTransitionStyleTracker::CreatePseudoElement(
     }
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   return nullptr;
@@ -1376,7 +1405,7 @@ PaintPropertyChangeType ViewTransitionStyleTracker::UpdateCaptureClip(
     }
     return element_data->clip_node->Update(*current_clip, std::move(state));
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return PaintPropertyChangeType::kUnchanged;
 }
 
@@ -1390,7 +1419,7 @@ const ClipPaintPropertyNode* ViewTransitionStyleTracker::GetCaptureClip(
     DCHECK(element_data->clip_node);
     return element_data->clip_node.get();
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 
@@ -1443,7 +1472,7 @@ StyleRequest::RulesToInclude ViewTransitionStyleTracker::StyleRulesToInclude()
       return StyleRequest::kAll;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return StyleRequest::kAll;
 }
 
@@ -1600,6 +1629,11 @@ ViewTransitionState ViewTransitionStyleTracker::GetViewTransitionState() const {
   // collide in id with this document's resources, pass the next sequence id so
   // the new document can continue the sequence.
   transition_state.next_element_resource_id = GenerateResourceId().local_id();
+
+  if (subframe_snapshot_layer_) {
+    transition_state.subframe_snapshot_id =
+        subframe_snapshot_layer_->ViewTransitionResourceId();
+  }
 
   state_extracted_ = true;
 
@@ -1967,7 +2001,7 @@ const char* ViewTransitionStyleTracker::StateToString(State state) {
     case State::kFinished:
       return "Finished";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "???";
 }
 

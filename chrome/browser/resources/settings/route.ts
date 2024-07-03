@@ -188,6 +188,9 @@ function createRoutes(): SettingsRoutes {
     if (loadTimeData.getBoolean('enablePageContentSetting')) {
       r.PAGE_CONTENT = r.SYNC.createChild('/syncSetup/pageContent');
     }
+    if (loadTimeData.getBoolean('enableHistorySearchSetting')) {
+      r.HISTORY_SEARCH = r.SYNC.createChild('/syncSetup/historySearch');
+    }
   }
 
   const visibility = pageVisibility || {};
@@ -267,12 +270,6 @@ function createRoutes(): SettingsRoutes {
 
     // <if expr="is_linux">
     r.CAPTIONS = r.ACCESSIBILITY.createChild('/captions');
-    // </if>
-
-    // <if expr="is_win">
-    if (!loadTimeData.getBoolean('isWindows10OrNewer')) {
-      r.CAPTIONS = r.ACCESSIBILITY.createChild('/captions');
-    }
     // </if>
 
     // <if expr="not chromeos_ash">

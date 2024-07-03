@@ -66,6 +66,10 @@ BASE_FEATURE(kEnableExtensionsPermissionsForSupervisedUsersOnDesktop,
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+BASE_FEATURE(kExposedParentalControlNeededForExtensionInstallation,
+             "ExposedParentalControlNeededForExtensionInstallation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsSupervisedUserSkipParentApprovalToInstallExtensionsEnabled() {
 #if BUILDFLAG(IS_CHROMEOS)
   return base::FeatureList::IsEnabled(
@@ -97,6 +101,12 @@ BASE_FEATURE(kCustomWebSignInInterceptForSupervisedUsers,
              "CustomWebSignInInterceptForSupervisedUsers",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+BASE_FEATURE(kHideGuestModeForSupervisedUsers,
+             "HideGuestModeForSupervisedUsers",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kMigrateAccountManagementSettingsToCapabilities,
              "MigrateAccountManagementSettingsToCapabilities",
@@ -105,7 +115,25 @@ BASE_FEATURE(kMigrateAccountManagementSettingsToCapabilities,
 
 BASE_FEATURE(kWaitUntilAccessTokenAvailableForClassifyUrl,
              "WaitUntilAccessTokenAvailableForClassifyUrl",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             // Android enforces at the OS level that supervised users must have
+             // valid sign in credentials (and triggers a reauth if not). We can
+             // therefore wait for a valid access token to be available before
+             // calling ClassifyUrl, to avoid window conditions where the access
+             // token is not yet available (eg. during startup).
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             // Other platforms don't enforce this, and we therefore cannot
+             // wait for access tokens in Chrome.
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
+#if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kReplaceSupervisionPrefsWithAccountCapabilitiesOnIOS,
+             "ReplaceSupervisionPrefsWithAccountCapabilitiesOnIOS",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 bool IsKidFriendlyContentFeedAvailable() {
   return base::FeatureList::IsEnabled(kKidFriendlyContentFeed);

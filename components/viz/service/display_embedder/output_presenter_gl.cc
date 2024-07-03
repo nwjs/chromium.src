@@ -179,16 +179,13 @@ void OutputPresenterGL::InitializeCapabilities(
       kRGBA_F16_SkColorType;
 }
 
-bool OutputPresenterGL::Reshape(const SkImageInfo& image_info,
-                                const gfx::ColorSpace& color_space,
-                                int sample_count,
-                                float device_scale_factor,
-                                gfx::OverlayTransform transform) {
-  const gfx::Size size = gfx::SkISizeToSize(image_info.dimensions());
+bool OutputPresenterGL::Reshape(const ReshapeParams& params) {
+  const gfx::Size size = params.GfxSize();
   image_format_ =
-      SkColorTypeToSinglePlaneSharedImageFormat(image_info.colorType());
-  const bool has_alpha = !image_info.isOpaque();
-  return presenter_->Resize(size, device_scale_factor, color_space, has_alpha);
+      SkColorTypeToSinglePlaneSharedImageFormat(params.image_info.colorType());
+  const bool has_alpha = !params.image_info.isOpaque();
+  return presenter_->Resize(size, params.device_scale_factor,
+                            params.color_space, has_alpha);
 }
 
 std::vector<std::unique_ptr<OutputPresenter::Image>>
@@ -217,9 +214,6 @@ OutputPresenterGL::AllocateImages(gfx::ColorSpace color_space,
 void OutputPresenterGL::Present(SwapCompletionCallback completion_callback,
                                 BufferPresentedCallback presentation_callback,
                                 gfx::FrameData data) {
-#if BUILDFLAG(IS_APPLE)
-  presenter_->SetCALayerErrorCode(ca_layer_error_code_);
-#endif
   presenter_->Present(std::move(completion_callback),
                       std::move(presentation_callback), data);
 }
@@ -346,11 +340,6 @@ void OutputPresenterGL::SetVSyncDisplayID(int64_t display_id) {
 }
 
 #if BUILDFLAG(IS_APPLE)
-void OutputPresenterGL::SetCALayerErrorCode(
-    gfx::CALayerResult ca_layer_error_code) {
-  ca_layer_error_code_ = ca_layer_error_code;
-}
-
 void OutputPresenterGL::SetMaxPendingSwaps(int max_pending_swaps) {
   presenter_->SetMaxPendingSwaps(max_pending_swaps);
 }

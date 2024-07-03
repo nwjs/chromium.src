@@ -39,7 +39,6 @@ import androidx.core.view.WindowInsetsCompat;
 
 import org.hamcrest.Matchers;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -61,11 +60,10 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
-import org.chromium.components.browser_ui.widget.InsetObserver;
-import org.chromium.components.browser_ui.widget.InsetObserver.WindowInsetsConsumer;
-import org.chromium.components.browser_ui.widget.InsetObserverSupplier;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
+import org.chromium.ui.InsetObserver;
+import org.chromium.ui.InsetObserver.WindowInsetsConsumer;
 import org.chromium.ui.base.WindowAndroid;
 
 /**
@@ -127,7 +125,7 @@ public class EdgeToEdgeControllerTest {
         ChromeFeatureList.sDrawWebEdgeToEdge.setForTesting(false);
 
         MockitoAnnotations.openMocks(this);
-        InsetObserverSupplier.setInstanceForTesting(mInsetObserver);
+        when(mWindowAndroid.getInsetObserver()).thenReturn(mInsetObserver);
 
         mActivity = Robolectric.buildActivity(AppCompatActivity.class).setup().get();
         mTabProvider = new ObservableSupplierImpl<>();
@@ -171,19 +169,14 @@ public class EdgeToEdgeControllerTest {
 
     @Test
     public void drawEdgeToEdge_ToNormal() {
-        mEdgeToEdgeControllerImpl.drawToEdge(android.R.id.content, false);
+        mEdgeToEdgeControllerImpl.drawToEdge(false);
+        verify(mOsWrapper, times(0)).setDecorFitsSystemWindows(any(), anyBoolean());
     }
 
     @Test
     public void drawEdgeToEdge_ToEdge() {
-        mEdgeToEdgeControllerImpl.drawToEdge(android.R.id.content, true);
-    }
-
-    @Test
-    public void drawToEdge_assertsBadId() {
-        final int badId = 1234;
-        Assert.assertThrows(
-                AssertionError.class, () -> mEdgeToEdgeControllerImpl.drawToEdge(badId, true));
+        mEdgeToEdgeControllerImpl.drawToEdge(true);
+        verify(mOsWrapper).setDecorFitsSystemWindows(any(), eq(false));
     }
 
     /** Test nothing is done when the Feature is not enabled. */

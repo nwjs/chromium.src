@@ -168,7 +168,7 @@ wgpu::BackendType DawnContextProvider::GetDefaultBackendType() {
 #elif BUILDFLAG(IS_APPLE)
   return wgpu::BackendType::Metal;
 #else
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return wgpu::BackendType::Null;
 #endif
 }
@@ -270,7 +270,8 @@ class DawnSharedState : public base::RefCountedThreadSafe<DawnSharedState>,
   }
 
   // Provided to wgpu::Device as device lost callback.
-  static void LogDeviceLost(WGPUDeviceLostReason reason,
+  static void LogDeviceLost(WGPUDevice const* device,
+                            WGPUDeviceLostReason reason,
                             char const* message,
                             void* userdata) {
     if (reason != WGPUDeviceLostReason_Destroyed) {
@@ -290,7 +291,8 @@ class DawnSharedState : public base::RefCountedThreadSafe<DawnSharedState>,
   std::unique_ptr<webgpu::DawnCachingInterface> caching_interface_;
 
   Platform platform_{/*dawn_caching_interface=*/nullptr,
-                     /*uma_prefix=*/"GPU.GraphiteDawn."};
+                     /*uma_prefix=*/"GPU.GraphiteDawn.",
+                     /*record_cache_count_uma=*/true};
   std::unique_ptr<webgpu::DawnInstance> instance_;
   wgpu::Adapter adapter_;
   wgpu::Device device_;
@@ -356,10 +358,12 @@ bool DawnSharedState::Initialize(
   enabled_toggles.push_back("disable_lazy_clear_for_mapped_at_creation_buffer");
 
 #if BUILDFLAG(IS_WIN)
-  // ClearRenderTargetView() is buggy with some GPUs, so use draw instead.
-  // TODO(crbug.com/329702368): only enable color_clear_with_draw for GPUs with
-  // the issue.
   if (backend_type == wgpu::BackendType::D3D11) {
+    // Use packed D24_UNORM_S8_UINT DXGI format for Depth24PlusStencil8 format.
+    enabled_toggles.push_back("use_packed_depth24_unorm_stencil8_format");
+    // ClearRenderTargetView() is buggy with some GPUs, so use draw instead.
+    // TODO(crbug.com/329702368): only enable color_clear_with_draw for GPUs
+    // with the issue.
     enabled_toggles.push_back("clear_color_with_draw");
   }
 #endif
@@ -387,6 +391,12 @@ bool DawnSharedState::Initialize(
   cache_desc.nextInChain = &toggles_desc;
 
   wgpu::DeviceDescriptor descriptor;
+  descriptor.uncapturedErrorCallbackInfo = {
+      .callback = &LogError, .userdata = static_cast<void*>(this)};
+  descriptor.deviceLostCallbackInfo = {
+      .mode = wgpu::CallbackMode::AllowProcessEvents,
+      .callback = &LogDeviceLost,
+      .userdata = static_cast<void*>(this)};
   descriptor.nextInChain = &cache_desc;
 
   std::vector<wgpu::FeatureName> features = {
@@ -485,7 +495,11 @@ bool DawnSharedState::Initialize(
       wgpu::FeatureName::DualSourceBlending,
       wgpu::FeatureName::FramebufferFetch,
       wgpu::FeatureName::MultiPlanarFormatExtendedUsages,
+      wgpu::FeatureName::MultiPlanarFormatNv16,
+      wgpu::FeatureName::MultiPlanarFormatNv24,
       wgpu::FeatureName::MultiPlanarFormatP010,
+      wgpu::FeatureName::MultiPlanarFormatP210,
+      wgpu::FeatureName::MultiPlanarFormatP410,
       wgpu::FeatureName::MultiPlanarFormatNv12a,
       wgpu::FeatureName::MultiPlanarRenderTargets,
       wgpu::FeatureName::Unorm16TextureFormats,
@@ -576,10 +590,6 @@ bool DawnSharedState::Initialize(
     return false;
   }
 
-  device.SetUncapturedErrorCallback(&DawnSharedState::LogError,
-                                    static_cast<void*>(this));
-  device.SetDeviceLostCallback(&DawnSharedState::LogDeviceLost,
-                               static_cast<void*>(this));
   device.SetLoggingCallback(&DawnSharedState::LogInfo, nullptr);
 
   adapter_ = std::move(adapter);

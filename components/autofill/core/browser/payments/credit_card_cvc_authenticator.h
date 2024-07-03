@@ -44,8 +44,7 @@ class CreditCardCvcAuthenticator
       cvc = std::u16string(s);
       return *this;
     }
-    CvcAuthenticationResponse& with_request_options(
-        std::optional<base::Value::Dict> v) {
+    CvcAuthenticationResponse& with_request_options(base::Value::Dict v) {
       request_options = std::move(v);
       return *this;
     }
@@ -56,9 +55,9 @@ class CreditCardCvcAuthenticator
     bool did_succeed = false;
     raw_ptr<const CreditCard> card = nullptr;
     // TODO(crbug.com/40927733): Remove CVC.
-    std::u16string cvc = std::u16string();
-    std::optional<base::Value::Dict> request_options;
-    std::string card_authorization_token = std::string();
+    std::u16string cvc;
+    base::Value::Dict request_options;
+    std::string card_authorization_token;
   };
   class Requester {
    public:
@@ -91,7 +90,7 @@ class CreditCardCvcAuthenticator
   ~CreditCardCvcAuthenticator() override;
 
   // Authentication
-  void Authenticate(const CreditCard* card,
+  void Authenticate(const CreditCard& card,
                     base::WeakPtr<Requester> requester,
                     PersonalDataManager* personal_data_manager,
                     std::optional<std::string> vcn_context_token = std::nullopt,

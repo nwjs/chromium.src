@@ -45,6 +45,7 @@ if (optimize_webui) {
     "chrome_cart.mojom-webui.js",
     "feed.mojom-webui.js",
     "file_suggestion.mojom-webui.js",
+    "google_calendar.mojom-webui.js",
     "history_cluster_types.mojom-webui.js",
     "history_clusters.mojom-webui.js",
     "history_clusters_v2.mojom-webui.js",
@@ -54,6 +55,7 @@ if (optimize_webui) {
     "photos.mojom-webui.js",
     "recipes.mojom-webui.js",
     "tab_resumption.mojom-webui.js",
+    "most_relevant_tab_resumption.mojom-webui.js",
   ]
 
   if (!is_official_build) {

@@ -76,11 +76,6 @@ namespace user_education {
 
 namespace {
 
-// Minimum width of the bubble.
-constexpr int kBubbleMinWidthDip = 200;
-// Maximum width of the bubble. Longer strings will cause wrapping.
-constexpr int kBubbleMaxWidthDip = 340;
-
 // Translates from HelpBubbleArrow to the Views equivalent.
 views::BubbleBorder::Arrow TranslateArrow(HelpBubbleArrow arrow) {
   switch (arrow) {
@@ -818,11 +813,17 @@ HelpBubbleView::HelpBubbleView(const HelpBubbleDelegate* delegate,
   // cases - and only those cases - the bubble can switch to a vertical button
   // alignment.
   if (button_container->GetMinimumSize().width() >
-      kBubbleMaxWidthDip - contents_insets.width()) {
+      kMaxWidthDip - contents_insets.width()) {
     button_layout.SetOrientation(views::LayoutOrientation::kVertical)
         .SetCrossAxisAlignment(views::LayoutAlignment::kEnd)
         .SetDefault(views::kMarginsKey, gfx::Insets::VH(default_spacing, 0))
         .SetIgnoreDefaultMainAxisMargins(true);
+
+    // Calculate the closest the bubble can be to the normal max width without
+    // cutting off an especially long button caption.
+    max_bubble_width_ =
+        std::max(kMaxWidthDip, button_container->GetMinimumSize().width() +
+                                   contents_insets.width());
   }
 
   button_container->SetProperty(
@@ -956,15 +957,14 @@ gfx::Size HelpBubbleView::CalculatePreferredSize(
       View::CalculatePreferredSize(available_size);
 
   // Wrap if the width is larger than |kBubbleMaxWidthDip|.
-  if (layout_manager_preferred_size.width() > kBubbleMaxWidthDip) {
-    return gfx::Size(kBubbleMaxWidthDip,
+  if (layout_manager_preferred_size.width() > max_bubble_width_) {
+    return gfx::Size(max_bubble_width_,
                      GetLayoutManager()->GetPreferredHeightForWidth(
-                         this, kBubbleMaxWidthDip));
+                         this, max_bubble_width_));
   }
 
-  if (layout_manager_preferred_size.width() < kBubbleMinWidthDip) {
-    return gfx::Size(kBubbleMinWidthDip,
-                     layout_manager_preferred_size.height());
+  if (layout_manager_preferred_size.width() < kMinWidthDip) {
+    return gfx::Size(kMinWidthDip, layout_manager_preferred_size.height());
   }
 
   return layout_manager_preferred_size;
@@ -1000,21 +1000,22 @@ void HelpBubbleView::OnBeforeBubbleWidgetInit(views::Widget::InitParams* params,
 #if BUILDFLAG(IS_LINUX)
   // Help bubbles anchored to menus may be clipped to their anchors' bounds,
   // resulting in visual errors, unless they use accelerated rendering. See
-  // crbug.com/1445770 for details.
+  // crbug.com/1445770 for details. This also applies to bubbles anchored to
+  // all accelerated windows below a certain size, especially those which are
+  // not top-level application windows (see crbug.com/340523110).
   //
-  // In Views, [nearly] all menus have a scroll container as their root view.
-  // Key off of this in order to minimize the number of widgets that are forced
-  // to be accelerated. Accelerated widgets are "desktop native" widgets and
-  // interact with the OS window activation system; this is, in turn, a problem
-  // for Linux because of known technical limitations around window activation.
+  // Because it is not possible to know exactly if a bubble will correctly fit
+  // in the bounds of its ancestor accelerator widget, due to things like
+  // anchor positioning and the possibility that a window size could change,
+  // make all Linux help bubbles accelerated.
   //
-  // See the following bug for more information regarding window activation
-  // issues in Weston, the windowing environment used on chrome's Wayland
-  // testbots:
+  // Note: accelerated widgets are "desktop native" widgets and interact with
+  // the OS window activation system; this is, in turn, a problem for Linux
+  // because of known technical limitations around window activation. See the
+  // following bug for more information regarding window activation issues in
+  // Weston, the windowing environment used on chrome's Wayland test-bots:
   // https://gitlab.freedesktop.org/wayland/weston/-/issues/669
-  if (GetAnchorAsMenuItem(this) != nullptr) {
-    params->use_accelerated_widget_override = true;
-  }
+  params->use_accelerated_widget_override = true;
 #endif
 }
 

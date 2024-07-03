@@ -310,7 +310,7 @@ std::vector<blink::WebElement> GetWebElementsFromIdList(
 // the default options which is {ExtractOption::kValue,
 // ExtractOption::kOptions}. Returns nullopt if the form is not found or cannot
 // be serialized.
-std::optional<std::pair<FormData, FormFieldData>>
+std::optional<std::pair<FormData, raw_ref<const FormFieldData>>>
 FindFormAndFieldForFormControlElement(
     const blink::WebFormControlElement& element,
     const FieldDataManager& field_data_manager,
@@ -355,8 +355,7 @@ std::vector<std::pair<FieldRef, blink::WebAutofillState>> ApplyFieldsAction(
 // preview.
 void ClearPreviewedElements(
     base::span<std::pair<blink::WebFormControlElement, blink::WebAutofillState>>
-        previewed_elements,
-    const blink::WebFormControlElement& initiating_element);
+        previewed_elements);
 
 // Indicates if |node| is owned by |frame| in the sense of
 // https://dom.spec.whatwg.org/#concept-node-document. Note that being owned by

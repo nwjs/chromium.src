@@ -258,7 +258,7 @@ void BidirectionalStream::OnHeadersReceived(
   load_timing_info_.receive_headers_end = base::TimeTicks::Now();
   read_end_time_ = load_timing_info_.receive_headers_end;
   session_->http_stream_factory()->ProcessAlternativeServices(
-      session_, net::NetworkAnonymizationKey(), response_info.headers.get(),
+      session_, NetworkAnonymizationKey(), response_info.headers.get(),
       url::SchemeHostPort(request_info_->url));
   delegate_->OnHeadersReceived(response_headers);
 }
@@ -326,7 +326,7 @@ void BidirectionalStream::OnFailed(int status) {
 
 void BidirectionalStream::OnStreamReady(const ProxyInfo& used_proxy_info,
                                         std::unique_ptr<HttpStream> stream) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void BidirectionalStream::OnBidirectionalStreamImplReady(
@@ -334,8 +334,8 @@ void BidirectionalStream::OnBidirectionalStreamImplReady(
     std::unique_ptr<BidirectionalStreamImpl> stream) {
   DCHECK(!stream_impl_);
 
-  net::NetworkTrafficAnnotationTag traffic_annotation =
-      net::DefineNetworkTrafficAnnotation("bidirectional_stream", R"(
+  NetworkTrafficAnnotationTag traffic_annotation =
+      DefineNetworkTrafficAnnotation("bidirectional_stream", R"(
         semantics {
           sender: "Bidirectional Stream"
           description:
@@ -367,7 +367,7 @@ void BidirectionalStream::OnBidirectionalStreamImplReady(
 void BidirectionalStream::OnWebSocketHandshakeStreamReady(
     const ProxyInfo& used_proxy_info,
     std::unique_ptr<WebSocketHandshakeStreamBase> stream) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void BidirectionalStream::OnStreamFailed(

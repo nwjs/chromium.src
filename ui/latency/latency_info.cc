@@ -13,6 +13,7 @@
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/memory/raw_ptr.h"
 #include "base/trace_event/trace_event.h"
 #include "services/tracing/public/cpp/perfetto/flow_event_utils.h"
 #include "services/tracing/public/cpp/perfetto/macros.h"
@@ -44,7 +45,7 @@ ChromeLatencyInfo::LatencyComponentType GetComponentProtoEnum(
     CASE_TYPE(INPUT_EVENT_GPU_SWAP_BUFFER);
     CASE_TYPE(INPUT_EVENT_LATENCY_FRAME_SWAP);
     default:
-      NOTREACHED() << "Unhandled LatencyComponentType: " << type;
+      NOTREACHED_IN_MIGRATION() << "Unhandled LatencyComponentType: " << type;
       return ChromeLatencyInfo::COMPONENT_UNSPECIFIED;
   }
 #undef CASE_TYPE
@@ -63,7 +64,7 @@ struct LatencyInfoEnabledInitializer {
           kTraceCategoriesForAsyncEvents)) {
   }
 
-  const unsigned char* latency_info_enabled;
+  raw_ptr<const unsigned char> latency_info_enabled;
 };
 
 static base::LazyInstance<LatencyInfoEnabledInitializer>::Leaky

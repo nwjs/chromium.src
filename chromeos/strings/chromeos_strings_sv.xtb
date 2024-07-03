@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastellgul</translation>
 <translation id="1056898198331236512">Varning</translation>
 <translation id="1059913517121127803">Det gick inte att börja söka</translation>
+<translation id="1061864016440983342">Använd utan plats</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> av <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Brandvägg hittades</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Fler inställningar</translation>
 <translation id="2082932131694554252">Tilldelad tangent</translation>
 <translation id="2085089206770112532">Tangenten som minskar skärmens ljusstyrka</translation>
+<translation id="2086091080968010660">Tidsbaserade ändringar kanske inte är korrekta. Aktivera platsåtkomst i inställningarna.</translation>
 <translation id="2102231663024125441">Textredigering</translation>
 <translation id="2105810540595158374">Enheten är en spelkontroll.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, version <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Redigera APN-information</translation>
 <translation id="2195732836444333448">Jag kan inte göra det just nu. Testa igen om ett tag.</translation>
 <translation id="2201758491318984023">cykel</translation>
-<translation id="2203222757805818543">Nuvarande schema är inställt på <ph name="SUNRISE" />–<ph name="SUNSET" />. <ph name="BEGIN_LINK" />Aktivera platsåtkomst<ph name="END_LINK" /> om du vill uppdatera schemat för mörkt läge automatiskt</translation>
 <translation id="2203272733515928691">varm källa</translation>
 <translation id="2203642483788377106">en klippa</translation>
 <translation id="2208388655216963643">impressionism</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Återställ standardinställningar</translation>
 <translation id="2286454467119466181">Enkel</translation>
 <translation id="2287186687001756809">Det finns inga bilder. Du kan lägga till foton via <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Aktuellt schema är inställt på <ph name="SUNRISE" />–<ph name="SUNSET" />. Aktivera systemets platsåtkomst om du vill uppdatera schemat för solnedgång och soluppgång automatiskt.</translation>
 <translation id="2305172810646967500">svart</translation>
 <translation id="2307344026739914387">Använd nuvarande nyckelpar</translation>
 <translation id="2308243864813041101">Koppla från USB-kabeln från <ph name="DEVICE_NAME" /> för att fortsätta uppdateringsprocessen</translation>
@@ -282,7 +284,7 @@
 <translation id="2421798028054665193">Bild <ph name="CURRENT_PAGE" /> av <ph name="TOTAL_PAGES" /></translation>
 <translation id="2446553403094072641">Flyttalsprecision</translation>
 <translation id="2448312741937722512">Typ</translation>
-<translation id="2472215337771558851">Använd Hjälp mig att skriva för att skapa ett utkast eller finjustera befintligt arbete (med hjälp av Googles AI)</translation>
+<translation id="2472215337771558851">Använd Hjälp mig skriva för att skapa ett utkast eller finjustera befintligt arbete (med hjälp av Googles AI)</translation>
 <translation id="2480572840229215612">krabbor</translation>
 <translation id="248546197012830854">Enheten är offline. Anslut till ett wifi-nätverk för att se hjälpinnehåll.</translation>
 <translation id="2486301288428798846">trä</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">en sanddyn</translation>
 <translation id="2619761439309613843">Daglig uppdatering</translation>
 <translation id="2620436844016719705">System</translation>
+<translation id="2637303424821734920">AV – <ph name="BEGIN_LINK" />aktivera systemets platsåtkomst<ph name="END_LINK" /> om du vill visa lokalt väder</translation>
 <translation id="2638662041295312666">Inloggningsbild</translation>
 <translation id="2640549051766135490">Detta album har markerats: <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Kontroller</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Bakgrund</translation>
 <translation id="3027578600144895987">Stäng kameran</translation>
 <translation id="3031560714565892478">Enheten är en videokamera.</translation>
+<translation id="3051968340259309715">Detta gör att systemtjänster kan använda Platsangivelsens exakthet för att fastställa din plats. Platsangivelsens exakthet använder information om trådlösa signaler, som wifi-åtkomstpunkter, mobilnätverksmaster och GPS, tillsammans med enhetens sensordata, som accelerometer och gyroskop, för att beräkna enhetens plats. Du kan inaktivera plats i Inställningar &gt; Integritet och säkerhet &gt; Integritetsinställningar &gt; Platsåtkomst. <ph name="LINK_BEGIN" />Läs mer<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Slutpunkt</translation>
 <translation id="3060579846059757016">Översikter</translation>
+<translation id="3061850252076394168">aktivera Textuppläsning</translation>
 <translation id="3069085583900247081">Testet misslyckades</translation>
 <translation id="3078740164268491126">tabell</translation>
 <translation id="3081652522083185657">ljust</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">DNS-matchningen av alla värdar misslyckades</translation>
 <translation id="4593212453765072419">Proxyautentisering krävs</translation>
 <translation id="4609350030397390689">Tangenten som minskar ljusstyrkan på tangentbordet</translation>
-<translation id="4617553623719764431">Vädret visas inte eftersom din plats inte är känd. <ph name="BEGIN_LINK" />Aktivera platsåtkomst<ph name="END_LINK" /> om du vill visa lokalt väder.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> av <ph name="TOTAL_PAGE_NUMBER" />. Tryck på retur för att avbryta utskriftsjobbet.</translation>
 <translation id="463791356324567266">Skanningen avbryts …</translation>
 <translation id="4646949265910132906">Säker wifi-anslutning</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Kör</translation>
 <translation id="4987769320337599931">Brandvägg</translation>
 <translation id="4988526792673242964">Sidor</translation>
+<translation id="4989542687859782284">Inte tillgänglig</translation>
 <translation id="4999333166442584738">Dölj rapporten</translation>
 <translation id="500920857929044050">Avsluta testet</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -920,7 +925,7 @@
 <translation id="6235460611964961764">Återställ dataanvändningen manuellt</translation>
 <translation id="6243280677745499710">Nuvarande</translation>
 <translation id="6250316632541035980">bacon och ägg</translation>
-<translation id="6255213378196499011">Inställningar för Hjälp mig att skriva</translation>
+<translation id="6255213378196499011">Inställningar för Hjälp mig skriva</translation>
 <translation id="6265268291107409527">Tangenten <ph name="KEYS" /> har valts. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="6275224645089671689">Högerpiltangenten</translation>
 <translation id="6278428485366576908">Tema</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">ljusstyrka för tangentbordet</translation>
 <translation id="6412715219990689313">Inbyggt tangentbord</translation>
 <translation id="6417265370957905582">Google Assistent</translation>
+<translation id="6419454453018688975">Aktivera systemets platsåtkomst</translation>
 <translation id="6423239382391657905">Öppen VPN</translation>
-<translation id="6438073885402882007">Då kan systemtjänster med behörighet använda din plats. Enhetens plats beräknas utifrån källor som wifi, mobilnätverk och sensorer. <ph name="LINK_BEGIN" />Läs mer<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Svag (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Öppna kontoinställningar</translation>
 <translation id="6462978824459367242">Knappen Lägg till APN har aktiverats</translation>
@@ -1155,7 +1160,7 @@
 <translation id="7401543881546089382">Ta bort genväg</translation>
 <translation id="741244894080940828">Räkna om</translation>
 <translation id="7415801143053185905">Mycket hög HTTS-latens</translation>
-<translation id="7425037327577270384">Hjälp mig att skriva</translation>
+<translation id="7425037327577270384">Hjälp mig skriva</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7438298994385592770">Det gick inte att inaktivera eller ta bort detta APN. Se till att aktiverade <ph name="ATTACH" />-APN inaktiveras eller tas bort.</translation>
 <translation id="7458970041932198923">Anslut till ett nätverk och läs in sidan igen för att visa och ställa in avatarer.</translation>

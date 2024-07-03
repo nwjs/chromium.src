@@ -581,7 +581,10 @@ RTCPeerConnection::RTCPeerConnection(
       peer_handler_unregistered_(true),
       closed_(true),
       suppress_events_(true),
-      encoded_insertable_streams_(encoded_insertable_streams) {
+      encoded_insertable_streams_(encoded_insertable_streams),
+      rtp_transport_(RuntimeEnabledFeatures::RTCRtpTransportEnabled(context)
+                         ? MakeGarbageCollected<RTCRtpTransport>()
+                         : nullptr) {
   LocalDOMWindow* window = To<LocalDOMWindow>(context);
 
   InstanceCounters::IncrementCounter(
@@ -672,7 +675,7 @@ ScriptPromise<RTCSessionDescriptionInit> RTCPeerConnection::createOffer(
       webrtc::PeerConnectionInterface::SignalingState::kClosed) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       kSignalingStateClosedMessage);
-    return ScriptPromise<RTCSessionDescriptionInit>();
+    return EmptyPromise();
   }
   auto* resolver =
       MakeGarbageCollected<ScriptPromiseResolver<RTCSessionDescriptionInit>>(
@@ -737,7 +740,7 @@ ScriptPromise<RTCSessionDescriptionInit> RTCPeerConnection::createAnswer(
       webrtc::PeerConnectionInterface::SignalingState::kClosed) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       kSignalingStateClosedMessage);
-    return ScriptPromise<RTCSessionDescriptionInit>();
+    return EmptyPromise();
   }
 
   ExecutionContext* context = ExecutionContext::From(script_state);
@@ -908,7 +911,7 @@ ScriptPromise<IDLUndefined> RTCPeerConnection::setLocalDescription(
   if (closed_) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       kSignalingStateClosedMessage);
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   DCHECK(script_state->ContextIsValid());
@@ -940,7 +943,7 @@ ScriptPromise<IDLUndefined> RTCPeerConnection::setLocalDescription(
       exception_state.ThrowDOMException(
           static_cast<DOMExceptionCode>(exception->code()),
           exception->message());
-      return ScriptPromise<IDLUndefined>();
+      return EmptyPromise();
     }
   }
   ExecutionContext* context = ExecutionContext::From(script_state);
@@ -1043,7 +1046,7 @@ ScriptPromise<IDLUndefined> RTCPeerConnection::setRemoteDescription(
   if (closed_) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       kSignalingStateClosedMessage);
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   DCHECK(script_state->ContextIsValid());
@@ -1053,7 +1056,7 @@ ScriptPromise<IDLUndefined> RTCPeerConnection::setRemoteDescription(
       webrtc::PeerConnectionInterface::SignalingState::kClosed) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       kSignalingStateClosedMessage);
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   ExecutionContext* context = ExecutionContext::From(script_state);
@@ -1155,7 +1158,7 @@ RTCConfiguration* RTCPeerConnection::getConfiguration(
       result->setIceTransportPolicy("all");
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   switch (webrtc_configuration.bundle_policy) {
@@ -1169,7 +1172,7 @@ RTCConfiguration* RTCPeerConnection::getConfiguration(
       result->setBundlePolicy("balanced");
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   switch (webrtc_configuration.rtcp_mux_policy) {
@@ -1180,7 +1183,7 @@ RTCConfiguration* RTCPeerConnection::getConfiguration(
       result->setRtcpMuxPolicy("require");
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   HeapVector<Member<RTCIceServer>> ice_servers;
@@ -1288,7 +1291,7 @@ ScriptPromise<RTCCertificate> RTCPeerConnection::generateCertificate(
   if (!NormalizeAlgorithm(script_state->GetIsolate(), keygen_algorithm,
                           kWebCryptoOperationGenerateKey, crypto_algorithm,
                           exception_state)) {
-    return ScriptPromise<RTCCertificate>();
+    return EmptyPromise();
   }
 
   // Check if |keygenAlgorithm| contains the optional DOMTimeStamp |expires|
@@ -1299,12 +1302,12 @@ ScriptPromise<RTCCertificate> RTCPeerConnection::generateCertificate(
                                      keygen_algorithm->GetAsObject().V8Value(),
                                      exception_state);
     if (exception_state.HadException())
-      return ScriptPromise<RTCCertificate>();
+      return EmptyPromise();
 
     bool has_expires =
         keygen_algorithm_dict.HasProperty("expires", exception_state);
     if (exception_state.HadException())
-      return ScriptPromise<RTCCertificate>();
+      return EmptyPromise();
 
     if (has_expires) {
       v8::Local<v8::Value> expires_value;
@@ -1329,24 +1332,29 @@ ScriptPromise<RTCCertificate> RTCPeerConnection::generateCertificate(
       "algorithm name, but the parameters are not supported.";
   std::optional<rtc::KeyParams> key_params;
   switch (crypto_algorithm.Id()) {
-    case kWebCryptoAlgorithmIdRsaSsaPkcs1v1_5:
+    case kWebCryptoAlgorithmIdRsaSsaPkcs1v1_5: {
       // name: "RSASSA-PKCS1-v1_5"
-      unsigned public_exponent;
-      // "publicExponent" must fit in an unsigned int. The only recognized
-      // "hash" is "SHA-256".
-      if (crypto_algorithm.RsaHashedKeyGenParams()
-              ->ConvertPublicExponentToUnsigned(public_exponent) &&
+      std::optional<uint32_t> public_exponent =
+          crypto_algorithm.RsaHashedKeyGenParams()->PublicExponentAsU32();
+      unsigned modulus_length =
+          crypto_algorithm.RsaHashedKeyGenParams()->ModulusLengthBits();
+      // Parameters must fit in int to be passed to rtc::KeyParams::RSA. The
+      // only recognized "hash" is "SHA-256".
+      if (public_exponent &&
+          base::IsValueInRangeForNumericType<int>(*public_exponent) &&
+          base::IsValueInRangeForNumericType<int>(modulus_length) &&
           crypto_algorithm.RsaHashedKeyGenParams()->GetHash().Id() ==
               kWebCryptoAlgorithmIdSha256) {
-        unsigned modulus_length =
-            crypto_algorithm.RsaHashedKeyGenParams()->ModulusLengthBits();
-        key_params = rtc::KeyParams::RSA(modulus_length, public_exponent);
+        key_params =
+            rtc::KeyParams::RSA(base::checked_cast<int>(modulus_length),
+                                base::checked_cast<int>(*public_exponent));
       } else {
         exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
                                           unsupported_params_string);
-        return ScriptPromise<RTCCertificate>();
+        return EmptyPromise();
       }
       break;
+    }
     case kWebCryptoAlgorithmIdEcdsa:
       // name: "ECDSA"
       // The only recognized "namedCurve" is "P-256".
@@ -1356,7 +1364,7 @@ ScriptPromise<RTCCertificate> RTCPeerConnection::generateCertificate(
       } else {
         exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
                                           unsupported_params_string);
-        return ScriptPromise<RTCCertificate>();
+        return EmptyPromise();
       }
       break;
     default:
@@ -1364,7 +1372,7 @@ ScriptPromise<RTCCertificate> RTCPeerConnection::generateCertificate(
                                         "The 1st argument provided is an "
                                         "AlgorithmIdentifier, but the "
                                         "algorithm is not supported.");
-      return ScriptPromise<RTCCertificate>();
+      return EmptyPromise();
   }
   DCHECK(key_params.has_value());
 
@@ -1375,7 +1383,7 @@ ScriptPromise<RTCCertificate> RTCPeerConnection::generateCertificate(
   if (!certificate_generator->IsSupportedKeyParams(key_params.value())) {
     exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
                                       unsupported_params_string);
-    return ScriptPromise<RTCCertificate>();
+    return EmptyPromise();
   }
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<RTCCertificate>>(
@@ -1415,7 +1423,7 @@ ScriptPromise<IDLUndefined> RTCPeerConnection::addIceCandidate(
       webrtc::PeerConnectionInterface::SignalingState::kClosed) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       kSignalingStateClosedMessage);
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   if (candidate->hasCandidate() && candidate->candidate().empty()) {
@@ -1433,7 +1441,7 @@ ScriptPromise<IDLUndefined> RTCPeerConnection::addIceCandidate(
   if (IsIceCandidateMissingSdpMidAndMLineIndex(candidate)) {
     exception_state.ThrowTypeError(
         "Candidate missing values for both sdpMid and sdpMLineIndex");
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   DisableBackForwardCache(GetExecutionContext());
@@ -1465,7 +1473,7 @@ ScriptPromise<IDLUndefined> RTCPeerConnection::addIceCandidate(
   if (IsIceCandidateMissingSdpMidAndMLineIndex(candidate)) {
     exception_state.ThrowTypeError(
         "Candidate missing values for both sdpMid and sdpMLineIndex");
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   RTCIceCandidatePlatform* platform_candidate =
@@ -1604,7 +1612,7 @@ ScriptPromise<RTCStatsReport> RTCPeerConnection::getStats(
       LOG(ERROR) << "Internal error: peer_handler_ has been discarded";
       exception_state.ThrowDOMException(DOMExceptionCode::kOperationError,
                                         "Internal error: release in progress");
-      return ScriptPromise<RTCStatsReport>();
+      return EmptyPromise();
     }
     auto* resolver =
         MakeGarbageCollected<ScriptPromiseResolver<RTCStatsReport>>(
@@ -1642,13 +1650,13 @@ ScriptPromise<RTCStatsReport> RTCPeerConnection::getStats(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         "There is no sender or receiver for the track.");
-    return ScriptPromise<RTCStatsReport>();
+    return EmptyPromise();
   }
   if (track_uses > 1u) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         "There are more than one sender or receiver for the track.");
-    return ScriptPromise<RTCStatsReport>();
+    return EmptyPromise();
   }
   // There is just one use of the track, a sender or receiver.
   if (track_sender) {
@@ -2789,6 +2797,7 @@ void RTCPeerConnection::Trace(Visitor* visitor) const {
   visitor->Trace(dtls_transports_by_native_transport_);
   visitor->Trace(ice_transports_by_native_transport_);
   visitor->Trace(sctp_transport_);
+  visitor->Trace(rtp_transport_);
   EventTarget::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
   MediaStreamObserver::Trace(visitor);

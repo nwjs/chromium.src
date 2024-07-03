@@ -37,7 +37,7 @@ ui::InputDeviceType GetInputDeviceType(
     return ui::INPUT_DEVICE_BLUETOOTH;
   // On Chrome OS emulated on Linux, the keyboard is always "UNKNOWN".
   if (base::SysInfo::IsRunningOnChromeOS())
-    DUMP_WILL_BE_NOTREACHED_NORETURN();
+    DUMP_WILL_BE_NOTREACHED();
   return ui::INPUT_DEVICE_UNKNOWN;
 }
 }  // namespace
@@ -297,7 +297,8 @@ void AccessibilityEventRewriter::OnMagnifierKeyPressed(
       delegate_->SendMagnifierCommand(MagnifierCommand::kMoveRight);
       break;
     default:
-      NOTREACHED() << "Unexpected keyboard_code:" << event->key_code();
+      NOTREACHED_IN_MIGRATION()
+          << "Unexpected keyboard_code:" << event->key_code();
   }
 }
 

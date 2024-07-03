@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "net/dns/host_resolver_manager_unittest.h"
 
 #include <iterator>
@@ -3893,10 +3898,10 @@ TEST_F(HostResolverManagerTest, NetworkAnonymizationKeyWriteToHostCache) {
     base::test::ScopedFeatureList feature_list;
     if (split_cache_by_network_anonymization_key) {
       feature_list.InitAndEnableFeature(
-          features::kSplitHostCacheByNetworkIsolationKey);
+          features::kPartitionConnectionsByNetworkIsolationKey);
     } else {
       feature_list.InitAndDisableFeature(
-          features::kSplitHostCacheByNetworkIsolationKey);
+          features::kPartitionConnectionsByNetworkIsolationKey);
     }
     proc_->AddRuleForAllFamilies("just.testing", kFirstDnsResult);
     proc_->SignalMultiple(1u);
@@ -4029,10 +4034,10 @@ TEST_F(HostResolverManagerTest, NetworkAnonymizationKeyReadFromHostCache) {
     base::test::ScopedFeatureList feature_list;
     if (split_cache_by_network_anonymization_key) {
       feature_list.InitAndEnableFeature(
-          features::kSplitHostCacheByNetworkIsolationKey);
+          features::kPartitionConnectionsByNetworkIsolationKey);
     } else {
       feature_list.InitAndDisableFeature(
-          features::kSplitHostCacheByNetworkIsolationKey);
+          features::kPartitionConnectionsByNetworkIsolationKey);
     }
 
     // A request that uses kNetworkAnonymizationKey1 will return cache entry 1
@@ -4097,10 +4102,10 @@ TEST_F(HostResolverManagerTest, NetworkAnonymizationKeyTwoRequestsAtOnce) {
     base::test::ScopedFeatureList feature_list;
     if (split_cache_by_network_anonymization_key) {
       feature_list.InitAndEnableFeature(
-          features::kSplitHostCacheByNetworkIsolationKey);
+          features::kPartitionConnectionsByNetworkIsolationKey);
     } else {
       feature_list.InitAndDisableFeature(
-          features::kSplitHostCacheByNetworkIsolationKey);
+          features::kPartitionConnectionsByNetworkIsolationKey);
     }
     proc_->AddRuleForAllFamilies("just.testing", kDnsResult);
 
@@ -7356,7 +7361,8 @@ TEST_F(HostResolverManagerDnsTest, NoCheckIpv6OnWifi) {
 TEST_F(HostResolverManagerDnsTest, NotFoundTtl) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey,
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey,
                             features::kUseHostResolverCache},
       /*disabled_features=*/{});
 
@@ -13631,7 +13637,8 @@ TEST_F(HostResolverManagerDnsTest, ResultsSortedAsUnreachableWithHostCache) {
 TEST_F(HostResolverManagerDnsTest, SortFailure) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey,
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey,
                             features::kUseHostResolverCache},
       /*disabled_features=*/{});
 
@@ -13694,7 +13701,8 @@ TEST_F(HostResolverManagerDnsTest, SortFailure) {
 TEST_F(HostResolverManagerDnsTest, PartialSortFailure) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey,
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey,
                             features::kUseHostResolverCache},
       /*disabled_features=*/{});
 
@@ -13821,7 +13829,8 @@ TEST_F(HostResolverManagerDnsTest, HostResolverCacheContainsTransactions) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kUseHostResolverCache,
-                            features::kSplitHostCacheByNetworkIsolationKey},
+                            features::
+                                kPartitionConnectionsByNetworkIsolationKey},
       /*disabled_features=*/{});
 
   ChangeDnsConfig(CreateValidDnsConfig());
@@ -13856,7 +13865,8 @@ TEST_F(HostResolverManagerDnsTest, HostResolverCacheContainsAliasChains) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kUseHostResolverCache,
-                            features::kSplitHostCacheByNetworkIsolationKey},
+                            features::
+                                kPartitionConnectionsByNetworkIsolationKey},
       /*disabled_features=*/{});
 
   constexpr std::string_view kHost = "host.test";
@@ -13914,7 +13924,8 @@ TEST_F(HostResolverManagerDnsTest,
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kUseHostResolverCache,
-                            features::kSplitHostCacheByNetworkIsolationKey},
+                            features::
+                                kPartitionConnectionsByNetworkIsolationKey},
       /*disabled_features=*/{});
 
   constexpr std::string_view kHost = "host.test";
@@ -13978,7 +13989,8 @@ TEST_F(HostResolverManagerDnsTest,
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kUseHostResolverCache,
-                            features::kSplitHostCacheByNetworkIsolationKey},
+                            features::
+                                kPartitionConnectionsByNetworkIsolationKey},
       /*disabled_features=*/{});
 
   constexpr std::string_view kHost = "host.test";
@@ -14033,7 +14045,8 @@ TEST_F(HostResolverManagerDnsTest,
 TEST_F(HostResolverManagerDnsTest, NetworkErrorsNotSavedInHostCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey},
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey},
       /*disabled_features=*/{features::kUseHostResolverCache});
 
   constexpr std::string_view kHost = "host.test";
@@ -14076,7 +14089,8 @@ TEST_F(HostResolverManagerDnsTest, NetworkErrorsNotSavedInHostCache) {
 TEST_F(HostResolverManagerDnsTest, PartialNetworkErrorsNotSavedInHostCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey},
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey},
       /*disabled_features=*/{features::kUseHostResolverCache});
 
   constexpr std::string_view kHost = "host.test";
@@ -14120,7 +14134,8 @@ TEST_F(HostResolverManagerDnsTest, PartialNetworkErrorsNotSavedInHostCache) {
 TEST_F(HostResolverManagerDnsTest, NetworkErrorsNotSavedInHostResolverCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey,
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey,
                             features::kUseHostResolverCache},
       /*disabled_features=*/{});
 
@@ -14163,7 +14178,8 @@ TEST_F(HostResolverManagerDnsTest,
        PartialNetworkErrorsNotSavedInHostResolverCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey,
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey,
                             features::kUseHostResolverCache},
       /*disabled_features=*/{});
 
@@ -14223,7 +14239,8 @@ TEST_F(HostResolverManagerDnsTest,
 TEST_F(HostResolverManagerDnsTest, MalformedResponsesNotSavedInHostCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey},
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey},
       /*disabled_features=*/{features::kUseHostResolverCache});
 
   constexpr std::string_view kHost = "host.test";
@@ -14264,7 +14281,8 @@ TEST_F(HostResolverManagerDnsTest,
        PartialMalformedResponsesNotSavedInHostCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey},
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey},
       /*disabled_features=*/{features::kUseHostResolverCache});
 
   constexpr std::string_view kHost = "host.test";
@@ -14308,7 +14326,8 @@ TEST_F(HostResolverManagerDnsTest,
        MalformedResponsesNotSavedInHostResolverCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey,
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey,
                             features::kUseHostResolverCache},
       /*disabled_features=*/{});
 
@@ -14348,7 +14367,8 @@ TEST_F(HostResolverManagerDnsTest,
        PartialMalformedResponsesNotSavedInHostResolverCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey,
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey,
                             features::kUseHostResolverCache},
       /*disabled_features=*/{});
 
@@ -14407,7 +14427,8 @@ TEST_F(HostResolverManagerDnsTest,
 TEST_F(HostResolverManagerDnsTest, HttpToHttpsUpgradeSavedInHostCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey},
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey},
       /*disabled_features=*/{features::kUseHostResolverCache});
 
   constexpr std::string_view kHost = "host.test";
@@ -14466,7 +14487,8 @@ TEST_F(HostResolverManagerDnsTest,
        HttpToHttpsUpgradeAfterAddressesSavedInHostResolverCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kSplitHostCacheByNetworkIsolationKey,
+      /*enabled_features=*/{features::
+                                kPartitionConnectionsByNetworkIsolationKey,
                             features::kUseHostResolverCache},
       /*disabled_features=*/{});
 

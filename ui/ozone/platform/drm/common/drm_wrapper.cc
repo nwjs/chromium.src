@@ -65,6 +65,18 @@ bool CanQueryForResources(int fd) {
   return !drmIoctl(fd, DRM_IOCTL_MODE_GETRESOURCES, &resources);
 }
 
+bool IsModeset(uint32_t flags) {
+  return flags & DRM_MODE_ATOMIC_ALLOW_MODESET;
+}
+
+bool IsBlocking(uint32_t flags) {
+  return !(flags & DRM_MODE_ATOMIC_NONBLOCK);
+}
+
+bool IsTestOnly(uint32_t flags) {
+  return flags & DRM_MODE_ATOMIC_TEST_ONLY;
+}
+
 }  // namespace
 
 DrmPropertyBlobMetadata::DrmPropertyBlobMetadata(DrmWrapper* drm, uint32_t id)
@@ -381,10 +393,12 @@ ScopedDrmPropertyPtr DrmWrapper::GetProperty(uint32_t id) const {
   return ScopedDrmPropertyPtr(drmModeGetProperty(drm_fd_.get(), id));
 }
 
-bool DrmWrapper::SetProperty(uint32_t connector_id,
-                             uint32_t property_id,
-                             uint64_t value) {
+bool DrmWrapper::SetConnectorProperty(uint32_t connector_id,
+                                      uint32_t property_id,
+                                      uint64_t value) {
   DCHECK(drm_fd_.is_valid());
+  DCHECK(!is_atomic_);
+
   return !drmModeConnectorSetProperty(drm_fd_.get(), connector_id, property_id,
                                       value);
 }
@@ -500,6 +514,9 @@ bool DrmWrapper::CommitProperties(drmModeAtomicReq* properties,
                                   uint32_t flags,
                                   uint64_t page_flip_id) {
   DCHECK(drm_fd_.is_valid());
+  TRACE_EVENT("drm", "DrmWrapper::CommitProperties", "test", IsTestOnly(flags),
+              "modeset", IsModeset(flags), "blocking", IsBlocking(flags),
+              "flags", flags, "page_flip_id", page_flip_id);
   int result = drmModeAtomicCommit(drm_fd_.get(), properties, flags,
                                    reinterpret_cast<void*>(page_flip_id));
 
@@ -517,6 +534,10 @@ bool DrmWrapper::CommitProperties(drmModeAtomicReq* properties,
     // crashing. We still do want the underlying driver bugs fixed, but this
     // provide a better user experience.
     flags &= ~DRM_MODE_ATOMIC_NONBLOCK;
+    TRACE_EVENT("drm", "DrmWrapper::CommitProperties(retry)", "test",
+                IsTestOnly(flags), "modeset", IsModeset(flags), "blocking",
+                IsBlocking(flags), "flags", flags, "page_flip_id",
+                page_flip_id);
     result = drmModeAtomicCommit(drm_fd_.get(), properties, flags,
                                  reinterpret_cast<void*>(page_flip_id));
   }

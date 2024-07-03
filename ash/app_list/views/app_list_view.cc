@@ -258,6 +258,7 @@ void AppListView::InitContents() {
 void AppListView::InitWidget(gfx::NativeView parent) {
   DCHECK(!GetWidget());
   views::Widget::InitParams params(
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.name = "AppList";
   params.parent = parent;
@@ -349,7 +350,7 @@ bool AppListView::AcceleratorPressed(const ui::Accelerator& accelerator) {
       Back();
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
   }
 

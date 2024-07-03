@@ -46,6 +46,7 @@ const char kTestSwitch[] = "test";
 const char kInitDoneNotifierSwitch[] = "init-done-notifier";
 const char kNoRateLimitSwitch[] = "no-rate-limit";
 const char kMonitorSelfSwitch[] = "monitor-self";
+const char kMonitorSelfSwitchArgument[] = "monitor-self-argument";
 const char kEnableLoggingSwitch[] = "enable-logging";
 const char kLoggingModuleSwitch[] = "vmodule";
 const char kLoggingModuleSwitchValue[] =
@@ -133,5 +134,10 @@ const char kSetupMutex[] = SETUP_MUTEX;
 // The user defaults suite name.
 const char kUserDefaultsSuiteName[] = MAC_BUNDLE_IDENTIFIER_STRING ".defaults";
 #endif  // BUILDFLAG(IS_MAC)
+
+const char kInstallSourceTaggedMetainstaller[] = "taggedmi";
+const char kInstallSourceOffline[] = "offline";
+const char kInstallSourcePolicy[] = "policy";
+const char kInstallSourceOnDemand[] = "ondemand";
 
 }  // namespace updater

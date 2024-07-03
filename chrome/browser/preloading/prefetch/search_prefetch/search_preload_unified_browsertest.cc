@@ -150,12 +150,12 @@ class SearchPreloadUnifiedBrowserTest : public PlatformBrowserTest,
     TemplateURLData data;
     data.SetShortName(kSearchDomain16);
     data.SetKeyword(data.short_name());
-    data.SetURL(
-        search_engine_server_
-            .GetURL(kSearchDomain,
-                    "/search_page.html?q={searchTerms}&{google:prefetchSource}"
-                    "type=test")
-            .spec());
+    data.SetURL(search_engine_server_
+                    .GetURL(kSearchDomain,
+                            "/search_page.html?q={searchTerms}&{google:"
+                            "assistedQueryStats}{google:prefetchSource}"
+                            "type=test")
+                    .spec());
     data.suggestions_url =
         search_engine_server_.GetURL(kSearchDomain, "/?q={searchTerms}").spec();
     TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
@@ -1563,7 +1563,6 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
       SearchPrefetchStatus::kPrerenderedAndClicked, 1);
 
   EXPECT_EQ(1, prerender_helper().GetRequestCount(expected_prefetch_url));
-  EXPECT_EQ(1, prerender_helper().GetRequestCount(expected_real_url));
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS_LACROS)
 
@@ -2261,7 +2260,7 @@ class SearchPreloadServingTestURLLoader
  private:
   // network::mojom::URLLoaderClient
   void OnReceiveEarlyHints(network::mojom::EarlyHintsPtr early_hints) override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
   void OnReceiveResponse(
       network::mojom::URLResponseHeadPtr head,
@@ -2272,12 +2271,12 @@ class SearchPreloadServingTestURLLoader
   }
   void OnReceiveRedirect(const net::RedirectInfo& redirect_info,
                          network::mojom::URLResponseHeadPtr head) override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
   void OnUploadProgress(int64_t current_position,
                         int64_t total_size,
                         OnUploadProgressCallback callback) override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
   void OnTransferSizeUpdated(int32_t transfer_size_diff) override { return; }
   void OnComplete(const network::URLLoaderCompletionStatus& status) override {
@@ -2322,12 +2321,14 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedFallbackBrowserTest,
   SearchPrefetchURLLoader::RequestHandler prerender_serving_handler =
       CreatePrerenderRequestHandler(prerender_serving_request);
   if (!prerender_serving_handler) {
-    NOTREACHED() << "prerender handler should not be an empty callback!";
+    NOTREACHED_IN_MIGRATION()
+        << "prerender handler should not be an empty callback!";
   }
   SearchPrefetchURLLoader::RequestHandler prefetch_serving_handler =
       CreatePrefetchRequestHandler(prefetch_serving_request);
   if (!prefetch_serving_handler) {
-    NOTREACHED() << "prefetch handler should not be an empty callback!";
+    NOTREACHED_IN_MIGRATION()
+        << "prefetch handler should not be an empty callback!";
   }
   SearchPreloadServingTestURLLoader prefetch_serving_loader;
   SearchPreloadServingTestURLLoader prerender_serving_loader;

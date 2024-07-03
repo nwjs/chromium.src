@@ -19,7 +19,8 @@ export interface StoredAccount {
 
 /**
  * Equivalent to C++ counterpart.
- * @see chrome/browser/ui/webui/settings/people_handler.h
+ * @see chrome/browser/signin/signin_ui_util.h
+ * TODO(b/336510160): Look into integrating SYNC_PAUSED value.
  */
 export enum SignedInState {
   SIGNED_OUT = 0,
@@ -331,15 +332,15 @@ export class SyncBrowserProxyImpl implements SyncBrowserProxy {
 
   // <if expr="chromeos_ash">
   attemptUserExit() {
-    return chrome.send('AttemptUserExit');
+    chrome.send('AttemptUserExit');
   }
 
   turnOnSync() {
-    return chrome.send('TurnOnSync');
+    chrome.send('TurnOnSync');
   }
 
   turnOffSync() {
-    return chrome.send('TurnOffSync');
+    chrome.send('TurnOffSync');
   }
   // </if>
 

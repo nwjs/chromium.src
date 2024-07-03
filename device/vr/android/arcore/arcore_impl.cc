@@ -305,6 +305,11 @@ device::mojom::XRReflectionProbePtr GetReflectionProbe(
 
 constexpr float kDefaultFloorHeightEstimation = 1.2;
 
+constexpr std::array<device::mojom::XRDepthDataFormat, 2>
+    kSupportedDepthFormats = {
+        device::mojom::XRDepthDataFormat::kLuminanceAlpha,
+        device::mojom::XRDepthDataFormat::kUnsignedShort,
+};
 }  // namespace
 
 namespace device {
@@ -713,6 +718,14 @@ bool ArCoreImpl::ConfigureFeatures(
     // the desired usage and data format.
     ArConfig_setDepthMode(ar_session, arcore_config.get(),
                           AR_DEPTH_MODE_AUTOMATIC);
+  } else if (depth_api_required) {
+    // If we couldn't support the desired usage/format and depth is required,
+    // reject the session.
+    return false;
+  } else if (depth_api_optional) {
+    // If we couldn't support the desired usage/format and depth is optional,
+    // remove it from our list of enabled features.
+    enabled_features.erase(device::mojom::XRSessionFeature::DEPTH);
   }
 
   ArStatus status = ArSession_configure(ar_session, arcore_config.get());
@@ -753,19 +766,45 @@ bool ArCoreImpl::ConfigureDepthSensing(
     return false;
   }
 
-  if (!base::Contains(depth_sensing_config->depth_usage_preference,
+  // We can only support cpu-optimized usage. If the preference list is empty we
+  // are allowed to return any supported depth usage.
+  const auto& usage_preference = depth_sensing_config->depth_usage_preference;
+  if (!usage_preference.empty() &&
+      !base::Contains(usage_preference,
                       device::mojom::XRDepthUsage::kCPUOptimized)) {
     return false;
   }
 
-  if (!base::Contains(depth_sensing_config->depth_data_format_preference,
-                      device::mojom::XRDepthDataFormat::kLuminanceAlpha)) {
+  std::optional<device::mojom::XRDepthDataFormat> maybe_format;
+  const auto& format_preference =
+      depth_sensing_config->depth_data_format_preference;
+  if (format_preference.empty()) {
+    // An empty preference list means we're allowed to use our preferred format.
+    maybe_format = device::mojom::XRDepthDataFormat::kLuminanceAlpha;
+  } else {
+    // Try and find the first format that we support in the preference list.
+    const auto format_it = base::ranges::find_if(
+        format_preference.begin(), format_preference.end(),
+        [](const device::mojom::XRDepthDataFormat& format) {
+          return base::Contains(kSupportedDepthFormats, format);
+        });
+
+    if (format_it != format_preference.end()) {
+      maybe_format = *format_it;
+    }
+  }
+
+  // If we were unable to find a format that we support, we cannot enable depth.
+  if (!maybe_format) {
     return false;
   }
 
+  // Note that since both of our supported formats are the same size, we don't
+  // currently need to store the value we return to the session since for our
+  // purposes they are interchangeable.
+  static_assert(kSupportedDepthFormats.size() == 2u);
   depth_configuration_ = device::mojom::XRDepthConfig(
-      device::mojom::XRDepthUsage::kCPUOptimized,
-      device::mojom::XRDepthDataFormat::kLuminanceAlpha);
+      device::mojom::XRDepthUsage::kCPUOptimized, *maybe_format);
 
   return true;
 }
@@ -1932,8 +1971,6 @@ mojom::XRDepthDataPtr ArCoreImpl::GetDepthData() {
     // The depth data is more recent than what was previously returned, we need
     // to send the latest information back:
     mojom::XRDepthDataUpdatedPtr result = mojom::XRDepthDataUpdated::New();
-
-    result->time_delta = time_delta;
 
     int32_t width = 0, height = 0;
     ArImage_getWidth(arcore_session_.get(), ar_image.get(), &width);

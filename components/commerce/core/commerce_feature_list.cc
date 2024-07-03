@@ -204,10 +204,6 @@ BASE_FEATURE(kProductSpecificationsRegionLaunched,
              "ProductSpecificationsRegionLaunched",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kProductSpecificationsSync,
-             "ProductSpecificationsSync",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kShoppingIconColorVariant,
              "ShoppingIconColorVariant",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -258,6 +254,10 @@ BASE_FEATURE(kShoppingListRegionLaunched,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
+BASE_FEATURE(kPriceTrackingSubscriptionServiceLocaleKey,
+             "PriceTrackingSubscriptionServiceLocaleKey",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kShoppingPDPMetrics,
              "ShoppingPDPMetrics",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -273,6 +273,10 @@ BASE_FEATURE(kTrackByDefaultOnMobile,
 #if BUILDFLAG(IS_IOS)
 BASE_FEATURE(kPriceInsightsIos,
              "PriceInsightsIos",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPriceInsightsHighPriceIos,
+             "PriceInsightsHighPrice",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 

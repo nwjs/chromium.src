@@ -56,6 +56,7 @@
 #include "build/chromeos_buildflags.h"
 #include "build/config/chromebox_for_meetings/buildflags.h"  // PLATFORM_CFM
 #include "chrome/browser/after_startup_task_utils.h"
+#include "chrome/browser/ai/ai_manager_impl.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/bluetooth/chrome_bluetooth_delegate_impl_client.h"
 #include "chrome/browser/browser_about_handler.h"
@@ -106,7 +107,6 @@
 #include "chrome/browser/memory/chrome_browser_main_extra_parts_memory.h"
 #include "chrome/browser/metrics/chrome_browser_main_extra_parts_metrics.h"
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
-#include "chrome/browser/model_execution/model_manager_impl.h"
 #include "chrome/browser/navigation_predictor/anchor_element_preloader.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
 #include "chrome/browser/net/profile_network_context_service.h"
@@ -199,7 +199,6 @@
 #include "chrome/browser/usb/chrome_usb_delegate.h"
 #include "chrome/browser/vr/vr_tab_helper.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
-#include "chrome/browser/web_applications/isolated_web_apps/pending_install_info.h"
 #include "chrome/browser/webapps/web_app_offline.h"
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
 #include "chrome/common/buildflags.h"
@@ -250,6 +249,8 @@
 #include "components/error_page/common/error_page_switches.h"
 #include "components/error_page/common/localized_error.h"
 #include "components/error_page/content/browser/net_error_auto_reloader.h"
+#include "components/fingerprinting_protection_filter/browser/fingerprinting_protection_filter_features.h"
+#include "components/fingerprinting_protection_filter/browser/throttle_manager.h"
 #include "components/google/core/common/google_switches.h"
 #include "components/heap_profiling/in_process/heap_profiler_controller.h"
 #include "components/history/content/browser/visited_link_navigation_throttle.h"
@@ -497,6 +498,7 @@
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/browser/ui/webid/digital_identity_safety_interstitial_bridge_android.h"
+#include "chrome/browser/webid/digital_identity_provider_android.h"
 #include "chrome/common/chrome_descriptors.h"
 #include "components/browser_ui/accessibility/android/font_size_prefs_android.h"
 #include "components/crash/content/browser/child_exit_observer_android.h"
@@ -519,6 +521,10 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/preloading/preview/preview_navigation_throttle.h"
 #include "chrome/browser/web_applications/isolated_web_apps/chrome_content_browser_client_isolated_web_apps_part.h"
+#include "chrome/browser/web_applications/locks/app_lock.h"
+#include "chrome/browser/web_applications/web_app_helpers.h"
+#include "chrome/browser/webid/digital_identity_provider_desktop.h"
+#include "third_party/blink/public/mojom/installedapp/related_application.mojom.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -562,7 +568,7 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/search/new_tab_page_navigation_throttle.h"
-#include "chrome/browser/ui/side_panel/read_anything/read_anything_side_panel_navigation_throttle.h"
+#include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_navigation_throttle.h"
 #include "chrome/browser/ui/web_applications/tabbed_web_app_navigation_throttle.h"
 #include "chrome/browser/ui/web_applications/webui_web_app_navigation_throttle.h"
 #include "chrome/browser/ui/webui/chrome_content_browser_client_webui_part.h"
@@ -623,7 +629,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
-#include "chrome/browser/ui/lens/lens_side_panel_navigation_helper.h"
+#include "chrome/browser/ui/views/lens/lens_side_panel_navigation_helper.h"
 #endif
 
 #if BUILDFLAG(IS_LINUX)
@@ -746,10 +752,6 @@
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 #include "chrome/browser/screen_ai/screen_ai_install_state.h"
-#endif
-
-#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE) || !BUILDFLAG(IS_CHROMEOS_ASH)
-#include "ui/accessibility/accessibility_features.h"
 #endif
 
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
@@ -966,7 +968,7 @@ blink::mojom::AutoplayPolicy GetAutoplayPolicyForWebContents(
              switches::autoplay::kDocumentUserActivationRequiredPolicy) {
     result = blink::mojom::AutoplayPolicy::kDocumentUserActivationRequired;
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1468,6 +1470,25 @@ MaybeCreateVisitedLinkNavigationThrottleFor(
 ChromeContentBrowserClient::PopupNavigationDelegateFactory
     g_popup_navigation_delegate_factory = &CreatePopupNavigationDelegate;
 
+bool DetermineIfDevtoolsUserForProcessPerSite() {
+  bool is_devtools_user = false;
+  if (ProfileManager* profile_manager = g_browser_process->profile_manager()) {
+    std::vector<Profile*> profiles = profile_manager->GetLoadedProfiles();
+    for (auto* profile : profiles) {
+      if (profile->GetPrefs()->HasPrefPath(
+              prefs::kDevToolsSyncedPreferencesSyncDisabled) ||
+          profile->GetPrefs()->HasPrefPath(prefs::kDevToolsPreferences)) {
+        is_devtools_user = true;
+        break;
+      }
+    }
+  }
+  base::UmaHistogramBoolean(
+      "SiteIsolation.ProcessPerSiteWithMainFrameThreshold.IsDevToolsUser",
+      is_devtools_user);
+  return is_devtools_user;
+}
+
 }  // namespace
 
 // static
@@ -1597,8 +1618,15 @@ void ChromeContentBrowserClient::RegisterProfilePrefs(
                                 false);
 
   registry->RegisterBooleanPref(
+      policy::policy_prefs::kCSSCustomStateDeprecatedSyntaxEnabled,
+      /*default_value=*/false);
+
+  registry->RegisterBooleanPref(
       policy::policy_prefs::kBeforeunloadEventCancelByPreventDefaultEnabled,
       true);
+
+  registry->RegisterBooleanPref(
+      policy::policy_prefs::kKeyboardFocusableScrollersEnabled, true);
 
   registry->RegisterBooleanPref(
       policy::policy_prefs::
@@ -1961,6 +1989,18 @@ bool ChromeContentBrowserClient::ShouldUseProcessPerSite(
   return false;
 }
 
+bool ChromeContentBrowserClient::ShouldAllowProcessPerSiteForMultipleMainFrames(
+    content::BrowserContext* browser_context) {
+  static bool is_devtools_user = DetermineIfDevtoolsUserForProcessPerSite();
+
+  // TODO(dtapuska): Implement enterprise policy support here.
+  if (is_devtools_user && base::FeatureList::IsEnabled(
+                              features::kProcessPerSiteSkipDevtoolsUsers)) {
+    return false;
+  }
+  return true;
+}
+
 bool ChromeContentBrowserClient::ShouldUseSpareRenderProcessHost(
     content::BrowserContext* browser_context,
     const GURL& site_url) {
@@ -2292,23 +2332,8 @@ ChromeContentBrowserClient::GetPermissionsPolicyForIsolatedWebApp(
   if (app_origin.scheme() == extensions::kExtensionScheme) {
     return std::nullopt;
   }
-  CHECK(web_contents);
-  if (web_app::IsolatedWebAppPendingInstallInfo::HasPendingInstallSource(
-          *web_contents)) {
-    // We allow sync-xhr for apps that are being installed or updated to
-    // allow synchronous requests from the generated install page, which is
-    // used to implement manifest fallback logic while we migrate the
-    // expected manifest path from /manifest.webmanifest to
-    // /.well-known/manifest.webmanifest.
-    //
-    // TODO(crbug.com/325132780): Remove when manifest fallback logic is gone.
-    return blink::ParsedPermissionsPolicy(
-        {blink::ParsedPermissionsPolicyDeclaration(
-            blink::mojom::PermissionsPolicyFeature::kSyncXHR,
-            /*allowed_origins=*/{}, /*self_if_matches=*/app_origin,
-            /*matches_all_origins=*/false, /*matches_opaque_src=*/false)});
-  }
 
+  CHECK(web_contents);
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   auto& registrar =
@@ -2706,6 +2731,17 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
 
       if (prefs->GetBoolean(policy::policy_prefs::kMutationEventsEnabled)) {
         command_line->AppendSwitch(blink::switches::kMutationEventsEnabled);
+      }
+
+      if (!prefs->GetBoolean(
+              policy::policy_prefs::kKeyboardFocusableScrollersEnabled)) {
+        command_line->AppendSwitch(
+            blink::switches::kKeyboardFocusableScrollersOptOut);
+      }
+      if (prefs->GetBoolean(
+              policy::policy_prefs::kCSSCustomStateDeprecatedSyntaxEnabled)) {
+        command_line->AppendSwitch(
+            blink::switches::kCSSCustomStateDeprecatedSyntaxEnabled);
       }
 
       if (prefs->GetBoolean(policy::policy_prefs::
@@ -3395,6 +3431,7 @@ bool ChromeContentBrowserClient::IsAttributionReportingOperationAllowed(
       return allowed;
     }
     case AttributionReportingOperation::kSourceVerboseDebugReport:
+    case AttributionReportingOperation::kSourceAggregatableDebugReport:
     case AttributionReportingOperation::kOsSourceVerboseDebugReport:
       DCHECK(source_origin);
       DCHECK(reporting_origin);
@@ -3415,6 +3452,7 @@ bool ChromeContentBrowserClient::IsAttributionReportingOperationAllowed(
       return allowed;
     }
     case AttributionReportingOperation::kTriggerVerboseDebugReport:
+    case AttributionReportingOperation::kTriggerAggregatableDebugReport:
     case AttributionReportingOperation::kOsTriggerVerboseDebugReport:
       DCHECK(destination_origin);
       DCHECK(reporting_origin);
@@ -3555,6 +3593,7 @@ bool ChromeContentBrowserClient::IsCookieDeprecationLabelAllowedForContext(
 
 bool ChromeContentBrowserClient::IsFullCookieAccessAllowed(
     content::BrowserContext* browser_context,
+    content::WebContents* web_contents,
     const GURL& url,
     const blink::StorageKey& storage_key) {
   Profile* profile = Profile::FromBrowserContext(browser_context);
@@ -3576,7 +3615,7 @@ void ChromeContentBrowserClient::OnTrustAnchorUsed(
       policy::PolicyCertServiceFactory::GetForProfile(
           Profile::FromBrowserContext(browser_context));
   if (!service) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
   service->SetUsedPolicyCertificates();
@@ -4218,10 +4257,8 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
   web_prefs->always_show_focus =
       prefs->GetBoolean(ash::prefs::kAccessibilityFocusHighlightEnabled);
 #else
-  if (features::IsAccessibilityFocusHighlightEnabled()) {
-    web_prefs->always_show_focus =
-        prefs->GetBoolean(prefs::kAccessibilityFocusHighlightEnabled);
-  }
+  web_prefs->always_show_focus =
+      prefs->GetBoolean(prefs::kAccessibilityFocusHighlightEnabled);
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -5030,6 +5067,12 @@ bool ChromeContentBrowserClient::ShouldEnableAudioProcessHighPriority() {
   return IsAudioProcessHighPriorityEnabled();
 }
 
+bool ChromeContentBrowserClient::ShouldUseSkiaFontManager(
+    const GURL& site_url) {
+  return (base::FeatureList::IsEnabled(features::kSkiaFontService) &&
+          IsTopChromeWebUIURL(site_url));
+}
+
 #endif  // BUILDFLAG(IS_WIN)
 
 void ChromeContentBrowserClient::
@@ -5243,6 +5286,14 @@ ChromeContentBrowserClient::CreateThrottlesForNavigation(
     throttle_manager->MaybeAppendNavigationThrottles(handle, &throttles);
   }
 
+  if (base::FeatureList::IsEnabled(fingerprinting_protection_filter::features::
+                                       kEnableFingerprintingProtectionFilter)) {
+    if (auto* throttle_manager = fingerprinting_protection_filter::
+            ThrottleManager::FromNavigationHandle(*handle)) {
+      throttle_manager->MaybeAppendNavigationThrottles(handle, &throttles);
+    }
+  }
+
   MaybeAddThrottle(
       LookalikeUrlNavigationThrottle::MaybeCreateNavigationThrottle(handle),
       &throttles);
@@ -5406,10 +5457,8 @@ ChromeContentBrowserClient::CreateThrottlesForNavigation(
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
-  if (features::IsReadAnythingEnabled()) {
-    MaybeAddThrottle(ReadAnythingSidePanelNavigationThrottle::CreateFor(handle),
-                     &throttles);
-  }
+  MaybeAddThrottle(ReadAnythingSidePanelNavigationThrottle::CreateFor(handle),
+                   &throttles);
 
   if (lens::features::IsLensOverlayEnabled()) {
     if (profile) {
@@ -5597,24 +5646,13 @@ ChromeContentBrowserClient::GetDevToolsBackgroundServiceExpirations(
 std::optional<base::TimeDelta>
 ChromeContentBrowserClient::GetSpareRendererDelayForSiteURL(
     const GURL& site_url) {
-  if (!base::FeatureList::IsEnabled(
-          features::kDeferredSpareRendererForTopChromeWebUI)) {
-    return std::nullopt;
-  }
-
   if (!IsTopChromeWebUIURL(site_url)) {
     return std::nullopt;
   }
 
-  // Prevent new spare renderer creation until page loading completes, signaled
-  // by WebContentsImpl::DidStopLoading. When enabled, delay spare renderer
-  // creation indefinitely by returning the maximum TimeDelta value.
-  if (features::kSpareRendererWarmupDelayUntilPageStopsLoading.Get()) {
-    return base::TimeDelta::Max();
-  }
-
-  // Otherwise, schedule new spare renderer creation after a predefined delay.
-  return features::kSpareRendererWarmupDelay.Get();
+  // Experiments have shown that delaying 2s brings the most significant
+  // improvements to Top Chrome WebUIs. See crbug.com/41490050.
+  return base::Seconds(2);
 }
 
 std::unique_ptr<content::TracingDelegate>
@@ -5819,7 +5857,8 @@ std::unique_ptr<blink::URLLoaderThrottle> CreateGoogleURLLoaderThrottle(
       BoundSessionCookieRefreshServiceFactory::GetForProfile(profile);
   std::unique_ptr<BoundSessionRequestThrottledHandler>
       bound_session_request_throttled_handler;
-  chrome::mojom::BoundSessionThrottlerParamsPtr bound_session_throttler_params;
+  std::vector<chrome::mojom::BoundSessionThrottlerParamsPtr>
+      bound_session_throttler_params;
 
   if (bound_session_cookie_refresh_service) {
     bound_session_request_throttled_handler =
@@ -7931,7 +7970,8 @@ void RunDigitalIdentityCallback(
 
 }  // anonymous namespace
 
-void ChromeContentBrowserClient::ShowDigitalIdentityInterstitialIfNeeded(
+content::ContentBrowserClient::DigitalIdentityInterstitialAbortCallback
+ChromeContentBrowserClient::ShowDigitalIdentityInterstitialIfNeeded(
     content::WebContents& web_contents,
     const url::Origin& origin,
     bool is_only_requesting_age,
@@ -7940,12 +7980,21 @@ void ChromeContentBrowserClient::ShowDigitalIdentityInterstitialIfNeeded(
       std::make_unique<DigitalIdentitySafetyInterstitialBridgeAndroid>();
   auto* bridge_ptr = bridge.get();
   // Callback takes ownership of |bridge|.
-  bridge_ptr->ShowInterstitialIfNeeded(
+  return bridge_ptr->ShowInterstitialIfNeeded(
       web_contents, origin, is_only_requesting_age,
       base::BindOnce(&RunDigitalIdentityCallback, std::move(bridge),
                      std::move(callback)));
 }
 #endif
+
+std::unique_ptr<content::DigitalIdentityProvider>
+ChromeContentBrowserClient::CreateDigitalIdentityProvider() {
+#if BUILDFLAG(IS_ANDROID)
+  return std::make_unique<DigitalIdentityProviderAndroid>();
+#else
+  return std::make_unique<DigitalIdentityProviderDesktop>();
+#endif
+}
 
 bool ChromeContentBrowserClient::SuppressDifferentOriginSubframeJSDialogs(
     content::BrowserContext* browser_context) {
@@ -8261,7 +8310,7 @@ std::string ChromeContentBrowserClient::GetChildProcessSuffix(int child_flags) {
   if (child_flags == chrome::kChildProcessHelperAlerts) {
     return chrome::kMacHelperSuffixAlerts;
   }
-  NOTREACHED() << "Unsupported child process flags!";
+  NOTREACHED_IN_MIGRATION() << "Unsupported child process flags!";
   return {};
 }
 #endif  // BUILDFLAG(IS_MAC)
@@ -8429,6 +8478,7 @@ ChromeContentBrowserClient::GetIpProtectionProxyBypassPolicy() {
 
 void ChromeContentBrowserClient::MaybePrewarmHttpDiskCache(
     content::BrowserContext& browser_context,
+    const std::optional<url::Origin>& initiator_origin,
     const GURL& navigation_url) {
   Profile* profile = Profile::FromBrowserContext(&browser_context);
   CHECK(profile);
@@ -8436,7 +8486,7 @@ void ChromeContentBrowserClient::MaybePrewarmHttpDiskCache(
   // `loading_predictor` can be nullptr if the profile `IsOffTheRecord`.
   if (predictors::LoadingPredictor* loading_predictor =
           predictors::LoadingPredictorFactory::GetForProfile(profile)) {
-    loading_predictor->MaybePrewarmResources(navigation_url);
+    loading_predictor->MaybePrewarmResources(initiator_origin, navigation_url);
   }
 }
 
@@ -8445,18 +8495,18 @@ void ChromeContentBrowserClient::NotifyMultiCaptureStateChanged(
     content::GlobalRenderFrameHostId capturer_rfh_id,
     const std::string& label,
     MultiCaptureChanged state) {
-  content::WebContents* const web_contents = WebContents::FromRenderFrameHost(
-      RenderFrameHost::FromID(capturer_rfh_id));
-  if (!web_contents) {
-    return;
-  }
-
   switch (state) {
-    case MultiCaptureChanged::kStarted:
+    case MultiCaptureChanged::kStarted: {
+      content::WebContents* const web_contents =
+          WebContents::FromRenderFrameHost(
+              RenderFrameHost::FromID(capturer_rfh_id));
+      if (!web_contents) {
+        return;
+      }
       NotifyMultiCaptureStarted(
           label, web_contents,
           web_app::WebAppTabHelper::GetAppId(web_contents));
-      break;
+    } break;
     case MultiCaptureChanged::kStopped:
       NotifyMultiCaptureStopped(label);
       break;
@@ -8479,8 +8529,77 @@ bool ChromeContentBrowserClient::ShouldSuppressAXLoadComplete(
          url == GURL(chrome::kChromeUINewTabPageURL);
 }
 
-void ChromeContentBrowserClient::BindModelManager(
+void ChromeContentBrowserClient::BindAIManager(
     content::RenderFrameHost* rfh,
-    mojo::PendingReceiver<blink::mojom::ModelManager> receiver) {
-  ModelManagerImpl::Create(rfh, std::move(receiver));
+    mojo::PendingReceiver<blink::mojom::AIManager> receiver) {
+  AIManagerImpl::Create(rfh, std::move(receiver));
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+void ChromeContentBrowserClient::QueryInstalledWebAppsByManifestId(
+    const GURL& frame_url,
+    const GURL& manifest_id,
+    content::BrowserContext* browser_context,
+    base::OnceCallback<void(std::optional<blink::mojom::RelatedApplication>)>
+        callback) {
+  Profile* profile = Profile::FromBrowserContext(browser_context);
+  web_app::WebAppProvider* const provider =
+      web_app::WebAppProvider::GetForLocalAppsUnchecked(profile);
+
+  webapps::AppId app_id = web_app::GenerateAppIdFromManifestId(manifest_id);
+
+  if (app_id.empty()) {
+    return std::move(callback).Run(std::nullopt);
+  }
+
+  // arg_for_shutdown must be explicitly defined, otherwise
+  // ScheduleCallbackWithResult cannot infer the optional type the nullopt
+  // is associated with.
+  std::optional<blink::mojom::RelatedApplication> arg_for_shutdown =
+      std::nullopt;
+  web_app::AppLockDescription lock_description(app_id);
+
+  provider->scheduler().ScheduleCallbackWithResult<web_app::AppLock>(
+      "QueryInstalledWebAppsByManifestId", std::move(lock_description),
+      base::BindOnce(
+          [](webapps::AppId app_id, webapps::ManifestId manifest_id,
+             GURL frame_url, web_app::AppLock& lock,
+             base::Value::Dict& debug_value)
+              -> std::optional<blink::mojom::RelatedApplication> {
+            debug_value.Set("input", base::Value::Dict()
+                                         .Set("manifest_id", manifest_id.spec())
+                                         .Set("frame_url", frame_url.spec()));
+
+            if (!lock.registrar().IsLocallyInstalled(app_id)) {
+              debug_value.Set("did_find_application", false);
+              return std::nullopt;
+            }
+
+            if (!lock.registrar().IsUrlInAppScope(frame_url, app_id)) {
+              debug_value.Set("did_find_application", false);
+              return std::nullopt;
+            }
+
+            blink::mojom::RelatedApplication application;
+            application.platform = "webapp";
+            application.id = lock.registrar().GetAppManifestId(app_id).spec();
+            // Note: This url is the manifest_url for purely legacy reasons
+            // where Android used to implement the unique identifier using the
+            // manifest url.
+            if (lock.registrar().GetAppManifestUrl(app_id).is_valid()) {
+              application.url =
+                  lock.registrar().GetAppManifestUrl(app_id).spec();
+            }
+
+            debug_value.Set("did_find_application", true);
+            debug_value.Set(
+                "application",
+                base::Value::Dict()
+                    .Set("app_id", application.id.value_or(""))
+                    .Set("manifest_url", application.url.value_or("")));
+            return application;
+          },
+          std::move(app_id), std::move(manifest_id), std::move(frame_url)),
+      std::move(callback), std::move(arg_for_shutdown));
+}
+#endif  // !BUILDFLAG(IS_ANDROID)

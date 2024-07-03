@@ -10,6 +10,7 @@
 
 #include "base/check_is_test.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "build/branding_buildflags.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/ui/views/editor_menu/utils/utils.h"
 #include "chrome/browser/ui/views/mahi/mahi_menu_constants.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
+#include "chromeos/components/mahi/public/cpp/mahi_media_app_content_manager.h"
 #include "chromeos/components/mahi/public/cpp/views/experiment_badge.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
@@ -150,9 +152,10 @@ class MahiMenuView::MenuTextfieldController
   base::WeakPtr<MahiMenuView> menu_view_;
 };
 
-MahiMenuView::MahiMenuView()
+MahiMenuView::MahiMenuView(Surface surface)
     : chromeos::editor_menu::PreTargetHandlerView(
-          chromeos::editor_menu::CardType::kMahiDefaultMenu) {
+          chromeos::editor_menu::CardType::kMahiDefaultMenu),
+      surface_(surface) {
   SetBackground(views::CreateThemedRoundedRectBackground(
       ui::kColorPrimaryBackground,
       views::LayoutProvider::Get()->GetCornerRadiusMetric(
@@ -195,7 +198,7 @@ MahiMenuView::MahiMenuView()
       header_row->AddChildView(views::ImageButton::CreateIconButton(
           base::BindRepeating(&MahiMenuView::OnButtonPressed,
                               weak_ptr_factory_.GetWeakPtr(),
-                              ::mahi::ButtonType::kSettings),
+                              ::chromeos::mahi::ButtonType::kSettings),
           vector_icons::kSettingsOutlineIcon,
           l10n_util::GetStringUTF16(IDS_EDITOR_MENU_SETTINGS_TOOLTIP)));
   settings_button_->SetID(ViewID::kSettingsButton);
@@ -212,10 +215,10 @@ MahiMenuView::MahiMenuView()
               views::Builder<views::LabelButton>()
                   .SetID(ViewID::kSummaryButton)
                   .CopyAddressTo(&summary_button_)
-                  .SetCallback(
-                      base::BindRepeating(&MahiMenuView::OnButtonPressed,
-                                          weak_ptr_factory_.GetWeakPtr(),
-                                          ::mahi::ButtonType::kSummary))
+                  .SetCallback(base::BindRepeating(
+                      &MahiMenuView::OnButtonPressed,
+                      weak_ptr_factory_.GetWeakPtr(),
+                      ::chromeos::mahi::ButtonType::kSummary))
                   .SetText(l10n_util::GetStringUTF16(
                       IDS_MAHI_SUMMARIZE_BUTTON_LABEL_TEXT))
                   .SetProperty(views::kMarginsKey,
@@ -223,10 +226,10 @@ MahiMenuView::MahiMenuView()
               views::Builder<views::LabelButton>()
                   .SetID(ViewID::kOutlineButton)
                   .CopyAddressTo(&outline_button_)
-                  .SetCallback(
-                      base::BindRepeating(&MahiMenuView::OnButtonPressed,
-                                          weak_ptr_factory_.GetWeakPtr(),
-                                          ::mahi::ButtonType::kOutline))
+                  .SetCallback(base::BindRepeating(
+                      &MahiMenuView::OnButtonPressed,
+                      weak_ptr_factory_.GetWeakPtr(),
+                      ::chromeos::mahi::ButtonType::kOutline))
                   .SetText(l10n_util::GetStringUTF16(
                       IDS_MAHI_OUTLINE_BUTTON_LABEL_TEXT))
                   // TODO(b/330643995): Unhide the outline button once outlines
@@ -250,20 +253,22 @@ MahiMenuView::~MahiMenuView() {
 
 // static
 views::UniqueWidgetPtr MahiMenuView::CreateWidget(
-    const gfx::Rect& anchor_view_bounds) {
-  views::Widget::InitParams params;
+    const gfx::Rect& anchor_view_bounds,
+    Surface surface) {
+  views::Widget::InitParams params(
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_POPUP);
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.activatable = views::Widget::InitParams::Activatable::kYes;
   params.shadow_elevation = 2;
   params.shadow_type = views::Widget::InitParams::ShadowType::kDrop;
-  params.type = views::Widget::InitParams::TYPE_POPUP;
   params.z_order = ui::ZOrderLevel::kFloatingUIElement;
   params.name = GetWidgetName();
 
   views::UniqueWidgetPtr widget =
       std::make_unique<views::Widget>(std::move(params));
   MahiMenuView* mahi_menu_view =
-      widget->SetContentsView(std::make_unique<MahiMenuView>());
+      widget->SetContentsView(std::make_unique<MahiMenuView>(surface));
   mahi_menu_view->UpdateBounds(anchor_view_bounds);
 
   return widget;
@@ -288,28 +293,41 @@ void MahiMenuView::UpdateBounds(const gfx::Rect& anchor_view_bounds) {
       editor_menu::GetEditorMenuBounds(anchor_view_bounds, this));
 }
 
-void MahiMenuView::OnButtonPressed(::mahi::ButtonType button_type) {
+void MahiMenuView::OnButtonPressed(::chromeos::mahi::ButtonType button_type) {
   auto display = display::Screen::GetScreen()->GetDisplayNearestWindow(
       GetWidget()->GetNativeWindow());
-  ::mahi::MahiWebContentsManager::Get()->OnContextMenuClicked(
-      display.id(), button_type,
-      /*question=*/std::u16string());
+  if (surface_ == Surface::kBrowser) {
+    ::mahi::MahiWebContentsManager::Get()->OnContextMenuClicked(
+        display.id(), button_type,
+        /*question=*/std::u16string(), GetBoundsInScreen());
+  } else if (surface_ == Surface::kMediaApp) {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    // Only ash chrome has `surface_` = kMediaApp
+    CHECK(chromeos::MahiMediaAppContentManager::Get());
+    chromeos::MahiMediaAppContentManager::Get()->OnMahiContextMenuClicked(
+        display.id(), button_type,
+        /*question=*/std::u16string(), GetBoundsInScreen());
+#endif
+  }
+
   MahiMenuButton histogram_button_type;
   switch (button_type) {
-    case ::mahi::ButtonType::kSummary:
+    case ::chromeos::mahi::ButtonType::kSummary:
       histogram_button_type = MahiMenuButton::kSummaryButton;
       break;
-    case ::mahi::ButtonType::kOutline:
-      // TODO(b/330643995): Remove CHECK_IS_TEST when outlines are ready.
+    case ::chromeos::mahi::ButtonType::kOutline:
+      // TODO(b/330643995): Remove CHECK_IS_TEST when outlines are
+      // ready.
       CHECK_IS_TEST();
       histogram_button_type = MahiMenuButton::kOutlineButton;
       break;
-    case ::mahi::ButtonType::kSettings:
+    case ::chromeos::mahi::ButtonType::kSettings:
       histogram_button_type = MahiMenuButton::kSettingsButton;
       break;
     default:
-      // This function only handles clicks of type 'kSummary', 'kOutline' and
-      // `kSettings`. Other click types are not passed here.
+      // This function only handles clicks of type 'kSummary',
+      // 'kOutline' and `kSettings`. Other click types are not passed
+      // here.
       NOTREACHED_NORETURN();
   }
   base::UmaHistogramEnumeration(kMahiContextMenuButtonClickHistogram,
@@ -319,9 +337,20 @@ void MahiMenuView::OnButtonPressed(::mahi::ButtonType button_type) {
 void MahiMenuView::OnQuestionSubmitted() {
   auto display = display::Screen::GetScreen()->GetDisplayNearestWindow(
       GetWidget()->GetNativeWindow());
-  ::mahi::MahiWebContentsManager::Get()->OnContextMenuClicked(
-      display.id(), /*button_type=*/::mahi::ButtonType::kQA,
-      textfield_->GetText());
+  if (surface_ == Surface::kBrowser) {
+    ::mahi::MahiWebContentsManager::Get()->OnContextMenuClicked(
+        display.id(), /*button_type=*/::chromeos::mahi::ButtonType::kQA,
+        textfield_->GetText(), GetBoundsInScreen());
+  } else if (surface_ == Surface::kMediaApp) {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    // Only ash chrome has `surface_` = kMediaApp
+    CHECK(chromeos::MahiMediaAppContentManager::Get());
+    chromeos::MahiMediaAppContentManager::Get()->OnMahiContextMenuClicked(
+        display.id(), ::chromeos::mahi::ButtonType::kQA, textfield_->GetText(),
+        GetBoundsInScreen());
+#endif
+  }
+
   base::UmaHistogramEnumeration(kMahiContextMenuButtonClickHistogram,
                                 MahiMenuButton::kSubmitQuestionButton);
 }

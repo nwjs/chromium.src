@@ -249,9 +249,6 @@ class ASH_EXPORT OverviewItemBase : public EventHandlerDelegate {
   // if there was no starting animation to do any necessary visual changes.
   virtual void OnStartingAnimationComplete() = 0;
 
-  // Closes window(s) hosted by `this`.
-  virtual void CloseWindows() = 0;
-
   // Inserts the item back to its original stacking order so that the order of
   // overview items is the same as when entering overview.
   virtual void Restack() = 0;
@@ -294,11 +291,10 @@ class ASH_EXPORT OverviewItemBase : public EventHandlerDelegate {
   // Stops the current animation of `item_widget_`.
   virtual void StopWidgetAnimation() = 0;
 
-  virtual OverviewGridWindowFillMode GetWindowDimensionsType() const = 0;
+  virtual OverviewItemFillMode GetOverviewItemFillMode() const = 0;
 
-  // Recalculates the window dimensions type of the transform window. Called on
-  // window bounds change.
-  virtual void UpdateWindowDimensionsType() = 0;
+  // Updates the `OverviewItemFillMode` for this item.
+  virtual void UpdateOverviewItemFillMode() = 0;
 
   // Returns the point the accessibility magnifiers should focus on when `this`
   // is focused.

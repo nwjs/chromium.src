@@ -2,6 +2,30 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// <if expr="enable_pdf_ink2">
+// Some brushes don't need colors and a size, but the brushes that do should
+// have values for the red, green, and blue colors and a value for the size.
+export interface AnnotationBrush {
+  type: AnnotationBrushType;
+  params?: AnnotationBrushParams;
+}
+
+// The annotation brush params, required for certain brush types.
+export interface AnnotationBrushParams {
+  colorR: number;
+  colorG: number;
+  colorB: number;
+  size: number;
+}
+
+// The different types of annotation brushes.
+export enum AnnotationBrushType {
+  ERASER = 'eraser',
+  HIGHLIGHTER = 'highlighter',
+  PEN = 'pen',
+}
+// </if>
+
 export interface Attachment {
   name: string;
   size: number;
@@ -72,20 +96,3 @@ export type ExtendedKeyEvent = KeyboardEvent&{
   fromScriptingAPI?: boolean,
   fromPlugin?: boolean,
 };
-
-/**
- * These values are persisted to logs. Entries should not be renumbered and
- * numeric values should never be reused. This enum is tied directly to a UMA
- * enum, PdfOcrUserSelection, defined in
- * //tools/metrics/histograms/metadata/accessibility/enums.xml and should always
- * reflect it (do not change one without changing the other).
- */
-export enum PdfOcrUserSelection {
-  DEPRECATED_TURN_ON_ONCE_FROM_CONTEXT_MENU = 0,
-  TURN_ON_ALWAYS_FROM_CONTEXT_MENU = 1,
-  TURN_OFF_FROM_CONTEXT_MENU = 2,
-  TURN_ON_ALWAYS_FROM_MORE_ACTIONS = 3,
-  TURN_OFF_FROM_MORE_ACTIONS = 4,
-  TURN_ON_ALWAYS_FROM_SETTINGS = 5,
-  TURN_OFF_FROM_SETTINGS = 6,
-}

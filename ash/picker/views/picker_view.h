@@ -12,12 +12,14 @@
 #include "ash/picker/metrics/picker_performance_metrics.h"
 #include "ash/picker/model/picker_search_results_section.h"
 #include "ash/picker/views/picker_key_event_handler.h"
+#include "ash/picker/views/picker_pseudo_focus_handler.h"
 #include "ash/picker/views/picker_search_results_view_delegate.h"
 #include "ash/picker/views/picker_zero_state_view_delegate.h"
-#include "ash/public/cpp/ash_web_view.h"
 #include "ash/public/cpp/picker/picker_category.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "ui/base/emoji/emoji_panel_helper.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/view.h"
@@ -30,7 +32,9 @@ class NonClientFrameView;
 
 namespace ash {
 
-class PickerContentsView;
+enum class PickerLayoutType;
+class PickerEmojiBarView;
+class PickerMainContainerView;
 class PickerSearchFieldView;
 class PickerPageView;
 class PickerSearchResult;
@@ -39,20 +43,15 @@ class PickerSearchResultsView;
 class PickerViewDelegate;
 class PickerZeroStateView;
 class PickerCategoryView;
-class SystemShadow;
 
 // View for the Picker widget.
 class ASH_EXPORT PickerView : public views::WidgetDelegateView,
                               public PickerZeroStateViewDelegate,
-                              public PickerSearchResultsViewDelegate {
+                              public PickerSearchResultsViewDelegate,
+                              public PickerPseudoFocusHandler {
   METADATA_HEADER(PickerView, views::WidgetDelegateView)
 
  public:
-  enum class PickerLayoutType {
-    kResultsBelowSearchField,
-    kResultsAboveSearchField,
-  };
-
   // `delegate` must remain valid for the lifetime of this class.
   explicit PickerView(PickerViewDelegate* delegate,
                       PickerLayoutType layout_type,
@@ -60,8 +59,6 @@ class ASH_EXPORT PickerView : public views::WidgetDelegateView,
   PickerView(const PickerView&) = delete;
   PickerView& operator=(const PickerView&) = delete;
   ~PickerView() override;
-
-  static constexpr auto kMaxSize = gfx::Size(320, 340);
 
   // views::WidgetDelegateView:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
@@ -72,8 +69,9 @@ class ASH_EXPORT PickerView : public views::WidgetDelegateView,
 
   // PickerZeroStateViewDelegate:
   void SelectZeroStateCategory(PickerCategory category) override;
-  void SelectSuggestedZeroStateResult(
-      const PickerSearchResult& result) override;
+  void SelectZeroStateResult(const PickerSearchResult& result) override;
+  void GetZeroStateRecentResults(PickerCategory category,
+                                 SearchResultsCallback callback) override;
   void GetSuggestedZeroStateEditorResults(
       SuggestedEditorResultsCallback callback) override;
   void NotifyPseudoFocusChanged(views::View* view) override;
@@ -81,6 +79,18 @@ class ASH_EXPORT PickerView : public views::WidgetDelegateView,
   // PickerSearchResultsViewDelegate:
   void SelectSearchResult(const PickerSearchResult& result) override;
   void SelectMoreResults(PickerSectionType type) override;
+  PickerActionType GetActionForResult(
+      const PickerSearchResult& result) override;
+
+  // PickerPseudoFocusHandler:
+  bool DoPseudoFocusedAction() override;
+  bool MovePseudoFocusUp() override;
+  bool MovePseudoFocusDown() override;
+  bool MovePseudoFocusLeft() override;
+  bool MovePseudoFocusRight() override;
+  bool AdvancePseudoFocus(PseudoFocusDirection direction) override;
+  bool GainPseudoFocus(PseudoFocusDirection direction) override;
+  void LosePseudoFocus() override;
 
   // Returns the target bounds for this Picker view. The target bounds try to
   // vertically align `search_field_view_` with `anchor_bounds`. `anchor_bounds`
@@ -91,7 +101,6 @@ class ASH_EXPORT PickerView : public views::WidgetDelegateView,
   PickerSearchFieldView& search_field_view_for_testing() {
     return *search_field_view_;
   }
-  PickerContentsView& contents_view_for_testing() { return *contents_view_; }
   PickerSearchResultsView& search_results_view_for_testing() {
     return *search_results_view_;
   }
@@ -99,6 +108,7 @@ class ASH_EXPORT PickerView : public views::WidgetDelegateView,
   PickerZeroStateView& zero_state_view_for_testing() {
     return *zero_state_view_;
   }
+  PickerEmojiBarView& emoji_bar_view_for_testing() { return *emoji_bar_view_; }
 
  private:
   // Starts a search with `query`, with search results being returned to
@@ -124,25 +134,44 @@ class ASH_EXPORT PickerView : public views::WidgetDelegateView,
   // Displays `results` in the category view.
   void PublishCategoryResults(std::vector<PickerSearchResultsSection> results);
 
-  void AddSearchFieldView();
-  void AddContentsViewWithSeparator(PickerLayoutType layout_type);
+  // Adds the main container, which includes the search field and contents
+  // pages.
+  void AddMainContainerView(PickerLayoutType layout_type);
 
-  // Sets `page_view` as the active page in `contents_view_`.
+  // Adds the emoji bar, which contains emoji and other expression results and
+  // is shown above the main container.
+  void AddEmojiBarView();
+
+  // Sets `page_view` as the active page in `main_container_view_`.
   void SetActivePage(PickerPageView* page_view);
 
-  std::optional<PickerCategory> selected_category_;
+  // Moves pseudo focus between different parts of the PickerView, i.e. between
+  // the emoji bar and the main container.
+  void AdvanceActivePseudoFocusHandler(PseudoFocusDirection direction);
 
-  std::unique_ptr<SystemShadow> shadow_;
+  // Called when the search field back button is pressed.
+  void OnSearchBackButtonPressed();
+
+  // Clears the current results in the emoji bar and shows recent and
+  // placeholder emojis instead.
+  void ResetEmojiBarToZeroState();
+
+  std::optional<PickerCategory> selected_category_;
 
   PickerKeyEventHandler key_event_handler_;
   PickerPerformanceMetrics performance_metrics_;
   raw_ptr<PickerViewDelegate> delegate_ = nullptr;
 
+  // The main container contains the search field and contents pages.
+  raw_ptr<PickerMainContainerView> main_container_view_ = nullptr;
   raw_ptr<PickerSearchFieldView> search_field_view_ = nullptr;
-  raw_ptr<PickerContentsView> contents_view_ = nullptr;
   raw_ptr<PickerZeroStateView> zero_state_view_ = nullptr;
   raw_ptr<PickerCategoryView> category_view_ = nullptr;
   raw_ptr<PickerSearchResultsView> search_results_view_ = nullptr;
+
+  raw_ptr<PickerEmojiBarView> emoji_bar_view_ = nullptr;
+
+  raw_ptr<PickerPseudoFocusHandler> active_pseudo_focus_handler_ = nullptr;
 
   // Whether the first set of results for the current search have been published
   // yet.

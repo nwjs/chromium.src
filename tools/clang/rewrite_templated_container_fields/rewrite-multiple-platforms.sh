@@ -45,7 +45,7 @@ is_debug = false
 dcheck_always_on = true
 is_official_build = true
 symbol_level = 1
-use_goma = false
+use_remoteexec = false
 enable_remoting = true
 enable_webview_bundles = true
 ffmpeg_branding = "Chrome"
@@ -64,7 +64,7 @@ is_debug = false
 dcheck_always_on = true
 is_official_build = true
 symbol_level = 1
-use_goma = false
+use_remoteexec = false
 chrome_pgo_phase = 0
 force_enable_raw_ptr_exclusion = true
 EOF
@@ -73,11 +73,12 @@ EOF
     linux)
         cat <<EOF
 target_os = "linux"
+clang_use_chrome_plugins = false
 dcheck_always_on = true
 is_chrome_branded = true
 is_debug = false
 is_official_build = true
-use_goma = false
+use_remoteexec = false
 chrome_pgo_phase = 0
 force_enable_raw_ptr_exclusion = true
 EOF
@@ -86,12 +87,13 @@ EOF
     cros)
         cat <<EOF
 target_os = "chromeos"
+clang_use_chrome_plugins = false
 chromeos_is_browser_only = true
 dcheck_always_on = true
 is_chrome_branded = true
 is_debug = false
 is_official_build = true
-use_goma = false
+use_remoteexec = false
 chrome_pgo_phase = 0
 force_enable_raw_ptr_exclusion = true
 EOF
@@ -100,10 +102,11 @@ EOF
     ash)
         cat <<EOF
 target_os = "chromeos"
+clang_use_chrome_plugins = false
 dcheck_always_on = true
 is_debug = false
 is_official_build = true
-use_goma = false
+use_remoteexec = false
 chrome_pgo_phase = 0
 force_enable_raw_ptr_exclusion = true
 EOF
@@ -112,11 +115,12 @@ EOF
     mac)
         cat <<EOF
 target_os = "mac"
+clang_use_chrome_plugins = false
 dcheck_always_on = true
 is_chrome_branded = true
 is_debug = false
 is_official_build = true
-use_goma = false
+use_remoteexec = false
 chrome_pgo_phase = 0
 symbol_level = 1
 force_enable_raw_ptr_exclusion = true

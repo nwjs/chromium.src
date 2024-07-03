@@ -62,6 +62,10 @@ class MockFileSystemAccessManager
   void GetSandboxedFileSystem(
       GetSandboxedFileSystemCallback callback) override {}
 
+  void GetSandboxedFileSystemForDevtools(
+      const Vector<String>& directory_path_components,
+      GetSandboxedFileSystemCallback callback) override {}
+
   void ChooseEntries(mojom::blink::FilePickerOptionsPtr options,
                      ChooseEntriesCallback callback) override {
     if (choose_entries_response_callback_) {
@@ -119,8 +123,7 @@ class GlobalFileSystemAccessTest : public PageTestBase {
   void Navigate(const String& destinationUrl) {
     const KURL& url = KURL(NullURL(), destinationUrl);
     auto navigation_params =
-        WebNavigationParams::CreateWithHTMLBufferForTesting(
-            SharedBuffer::Create(), url);
+        WebNavigationParams::CreateWithEmptyHTMLForTesting(url);
     GetDocument().GetFrame()->Loader().CommitNavigation(
         std::move(navigation_params), /*extra_data=*/nullptr);
     blink::test::RunPendingTasks();

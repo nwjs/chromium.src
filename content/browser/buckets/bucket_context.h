@@ -42,16 +42,18 @@ class CONTENT_EXPORT BucketContext {
       const storage::BucketInfo& bucket,
       mojo::PendingReceiver<blink::mojom::CacheStorage> receiver) = 0;
 
-  // Returns an OPFS file system associated with `bucket`.
+  // Returns an OPFS file system associated with `bucket`. An empty
+  // `directory_path_components` means that the root directory will be returned.
   virtual void GetSandboxedFileSystemForBucket(
       const storage::BucketInfo& bucket,
+      const std::vector<std::string>& directory_path_components,
       blink::mojom::FileSystemAccessManager::GetSandboxedFileSystemCallback
           callback) = 0;
 
   // Returns the `GlobalRenderFrameHostId` for the associated `RenderFrameHost`.
   // For documents, it should be the id of the RenderFrameHost that's holding
   // it. For dedicated workers, it should be the id of the ancestor
-  // RenderFrameHost. For shared workers and dedicated workers, it should be
+  // RenderFrameHost. For shared workers and service workers, it should be
   // empty.
   virtual GlobalRenderFrameHostId GetAssociatedRenderFrameHostId() const = 0;
 };

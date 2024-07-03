@@ -153,7 +153,8 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
   content::TestNavigationObserver content_observer(
       GURL("chrome://sync-confirmation/"));
   content_observer.StartWatchingNewWebContents();
-  browser()->signin_view_controller()->ShowModalSyncConfirmationDialog();
+  browser()->signin_view_controller()->ShowModalSyncConfirmationDialog(
+      /*is_signin_intercept=*/false, /*is_sync_promo=*/false);
   EXPECT_TRUE(browser()->signin_view_controller()->ShowsModalDialog());
   content_observer.Wait();
 
@@ -305,13 +306,12 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
   browser()->signin_view_controller()->ShowModalManagedUserNoticeDialog(
       account_info, /*is_oidc_account=*/false, /*force_new_profile=*/true,
       /*show_link_data_option=*/true,
-      base::BindOnce(
-          [](Browser* browser, signin::SigninChoice* result,
-             signin::SigninChoice choice) {
-            browser->signin_view_controller()->CloseModalSignin();
-            *result = choice;
-          },
-          browser(), &result));
+      base::BindOnce([](signin::SigninChoice* result,
+                        signin::SigninChoice choice) { *result = choice; },
+                     &result),
+      /*done_callback=*/
+      base::BindOnce(&SigninViewController::CloseModalSignin,
+                     browser()->signin_view_controller()->AsWeakPtr()));
   EXPECT_TRUE(browser()->signin_view_controller()->ShowsModalDialog());
   content_observer.Wait();
 
@@ -350,13 +350,13 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserOIDCAccountTest,
   browser()->signin_view_controller()->ShowModalManagedUserNoticeDialog(
       account_info, /*is_oidc_account=*/true, /*force_new_profile=*/true,
       /*show_link_data_option=*/true,
-      base::BindOnce(
-          [](Browser* browser, signin::SigninChoice* result,
-             signin::SigninChoice choice) {
-            browser->signin_view_controller()->CloseModalSignin();
-            *result = choice;
-          },
-          browser(), &result));
+      /*process_user_choice_callback=*/
+      base::BindOnce([](signin::SigninChoice* result,
+                        signin::SigninChoice choice) { *result = choice; },
+                     &result),
+      /*done_callback=*/
+      base::BindOnce(&SigninViewController::CloseModalSignin,
+                     browser()->signin_view_controller()->AsWeakPtr()));
   EXPECT_TRUE(browser()->signin_view_controller()->ShowsModalDialog());
   content_observer.Wait();
 

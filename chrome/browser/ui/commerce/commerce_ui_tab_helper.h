@@ -39,6 +39,8 @@ class View;
 
 namespace commerce {
 
+class ProductSpecificationsPageActionController;
+
 // This tab helper is used to update and maintain the state of UI for commerce
 // features.
 class CommerceUiTabHelper
@@ -59,6 +61,8 @@ class CommerceUiTabHelper
   virtual bool ShouldShowPriceTrackingIconView();
   // Return whether the PriceInsightsIconView is visible.
   virtual bool ShouldShowPriceInsightsIconView();
+  // Return whether the ProductSpecificationsIconView is visible.
+  virtual bool ShouldShowProductSpecificationsIconView();
 
   // Return the page action label. If no label should be shown, return
   // PriceInsightsIconLabelType::kNone.
@@ -71,6 +75,10 @@ class CommerceUiTabHelper
 
   // Returns whether the current page has a product that is being price tracked.
   virtual bool IsPriceTracking();
+
+  // Returns whether the product in the current page is in the recommended
+  // product specifications set.
+  virtual bool IsInRecommendedSet();
 
   // content::WebContentsObserver implementation
   void DidFinishNavigation(
@@ -85,6 +93,7 @@ class CommerceUiTabHelper
                                      bool is_new_bookmark,
                                      base::OnceCallback<void(bool)> callback);
   void OnPriceInsightsIconClicked();
+  virtual void OnProductSpecificationsIconClicked();
 
   // Return the PriceInsightsInfo for the last fetched product URL. A reference
   // to this object should not be kept directly, if one is needed, a copy should
@@ -134,6 +143,8 @@ class CommerceUiTabHelper
 
   void UpdatePriceInsightsIconView();
 
+  void UpdateProductSpecificationsIconView();
+
   void TriggerUpdateForIconView();
 
   bool ShouldIgnoreSameUrlNavigation();
@@ -171,6 +182,8 @@ class CommerceUiTabHelper
   raw_ptr<image_fetcher::ImageFetcher> image_fetcher_;
 
   std::unique_ptr<PriceTrackingPageActionController> price_tracking_controller_;
+  std::unique_ptr<ProductSpecificationsPageActionController>
+      product_specifications_controller_;
 
   // The product info available for the current page if available.
   std::optional<ProductInfo> product_info_for_page_;

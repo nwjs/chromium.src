@@ -103,10 +103,10 @@ build_webui("build") {
     "performance_page/tab_discard/exception_entry.ts",
     "performance_page/tab_discard/exception_list.ts",
     "performance_page/tab_discard/exception_tabbed_add_dialog.ts",
+    "people_page/history_search_page.ts",
     "people_page/page_content_page.ts",
     "people_page/people_page.ts",
     "people_page/signout_dialog.ts",
-    "people_page/sync_account_control.ts",
     "people_page/sync_controls.ts",
     "people_page/sync_encryption_options.ts",
     "people_page/sync_page.ts",
@@ -216,6 +216,7 @@ build_webui("build") {
   if (!is_chromeos_ash) {
     web_component_files += [
       "people_page/manage_profile.ts",
+      "people_page/sync_account_control.ts",
       "relaunch_confirmation_dialog.ts",
       "languages_page/add_languages_dialog.ts",
       "languages_page/languages_page.ts",
@@ -256,7 +257,7 @@ build_webui("build") {
     web_component_files += [ "autofill_page/passkeys_subpage.ts" ]
   }
   if (is_win || is_mac || is_linux) {
-    web_component_files += [ "a11y_page/pdf_ocr_toggle.ts" ]
+    web_component_files += [ "a11y_page/ax_annotations_subpage.ts" ]
   }
   if (is_chrome_branded) {
     static_files += [
@@ -321,6 +322,7 @@ build_webui("build") {
     "safety_check_page/safety_check_browser_proxy.ts",
     "safety_check_page/safety_check_extensions_browser_proxy.ts",
     "safety_hub/safety_hub_browser_proxy.ts",
+    "scrollable_mixin.ts",
     "search_engines_page/search_engines_browser_proxy.ts",
     "search_settings.ts",
     "settings.ts",

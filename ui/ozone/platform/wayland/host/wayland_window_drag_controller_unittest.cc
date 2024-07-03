@@ -78,6 +78,14 @@ class WaylandWindowDragControllerTest : public WaylandDragDropTest {
     return connection_->window_drag_controller()->state_;
   }
 
+  WaylandPointer::Delegate* pointer_delegate() {
+    return drag_controller()->pointer_delegate_.get();
+  }
+
+  WaylandTouch::Delegate* touch_delegate() {
+    return drag_controller()->touch_delegate_.get();
+  }
+
   wl::SerialTracker& serial_tracker() { return connection_->serial_tracker(); }
 
   MockWaylandPlatformWindowDelegate& delegate() { return delegate_; }
@@ -223,7 +231,7 @@ TEST_P(WaylandWindowDragControllerTest, DragInsideWindowAndDrop) {
   //  - Event dispatching and bounds changes are monitored
   //  - At each event, emulates a new event at server side and proceeds to
   // the next test step.
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -303,7 +311,7 @@ TEST_P(WaylandWindowDragControllerTest, DragInsideWindowAndDrop) {
 // 3. Run move loop, drag it within the window bounds and drop.
 TEST_P(WaylandWindowDragControllerTest, DragInsideWindowAndDrop_TOUCH) {
   ASSERT_TRUE(GetWmMoveLoopHandler(*window_));
-  ASSERT_TRUE(GetWaylandExtension(*window_));
+  ASSERT_TRUE(GetWaylandToplevelExtension(*window_));
 
   // Ensure there is no window currently focused
   EXPECT_FALSE(window_manager()->GetCurrentPointerOrTouchFocusedWindow());
@@ -318,7 +326,7 @@ TEST_P(WaylandWindowDragControllerTest, DragInsideWindowAndDrop_TOUCH) {
   //  - Event dispatching and bounds changes are monitored
   //  - At each event, emulates a new event at server side and proceeds to the
   //  next test step.
-  GetWaylandExtension(*window_)->StartWindowDraggingSessionIfNeeded(
+  GetWaylandToplevelExtension(*window_)->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kTouch,
       /*allow_system_drag=*/false);
 
@@ -405,7 +413,7 @@ TEST_P(WaylandWindowDragControllerTest, DragInsideWindowAndDrop_TOUCH) {
 // Similar to DragInsideWindowAndDrop_TOUCH but with two fingers.
 TEST_P(WaylandWindowDragControllerTest, DragInsideWindowAndDropTwoFingerTouch) {
   ASSERT_TRUE(GetWmMoveLoopHandler(*window_));
-  ASSERT_TRUE(GetWaylandExtension(*window_));
+  ASSERT_TRUE(GetWaylandToplevelExtension(*window_));
 
   // Ensure there is no window currently focused
   EXPECT_FALSE(window_manager()->GetCurrentPointerOrTouchFocusedWindow());
@@ -424,7 +432,7 @@ TEST_P(WaylandWindowDragControllerTest, DragInsideWindowAndDropTwoFingerTouch) {
   //  - Event dispatching and bounds changes are monitored
   //  - At each event, emulates a new event at server side and proceeds to the
   //  next test step.
-  GetWaylandExtension(*window_)->StartWindowDraggingSessionIfNeeded(
+  GetWaylandToplevelExtension(*window_)->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kTouch,
       /*allow_system_drag=*/false);
 
@@ -585,7 +593,7 @@ TEST_P(WaylandWindowDragControllerTest, DestroyWindowDuringDragAndDrop_TOUCH) {
   SendTouchDown(window_2.get(), &delegate_, 0 /*point id*/,
                 {0, 0} /*location*/);
 
-  auto* wayland_extension = GetWaylandExtension(*window_2);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_2);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kTouch,
       /*allow_system_drag=*/false);
@@ -627,7 +635,7 @@ TEST_P(WaylandWindowDragControllerTest,
             screen_->GetLocalProcessWidgetAtPoint({10, 10}, {}));
 
   ASSERT_TRUE(GetWmMoveLoopHandler(*window_2));
-  ASSERT_TRUE(GetWaylandExtension(*window_2));
+  ASSERT_TRUE(GetWaylandToplevelExtension(*window_2));
 
   // Start triggering a drag operation.
   SendTouchDown(window_2.get(), &delegate_, 0 /*point id*/,
@@ -643,7 +651,7 @@ TEST_P(WaylandWindowDragControllerTest,
 
   // Set up an "interaction flow", start the drag session, run move loop
   // and verify the window effectively being dragged.
-  GetWaylandExtension(*window_2)->StartWindowDraggingSessionIfNeeded(
+  GetWaylandToplevelExtension(*window_2)->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kTouch,
       /*allow_system_drag=*/false);
 
@@ -676,7 +684,7 @@ TEST_P(WaylandWindowDragControllerTest, DragExitWindowAndDrop) {
   //  - Event dispatching and bounds changes are monitored
   //  - At each event, emulates a new event on server side and proceeds to the
   //  next test step.
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -788,7 +796,7 @@ TEST_P(WaylandWindowDragControllerTest, DragToOtherWindowSnapDragDrop) {
   //  - Event dispatching and bounds changes are monitored
   //  - At each event, emulates a new event on server side and proceeds to the
   //  next test step.
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -951,7 +959,7 @@ TEST_P(WaylandWindowDragControllerTest, DragToOtherWindowSnapDragDrop_TOUCH) {
   //  - Event dispatching and bounds changes are monitored
   //  - At each event, emulates a new event on server side and proceeds to the
   //  next test step.
-  GetWaylandExtension(*window_)->StartWindowDraggingSessionIfNeeded(
+  GetWaylandToplevelExtension(*window_)->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kTouch,
       /*allow_system_drag=*/false);
   EXPECT_EQ(State::kAttached, drag_controller_state());
@@ -1110,7 +1118,7 @@ TEST_P(WaylandWindowDragControllerTest,
   //  - Event dispatching and bounds changes are monitored
   //  - At each event, emulates a new event on server side and proceeds to the
   //  next test step.
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -1216,7 +1224,7 @@ TEST_P(WaylandWindowDragControllerTest, DragExitAttached) {
   EXPECT_EQ(window_->GetWidget(),
             screen_->GetLocalProcessWidgetAtPoint({10, 10}, {}));
 
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   EXPECT_CALL(delegate_, DispatchEvent(_)).Times(1);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
@@ -1266,7 +1274,7 @@ TEST_P(WaylandWindowDragControllerTest, DragExitAttached_TOUCH) {
   EXPECT_EQ(window_->GetWidget(),
             screen_->GetLocalProcessWidgetAtPoint({10, 10}, {}));
 
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kTouch,
       /*allow_system_drag=*/false);
@@ -1314,7 +1322,7 @@ TEST_P(WaylandWindowDragControllerTest, RestoreDuringWindowDragSession) {
   EXPECT_EQ(window_->GetWidget(),
             screen_->GetLocalProcessWidgetAtPoint({10, 10}, {}));
 
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -1353,7 +1361,7 @@ TEST_P(WaylandWindowDragControllerTest, IgnorePointerEventsUntilDrop) {
   //  - Event dispatching and bounds changes are monitored
   //  - At each event, emulates a new event at server side and proceeds to the
   //  next test step.
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -1472,7 +1480,7 @@ TEST_P(WaylandWindowDragControllerTest, MotionEventsSkippedWhileReattaching) {
   // event is dispatched in response to wl_data_device.enter.
   EXPECT_CALL(delegate(), DispatchEvent(_)).Times(1);
   // Start the drag session.
-  GetWaylandExtension(*dragged_window)
+  GetWaylandToplevelExtension(*dragged_window)
       ->StartWindowDraggingSessionIfNeeded(DragEventSource::kMouse,
                                            /*allow_system_drag=*/false);
   wl::SyncDisplay(connection_->display_wrapper(), *connection_->display());
@@ -1554,7 +1562,7 @@ TEST_P(WaylandWindowDragControllerTest, CursorPositionIsUpdatedOnMotion) {
   SendPointerMotion(window_.get(), &delegate_, p0);
   EXPECT_EQ(p0, screen_->GetCursorScreenPoint());
 
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   EXPECT_CALL(delegate(), DispatchEvent(_)).Times(::testing::AtLeast(2));
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
@@ -1659,7 +1667,7 @@ TEST_P(WaylandWindowDragControllerTest,
   SendPointerMotion(window_.get(), &delegate_, {10, 10});
 
   // 2. Start the window drag session.
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -1707,7 +1715,7 @@ TEST_P(WaylandWindowDragControllerTest,
   SendPointerMotion(window_.get(), &delegate_, {10, 10});
 
   // 2. Start the window drag session.
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -1775,14 +1783,14 @@ TEST_P(WaylandWindowDragControllerTest,
 //  Regression test for https://crbug.com/1366504.
 TEST_P(WaylandWindowDragControllerTest, ExtendedDragUnavailable) {
   ASSERT_TRUE(GetWmMoveLoopHandler(*window_));
-  ASSERT_TRUE(GetWaylandExtension(*window_));
+  ASSERT_TRUE(GetWaylandToplevelExtension(*window_));
   drag_controller()->set_extended_drag_available_for_testing(false);
 
   SendPointerEnter(window_.get(), &delegate_);
   SendPointerPress(window_.get(), &delegate_, BTN_LEFT);
   SendPointerMotion(window_.get(), &delegate_, {10, 10});
 
-  GetWaylandExtension(*window_)->StartWindowDraggingSessionIfNeeded(
+  GetWaylandToplevelExtension(*window_)->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
   EXPECT_EQ(State::kAttached, drag_controller_state());
@@ -1890,7 +1898,7 @@ TEST_P(WaylandWindowDragControllerTest, NoopUnlessPointerOrTouchPressed) {
   SendPointerPress(window_.get(), &delegate_, BTN_LEFT);
 
   // Drag mustn't start for touch source while there is no active touch points.
-  GetWaylandExtension(*window_)->StartWindowDraggingSessionIfNeeded(
+  GetWaylandToplevelExtension(*window_)->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kTouch,
       /*allow_system_drag=*/false);
   ASSERT_EQ(State::kIdle, drag_controller_state());
@@ -1903,7 +1911,7 @@ TEST_P(WaylandWindowDragControllerTest, NoopUnlessPointerOrTouchPressed) {
   ASSERT_FALSE(serial_tracker().GetSerial(wl::SerialType::kTouchPress));
 
   // Now it should start successfully.
-  GetWaylandExtension(*window_)->StartWindowDraggingSessionIfNeeded(
+  GetWaylandToplevelExtension(*window_)->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kTouch,
       /*allow_system_drag=*/false);
   ASSERT_EQ(State::kIdle, drag_controller_state());
@@ -1921,7 +1929,7 @@ TEST_P(WaylandWindowDragControllerTest,
   SendPointerMotion(window_.get(), &delegate_, {10, 10});
 
   // Start the window drag session.
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -2002,7 +2010,7 @@ TEST_P(WaylandWindowDragControllerTest,
   SendPointerMotion(window_.get(), &delegate_, {10, 10});
 
   // Start the window drag session.
-  auto* wayland_extension = GetWaylandExtension(*window_);
+  auto* wayland_extension = GetWaylandToplevelExtension(*window_);
   wayland_extension->StartWindowDraggingSessionIfNeeded(
       DragEventSource::kMouse,
       /*allow_system_drag=*/false);
@@ -2038,6 +2046,92 @@ TEST_P(WaylandWindowDragControllerTest,
   EXPECT_FALSE(window_manager()->GetCurrentPointerOrTouchFocusedWindow());
   EXPECT_EQ(gfx::kNullAcceleratedWidget,
             screen_->GetLocalProcessWidgetAtPoint({20, 20}, {}));
+}
+
+TEST_P(WaylandWindowDragControllerTest,
+       PointerReleaseBeforeServerAckCancellsDrag) {
+  // Ensure there is no window currently focused.
+  EXPECT_FALSE(window_manager()->GetCurrentPointerOrTouchFocusedWindow());
+  EXPECT_EQ(gfx::kNullAcceleratedWidget,
+            screen_->GetLocalProcessWidgetAtPoint({10, 10}, {}));
+
+  SendPointerEnter(window_.get(), &delegate_);
+  SendPointerPress(window_.get(), &delegate_, BTN_LEFT);
+  SendPointerMotion(window_.get(), &delegate_, /*location=*/{10, 10});
+
+  // Start the drag session.
+  GetWaylandToplevelExtension(*window_)->StartWindowDraggingSessionIfNeeded(
+      DragEventSource::kMouse,
+      /*allow_system_drag=*/false);
+  EXPECT_EQ(State::kAttached, drag_controller_state());
+
+  // Simulate a pointer release event arriving at the client before the server
+  // has acknowledged the drag request. This should cancel the drag.
+  pointer_delegate()->OnPointerButtonEvent(
+      ET_MOUSE_RELEASED, EF_LEFT_MOUSE_BUTTON, base::TimeTicks::Now(),
+      window_.get(), wl::EventDispatchPolicy::kImmediate,
+      /*allow_release_of_unpressed_button=*/false,
+      /*is_synthesized=*/false);
+  EXPECT_EQ(State::kIdle, drag_controller_state());
+}
+
+TEST_P(WaylandWindowDragControllerTest,
+       TouchReleaseBeforeServerAckCancellsDrag) {
+  // Ensure there is no window currently focused.
+  EXPECT_FALSE(window_manager()->GetCurrentPointerOrTouchFocusedWindow());
+  EXPECT_EQ(gfx::kNullAcceleratedWidget,
+            screen_->GetLocalProcessWidgetAtPoint({10, 10}, {}));
+
+  SendTouchDown(window_.get(), &delegate_, /*id=*/0, /*location=*/{0, 0});
+  SendTouchMotion(window_.get(), &delegate_, /*id=*/0, /*location=*/{10, 10});
+
+  // Start the drag session.
+  GetWaylandToplevelExtension(*window_)->StartWindowDraggingSessionIfNeeded(
+      DragEventSource::kTouch,
+      /*allow_system_drag=*/false);
+  EXPECT_EQ(State::kAttached, drag_controller_state());
+
+  // Simulate a touch release event arriving at the client before the server
+  // has acknowledged the drag request. This should cancel the drag.
+  touch_delegate()->OnTouchReleaseEvent(base::TimeTicks::Now(), /*id=*/0,
+                                        wl::EventDispatchPolicy::kImmediate,
+                                        /*is_synthesized=*/false);
+  EXPECT_EQ(State::kIdle, drag_controller_state());
+}
+
+// Regression test for b/336321329. Ensures all pressed mouse buttons are
+// released when the window drag ends.
+TEST_P(WaylandWindowDragControllerTest, AllPointersReleasedAfterDragEnd) {
+  EXPECT_FALSE(window_manager()->GetCurrentPointerOrTouchFocusedWindow());
+
+  // Dispatch enter and press events for several mouse buttons.
+  SendPointerEnter(window_.get(), &delegate_);
+  SendPointerPress(window_.get(), &delegate_, BTN_LEFT);
+  SendPointerPress(window_.get(), &delegate_, BTN_RIGHT);
+  SendPointerPress(window_.get(), &delegate_, BTN_MIDDLE);
+
+  EXPECT_TRUE(pointer_delegate()->IsPointerButtonPressed(EF_LEFT_MOUSE_BUTTON));
+  EXPECT_TRUE(
+      pointer_delegate()->IsPointerButtonPressed(EF_RIGHT_MOUSE_BUTTON));
+  EXPECT_TRUE(
+      pointer_delegate()->IsPointerButtonPressed(EF_MIDDLE_MOUSE_BUTTON));
+
+  // Start a drag with multiple mouse buttons pressed.
+  GetWaylandToplevelExtension(*window_)->StartWindowDraggingSessionIfNeeded(
+      DragEventSource::kMouse,
+      /*allow_system_drag=*/false);
+  ASSERT_EQ(State::kAttached, drag_controller_state());
+
+  // End the drag, all pressed mouse buttons should have been released.
+  SendDndFinished();
+  EXPECT_EQ(State::kIdle, drag_controller_state());
+
+  EXPECT_FALSE(
+      pointer_delegate()->IsPointerButtonPressed(EF_LEFT_MOUSE_BUTTON));
+  EXPECT_FALSE(
+      pointer_delegate()->IsPointerButtonPressed(EF_RIGHT_MOUSE_BUTTON));
+  EXPECT_FALSE(
+      pointer_delegate()->IsPointerButtonPressed(EF_MIDDLE_MOUSE_BUTTON));
 }
 
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)

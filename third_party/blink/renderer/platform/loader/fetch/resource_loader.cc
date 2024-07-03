@@ -97,7 +97,6 @@
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_registry.h"
 #include "third_party/blink/renderer/platform/network/network_utils.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
@@ -408,10 +407,6 @@ void ResourceLoader::Run() {
   // TODO(crbug.com/1169032): Manage cookies' capability control here for the
   // Prerender2.
   StartFetch();
-}
-
-void ResourceLoader::DidReceiveData(base::span<const char> data) {
-  DidReceiveData(data.data(), data.size());
 }
 
 void ResourceLoader::DidReceiveDecodedData(
@@ -779,7 +774,7 @@ FetchContext& ResourceLoader::Context() const {
 
 void ResourceLoader::DidReceiveResponse(
     const WebURLResponse& response,
-    mojo::ScopedDataPipeConsumerHandle body,
+    absl::variant<mojo::ScopedDataPipeConsumerHandle, SegmentedBuffer> body,
     std::optional<mojo_base::BigBuffer> cached_metadata) {
   DCHECK(!response.IsNull());
 
@@ -793,10 +788,22 @@ void ResourceLoader::DidReceiveResponse(
 
   DidReceiveResponseInternal(response.ToResourceResponse(),
                              std::move(cached_metadata));
-  if (!IsLoading() || !body) {
+  if (!IsLoading()) {
     return;
   }
-
+  if (absl::holds_alternative<SegmentedBuffer>(body)) {
+    // TODO(crbug.com/40244488): Consider passing the SegmentedBuffer to the
+    // Resource without copying.
+    for (const auto& span : absl::get<SegmentedBuffer>(body)) {
+      DidReceiveData(span);
+    }
+    return;
+  }
+  mojo::ScopedDataPipeConsumerHandle body_handle =
+      std::move(absl::get<mojo::ScopedDataPipeConsumerHandle>(body));
+  if (!body_handle) {
+    return;
+  }
   if (resource_->GetResourceRequest().DownloadToBlob()) {
     DCHECK(!blob_response_started_);
     blob_response_started_ = true;
@@ -808,7 +815,7 @@ void ResourceLoader::DidReceiveResponse(
     fetcher_->GetBlobRegistry()->RegisterFromStream(
         mime_type.IsNull() ? g_empty_string : mime_type.LowerASCII(), "",
         std::max(static_cast<int64_t>(0), response.ExpectedContentLength()),
-        std::move(body),
+        std::move(body_handle),
         progress_receiver_.BindNewEndpointAndPassRemote(GetLoadingTaskRunner()),
         WTF::BindOnce(&ResourceLoader::FinishedCreatingBlob,
                       WrapWeakPersistent(this)));
@@ -817,9 +824,14 @@ void ResourceLoader::DidReceiveResponse(
 
   DataPipeBytesConsumer::CompletionNotifier* completion_notifier = nullptr;
   DidStartLoadingResponseBodyInternal(
-      *MakeGarbageCollected<DataPipeBytesConsumer>(
-          task_runner_for_body_loader_, std::move(body), &completion_notifier));
+      *MakeGarbageCollected<DataPipeBytesConsumer>(task_runner_for_body_loader_,
+                                                   std::move(body_handle),
+                                                   &completion_notifier));
   data_pipe_completion_notifier_ = completion_notifier;
+}
+
+void ResourceLoader::DidReceiveDataForTesting(base::span<const char> data) {
+  DidReceiveData(data);
 }
 
 void ResourceLoader::DidReceiveResponseInternal(
@@ -1043,16 +1055,11 @@ void ResourceLoader::DidReceiveResponseInternal(
   }
 }
 
-void ResourceLoader::DidReceiveData(const char* data, size_t length) {
+void ResourceLoader::DidReceiveData(base::span<const char> data) {
   if (auto* observer = fetcher_->GetResourceLoadObserver()) {
-    observer->DidReceiveData(resource_->InspectorId(),
-                             base::make_span(data, length));
+    observer->DidReceiveData(resource_->InspectorId(), data);
   }
-  resource_->AppendData(
-      // SAFETY: `data` must point to `length` elements.
-      // TODO(crbug.com/40284755): Make this method take a span to capture it in
-      // the type system.
-      UNSAFE_BUFFERS(base::span(data, length)));
+  resource_->AppendData(data);
 
   // This value should not be exposed for opaque responses.
   if (resource_->response_.WasFetchedViaServiceWorker() &&
@@ -1065,7 +1072,7 @@ void ResourceLoader::DidReceiveData(const char* data, size_t length) {
     // will always be >= 0, but the CheckAdd is used to enforce the second
     // constraint.
     received_body_length_from_service_worker_ =
-        base::CheckAdd(received_body_length_from_service_worker_, length)
+        base::CheckAdd(received_body_length_from_service_worker_, data.size())
             .ValueOrDie<int64_t>();
   }
 }
@@ -1299,7 +1306,7 @@ void ResourceLoader::RequestSynchronously() {
   // a 304, where it will overwrite the cached data we should be reusing.
   if (data_out && data_out->size()) {
     for (const auto& span : *data_out) {
-      DidReceiveData(span.data(), span.size());
+      DidReceiveData(span);
     }
   }
 
@@ -1330,10 +1337,10 @@ void ResourceLoader::RequestAsynchronously() {
   // kBackgroundResponseProcessorBackground feature param is enabled, creates a
   // BackgroundResponseProcessor for the `resource_`, and set it to the
   // `loader_`.
-  if (loader_->CanHandleResponseOnBackground() &&
-      features::kBackgroundResponseProcessor.Get()) {
-    if (auto processor = resource_->MaybeCreateBackgroundResponseProcessor()) {
-      loader_->SetBackgroundResponseProcessor(std::move(processor));
+  if (loader_->CanHandleResponseOnBackground()) {
+    if (auto factory =
+            resource_->MaybeCreateBackgroundResponseProcessorFactory()) {
+      loader_->SetBackgroundResponseProcessorFactory(std::move(factory));
     }
   }
 

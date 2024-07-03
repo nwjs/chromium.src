@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "builder", "cpu", "defaults", "os", "reclient")
+load("//lib/builders.star", "builder", "cpu", "defaults", "os", "siso")
 load("//lib/gn_args.star", "gn_args")
 load("//lib/xcode.star", "xcode")
 
@@ -36,19 +36,22 @@ luci.gitiles_poller(
     refs = ["refs/heads/main"],
 )
 
-defaults.bucket.set("webrtc.fyi")
-defaults.builder_group.set("chromium.webrtc.fyi")
-defaults.builderless.set(None)
-defaults.build_numbers.set(True)
-defaults.cpu.set(cpu.X86_64)
-defaults.executable.set("recipe:chromium")
-defaults.execution_timeout.set(2 * time.hour)
-defaults.os.set(os.LINUX_DEFAULT)
-defaults.pool.set("luci.chromium.webrtc.fyi")
-defaults.service_account.set("chromium-ci-builder@chops-service-accounts.iam.gserviceaccount.com")
-defaults.triggered_by.set(["webrtc-gitiles-trigger"])
-defaults.reclient_instance.set(reclient.instance.DEFAULT_TRUSTED)
-defaults.reclient_jobs.set(reclient.jobs.DEFAULT)
+defaults.set(
+    bucket = "webrtc.fyi",
+    executable = "recipe:chromium",
+    triggered_by = ["webrtc-gitiles-trigger"],
+    builder_group = "chromium.webrtc.fyi",
+    pool = "luci.chromium.webrtc.fyi",
+    builderless = None,
+    os = os.LINUX_DEFAULT,
+    cpu = cpu.X86_64,
+    build_numbers = True,
+    execution_timeout = 2 * time.hour,
+    service_account = "chromium-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
+    siso_enabled = True,
+    siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
+)
 
 # Builders are defined in lexicographic order by name
 
@@ -78,7 +81,7 @@ builder(
         configs = [
             "android_builder",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "minimal_symbols",
             "strip_debug_info",
         ],
@@ -111,7 +114,7 @@ builder(
         configs = [
             "android_builder",
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
 )
@@ -142,7 +145,7 @@ builder(
         configs = [
             "android_builder",
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
             "arm64",
         ],
     ),
@@ -223,7 +226,7 @@ builder(
         configs = [
             "gpu_tests",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
 )
@@ -247,7 +250,7 @@ builder(
     gn_args = gn_args.config(
         configs = [
             "debug_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
 )
@@ -295,7 +298,7 @@ builder(
         configs = [
             "gpu_tests",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     os = os.MAC_ANY,
@@ -320,7 +323,7 @@ builder(
     gn_args = gn_args.config(
         configs = [
             "debug_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     os = os.MAC_ANY,
@@ -369,7 +372,7 @@ builder(
     gn_args = gn_args.config(
         configs = [
             "release_builder",
-            "reclient",
+            "remoteexec",
             "minimal_symbols",
             "no_com_init_hooks",
             "chrome_with_codecs",
@@ -397,7 +400,7 @@ builder(
     gn_args = gn_args.config(
         configs = [
             "debug_builder",
-            "reclient",
+            "remoteexec",
             "no_com_init_hooks",
             "chrome_with_codecs",
         ],
@@ -454,7 +457,7 @@ builder(
             "ios_google_cert",
             "ios_disable_code_signing",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "ios_build_chrome_false",
         ],
     ),
@@ -481,7 +484,7 @@ builder(
     gn_args = gn_args.config(
         configs = [
             "debug_static_builder",
-            "reclient",
+            "remoteexec",
             "ios_simulator",
             "x64",
             "xctest",

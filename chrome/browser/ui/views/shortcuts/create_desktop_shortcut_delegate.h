@@ -35,10 +35,10 @@ class CreateDesktopShortcutDelegate : public ui::DialogModelDelegate,
                                       public content::WebContentsObserver {
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kCreateShortcutDialogOkButtonId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kCreateShortcutDialogTitleFieldId);
 
-  CreateDesktopShortcutDelegate(
-      content::WebContents* web_contents,
-      chrome::CreateShortcutDialogCallback final_callback);
+  CreateDesktopShortcutDelegate(content::WebContents* web_contents,
+                                CreateShortcutDialogCallback final_callback);
 
   ~CreateDesktopShortcutDelegate() override;
 
@@ -58,7 +58,7 @@ class CreateDesktopShortcutDelegate : public ui::DialogModelDelegate,
  private:
   void CloseDialogAsIgnored();
 
-  chrome::CreateShortcutDialogCallback final_callback_;
+  CreateShortcutDialogCallback final_callback_;
   std::u16string text_field_data_;
   base::WeakPtrFactory<CreateDesktopShortcutDelegate> weak_ptr_factory_{this};
 };

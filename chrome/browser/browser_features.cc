@@ -15,18 +15,16 @@
 
 namespace features {
 
-#if BUILDFLAG(IS_WIN)
-// When this feature is enabled, metrics are gathered regarding the performance
-// and reliability of app-bound encryption primitives on a background thread.
-BASE_FEATURE(kAppBoundEncryptionMetrics,
-             "AppBoundEncryptionMetrics",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_WIN)
-
 // This is used to enable an experiment for modifying confidence cutoff of
 // prerender and preconnect for autocomplete action predictor.
 BASE_FEATURE(kAutocompleteActionPredictorConfidenceCutoff,
              "AutocompleteActionPredictorConfidenceCutoff",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// This is used to enable an experiment for the bookmarks tree view in the
+// side panel, providing users with a hierarchical view of their bookmarks.
+BASE_FEATURE(kBookmarksTreeView,
+             "BookmarksTreeView",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This flag is used for enabling Bookmark triggered prerendering. See
@@ -55,25 +53,6 @@ BASE_FEATURE(kCertificateTransparencyAskBeforeEnabling,
 BASE_FEATURE(kClosedTabCache,
              "ClosedTabCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, a new spare renderer is created at a later time if the previous
-// spare renderer was taken by top chrome WebUI.
-// TODO(crbug.com/41490050): clean up the feature.
-BASE_FEATURE(kDeferredSpareRendererForTopChromeWebUI,
-             "DeferredSpareRendererForTopChromeWebUI",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-// The delay time to create a new spare renderer since the previous spare
-// renderer is taken. This is not effective when
-// `delay_until_page_stopped_loading` is true.
-// Experiments have shown that delaying 2s brings the most significant
-// improvements to Top Chrome WebUIs.
-const base::FeatureParam<base::TimeDelta> kSpareRendererWarmupDelay{
-    &kDeferredSpareRendererForTopChromeWebUI, "delay", base::Seconds(2)};
-// If true, a new spare renderer is not created until the last page stops
-// loading.
-const base::FeatureParam<bool> kSpareRendererWarmupDelayUntilPageStopsLoading{
-    &kDeferredSpareRendererForTopChromeWebUI, "delay_until_page_stops_loading",
-    false};
 
 // Destroy profiles when their last browser window is closed, instead of when
 // the browser exits.
@@ -137,6 +116,11 @@ const base::FeatureParam<std::string>
         &kDevToolsConsoleInsightsSettingVisible, "blocked_reason",
         /*default*/ ""};
 
+// Whether the DevTools styling assistant dogfood is enabled.
+BASE_FEATURE(kDevToolsFreestylerDogfood,
+             "DevToolsFreestylerDogfood",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Whether an infobar is shown when the process is shared.
 BASE_FEATURE(kDevToolsSharedProcessInfobar,
              "DevToolsSharedProcessInfobar",
@@ -163,24 +147,20 @@ BASE_FEATURE(kDoubleTapToZoomInTabletMode,
 #endif
 
 #if BUILDFLAG(IS_WIN)
-// When this feature is enabled, the DPAPI encryption provider will be
-// registered and enabled for encryption/decryption. This provider is
-// forwards/backwards compatible with OSCrypt sync.
-BASE_FEATURE(kEnableDPAPIEncryptionProvider,
-             "EnableDPAPIEncryptionProvider",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When this feature is enabled, the App-Bound encryption provider is registered
-// with Chrome.
+// with Chrome. Do not disable this feature if
+// UseAppBoundEncryptionProviderForEncryption has been enabled for a client,
+// since data loss might occur.
 BASE_FEATURE(kRegisterAppBoundEncryptionProvider,
              "RegisterAppBoundEncryptionProvider",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When this feature is enabled, the App-Bound encryption provider is used as
+// the default encryption provider.
+BASE_FEATURE(kUseAppBoundEncryptionProviderForEncryption,
+             "UseAppBoundEncryptionProviderForEncryption",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
-
-// Enables usage of the FedCM API without third party cookies at the same time.
-BASE_FEATURE(kFedCmWithoutThirdPartyCookies,
-             "FedCmWithoutThirdPartyCookies",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables showing the email of the flex org admin that setup CBCM in the
 // management disclosures.
@@ -207,12 +187,6 @@ BASE_FEATURE(kIncomingCallNotifications,
 BASE_FEATURE(kKeyPinningComponentUpdater,
              "KeyPinningComponentUpdater",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kLargeFaviconFromGoogle,
-             "LargeFaviconFromGoogle",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<int> kLargeFaviconFromGoogleSizeInDip{
-    &kLargeFaviconFromGoogle, "favicon_size_in_dip", 128};
 
 #if BUILDFLAG(IS_WIN)
 // Enables locking the cookie database for profiles.
@@ -260,6 +234,8 @@ BASE_FEATURE(kNoPreReadMainDll,
 BASE_FEATURE(kNotificationOneTapUnsubscribe,
              "NotificationOneTapUnsubscribe",
              base::FEATURE_DISABLED_BY_DEFAULT);
+base::FeatureParam<bool> kNotificationOneTapUnsubscribeUseServiceIntentParam{
+    &kNotificationOneTapUnsubscribe, "use_service_intent", false};
 #endif
 
 // This flag is used for enabling Omnibox triggered prerendering. See
@@ -414,5 +390,15 @@ BASE_FEATURE(kUseOsCryptAsyncForCookieEncryption,
 BASE_FEATURE(kWebUsbDeviceDetection,
              "WebUsbDeviceDetection",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_WIN)
+// Disable dynamic code using ACG. Prevents the browser process from generating
+// dynamic code or modifying executable code. See comments in
+// sandbox/win/src/security_level.h. Only available on Windows 10 RS1 (1607,
+// Build 14393) onwards.
+BASE_FEATURE(kBrowserDynamicCodeDisabled,
+             "BrowserDynamicCodeDisabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace features

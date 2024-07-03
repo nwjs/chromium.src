@@ -1585,11 +1585,17 @@ public class CustomTabActivityTest {
                             .resolveNavigationController()
                             .finish(FinishReason.OTHER);
                 });
-        CriteriaHelper.pollUiThread(
-                () -> WarmupManager.getInstance().hasSpareWebContents(),
-                "No new spare renderer",
-                2000,
-                200);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_PREWARM_TAB)) {
+            CriteriaHelper.pollUiThread(
+                    () ->
+                            WarmupManager.getInstance()
+                                    .hasSpareTab(ProfileManager.getLastUsedRegularProfile()),
+                    "No new spare tab");
+        } else {
+            CriteriaHelper.pollUiThread(
+                    () -> WarmupManager.getInstance().hasSpareWebContents(),
+                    "No new spare renderer");
+        }
     }
 
     @Test
@@ -2769,7 +2775,7 @@ public class CustomTabActivityTest {
     @MediumTest
     public void omniboxInCCT_testInteractiveOmniboxOnEligibleCCTs() throws Exception {
         // Permit Omnibox for any upcoming intent(s).
-        var connection = Mockito.mock(CustomTabsConnection.class);
+        var connection = Mockito.spy(CustomTabsConnection.getInstance());
         doReturn(true).when(connection).shouldEnableOmniboxForIntent(any());
         CustomTabsConnection.setInstanceForTesting(connection);
 

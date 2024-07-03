@@ -5,7 +5,9 @@
 #import "base/containers/contains.h"
 #import "base/ios/ios_util.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "components/search_engines/prepopulated_engines.h"
 #import "components/search_engines/search_engines_switches.h"
 #import "ios/chrome/browser/ui/search_engine_choice/search_engine_choice_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/settings/settings_app_interface.h"
@@ -23,12 +25,13 @@
 
 namespace {
 
+NSString* kCustomSearchEngineName = @"Custom Search Engine";
 const char kPageURL[] = "/";
 const char kOpenSearch[] = "/opensearch.xml";
 const char kSearchURL[] = "/search?q=";
-const char kCustomSearchEngineName[] = "Custom Search Engine";
-const char kGoogleURL[] = "google";
-const char kYahooURL[] = "yahoo";
+
+const TemplateURLPrepopulateData::PrepopulatedEngine&
+    kSecondPrepopulatedSearchEngine = TemplateURLPrepopulateData::bing;
 
 std::string GetSearchExample() {
   return std::string(kSearchURL) + "example";
@@ -41,10 +44,17 @@ std::unique_ptr<net::test_server::HttpResponse> SearchResponse(
   std::unique_ptr<net::test_server::BasicHttpResponse> http_response =
       std::make_unique<net::test_server::BasicHttpResponse>();
   http_response->set_code(net::HTTP_OK);
-  if (base::Contains(request.GetURL().path(), kGoogleURL)) {
-    http_response->set_content("<body>" + std::string(kGoogleURL) + "</body>");
-  } else if (base::Contains(request.GetURL().path(), kYahooURL)) {
-    http_response->set_content("<body>" + std::string(kYahooURL) + "</body>");
+  const std::string googleSearchEngineKeyword(
+      base::UTF16ToUTF8(TemplateURLPrepopulateData::google.keyword));
+  const std::string secondSearchEngineKeyword(
+      base::UTF16ToUTF8(kSecondPrepopulatedSearchEngine.keyword));
+  if (base::Contains(request.GetURL().path(), googleSearchEngineKeyword)) {
+    http_response->set_content("<body>" + googleSearchEngineKeyword +
+                               "</body>");
+  } else if (base::Contains(request.GetURL().path(),
+                            secondSearchEngineKeyword)) {
+    http_response->set_content("<body>" + secondSearchEngineKeyword +
+                               "</body>");
   }
   return std::move(http_response);
 }
@@ -71,7 +81,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
     http_response->set_content(
         "<OpenSearchDescription xmlns=\"http://a9.com/-/spec/opensearch/1.1/\">"
         "<ShortName>" +
-        std::string(kCustomSearchEngineName) +
+        base::SysNSStringToUTF8(kCustomSearchEngineName) +
         "</ShortName>"
         "<Description>Description</Description>"
         "<Url type=\"text/html\" method=\"get\" template=\"" +
@@ -112,14 +122,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   AppLaunchConfiguration config;
   config.additional_args.push_back(
       std::string("--") + switches::kSearchEngineChoiceCountry + "=US");
-  if ([self isRunningTest:@selector
-            (testDeleteSelectedCustomSearchEngineBySwipe)]) {
-    config.features_disabled.push_back(switches::kSearchEngineChoiceTrigger);
-  } else {
-    config.additional_args.push_back(
-        "--enable-features=SearchEngineChoiceTrigger:for_tagged_profiles_only/"
-        "false");
-  }
+  config.features_enabled.push_back(switches::kSearchEngineChoiceTrigger);
   return config;
 }
 
@@ -132,8 +135,13 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   GURL url = self.testServer->GetURL(kPageURL);
   NSString* port = base::SysUTF8ToNSString(url.port());
 
+  const std::string googleSearchEngineKeyword(
+      base::UTF16ToUTF8(TemplateURLPrepopulateData::google.keyword));
+  const std::string secondSearchEngineKeyword(
+      base::UTF16ToUTF8(kSecondPrepopulatedSearchEngine.keyword));
   NSArray<NSString*>* hosts = @[
-    base::SysUTF8ToNSString(kGoogleURL), base::SysUTF8ToNSString(kYahooURL)
+    base::SysUTF8ToNSString(googleSearchEngineKeyword),
+    base::SysUTF8ToNSString(secondSearchEngineKeyword)
   ];
 
   [SettingsAppInterface addURLRewriterForHosts:hosts onPort:port];
@@ -149,19 +157,13 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   // replaceText can properly handle \n.
   [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\n" flags:0];
 
-  [ChromeEarlGrey waitForWebStateContainingText:kGoogleURL];
+  [ChromeEarlGrey waitForWebStateContainingText:googleSearchEngineKeyword];
 
-  // Change default search engine to Yahoo.
-  [ChromeEarlGreyUI openSettingsMenu];
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::SettingsSearchEngineButton()]
-      performAction:grey_tap()];
-
-  NSString* yahooSearchEngineName =
-      [SettingsAppInterface usYahooSearchEngineName];
-  [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityLabel(yahooSearchEngineName)]
-      performAction:grey_tap()];
+  // Change default search engine to `kSecondPrepopulatedSearchEngine`.
+  [SearchEngineChoiceEarlGreyUI openSearchEngineSettings];
+  [[SearchEngineChoiceEarlGreyUI
+      interactionForSettingsWithPrepopulatedSearchEngine:
+          kSecondPrepopulatedSearchEngine] performAction:grey_tap()];
 
   [[EarlGrey
       selectElementWithMatcher:chrome_test_util::SettingsMenuBackButton()]
@@ -171,7 +173,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 
   [SettingsAppInterface addURLRewriterForHosts:hosts onPort:port];
 
-  // Search on Yahoo.
+  // Search on selected search engine.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::DefocusedLocationView()]
       performAction:grey_tap()];
   [ChromeEarlGrey
@@ -185,73 +187,59 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   // replaceText can properly handle \n.
   [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\n" flags:0];
 
-  [ChromeEarlGrey waitForWebStateContainingText:kYahooURL];
+  [ChromeEarlGrey waitForWebStateContainingText:secondSearchEngineKeyword];
 }
 
-// TODO(crbug.com/325379827): Re-enable this test.
 // Deletes a custom search engine by swiping and tapping on the "Delete" button.
-- (void)DISABLED_testDeleteCustomSearchEngineSwipeAndTap {
+- (void)testDeleteCustomSearchEngineSwipeAndTap {
   [self enterSettingsWithCustomSearchEngine];
 
   [[SearchEngineChoiceEarlGreyUI
-      interactionForSettingsCustomSearchEngineWithName:kCustomSearchEngineName]
+      interactionForSettingsSearchEngineWithName:kCustomSearchEngineName]
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Swipe all the way to the left, to delete the custom search engine.
-  id<GREYMatcher> customSearchEngineCell = [SearchEngineChoiceEarlGreyUI
-      settingsCustomSearchEngineAccessibilityLabelWithName:
-          kCustomSearchEngineName];
-  [[EarlGrey selectElementWithMatcher:customSearchEngineCell]
+  id<GREYMatcher> searchEngineCellMatcher = [SearchEngineChoiceEarlGreyUI
+      settingsSearchEngineMatcherWithName:kCustomSearchEngineName];
+  [[EarlGrey selectElementWithMatcher:searchEngineCellMatcher]
       performAction:grey_swipeSlowInDirectionWithStartPoint(kGREYDirectionLeft,
                                                             0.9, 0.5)];
 
-  [[EarlGrey selectElementWithMatcher:customSearchEngineCell]
+  [[EarlGrey selectElementWithMatcher:searchEngineCellMatcher]
       assertWithMatcher:grey_nil()];
 }
 
-// TODO(crbug.com/325379827): Re-enable this test.
 // Deletes a custom engine by swiping it.
-- (void)DISABLED_testDeleteCustomSearchEngineSwipe {
+- (void)testDeleteCustomSearchEngineSwipe {
   [self enterSettingsWithCustomSearchEngine];
   [[SearchEngineChoiceEarlGreyUI
-      interactionForSettingsCustomSearchEngineWithName:kCustomSearchEngineName]
+      interactionForSettingsSearchEngineWithName:kCustomSearchEngineName]
       performAction:grey_swipeSlowInDirectionWithStartPoint(kGREYDirectionLeft,
                                                             0.9, 0.5)];
-  id<GREYMatcher> customSearchEngineCell = [SearchEngineChoiceEarlGreyUI
-      settingsCustomSearchEngineAccessibilityLabelWithName:
-          kCustomSearchEngineName];
-  [[EarlGrey selectElementWithMatcher:customSearchEngineCell]
+  id<GREYMatcher> searchEngineCellMatcher = [SearchEngineChoiceEarlGreyUI
+      settingsSearchEngineMatcherWithName:kCustomSearchEngineName];
+  [[EarlGrey selectElementWithMatcher:searchEngineCellMatcher]
       assertWithMatcher:grey_nil()];
 }
 
-// Deletes the selected custom engine by swiping it.
-- (void)testDeleteSelectedCustomSearchEngineBySwipe {
+// Tests that the selected custom search engine cannot be deleted.
+- (void)testRefuseToDeleteSelectedCustomSearchEngineBySwipe {
   [self enterSettingsWithCustomSearchEngine];
   [[SearchEngineChoiceEarlGreyUI
-      interactionForSettingsCustomSearchEngineWithName:kCustomSearchEngineName]
+      interactionForSettingsSearchEngineWithName:kCustomSearchEngineName]
       performAction:grey_tap()];
   [[SearchEngineChoiceEarlGreyUI
-      interactionForSettingsCustomSearchEngineWithName:kCustomSearchEngineName]
+      interactionForSettingsSearchEngineWithName:kCustomSearchEngineName]
       performAction:grey_swipeSlowInDirectionWithStartPoint(kGREYDirectionLeft,
                                                             0.9, 0.5)];
-  id<GREYMatcher> customSearchEngineCell = [SearchEngineChoiceEarlGreyUI
-      settingsCustomSearchEngineAccessibilityLabelWithName:
-          kCustomSearchEngineName];
-  // Verify that the custom search engine disappeared.
-  [[EarlGrey selectElementWithMatcher:customSearchEngineCell]
-      assertWithMatcher:grey_nil()];
-  // Verify the default search engine is back to Google.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::SettingsDoneButton()]
-      performAction:grey_tap()];
-  NSString* googleSearchEngineName =
-      [SettingsAppInterface googleSearchEngineName];
-  [SearchEngineChoiceEarlGreyUI
-      verifyDefaultSearchEngineSetting:googleSearchEngineName];
+  id<GREYMatcher> searchEngineCellMatcher = [SearchEngineChoiceEarlGreyUI
+      settingsSearchEngineMatcherWithName:kCustomSearchEngineName];
+  [[EarlGrey selectElementWithMatcher:searchEngineCellMatcher]
+      assertWithMatcher:grey_notNil()];
 }
 
-// TODO(crbug.com/325379827): Re-enable this test.
-// Deletes a non-selecetd custom search engine by entering edit mode.
-- (void)DISABLED_testDeleteCustomSearchEngineEdit {
+// Deletes a non-selected custom search engine by entering edit mode.
+- (void)testDeleteCustomSearchEngineEdit {
   [self enterSettingsWithCustomSearchEngine];
 
   id<GREYMatcher> editButton = grey_allOf(
@@ -261,13 +249,12 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
       grey_not(grey_accessibilityTrait(UIAccessibilityTraitNotEnabled)), nil);
   [[EarlGrey selectElementWithMatcher:editButton] performAction:grey_tap()];
 
-  id<GREYMatcher> customSearchEngineCell = [SearchEngineChoiceEarlGreyUI
-      settingsCustomSearchEngineAccessibilityLabelWithName:
-          kCustomSearchEngineName];
+  id<GREYMatcher> searchEngineCellMatcher = [SearchEngineChoiceEarlGreyUI
+      settingsSearchEngineMatcherWithName:kCustomSearchEngineName];
   [[SearchEngineChoiceEarlGreyUI
-      interactionForSettingsCustomSearchEngineWithName:kCustomSearchEngineName]
+      interactionForSettingsSearchEngineWithName:kCustomSearchEngineName]
       assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:customSearchEngineCell]
+  [[EarlGrey selectElementWithMatcher:searchEngineCellMatcher]
       performAction:grey_tap()];
 
   id<GREYMatcher> deleteButton = grey_allOf(
@@ -276,13 +263,14 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
       grey_not(grey_accessibilityTrait(UIAccessibilityTraitNotEnabled)), nil);
   [[EarlGrey selectElementWithMatcher:deleteButton] performAction:grey_tap()];
 
-  [[EarlGrey selectElementWithMatcher:customSearchEngineCell]
+  [[EarlGrey selectElementWithMatcher:searchEngineCellMatcher]
       assertWithMatcher:grey_nil()];
   // Verify the default search engine is still Google.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::SettingsDoneButton()]
       performAction:grey_tap()];
   NSString* googleSearchEngineName =
-      [SettingsAppInterface googleSearchEngineName];
+      [SearchEngineChoiceEarlGreyUI searchEngineNameWithPrepopulatedEngine:
+                                        TemplateURLPrepopulateData::google];
   [SearchEngineChoiceEarlGreyUI
       verifyDefaultSearchEngineSetting:googleSearchEngineName];
 }
@@ -317,10 +305,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 
   [ChromeEarlGrey loadURL:self.testServer->GetURL(GetSearchExample())];
 
-  [ChromeEarlGreyUI openSettingsMenu];
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::SettingsSearchEngineButton()]
-      performAction:grey_tap()];
+  [SearchEngineChoiceEarlGreyUI openSearchEngineSettings];
 }
 
 - (BOOL)wasOpenSearchCalled {

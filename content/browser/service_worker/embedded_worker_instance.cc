@@ -94,7 +94,7 @@ bool HasSentStartWorker(EmbeddedWorkerInstance::StartingPhase phase) {
     case EmbeddedWorkerInstance::SCRIPT_EVALUATION:
       return true;
     case EmbeddedWorkerInstance::STARTING_PHASE_MAX_VALUE:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   return false;
 }
@@ -304,6 +304,10 @@ void EmbeddedWorkerInstance::Start(
   {
     auto* storage_partition =
         static_cast<StoragePartitionImpl*>(rph->GetStoragePartition());
+
+    params->cors_exempt_header_list =
+        storage_partition->cors_exempt_header_list();
+
     // Create COEP reporter if COEP value is already available (= this worker is
     // not a worker which is going to be newly registered). The Mojo remote
     // `coep_reporter_` has the onwership of the instance. The `coep_reporter`
@@ -1040,7 +1044,7 @@ std::string EmbeddedWorkerInstance::StatusToString(
     case blink::EmbeddedWorkerStatus::kStopping:
       return "STOPPING";
   }
-  NOTREACHED() << static_cast<int>(status);
+  NOTREACHED_IN_MIGRATION() << static_cast<int>(status);
   return std::string();
 }
 
@@ -1062,9 +1066,9 @@ std::string EmbeddedWorkerInstance::StartingPhaseToString(StartingPhase phase) {
     case SCRIPT_EVALUATION:
       return "Script evaluation";
     case STARTING_PHASE_MAX_VALUE:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
-  NOTREACHED() << phase;
+  NOTREACHED_IN_MIGRATION() << phase;
   return std::string();
 }
 

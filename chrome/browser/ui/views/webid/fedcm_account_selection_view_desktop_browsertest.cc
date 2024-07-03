@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/webid/fedcm_account_selection_view_desktop.h"
 
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
@@ -13,6 +14,8 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/test_renderer_host.h"
+#include "content/public/test/web_contents_tester.h"
 
 class FedCmAccountSelectionViewBrowserTest : public DialogBrowserTest {
  public:
@@ -126,6 +129,18 @@ IN_PROC_BROWSER_TEST_F(FedCmAccountSelectionViewBrowserTest, ShowWhileHidden) {
 }
 
 IN_PROC_BROWSER_TEST_F(FedCmAccountSelectionViewBrowserTest,
+                       ShowWhileCannotFitInWebContents) {
+  browser()->tab_strip_model()->GetActiveWebContents()->Resize(
+      gfx::Rect(/*x=*/0, /*y=*/0, /*width=*/10, /*height=*/10));
+
+  Show();
+  // Since Show() was called while the web contents is too small, the dialog
+  // should have been created, but should not be visible.
+  ASSERT_TRUE(GetDialog());
+  EXPECT_FALSE(GetDialog()->IsVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(FedCmAccountSelectionViewBrowserTest,
                        ModalDialogThenShowThenCloseModalDialog) {
   PreShow();
   delegate_->SetAccountSelectedCallback(base::BindOnce(
@@ -165,4 +180,46 @@ IN_PROC_BROWSER_TEST_F(FedCmAccountSelectionViewBrowserTest, ClosedBrowser) {
   // Invoking this after browser is closed should not cause a crash.
   ShowUi("");
   EXPECT_FALSE(GetDialog());
+}
+
+// Tests that adding a new tab hides the FedCM UI, and closing tabs until the
+// original tab is shown causes the UI to be reshown.
+IN_PROC_BROWSER_TEST_F(FedCmAccountSelectionViewBrowserTest, AddTabHidesUI) {
+  Show();
+  ASSERT_TRUE(GetDialog());
+  EXPECT_TRUE(GetDialog()->IsVisible());
+  ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_TYPED));
+
+  // The dialog should be hidden since the new tab is appended foregrounded.
+  ASSERT_TRUE(GetDialog());
+  EXPECT_FALSE(GetDialog()->IsVisible());
+
+  ASSERT_TRUE(AddTabAtIndex(2, GURL("about:blank"), ui::PAGE_TRANSITION_TYPED));
+  ASSERT_TRUE(GetDialog());
+  EXPECT_FALSE(GetDialog()->IsVisible());
+
+  browser()->tab_strip_model()->CloseWebContentsAt(
+      2, TabCloseTypes::CLOSE_USER_GESTURE);
+  ASSERT_TRUE(GetDialog());
+  EXPECT_FALSE(GetDialog()->IsVisible());
+
+  browser()->tab_strip_model()->CloseWebContentsAt(
+      1, TabCloseTypes::CLOSE_USER_GESTURE);
+
+  // FedCM UI becomes visible again.
+  ASSERT_TRUE(GetDialog());
+  EXPECT_TRUE(GetDialog()->IsVisible());
+}
+
+// Tests that detaching a tab with FedCM UI does not trigger a crash.
+IN_PROC_BROWSER_TEST_F(FedCmAccountSelectionViewBrowserTest,
+                       DetachTabForInsertion) {
+  Show();
+  ASSERT_TRUE(GetDialog());
+  EXPECT_TRUE(GetDialog()->IsVisible());
+
+  // Add a new tab and detach the FedCM tab without closing it.
+  ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_TYPED));
+  browser()->tab_strip_model()->DetachTabAtForInsertion(0);
+  ASSERT_FALSE(GetDialog());
 }

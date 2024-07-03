@@ -11,6 +11,7 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/typed_macros.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
@@ -19,6 +20,7 @@
 #include "content/public/renderer/render_thread.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_api.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/features/feature.h"
 #include "extensions/common/features/feature_provider.h"
@@ -187,7 +189,7 @@ BindingsSystemPerContextData* GetBindingsDataFromContext(
       per_context_data->GetUserData(kBindingsSystemPerContextKey));
   CHECK(data);
   if (!data->bindings_system) {
-    NOTREACHED() << "Context outlived bindings system.";
+    NOTREACHED_IN_MIGRATION() << "Context outlived bindings system.";
     return nullptr;
   }
 
@@ -454,6 +456,26 @@ const char* const kWebAvailableFeatures[] = {
     "webstorePrivate",
     "management",
 };
+
+// Determines if a JS stack trace capture should happen just before
+// sending an API request to the browser.
+bool ShouldCollectJSStackTrace(const APIRequestHandler::Request& request) {
+  // NOTE: Please consider throttling the stack collection if you add any
+  // methods here that may be expected to be called very frequently to reduce
+  // any performance impacts.
+  static constexpr const char* kApiMethods[] = {
+      "tabs.create", "tabs.update", "tabs.remove", "tabs.captureVisibleTab",
+      "cookies.get", "cookies.getAll"};
+
+  if (!base::FeatureList::IsEnabled(
+          extensions_features::kIncludeJSCallStackInExtensionApiRequest)) {
+    return false;
+  }
+  if (!base::Contains(kApiMethods, request.method_name)) {
+    return false;
+  }
+  return true;
+}
 
 }  // namespace
 
@@ -946,7 +968,7 @@ void NativeExtensionBindingsSystem::GetInternalAPI(
   if (api_name != "nw.Window")
   if (!feature || !script_context->IsAnyFeatureAvailableToContext(
                       *feature, CheckAliasStatus::NOT_ALLOWED)) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1004,6 +1026,19 @@ void NativeExtensionBindingsSystem::SendRequest(
       blink::mojom::kInvalidServiceWorkerVersionId;
   CHECK_NE(mojom::ContextType::kUnspecified, script_context->context_type())
       << script_context->GetDebugString();
+
+  if (!params->extension_id.empty() && ShouldCollectJSStackTrace(*request)) {
+    auto start_time = base::TimeTicks::Now();
+    auto stack_trace = script_context->GetStackTrace(/*frame_limit=*/5);
+    auto end_time = base::TimeTicks::Now();
+    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+        "Extensions.Functions.ExtractJSCallStackElapsedTime",
+        end_time - start_time, base::Microseconds(1), base::Milliseconds(10),
+        50);
+    params->js_callstack = std::move(stack_trace);
+  } else {
+    params->js_callstack = std::nullopt;
+  }
 
   ipc_message_sender_->SendRequestIPC(script_context, std::move(params),
                                       request->sync, request->success,

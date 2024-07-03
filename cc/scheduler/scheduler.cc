@@ -111,6 +111,12 @@ void Scheduler::SetVisible(bool visible) {
   ProcessScheduledActions();
 }
 
+void Scheduler::SetShouldWarmUp() {
+  CHECK(base::FeatureList::IsEnabled(features::kWarmUpCompositor));
+  state_machine_.SetShouldWarmUp();
+  ProcessScheduledActions();
+}
+
 void Scheduler::SetCanDraw(bool can_draw) {
   state_machine_.SetCanDraw(can_draw);
   ProcessScheduledActions();
@@ -171,25 +177,26 @@ void Scheduler::SetNeedsRedraw() {
   ProcessScheduledActions();
 }
 
+void Scheduler::SetNeedsUpdateDisplayTree() {
+  state_machine_.SetNeedsUpdateDisplayTree();
+  ProcessScheduledActions();
+}
+
 void Scheduler::SetNeedsPrepareTiles() {
   DCHECK(!IsInsideAction(SchedulerStateMachine::Action::PREPARE_TILES));
   state_machine_.SetNeedsPrepareTiles();
   ProcessScheduledActions();
 }
 
-void Scheduler::DidSubmitCompositorFrame(uint32_t frame_token,
-                                         base::TimeTicks submit_time,
-                                         EventMetricsSet events_metrics,
-                                         bool has_missing_content) {
+void Scheduler::DidSubmitCompositorFrame(SubmitInfo& submit_info) {
   // Hardware and software draw may occur at the same frame simultaneously for
   // Android WebView. There is no need to call DidSubmitCompositorFrame here for
   // software draw.
   if (!settings_.using_synchronous_renderer_compositor ||
       !state_machine_.resourceless_draw()) {
     compositor_frame_reporting_controller_->DidSubmitCompositorFrame(
-        frame_token, submit_time, begin_main_frame_args_.frame_id,
-        last_activate_origin_frame_args_.frame_id, std::move(events_metrics),
-        has_missing_content);
+        submit_info, begin_main_frame_args_.frame_id,
+        last_activate_origin_frame_args_.frame_id);
   }
   state_machine_.DidSubmitCompositorFrame();
 
@@ -313,8 +320,9 @@ void Scheduler::StartOrStopBeginFrames() {
   }
 
   bool needs_begin_frames = state_machine_.ShouldSubscribeToBeginFrames();
-  if (needs_begin_frames == observing_begin_frame_source_)
+  if (needs_begin_frames == observing_begin_frame_source_) {
     return;
+  }
 
   if (needs_begin_frames) {
     observing_begin_frame_source_ = true;
@@ -810,6 +818,7 @@ void Scheduler::OnBeginImplFrameDeadline() {
     }
 
     state_machine_.OnBeginImplFrameDeadline();
+    client_->OnBeginImplFrameDeadline();
   }
   ProcessScheduledActions();
 
@@ -855,6 +864,15 @@ void Scheduler::DrawForced() {
   DrawResult result = client_->ScheduledActionDrawForced();
   state_machine_.DidDraw(result);
   compositor_timing_history_->DidDraw();
+}
+
+void Scheduler::UpdateDisplayTree() {
+  DCHECK(!inside_scheduled_action_);
+  base::AutoReset<bool> mark_inside(&inside_scheduled_action_, true);
+
+  // TODO(rockot): Update CompositorTimingHistory.
+  state_machine_.WillUpdateDisplayTree();
+  client_->ScheduledActionUpdateDisplayTree();
 }
 
 void Scheduler::SetDeferBeginMainFrame(bool defer_begin_main_frame) {
@@ -965,6 +983,9 @@ void Scheduler::ProcessScheduledActions() {
         // No action is actually performed, but this allows the state machine to
         // drain the pipeline without actually drawing.
         state_machine_.AbortDraw();
+        break;
+      case SchedulerStateMachine::Action::UPDATE_DISPLAY_TREE:
+        UpdateDisplayTree();
         break;
       case SchedulerStateMachine::Action::BEGIN_LAYER_TREE_FRAME_SINK_CREATION:
         state_machine_.WillBeginLayerTreeFrameSinkCreation();

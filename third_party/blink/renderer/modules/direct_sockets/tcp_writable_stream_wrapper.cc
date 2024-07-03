@@ -86,7 +86,7 @@ void TCPWritableStreamWrapper::OnHandleReady(MojoResult result,
       break;
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -116,13 +116,13 @@ ScriptPromise<IDLUndefined> TCPWritableStreamWrapper::Write(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNetworkError,
         "The underlying data pipe was disconnected.");
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   buffer_source_ = V8BufferSource::Create(GetScriptState()->GetIsolate(),
                                           chunk.V8Value(), exception_state);
   if (exception_state.HadException()) {
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
   DCHECK(buffer_source_);
 
@@ -183,7 +183,7 @@ size_t TCPWritableStreamWrapper::WriteDataSynchronously(
       return 0;
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return 0;
   }
 }

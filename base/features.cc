@@ -10,6 +10,7 @@
 #include "build/buildflag.h"
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+#include "base/message_loop/message_pump_epoll.h"
 #include "base/message_loop/message_pump_libevent.h"
 #endif
 
@@ -40,14 +41,14 @@ BASE_FEATURE(kEnforceNoExecutableFileHandles,
              FEATURE_ENABLED_BY_DEFAULT);
 
 // TODO(crbug.com/40580068): Roll out this to 100% before replacing existing
-// NOTREACHED_IN_MIGRATION()s with NOTREACHED_NORETURN() as part of
-// NOTREACHED_IN_MIGRATION() migration. Note that a prerequisite for rolling out
-// this experiment is that existing NOTREACHED reports are at a very low rate.
-// Once this rolls out we should monitor that crash rates for the experiment
-// population is within a 1-5% or lower than the control group.
+// NOTREACHED_IN_MIGRATION()s with NOTREACHED() as part of [[noreturn]]
+// migration. Note that a prerequisite for rolling out this experiment is that
+// existing NOTREACHED() reports are at a very low rate. Once this rolls out we
+// should monitor that crash rates for the experiment population is within a
+// 1-5% or lower than the control group.
 BASE_FEATURE(kNotReachedIsFatal,
              "NotReachedIsFatal",
-             FEATURE_DISABLED_BY_DEFAULT);
+             FEATURE_ENABLED_BY_DEFAULT);
 
 // Optimizes parsing and loading of data: URLs.
 BASE_FEATURE(kOptimizeDataUrls, "OptimizeDataUrls", FEATURE_ENABLED_BY_DEFAULT);
@@ -55,8 +56,6 @@ BASE_FEATURE(kOptimizeDataUrls, "OptimizeDataUrls", FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kUseRustJsonParser,
              "UseRustJsonParser",
              FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kJsonNegativeZero, "JsonNegativeZero", FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
 // Force to enable LowEndDeviceMode partially on Android 3Gb devices.
@@ -100,6 +99,7 @@ void Init(EmitThreadControllerProfilerMetadata
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   MessagePumpLibevent::InitializeFeatures();
+  MessagePumpEpoll::InitializeFeatures();
 #endif
 
 #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_CHROMEOS)

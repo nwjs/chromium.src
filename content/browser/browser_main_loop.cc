@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/browser_main_loop.h"
 
 #include <stddef.h>
@@ -198,8 +203,6 @@
 
 #include "base/threading/platform_thread_win.h"
 #include "net/base/winsock_init.h"
-#include "sandbox/policy/win/sandbox_win.h"
-#include "sandbox/win/src/sandbox.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -213,7 +216,6 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "media/device_monitors/system_message_window_win.h"
-#include "sandbox/win/src/process_mitigations.h"
 #elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && defined(USE_UDEV)
 #include "media/device_monitors/device_monitor_udev.h"
 #endif
@@ -282,7 +284,7 @@ static void GLibLogHandler(const gchar* log_domain,
              (G_LOG_LEVEL_MESSAGE | G_LOG_LEVEL_INFO | G_LOG_LEVEL_DEBUG)) {
     LOG(INFO) << log_domain << ": " << message;
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     LOG(DFATAL) << log_domain << ": " << message;
   }
 }
@@ -393,16 +395,6 @@ mojo::PendingRemote<data_decoder::mojom::BleScanParser> GetBleScanParser() {
   return ble_scan_parser;
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-#if BUILDFLAG(IS_WIN)
-// Disable dynamic code using ACG. Prevents the browser process from generating
-// dynamic code or modifying executable code. See comments in
-// sandbox/win/src/security_level.h. Only available on Windows 10 RS1 (1607,
-// Build 14393) onwards.
-BASE_FEATURE(kBrowserDynamicCodeDisabled,
-             "BrowserDynamicCodeDisabled",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_WIN)
 
 class OopDataDecoder : public data_decoder::ServiceProvider {
  public:
@@ -622,15 +614,6 @@ int BrowserMainLoop::EarlyInitialization() {
   zx_status_t result =
       zx::job::default_job()->set_critical(0, *zx::process::self());
   ZX_CHECK(ZX_OK == result, result) << "zx_job_set_critical";
-#endif
-
-#if BUILDFLAG(IS_WIN)
-  if (!parsed_command_line_->HasSwitch(switches::kSingleProcess) &&
-      base::FeatureList::IsEnabled(kBrowserDynamicCodeDisabled) &&
-      parameters_.sandbox_info && parameters_.sandbox_info->broker_services) {
-    parameters_.sandbox_info->broker_services->RatchetDownSecurityMitigations(
-        sandbox::MITIGATION_DYNAMIC_CODE_DISABLE_WITH_OPT_OUT);
-  }
 #endif
 
   if (parsed_command_line_->HasSwitch(switches::kRendererProcessLimit)) {
@@ -1085,7 +1068,7 @@ BrowserMainLoop::InterceptMainMessageLoopRun() {
 void BrowserMainLoop::RunMainMessageLoop() {
 #if BUILDFLAG(IS_ANDROID)
   // Android's main message loop is the Java message loop.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 #else  // BUILDFLAG(IS_ANDROID)
   if (InterceptMainMessageLoopRun() != ProceedWithMainMessageLoopRun(true))
     return;

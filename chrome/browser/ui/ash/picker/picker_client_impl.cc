@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "ash/constants/ash_features.h"
 #include "ash/picker/picker_controller.h"
 #include "ash/public/cpp/picker/picker_search_result.h"
 #include "base/check.h"
@@ -40,12 +41,13 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/picker/picker_file_suggester.h"
 #include "chrome/browser/ui/ash/picker/picker_lacros_omnibox_search_provider.h"
+#include "chrome/browser/ui/ash/picker/picker_thumbnail_loader.h"
 #include "chrome/browser/ui/webui/ash/emoji/emoji_picker.mojom-forward.h"
 #include "chrome/browser/ui/webui/ash/emoji/emoji_picker.mojom-shared.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/drivefs/mojom/drivefs.mojom.h"
 #include "chromeos/components/editor_menu/public/cpp/preset_text_query.h"
 #include "chromeos/constants/chromeos_features.h"
-#include "chromeos/ui/base/file_icon_util.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/storage_partition.h"
@@ -73,15 +75,13 @@ bool IsSupportedLocalFileFormat(const base::FilePath& file_path) {
   return false;
 }
 
-std::vector<ash::PickerSearchResult> CreateSearchResultsForRecentLocalFiles(
+std::vector<ash::PickerSearchResult> CreateSearchResultsForRecentLocalImages(
     std::vector<PickerFileSuggester::LocalFile> files) {
   std::vector<ash::PickerSearchResult> results;
   results.reserve(files.size());
   for (PickerFileSuggester::LocalFile& file : files) {
-    if (IsSupportedLocalFileFormat(file.path)) {
-      results.push_back(ash::PickerSearchResult::LocalFile(
-          std::move(file.title), std::move(file.path)));
-    }
+    results.push_back(ash::PickerSearchResult::LocalFile(std::move(file.title),
+                                                         std::move(file.path)));
   }
   return results;
 }
@@ -92,16 +92,19 @@ std::vector<ash::PickerSearchResult> CreateSearchResultsForRecentDriveFiles(
   results.reserve(files.size());
   for (PickerFileSuggester::DriveFile& file : files) {
     results.push_back(ash::PickerSearchResult::DriveFile(
-        std::move(file.title), std::move(file.url),
-        ui::ImageModel::FromVectorIcon(
-            chromeos::GetIconForPath(file.local_path))));
+        std::move(file.title), std::move(file.url), file.local_path));
   }
   return results;
 }
 
 std::unique_ptr<app_list::SearchProvider> CreateDriveSearchProvider(
     Profile* profile) {
-  return std::make_unique<app_list::DriveSearchProvider>(profile);
+  auto provider = std::make_unique<app_list::DriveSearchProvider>(profile);
+  if (base::FeatureList::IsEnabled(ash::features::kPickerCloud)) {
+    provider->SetQuerySource(
+        drivefs::mojom::QueryParameters::QuerySource::kCloudOnly);
+  }
+  return provider;
 }
 
 std::unique_ptr<app_list::SearchProvider> CreateFileSearchProvider(
@@ -153,7 +156,7 @@ std::vector<ash::PickerSearchResult> ConvertSearchResults(
       }
       case ash::AppListSearchResultType::kDriveSearch:
         picker_results.push_back(ash::PickerSearchResult::DriveFile(
-            result->title(), *result->url(), result->icon().icon));
+            result->title(), *result->url(), result->filePath()));
         break;
       default:
         LOG(DFATAL) << "Got unexpected search result type "
@@ -390,16 +393,18 @@ void PickerClientImpl::GetSuggestedEditorResults(
           .Then(std::move(callback)));
 }
 
-void PickerClientImpl::GetRecentLocalFileResults(RecentFilesCallback callback) {
-  file_suggester_->GetRecentLocalFiles(
-      base::BindOnce(CreateSearchResultsForRecentLocalFiles)
-          .Then(std::move(callback)));
+void PickerClientImpl::GetRecentLocalFileResults(size_t max_files,
+                                                 RecentFilesCallback callback) {
+  file_suggester_->GetRecentLocalImages(
+      max_files, base::BindOnce(CreateSearchResultsForRecentLocalImages)
+                     .Then(std::move(callback)));
 }
 
-void PickerClientImpl::GetRecentDriveFileResults(RecentFilesCallback callback) {
+void PickerClientImpl::GetRecentDriveFileResults(size_t max_files,
+                                                 RecentFilesCallback callback) {
   file_suggester_->GetRecentDriveFiles(
-      base::BindOnce(CreateSearchResultsForRecentDriveFiles)
-          .Then(std::move(callback)));
+      max_files, base::BindOnce(CreateSearchResultsForRecentDriveFiles)
+                     .Then(std::move(callback)));
 }
 
 void PickerClientImpl::GetSuggestedLinkResults(
@@ -421,6 +426,17 @@ void PickerClientImpl::GetSuggestedLinkResults(
 
 bool PickerClientImpl::IsFeatureAllowedForDogfood() {
   return gaia::IsGoogleInternalAccountEmail(profile_->GetProfileUserName());
+}
+
+void PickerClientImpl::FetchFileThumbnail(const base::FilePath& path,
+                                          const gfx::Size& size,
+                                          FetchFileThumbnailCallback callback) {
+  CHECK(thumbnail_loader_);
+  thumbnail_loader_->Load(path, size, std::move(callback));
+}
+
+PrefService* PickerClientImpl::GetPrefs() {
+  return profile_ == nullptr ? nullptr : profile_->GetPrefs();
 }
 
 void PickerClientImpl::ActiveUserChanged(user_manager::User* active_user) {
@@ -456,6 +472,7 @@ void PickerClientImpl::SetProfile(Profile* profile) {
   zero_state_links_search_engine_.reset();
 
   file_suggester_ = std::make_unique<PickerFileSuggester>(profile_);
+  thumbnail_loader_ = std::make_unique<PickerThumbnailLoader>(profile_);
 }
 
 std::unique_ptr<app_list::SearchProvider>

@@ -104,7 +104,7 @@ PrefetchStatus PrefetchStatusFromIneligibleReason(
     case PreloadingEligibility::kEligible:
     default:
       // Other ineligible cases are not used in `PrefetchService`.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return PrefetchStatus::kPrefetchIneligiblePreloadingDisabled;
   }
 }
@@ -682,7 +682,7 @@ PrefetchDocumentManager* PrefetchContainer::GetPrefetchDocumentManager() const {
 void PrefetchContainer::SetLoadState(LoadState new_load_state) {
   switch (new_load_state) {
     case LoadState::kNotStarted:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
 
     case LoadState::kEligible:
@@ -965,6 +965,17 @@ PrefetchRequestHandler PrefetchContainer::Reader::CreateRequestHandler() {
   AdvanceCurrentURLToServe();
 
   return handler;
+}
+
+bool PrefetchContainer::Reader::VariesOnCookieIndices() const {
+  return GetCurrentSinglePrefetchToServe()
+      .response_reader_->VariesOnCookieIndices();
+}
+
+bool PrefetchContainer::Reader::MatchesCookieIndices(
+    base::span<const std::pair<std::string, std::string>> cookies) const {
+  return GetCurrentSinglePrefetchToServe()
+      .response_reader_->MatchesCookieIndices(cookies);
 }
 
 void PrefetchContainer::CancelStreamingURLLoaderIfNotServing() {
@@ -1402,6 +1413,8 @@ void PrefetchContainer::MakeResourceRequest(
   request->credentials_mode = network::mojom::CredentialsMode::kInclude;
   request->headers.MergeFrom(additional_headers);
   request->headers.SetHeader(kCorsExemptPurposeHeaderName, "prefetch");
+  // TODO(https://crbug.com/342089492): Use `Sec-Purpose: prefetch;prerender`
+  // for prefetch ahead of prerender.
   request->headers.SetHeader("Sec-Purpose", IsProxyRequiredForURL(url)
                                                 ? "prefetch;anonymous-client-ip"
                                                 : "prefetch");

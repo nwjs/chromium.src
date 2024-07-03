@@ -25,7 +25,7 @@ found in the LICENSE file.
     <dimen name="toolbar_edge_padding_modern_polish">16dp</dimen>
     <dimen name="location_bar_vertical_margin">8dp</dimen>
     <dimen name="location_bar_url_text_size">16sp</dimen>
-    <dimen name="location_bar_url_text_size_polish">18sp</dimen>
+    <dimen name="ntp_fake_search_box_text_size">18sp</dimen>
     <dimen name="location_bar_icon_width">28dp</dimen>
     <dimen name="location_bar_action_icon_width">@dimen/min_touch_target_size</dimen>
     <dimen name="location_bar_action_icon_height">@dimen/min_touch_target_size</dimen>
@@ -97,9 +97,9 @@ found in the LICENSE file.
     <dimen name="omnibox_suggestion_icon_area_size_large">72dp</dimen>
 
     <dimen name="omnibox_suggestion_action_button_width">48dp</dimen>
-    <dimen name="omnibox_suggestion_end_padding_modern">@dimen/omnibox_suggestion_dropdown_side_spacing</dimen>
+    <dimen name="omnibox_suggestion_end_padding">@dimen/omnibox_suggestion_dropdown_side_spacing</dimen>
 
-    <dimen name="omnibox_suggestion_bg_elevation_modern">@dimen/default_elevation_0</dimen>
+    <dimen name="omnibox_suggestion_bg_elevation">@dimen/default_elevation_0</dimen>
     <dimen name="omnibox_suggestion_bg_round_corner_radius">16dp</dimen>
     <dimen name="omnibox_suggestion_side_spacing_smallest">8dp</dimen>
     <dimen name="omnibox_suggestion_dropdown_side_spacing">0dp</dimen>
@@ -119,4 +119,8 @@ found in the LICENSE file.
     <dimen name="omnibox_button_highlight_height">32dp</dimen>
     <dimen name="status_view_highlight_size">32dp</dimen>
     <dimen name="location_bar_status_icon_area_size">32dp</dimen>
+
+    <!-- Text style dimensions. -->
+    <dimen name="rich_answer_card_headline_size">20sp</dimen>
+    <dimen name="rich_answer_card_headline_leading">24</dimen>
 </resources>

@@ -139,6 +139,10 @@ extern NSString* const kGenericPromoInteractionCount;
 // promo has been displayed.
 extern NSString* const kTailoredPromoInteractionCount;
 
+// Key in storage containing the timestamp of when trigger criteria experiment
+// started.
+extern NSString* const kTimestampTriggerCriteriaExperimentStarted;
+
 // Loads from NSUserDefaults the time of the non-expired events for the
 // given promo type.
 std::vector<base::Time> LoadTimestampsForPromoType(DefaultPromoType type);
@@ -174,17 +178,19 @@ bool ShouldTriggerDefaultBrowserHighlightFeature(
 // enabled.
 bool IsNonModalDefaultBrowserPromoCooldownRefactorEnabled();
 
-// Returns true if the default browser promo triggering criteria should be
-// skipped.
-bool ShouldForceDefaultPromoType();
-
-// Returns the promo type (DefaultPromoType) of the default browser promo after
-// skipping the triggering criteria.
-DefaultPromoType ForceDefaultPromoType();
-
 // Returns true if client is in Default Browser promo trigger criteria
 // experiment.
 bool IsDefaultBrowserTriggerCriteraExperimentEnabled();
+
+// Sets trigger criteria experiment start timestamp to now.
+void SetTriggerCriteriaExperimentStartTimestamp();
+
+// Returns true if trigger criteria experiment has been started.
+bool HasTriggerCriteriaExperimentStarted();
+
+// Returns true if trigger criteria experiment has been started for at least 21
+// days.
+bool HasTriggerCriteriaExperimentStarted21days();
 
 // Returns true if the default browser promo generic tailored experiment is
 // enabled.
@@ -193,10 +199,6 @@ bool IsDefaultBrowserPromoGenericTailoredTrainEnabled();
 // Returns true if the only-generic arm of the default browser promo generic
 // tailored experiment is enabled.
 bool IsDefaultBrowserPromoOnlyGenericArmTrain();
-
-// Returns true if default Browser full-screen promo should be shown on omnibox
-// copy-paste instead of non-modal promo.
-bool IsFullScreenPromoOnOmniboxCopyPasteEnabled();
 
 // Returns true if client is in default browser video in settings experiment.
 bool IsDefaultBrowserVideoInSettingsEnabled();

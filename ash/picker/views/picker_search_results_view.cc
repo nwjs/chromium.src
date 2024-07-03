@@ -15,8 +15,6 @@
 #include "ash/picker/picker_asset_fetcher.h"
 #include "ash/picker/views/picker_emoji_item_view.h"
 #include "ash/picker/views/picker_emoticon_item_view.h"
-#include "ash/picker/views/picker_gif_view.h"
-#include "ash/picker/views/picker_icons.h"
 #include "ash/picker/views/picker_image_item_view.h"
 #include "ash/picker/views/picker_item_view.h"
 #include "ash/picker/views/picker_list_item_view.h"
@@ -26,15 +24,11 @@
 #include "ash/picker/views/picker_section_view.h"
 #include "ash/picker/views/picker_strings.h"
 #include "ash/picker/views/picker_symbol_item_view.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/typography.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/functional/overloaded.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chromeos/ui/vector_icons/vector_icons.h"
-#include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
@@ -50,23 +44,9 @@
 namespace ash {
 namespace {
 
-// Some of the icons we use do not have a default size, so we need to manually
-// set it.
-constexpr int kIconSize = 20;
-
 constexpr auto kNoResultsViewLabelMargin = gfx::Insets::VH(32, 16);
 
 constexpr int kMaxIndexForMetrics = 10;
-
-PickerCategory GetCategoryForEditorData(
-    const PickerSearchResult::EditorData& data) {
-  switch (data.mode) {
-    case PickerSearchResult::EditorData::Mode::kWrite:
-      return PickerCategory::kEditorWrite;
-    case PickerSearchResult::EditorData::Mode::kRewrite:
-      return PickerCategory::kEditorRewrite;
-  }
-}
 
 }  // namespace
 
@@ -74,13 +54,13 @@ PickerSearchResultsView::PickerSearchResultsView(
     PickerSearchResultsViewDelegate* delegate,
     int picker_view_width,
     PickerAssetFetcher* asset_fetcher)
-    : delegate_(delegate), asset_fetcher_(asset_fetcher) {
+    : delegate_(delegate) {
   SetLayoutManager(std::make_unique<views::FlexLayout>())
       ->SetOrientation(views::LayoutOrientation::kVertical);
   SetProperty(views::kElementIdentifierKey, kPickerSearchResultsPageElementId);
 
-  section_list_view_ =
-      AddChildView(std::make_unique<PickerSectionListView>(picker_view_width));
+  section_list_view_ = AddChildView(std::make_unique<PickerSectionListView>(
+      picker_view_width, asset_fetcher));
   no_results_view_ = AddChildView(
       views::Builder<views::Label>(
           bubble_utils::CreateLabel(
@@ -111,16 +91,15 @@ bool PickerSearchResultsView::MovePseudoFocusUp() {
   if (views::IsViewClass<PickerItemView>(pseudo_focused_view_)) {
     // Try to move directly to an item above the currently pseudo focused item,
     // i.e. skip non-item views.
-    if (PickerItemView* item = section_list_view_->GetItemAbove(
-            views::AsViewClass<PickerItemView>(pseudo_focused_view_))) {
+    if (views::View* item =
+            section_list_view_->GetItemAbove(pseudo_focused_view_)) {
       SetPseudoFocusedView(item);
       return true;
     }
   }
 
   // Default to backward pseudo focus traversal.
-  AdvancePseudoFocus(PseudoFocusDirection::kBackward);
-  return true;
+  return AdvancePseudoFocus(PseudoFocusDirection::kBackward);
 }
 
 bool PickerSearchResultsView::MovePseudoFocusDown() {
@@ -131,16 +110,15 @@ bool PickerSearchResultsView::MovePseudoFocusDown() {
   if (views::IsViewClass<PickerItemView>(pseudo_focused_view_)) {
     // Try to move directly to an item below the currently pseudo focused item,
     // i.e. skip non-item views.
-    if (PickerItemView* item = section_list_view_->GetItemBelow(
-            views::AsViewClass<PickerItemView>(pseudo_focused_view_))) {
+    if (views::View* item =
+            section_list_view_->GetItemBelow(pseudo_focused_view_)) {
       SetPseudoFocusedView(item);
       return true;
     }
   }
 
   // Default to forward pseudo focus traversal.
-  AdvancePseudoFocus(PseudoFocusDirection::kForward);
-  return true;
+  return AdvancePseudoFocus(PseudoFocusDirection::kForward);
 }
 
 bool PickerSearchResultsView::MovePseudoFocusLeft() {
@@ -153,8 +131,8 @@ bool PickerSearchResultsView::MovePseudoFocusLeft() {
   // left of the current pseudo focused item. In other situations, we prefer not
   // to handle the movement here so that it can instead be used for other
   // purposes, e.g. moving the caret in the search field.
-  if (PickerItemView* item = section_list_view_->GetItemLeftOf(
-          views::AsViewClass<PickerItemView>(pseudo_focused_view_))) {
+  if (views::View* item =
+          section_list_view_->GetItemLeftOf(pseudo_focused_view_)) {
     SetPseudoFocusedView(item);
     return true;
   }
@@ -171,40 +149,44 @@ bool PickerSearchResultsView::MovePseudoFocusRight() {
   // right of the current pseudo focused item. In other situations, we prefer
   // not to handle the movement here so that it can instead be used for other
   // purposes, e.g. moving the caret in the search field.
-  if (PickerItemView* item = section_list_view_->GetItemRightOf(
-          views::AsViewClass<PickerItemView>(pseudo_focused_view_))) {
+  if (views::View* item =
+          section_list_view_->GetItemRightOf(pseudo_focused_view_)) {
     SetPseudoFocusedView(item);
     return true;
   }
   return false;
 }
 
-void PickerSearchResultsView::AdvancePseudoFocus(
+bool PickerSearchResultsView::AdvancePseudoFocus(
     PseudoFocusDirection direction) {
   if (pseudo_focused_view_ == nullptr) {
-    return;
+    return false;
   }
 
   views::View* view = GetFocusManager()->GetNextFocusableView(
       pseudo_focused_view_, GetWidget(),
       direction == PseudoFocusDirection::kBackward,
       /*dont_loop=*/false);
-  // If the next view is outside this PickerSearchResultsView, then loop back to
-  // the first (or last) view.
-  if (!Contains(view)) {
-    view = GetFocusManager()->GetNextFocusableView(
-        this, GetWidget(), direction == PseudoFocusDirection::kBackward,
-        /*dont_loop=*/false);
-  }
-
-  // There can be a short period of time where child views have been added but
-  // not drawn yet, so are not considered focusable. The computed `view` may not
-  // be valid in these cases. If so, just leave the current pseudo focused view.
   if (view == nullptr || !Contains(view)) {
-    return;
+    return false;
   }
-
   SetPseudoFocusedView(view);
+  return true;
+}
+
+bool PickerSearchResultsView::GainPseudoFocus(PseudoFocusDirection direction) {
+  views::View* view = GetFocusManager()->GetNextFocusableView(
+      this, GetWidget(), direction == PseudoFocusDirection::kBackward,
+      /*dont_loop=*/false);
+  if (view == nullptr || !Contains(view)) {
+    return false;
+  }
+  SetPseudoFocusedView(view);
+  return true;
+}
+
+void PickerSearchResultsView::LosePseudoFocus() {
+  SetPseudoFocusedView(nullptr);
 }
 
 void PickerSearchResultsView::ClearSearchResults() {
@@ -256,132 +238,14 @@ void PickerSearchResultsView::AddResultToSection(
     PickerSectionView* section_view) {
   // `base::Unretained` is safe here because `this` will own the item view which
   // takes this callback.
-  auto select_result_callback =
+  PickerItemView* view = section_view->AddResult(
+      result, &preview_controller_,
       base::BindRepeating(&PickerSearchResultsView::SelectSearchResult,
-                          base::Unretained(this), result);
-  std::visit(
-      base::Overloaded{
-          [&](const PickerSearchResult::TextData& data) {
-            auto item_view = std::make_unique<PickerListItemView>(
-                std::move(select_result_callback));
-            item_view->SetPrimaryText(data.primary_text);
-            item_view->SetSecondaryText(data.secondary_text);
-            item_view->SetLeadingIcon(data.icon);
-            section_view->AddListItem(std::move(item_view));
-          },
-          [&](const PickerSearchResult::SearchRequestData& data) {
-            auto item_view = std::make_unique<PickerListItemView>(
-                std::move(select_result_callback));
-            item_view->SetPrimaryText(data.text);
-            item_view->SetLeadingIcon(data.icon);
-            section_view->AddListItem(std::move(item_view));
-          },
-          [&](const PickerSearchResult::EmojiData& data) {
-            auto emoji_item = std::make_unique<PickerEmojiItemView>(
-                std::move(select_result_callback), data.emoji);
-            section_view->AddEmojiItem(std::move(emoji_item));
-          },
-          [&](const PickerSearchResult::SymbolData& data) {
-            auto symbol_item = std::make_unique<PickerSymbolItemView>(
-                std::move(select_result_callback), data.symbol);
-            section_view->AddSymbolItem(std::move(symbol_item));
-          },
-          [&](const PickerSearchResult::EmoticonData& data) {
-            auto emoticon_item = std::make_unique<PickerEmoticonItemView>(
-                std::move(select_result_callback), data.emoticon);
-            section_view->AddEmoticonItem(std::move(emoticon_item));
-          },
-          [&](const PickerSearchResult::ClipboardData& data) {
-            auto item_view = std::make_unique<PickerListItemView>(
-                std::move(select_result_callback));
-            const gfx::VectorIcon* icon = nullptr;
-            switch (data.display_format) {
-              case PickerSearchResult::ClipboardData::DisplayFormat::kFile:
-                icon = &vector_icons::kContentCopyIcon;
-                item_view->SetPrimaryText(data.display_text);
-                break;
-              case PickerSearchResult::ClipboardData::DisplayFormat::kText:
-                icon = &chromeos::kTextIcon;
-                item_view->SetPrimaryText(data.display_text);
-                break;
-              case PickerSearchResult::ClipboardData::DisplayFormat::kImage:
-                if (!data.display_image.has_value()) {
-                  return;
-                }
-                icon = &chromeos::kFiletypeImageIcon;
-                item_view->SetPrimaryImage(
-                    std::make_unique<views::ImageView>(*data.display_image));
-                break;
-              case PickerSearchResult::ClipboardData::DisplayFormat::kHtml:
-                icon = &vector_icons::kCodeIcon;
-                item_view->SetPrimaryText(
-                    l10n_util::GetStringUTF16(IDS_PICKER_HTML_CONTENT));
-                break;
-            }
-            if (icon) {
-              item_view->SetLeadingIcon(ui::ImageModel::FromVectorIcon(
-                  *icon, cros_tokens::kCrosSysOnSurface, kIconSize));
-            }
-            section_view->AddListItem(std::move(item_view));
-          },
-          [&, this](const PickerSearchResult::GifData& data) {
-            // `base::Unretained` is safe here because `this` will own the gif
-            // view and `asset_fetcher_` outlives `this`.
-            auto gif_view = std::make_unique<PickerGifView>(
-                base::BindRepeating(&PickerAssetFetcher::FetchGifFromUrl,
-                                    base::Unretained(asset_fetcher_),
-                                    data.preview_url),
-                base::BindRepeating(
-                    &PickerAssetFetcher::FetchGifPreviewImageFromUrl,
-                    base::Unretained(asset_fetcher_), data.preview_image_url),
-                data.preview_dimensions,
-                /*accessible_name=*/data.content_description);
-            auto gif_item_view = std::make_unique<PickerImageItemView>(
-                std::move(select_result_callback), std::move(gif_view));
-            section_view->AddImageItem(std::move(gif_item_view));
-          },
-          [&](const PickerSearchResult::BrowsingHistoryData& data) {
-            auto item_view = std::make_unique<PickerListItemView>(
-                std::move(select_result_callback));
-            item_view->SetPrimaryText(data.title);
-            item_view->SetSecondaryText(base::UTF8ToUTF16(data.url.spec()));
-            item_view->SetLeadingIcon(data.icon);
-            section_view->AddListItem(std::move(item_view));
-          },
-          [&](const PickerSearchResult::LocalFileData& data) {
-            auto item_view = std::make_unique<PickerListItemView>(
-                std::move(select_result_callback));
-            // TODO: b/330794217 - Add preview once it's available.
-            item_view->SetPrimaryText(data.title);
-            item_view->SetLeadingIcon(ui::ImageModel::FromVectorIcon(
-                chromeos::kFiletypeImageIcon, cros_tokens::kCrosSysOnSurface));
-            section_view->AddListItem(std::move(item_view));
-          },
-          [&](const PickerSearchResult::DriveFileData& data) {
-            auto item_view = std::make_unique<PickerListItemView>(
-                std::move(select_result_callback));
-            // TODO: b/330794217 - Add preview once it's available.
-            item_view->SetPrimaryText(data.title);
-            item_view->SetLeadingIcon(data.icon);
-            section_view->AddListItem(std::move(item_view));
-          },
-          [&](const PickerSearchResult::CategoryData& data) {
-            auto item_view = std::make_unique<PickerListItemView>(
-                std::move(select_result_callback));
-            item_view->SetPrimaryText(GetLabelForPickerCategory(data.category));
-            item_view->SetLeadingIcon(GetIconForPickerCategory(data.category));
-            section_view->AddListItem(std::move(item_view));
-          },
-          [&](const PickerSearchResult::EditorData& data) {
-            auto item_view = std::make_unique<PickerListItemView>(
-                std::move(select_result_callback));
-            const PickerCategory category = GetCategoryForEditorData(data);
-            item_view->SetPrimaryText(GetLabelForPickerCategory(category));
-            item_view->SetLeadingIcon(GetIconForPickerCategory(category));
-            section_view->AddListItem(std::move(item_view));
-          },
-      },
-      result.data());
+                          base::Unretained(this), result));
+
+  if (auto* list_item_view = views::AsViewClass<PickerListItemView>(view)) {
+    list_item_view->SetBadgeAction(delegate_->GetActionForResult(result));
+  }
 }
 
 void PickerSearchResultsView::SetPseudoFocusedView(views::View* view) {
@@ -412,19 +276,18 @@ void PickerSearchResultsView::ScrollPseudoFocusedViewToVisible() {
     return;
   }
 
-  auto* pseudo_focused_item =
-      views::AsViewClass<PickerItemView>(pseudo_focused_view_);
-  if (section_list_view_->GetItemAbove(pseudo_focused_item) == nullptr) {
+  if (section_list_view_->GetItemAbove(pseudo_focused_view_) == nullptr) {
     // For items at the top, scroll all the way up to let users see that they
     // have reached the top of the zero state view.
     ScrollRectToVisible(gfx::Rect(GetLocalBounds().origin(), gfx::Size()));
-  } else if (section_list_view_->GetItemBelow(pseudo_focused_item) == nullptr) {
+  } else if (section_list_view_->GetItemBelow(pseudo_focused_view_) ==
+             nullptr) {
     // For items at the bottom, scroll all the way down to let users see that
     // they have reached the bottom of the zero state view.
     ScrollRectToVisible(gfx::Rect(GetLocalBounds().bottom_left(), gfx::Size()));
   } else {
     // Otherwise, just ensure the item is visible.
-    pseudo_focused_item->ScrollViewToVisible();
+    pseudo_focused_view_->ScrollViewToVisible();
   }
 }
 

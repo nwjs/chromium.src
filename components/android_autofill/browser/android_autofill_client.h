@@ -27,6 +27,7 @@ class AutofillSuggestionDelegate;
 class CreditCard;
 class PersonalDataManager;
 class StrikeDatabase;
+enum class SuggestionType;
 }  // namespace autofill
 
 namespace content {
@@ -94,10 +95,7 @@ class AndroidAutofillClient : public autofill::ContentAutofillClient {
   security_state::SecurityLevel GetSecurityLevelForUmaHistograms() override;
   const translate::LanguageState* GetLanguageState() override;
   translate::TranslateDriver* GetTranslateDriver() override;
-  void ShowAutofillSettings(
-      autofill::FillingProduct main_filling_product) override;
-  void ConfirmCreditCardFillAssist(const autofill::CreditCard& card,
-                                   base::OnceClosure callback) override;
+  void ShowAutofillSettings(autofill::SuggestionType suggestion_type) override;
   void ConfirmSaveAddressProfile(
       const autofill::AutofillProfile& profile,
       const autofill::AutofillProfile* original_profile,
@@ -113,7 +111,8 @@ class AndroidAutofillClient : public autofill::ContentAutofillClient {
   void ScanCreditCard(CreditCardScanCallback callback) override;
   bool ShowTouchToFillCreditCard(
       base::WeakPtr<autofill::TouchToFillDelegate> delegate,
-      base::span<const autofill::CreditCard> cards_to_suggest) override;
+      base::span<const autofill::CreditCard> cards_to_suggest,
+      const std::vector<bool>& card_acceptabilities) override;
   void HideTouchToFillCreditCard() override;
   void ShowAutofillSuggestions(
       const autofill::AutofillClient::PopupOpenArgs& open_args,

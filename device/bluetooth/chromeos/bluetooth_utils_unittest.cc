@@ -38,6 +38,8 @@ constexpr char kSecurityKeyServiceUUID[] = "FFFD";
 constexpr char kUnexpectedServiceUUID[] = "1234";
 constexpr uint8_t kLimitedDiscoveryFlag = 0x01;
 constexpr uint8_t kGeneralDiscoveryFlag = 0x02;
+constexpr char kTimeIntervalBetweenConnectionsHistogramName[] =
+    "Bluetooth.ChromeOS.TimeIntervalBetweenConnections";
 const BluetoothDevice::ServiceDataMap kTestServiceDataMap = {
     {BluetoothUUID(kHIDServiceUUID), {1}}};
 
@@ -493,6 +495,25 @@ TEST_F(BluetoothUtilsTest, TestDisconnectMetric) {
   RecordDeviceDisconnect(BluetoothDeviceType::MOUSE);
   histogram_tester.ExpectBucketCount("Bluetooth.ChromeOS.DeviceDisconnect",
                                      BluetoothDeviceType::MOUSE, 1);
+}
+
+TEST_F(BluetoothUtilsTest, TestTimeIntervalBetweenConnectionsMetric) {
+  // Verify no initial histogram entries.
+  histogram_tester.ExpectTotalCount(
+      kTimeIntervalBetweenConnectionsHistogramName, 0);
+
+  // Record a time interval of 50 minutes between connections, this should not
+  // be recorded as it exceeds the threshold for recording.
+  RecordTimeIntervalBetweenConnections(base::Minutes(50));
+  histogram_tester.ExpectTotalCount(
+      kTimeIntervalBetweenConnectionsHistogramName, 0);
+
+  // Record a time interval of 1 minute between connections.
+  RecordTimeIntervalBetweenConnections(base::Minutes(1));
+  histogram_tester.ExpectTotalCount(
+      kTimeIntervalBetweenConnectionsHistogramName, 1);
+  histogram_tester.ExpectTimeBucketCount(
+      kTimeIntervalBetweenConnectionsHistogramName, base::Minutes(1), 1);
 }
 
 }  // namespace device

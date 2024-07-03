@@ -91,8 +91,7 @@ void TestVDAVideoDecoder::Initialize(const VideoDecoderConfig& config,
 
   // Create decoder factory.
   std::unique_ptr<GpuVideoDecodeAcceleratorFactory> decoder_factory;
-  GpuVideoDecodeGLClient gl_client;
-  decoder_factory = GpuVideoDecodeAcceleratorFactory::Create(gl_client);
+  decoder_factory = GpuVideoDecodeAcceleratorFactory::Create();
 
   if (!decoder_factory) {
     ASSERT_TRUE(decoder_) << "Failed to create VideoDecodeAccelerator factory";
@@ -241,7 +240,7 @@ void TestVDAVideoDecoder::ProvidePictureBuffersWithVisibleRect(
     handle = CreateGpuMemoryBufferHandle(video_frame.get());
     DCHECK(!handle.is_null());
 #else
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
 #endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
 
     ASSERT_TRUE(!handle.is_null()) << "Failed to create GPU memory handle";

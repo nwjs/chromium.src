@@ -70,11 +70,11 @@
 #include "third_party/blink/public/common/mediastream/media_devices.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
+#include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
 #include "third_party/blink/public/mojom/browsing_topics/browsing_topics.mojom-forward.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_cloud_identifier.mojom-forward.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_error.mojom-forward.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
-#include "third_party/blink/public/mojom/model_execution/model_manager.mojom.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom-forward.h"
 #include "third_party/blink/public/mojom/payments/payment_credential.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_info.mojom.h"
@@ -92,6 +92,7 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "media/capture/mojom/video_effects_manager.mojom.h"
 #include "services/video_effects/public/mojom/video_effects_processor.mojom-forward.h"
+#include "third_party/blink/public/mojom/installedapp/related_application.mojom-forward.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace net {
@@ -402,6 +403,13 @@ class CONTENT_EXPORT ContentBrowserClient {
   // rendered by the same process, rather than using process-per-site-instance.
   virtual bool ShouldUseProcessPerSite(BrowserContext* browser_context,
                                        const GURL& site_url);
+
+  // Returns true if process-per-site feature could be used for multiple main
+  // frames. Actual usage of the feature may depend a number of heuristics.
+  // This is different than `ShouldUseProcessPerSite` where process-per-siste
+  // is required for the correct functionality of the site.
+  virtual bool ShouldAllowProcessPerSiteForMultipleMainFrames(
+      BrowserContext* context);
 
   // Returns whether a spare RenderProcessHost should be used for navigating to
   // the specified site URL.
@@ -963,16 +971,20 @@ class CONTENT_EXPORT ContentBrowserClient {
     kTriggerTransitionalDebugReporting,
     kOsSourceTransitionalDebugReporting,
     kOsTriggerTransitionalDebugReporting,
+    kSourceAggregatableDebugReport,
+    kTriggerAggregatableDebugReport,
     kAny,
   };
 
   // Allows the embedder to control if Attribution Reporting API operations can
   // happen in a given context. Origins must be provided for a given operation
   // as follows:
-  //   - `kSource`, `kOsSource`, `kSourceTransitionalDebugReporting` and
+  //   - `kSource`, `kOsSource`, `kSourceTransitionalDebugReporting`,
+  //   `kSourceVerboseDebugReport`, `kSourceAggregatableDebugReport` and
   //   `kOsSourceTransitionalDebugReporting` must provide a non-null
   //   `source_origin` and `reporting_origin`
-  //   - `kTrigger`, `kOsTrigger`, `kTriggerTransitionalDebugReporting` and
+  //   - `kTrigger`, `kOsTrigger`, `kTriggerTransitionalDebugReporting`,
+  //   `kTriggerVerboseDebugReport`, `kTriggerAggregatableDebugReport` and
   //   `kOsTriggerTransitionalDebugReporting` must provide a non-null
   //   `destination_origin` and `reporting_origin`
   //   - `kReport` must provide all non-null origins
@@ -1104,8 +1116,12 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   // Returns whether cookies should be allowed for requests to `url`, fetched
   // from contexts whose storage is keyed on `storage_key`.
+  // The `web_contents` parameter should be `nullptr` for requests coming from
+  // ServiceWorkers, otherwise set to the WebContents instance that is making
+  // the request. The `browser_context` parameter must not be `nullptr`.
   virtual bool IsFullCookieAccessAllowed(
       content::BrowserContext* browser_context,
+      content::WebContents* web_contents,
       const GURL& url,
       const blink::StorageKey& storage_key);
 
@@ -1385,8 +1401,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // renderer is taken by `site_url`. This is used to avoid potential resource
   // contention.
   // If `delay` is nullopt, the spare renderer will be created immediately.
-  // Otherwise if `delay` is base::TimeDelta::Max(), the creation is delayed
-  // until the page finishes loading.
   virtual std::optional<base::TimeDelta> GetSpareRendererDelayForSiteURL(
       const GURL& site_url);
 
@@ -1645,9 +1659,6 @@ class CONTENT_EXPORT ContentBrowserClient {
       sandbox::mojom::Sandbox sandbox_type,
       AppContainerFlags flags);
 
-  // Returns the AppContainer ID for sandboxed processes to use.
-  virtual std::string GetAppContainerId();
-
   // Returns true if renderer App Container should be disabled.
   // This is called on the UI thread.
   virtual bool IsRendererAppContainerDisabled();
@@ -1670,6 +1681,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns true if the audio process should run with high priority. false
   // otherwise.
   virtual bool ShouldEnableAudioProcessHighPriority();
+
+  // Returns true if a site_url should launch a renderer that resolves
+  // fonts via the SkiaFontManager.
+  virtual bool ShouldUseSkiaFontManager(const GURL& site_url);
 #endif
 
   // Binds a new media remoter service to |receiver|, if supported by the
@@ -2190,14 +2205,6 @@ class CONTENT_EXPORT ContentBrowserClient {
                               int /* render_process_id */,
                               int /* render_frame_id */)> callback);
 
-  // Called when starting BrowserMainLoop to create a base::ThreadPoolInstance.
-  // The embedder may choose to not create a thread pool; in that case
-  // ThreadPoolInstance::Get() will be null. Returns true if the
-  // ThreadPoolInstance was created.
-  // Note: the embedder should *not* start the ThreadPoolInstance for
-  // BrowserMainLoop, BrowserMainLoop itself is responsible for that.
-  virtual bool CreateThreadPool(std::string_view name);
-
   // Returns true if the tab security level is acceptable to allow WebAuthn
   // requests, false otherwise. This is not attached to
   // WebAuthenticationDelegate so it can be available on Android as well.
@@ -2645,9 +2652,15 @@ class CONTENT_EXPORT ContentBrowserClient {
   // `is_only_requesting_age` indicates whether the real-world-identity request
   // is only requesting an assertion about whether the user is over a specific
   // age.
+  // Returns a callback to call if the digital identity request is aborted. The
+  // callback updates the interstial UI to inform the user that the credential
+  // request has been canceled. Returns an empty callback if no interstitial was
+  // shown.
+  using DigitalIdentityInterstitialAbortCallback = base::OnceClosure;
   using DigitalIdentityInterstitialCallback = base::OnceCallback<void(
       DigitalIdentityProvider::RequestStatusForMetrics status_for_metrics)>;
-  virtual void ShowDigitalIdentityInterstitialIfNeeded(
+  virtual DigitalIdentityInterstitialAbortCallback
+  ShowDigitalIdentityInterstitialIfNeeded(
       WebContents& web_contents,
       const url::Origin& origin,
       bool is_only_requesting_age,
@@ -2893,8 +2906,21 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   // Prewarms the HTTP disk cache entries for the given URL and the
   // subresources if possible.
-  virtual void MaybePrewarmHttpDiskCache(BrowserContext& browser_context,
-                                         const GURL& navigation_url);
+  // `initiator_origin` is the origin that triggers the prewarm request,
+  // if it exists. More precisely:
+  // - If the prewarm is triggered by navigation, `initiator_origin` is
+  //   the navigation's initiator origin.
+  // - If the prewarm is triggered by interactions with the contents of a
+  //   document (e.g. anchor links), `initiator_origin` is the document's
+  //   origin.
+  // - For all other triggers (e.g. interaction with browser UI),
+  //   `initiator_origin` is nullopt.
+  // `initiator_origin` will be used to key the entry, along with the URL
+  // for LCP prediction.
+  virtual void MaybePrewarmHttpDiskCache(
+      BrowserContext& browser_context,
+      const std::optional<url::Origin>& initiator_origin,
+      const GURL& navigation_url);
 
   enum class MultiCaptureChanged { kStarted, kStopped };
 
@@ -2917,9 +2943,27 @@ class CONTENT_EXPORT ContentBrowserClient {
   // today to suppress the event when the user navigates to the new tab page.
   virtual bool ShouldSuppressAXLoadComplete(RenderFrameHost* rfh);
 
-  virtual void BindModelManager(
+  virtual void BindAIManager(
       RenderFrameHost* rfh,
-      mojo::PendingReceiver<blink::mojom::ModelManager> receiver);
+      mojo::PendingReceiver<blink::mojom::AIManager> receiver);
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Given the last committed URL of the RenderFrameHost, |frame_url|, and the
+  // |manifest_id| of an app, the embedder should call |callback| with the
+  // first matching web app ensuring:
+  //
+  // - |manifest_id| is equal to the found app id.
+  // - |frame_url| is within the scope of the found app.
+  // - The found app is locally installed in |browser_context|.
+  //
+  // When no app is found, |callback| should be called with a nullopt.
+  virtual void QueryInstalledWebAppsByManifestId(
+      const GURL& frame_url,
+      const GURL& manifest_id,
+      content::BrowserContext* browser_context,
+      base::OnceCallback<void(std::optional<blink::mojom::RelatedApplication>)>
+          callback);
+#endif  // !BUILDFLAG(IS_ANDROID)
 };
 
 }  // namespace content

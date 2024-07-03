@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/webauth/authenticator_impl.h"
 
 #include <list>
@@ -979,6 +984,8 @@ TEST(ClientDataSerializationTest, Sign) {
 }
 
 TEST_F(AuthenticatorImplTest, TestMakeCredentialTimeout) {
+  base::HistogramTester histogram_tester;
+
   // Don't provide an authenticator tap so the request times out.
   virtual_device_factory_->mutable_state()->simulate_press_callback =
       base::BindLambdaForTesting(
@@ -991,6 +998,9 @@ TEST_F(AuthenticatorImplTest, TestMakeCredentialTimeout) {
   EXPECT_EQ(
       AuthenticatorMakeCredentialAndWaitForTimeout(std::move(options)).status,
       AuthenticatorStatus::NOT_ALLOWED_ERROR);
+  histogram_tester.ExpectUniqueSample(
+      "WebAuthentication.MakeCredential.Result",
+      AuthenticatorCommonImpl::CredentialRequestResult::kTimeout, 1);
 }
 
 // Verify behavior for various combinations of origins and RP IDs.
@@ -1241,7 +1251,7 @@ TEST_F(AuthenticatorImplTest, TestGetAssertionTimeout) {
       AuthenticatorStatus::NOT_ALLOWED_ERROR);
   histogram_tester.ExpectUniqueSample(
       "WebAuthentication.GetAssertion.Result",
-      AuthenticatorCommonImpl::GetAssertionResult::kTimeout, 1);
+      AuthenticatorCommonImpl::CredentialRequestResult::kTimeout, 1);
 }
 
 TEST_F(AuthenticatorImplTest, OversizedCredentialId) {
@@ -1872,7 +1882,7 @@ const char* AttestationConveyancePreferenceToString(
     case AttestationConveyancePreference::ENTERPRISE:
       return "enterprise";
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return "";
   }
 }
@@ -2325,14 +2335,24 @@ TEST_F(AuthenticatorContentBrowserClientTest, TestGetAssertionCancel) {
   NavigateAndCommit(GURL(kTestOrigin1));
   test_client_.simulate_user_cancelled_ = true;
   base::HistogramTester histogram_tester;
-  PublicKeyCredentialRequestOptionsPtr options =
-      GetTestPublicKeyCredentialRequestOptions();
 
   EXPECT_EQ(AuthenticatorGetAssertion().status,
             AuthenticatorStatus::NOT_ALLOWED_ERROR);
   histogram_tester.ExpectUniqueSample(
       "WebAuthentication.GetAssertion.Result",
-      AuthenticatorCommonImpl::GetAssertionResult::kUserCancelled, 1);
+      AuthenticatorCommonImpl::CredentialRequestResult::kUserCancelled, 1);
+}
+
+TEST_F(AuthenticatorContentBrowserClientTest, TestMakeCredentialCancel) {
+  NavigateAndCommit(GURL(kTestOrigin1));
+  test_client_.simulate_user_cancelled_ = true;
+  base::HistogramTester histogram_tester;
+
+  EXPECT_EQ(AuthenticatorMakeCredential().status,
+            AuthenticatorStatus::NOT_ALLOWED_ERROR);
+  histogram_tester.ExpectUniqueSample(
+      "WebAuthentication.MakeCredential.Result",
+      AuthenticatorCommonImpl::CredentialRequestResult::kUserCancelled, 1);
 }
 
 // Test that credentials can be created and used from an extension origin when
@@ -3926,7 +3946,7 @@ TEST_F(AuthenticatorImplTest, GetAssertionResultMetricError) {
             AuthenticatorStatus::NOT_ALLOWED_ERROR);
   histogram_tester.ExpectUniqueSample(
       "WebAuthentication.GetAssertion.Result",
-      AuthenticatorCommonImpl::GetAssertionResult::kOtherError, 1);
+      AuthenticatorCommonImpl::CredentialRequestResult::kOtherError, 1);
 }
 
 TEST_F(AuthenticatorImplTest, GetAssertionResultMetricSuccess) {
@@ -3941,7 +3961,33 @@ TEST_F(AuthenticatorImplTest, GetAssertionResultMetricSuccess) {
             AuthenticatorStatus::SUCCESS);
   histogram_tester.ExpectUniqueSample(
       "WebAuthentication.GetAssertion.Result",
-      AuthenticatorCommonImpl::GetAssertionResult::kOtherSuccess, 1);
+      AuthenticatorCommonImpl::CredentialRequestResult::kOtherSuccess, 1);
+}
+
+TEST_F(AuthenticatorImplTest, MakeCredentialResultMetricError) {
+  NavigateAndCommit(GURL(kTestOrigin1));
+
+  base::HistogramTester histogram_tester;
+  PublicKeyCredentialCreationOptionsPtr options =
+      GetTestPublicKeyCredentialCreationOptions();
+  options->exclude_credentials = GetTestCredentials();
+  ASSERT_TRUE(virtual_device_factory_->mutable_state()->InjectRegistration(
+      options->exclude_credentials[0].id, kTestRelyingPartyId));
+  EXPECT_EQ(AuthenticatorMakeCredential(std::move(options)).status,
+            AuthenticatorStatus::CREDENTIAL_EXCLUDED);
+  histogram_tester.ExpectUniqueSample(
+      "WebAuthentication.MakeCredential.Result",
+      AuthenticatorCommonImpl::CredentialRequestResult::kOtherError, 1);
+}
+
+TEST_F(AuthenticatorImplTest, MakeCredentialResultMetricSuccess) {
+  NavigateAndCommit(GURL(kTestOrigin1));
+
+  base::HistogramTester histogram_tester;
+  EXPECT_EQ(AuthenticatorMakeCredential().status, AuthenticatorStatus::SUCCESS);
+  histogram_tester.ExpectUniqueSample(
+      "WebAuthentication.MakeCredential.Result",
+      AuthenticatorCommonImpl::CredentialRequestResult::kOtherSuccess, 1);
 }
 
 // Tests that for an authenticator that does not support batching, credential
@@ -5105,7 +5151,7 @@ class PINAuthenticatorImplTest : public UVAuthenticatorImplTest {
         break;
 
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
 
     virtual_device_factory_->SetCtap2Config(config);
@@ -5217,7 +5263,7 @@ TEST_F(PINAuthenticatorImplTest, MakeCredential) {
                       break;
 
                     default:
-                      NOTREACHED();
+                      NOTREACHED_IN_MIGRATION();
                   }
 
                   MakeCredentialResult result =
@@ -5247,7 +5293,7 @@ TEST_F(PINAuthenticatorImplTest, MakeCredential) {
                       break;
 
                     default:
-                      NOTREACHED();
+                      NOTREACHED_IN_MIGRATION();
                   }
                 }
               }
@@ -5627,7 +5673,7 @@ TEST_F(PINAuthenticatorImplTest, GetAssertion) {
                 break;
 
               default:
-                NOTREACHED();
+                NOTREACHED_IN_MIGRATION();
             }
 
             GetAssertionResult result = AuthenticatorGetAssertion(
@@ -5652,7 +5698,7 @@ TEST_F(PINAuthenticatorImplTest, GetAssertion) {
                 break;
 
               default:
-                NOTREACHED();
+                NOTREACHED_IN_MIGRATION();
             }
           }
         }
@@ -7613,7 +7659,7 @@ TEST_F(ResidentKeyAuthenticatorImplTest, CredProtectRegistration) {
 
         switch (test.resulting_policy) {
           case UNSPECIFIED:
-            NOTREACHED();
+            NOTREACHED_IN_MIGRATION();
             break;
           case NONE:
             EXPECT_EQ(device::CredProtect::kUVOptional, result);
@@ -7634,7 +7680,7 @@ TEST_F(ResidentKeyAuthenticatorImplTest, CredProtectRegistration) {
         EXPECT_EQ(AuthenticatorStatus::NOT_ALLOWED_ERROR, status);
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 }

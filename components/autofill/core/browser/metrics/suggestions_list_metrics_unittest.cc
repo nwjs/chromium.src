@@ -27,7 +27,7 @@ class SuggestionsListMetricsTest
  public:
   void SetUp() override {
     SetUpHelper();
-    personal_data().ClearProfiles();
+    personal_data().test_address_data_manager().ClearProfiles();
     personal_data().test_payments_data_manager().ClearCreditCards();
   }
   void TearDown() override { TearDownHelper(); }
@@ -46,15 +46,21 @@ TEST_F(SuggestionsListMetricsTest, SuggestionsCount) {
   personal_data().payments_data_manager().AddCreditCard(test::GetCreditCard());
   {
     base::HistogramTester histogram_tester;
-    autofill_manager().OnAskForValuesToFillTest(form, form.fields.front());
-    histogram_tester.ExpectUniqueSample("Autofill.SuggestionsCount.Address", 2,
+    autofill_manager().OnAskForValuesToFillTest(
+        form, form.fields.front().global_id());
+    // There are 3 suggestions: 2 address profiles and one "manage addresses"
+    // suggestion.
+    histogram_tester.ExpectUniqueSample("Autofill.SuggestionsCount.Address", 3,
                                         1);
   }
   {
     base::HistogramTester histogram_tester;
-    autofill_manager().OnAskForValuesToFillTest(form, form.fields.back());
+    autofill_manager().OnAskForValuesToFillTest(form,
+                                                form.fields.back().global_id());
+    // There are 2 suggestions: 1 card and one "manage payment methods"
+    // suggestion.
     histogram_tester.ExpectUniqueSample("Autofill.SuggestionsCount.CreditCard",
-                                        1, 1);
+                                        2, 1);
   }
 }
 
@@ -69,7 +75,8 @@ TEST_F(SuggestionsListMetricsTest, AcceptedSuggestionIndex) {
   {
     Suggestion address_suggestion;
     address_suggestion.type = SuggestionType::kAddressEntry;
-    autofill_manager().OnAskForValuesToFillTest(form, form.fields.front());
+    autofill_manager().OnAskForValuesToFillTest(
+        form, form.fields.front().global_id());
     base::HistogramTester histogram_tester;
     external_delegate().DidAcceptSuggestion(address_suggestion, {1, 0});
     histogram_tester.ExpectUniqueSample(
@@ -78,7 +85,8 @@ TEST_F(SuggestionsListMetricsTest, AcceptedSuggestionIndex) {
   {
     Suggestion credit_card_suggestion;
     credit_card_suggestion.type = SuggestionType::kCreditCardEntry;
-    autofill_manager().OnAskForValuesToFillTest(form, form.fields.back());
+    autofill_manager().OnAskForValuesToFillTest(form,
+                                                form.fields.back().global_id());
     base::HistogramTester histogram_tester;
     external_delegate().DidAcceptSuggestion(credit_card_suggestion, {0, 0});
     histogram_tester.ExpectUniqueSample(
@@ -100,7 +108,8 @@ TEST_F(SuggestionsListMetricsTest, AcceptanceFieldValueLength) {
   {
     Suggestion address_suggestion;
     address_suggestion.type = SuggestionType::kAddressEntry;
-    autofill_manager().OnAskForValuesToFillTest(form, form.fields.front());
+    autofill_manager().OnAskForValuesToFillTest(
+        form, form.fields.front().global_id());
     base::HistogramTester histogram_tester;
     external_delegate().DidAcceptSuggestion(address_suggestion,
                                             /*position=*/{});
@@ -110,7 +119,8 @@ TEST_F(SuggestionsListMetricsTest, AcceptanceFieldValueLength) {
   {
     Suggestion credit_card_suggestion;
     credit_card_suggestion.type = SuggestionType::kCreditCardEntry;
-    autofill_manager().OnAskForValuesToFillTest(form, form.fields.back());
+    autofill_manager().OnAskForValuesToFillTest(form,
+                                                form.fields.back().global_id());
     base::HistogramTester histogram_tester;
     external_delegate().DidAcceptSuggestion(credit_card_suggestion,
                                             /*position=*/{});

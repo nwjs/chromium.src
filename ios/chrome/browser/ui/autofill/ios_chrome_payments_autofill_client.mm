@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/ui/autofill/ios_chrome_payments_autofill_client.h"
 
+#import <optional>
+
 #import "base/check_deref.h"
 #import "base/functional/callback.h"
 #import "base/memory/raw_ref.h"
@@ -18,13 +20,16 @@
 #import "components/autofill/core/browser/payments/otp_unmask_delegate.h"
 #import "components/autofill/core/browser/payments/otp_unmask_result.h"
 #import "components/autofill/core/browser/payments/payments_network_interface.h"
+#import "components/autofill/core/browser/payments/virtual_card_enroll_metrics_logger.h"
 #import "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #import "components/autofill/core/browser/ui/payments/autofill_progress_dialog_controller_impl.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_authentication_selection_dialog_controller_impl.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_prompt_view.h"
+#import "components/autofill/core/browser/ui/payments/virtual_card_enroll_ui_model.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
+#import "ios/chrome/browser/ui/autofill/card_name_fix_flow_view_bridge.h"
 #import "ios/chrome/browser/ui/autofill/card_unmask_prompt_view_bridge.h"
 #import "ios/chrome/browser/ui/autofill/chrome_autofill_client_ios.h"
 #import "ios/public/provider/chrome/browser/risk_data/risk_data_api.h"
@@ -57,7 +62,9 @@ void IOSChromePaymentsAutofillClient::LoadRiskData(
 }
 
 void IOSChromePaymentsAutofillClient::CreditCardUploadCompleted(
-    bool card_saved) {
+    bool card_saved,
+    std::optional<OnConfirmationClosedCallback>
+        on_confirmation_closed_callback) {
   NOTIMPLEMENTED();
 }
 
@@ -80,6 +87,18 @@ void IOSChromePaymentsAutofillClient::CloseAutofillProgressDialog(
         show_confirmation_before_closing,
         std::move(no_interactive_authentication_callback));
   }
+}
+
+void IOSChromePaymentsAutofillClient::ShowVirtualCardEnrollDialog(
+    const VirtualCardEnrollmentFields& virtual_card_enrollment_fields,
+    base::OnceClosure accept_virtual_card_callback,
+    base::OnceClosure decline_virtual_card_callback) {
+  AutofillBottomSheetTabHelper* bottom_sheet_tab_helper =
+      AutofillBottomSheetTabHelper::FromWebState(web_state_);
+  bottom_sheet_tab_helper->ShowVirtualCardEnrollmentBottomSheet(
+      VirtualCardEnrollUiModel::Create(virtual_card_enrollment_fields),
+      VirtualCardEnrollmentCallbacks(std::move(accept_virtual_card_callback),
+                                     std::move(decline_virtual_card_callback)));
 }
 
 void IOSChromePaymentsAutofillClient::ShowCardUnmaskOtpInputDialog(
@@ -171,9 +190,26 @@ void IOSChromePaymentsAutofillClient::OnUnmaskVerificationResult(
       // Do nothing
       break;
     case AutofillClient::PaymentsRpcResult::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
+}
+
+void IOSChromePaymentsAutofillClient::ConfirmAccountNameFixFlow(
+    base::OnceCallback<void(const std::u16string&)> callback) {
+  std::u16string account_name = base::UTF8ToUTF16(
+      client_->GetIdentityManager()
+          ->FindExtendedAccountInfo(
+              client_->GetIdentityManager()->GetPrimaryAccountInfo(
+                  signin::ConsentLevel::kSignin))
+          .full_name);
+
+  card_name_fix_flow_controller_.Show(
+      // CardNameFixFlowViewBridge manages its own lifetime, so
+      // do not use std::unique_ptr<> here.
+      new CardNameFixFlowViewBridge(&card_name_fix_flow_controller_,
+                                    client_->base_view_controller()),
+      account_name, std::move(callback));
 }
 
 VirtualCardEnrollmentManager*

@@ -284,7 +284,7 @@ bool UtilityProcessHost::StartProcess() {
 
     base::FilePath exe_path = ChildProcessHost::GetChildPath(child_flags);
     if (exe_path.empty()) {
-      NOTREACHED() << "Unable to get utility process binary name.";
+      NOTREACHED_IN_MIGRATION() << "Unable to get utility process binary name.";
       return false;
     }
 
@@ -337,7 +337,6 @@ bool UtilityProcessHost::StartProcess() {
       switches::kUseFileForFakeVideoCapture,
       switches::kUseMockCertVerifierForTesting,
       switches::kMockCertVerifierDefaultResultForTesting,
-      switches::kTimeZoneForTesting,
       switches::kUtilityStartupDialog,
       switches::kUseANGLE,
       switches::kUseGL,

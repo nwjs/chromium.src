@@ -4,6 +4,7 @@
 
 #include "services/network/network_context.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -113,6 +114,8 @@
 #include "services/network/network_service_network_delegate.h"
 #include "services/network/network_service_proxy_delegate.h"
 #include "services/network/oblivious_http_request_handler.h"
+#include "services/network/prefetch_cache.h"
+#include "services/network/prefetch_url_loader_client.h"
 #include "services/network/proxy_config_service_mojo.h"
 #include "services/network/proxy_lookup_request.h"
 #include "services/network/proxy_resolving_socket_factory_mojo.h"
@@ -121,6 +124,7 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "services/network/public/cpp/parsed_headers.h"
+#include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_host_resolver.h"
 #include "services/network/public/mojom/clear_data_filter.mojom.h"
 #include "services/network/public/mojom/cookie_encryption_provider.mojom.h"
@@ -406,6 +410,19 @@ base::RepeatingCallback<bool(const GURL&)> BuildUrlFilter(
 class NetworkContextApplicationStatusListener
     : public base::android::ApplicationStatusListener {
  public:
+  // Sets `get_callback` to be a callback that returns nullptr if the created
+  // NetworkContextApplicationStatusListener has been destroyed, and the
+  // listener itself, otherwise. It's a constructor argument to avoid needing
+  // a cast, moving this into the header, or other complexities around
+  // `app_status_listeners_` being a vector of the parent class.
+  explicit NetworkContextApplicationStatusListener(
+      disk_cache::ApplicationStatusListenerGetter& get_callback) {
+    get_callback =
+        base::BindRepeating(&NetworkContextApplicationStatusListener::
+                                ReturnAppStatusListenerIfAlive,
+                            weak_ptr_factory_.GetWeakPtr());
+  }
+
   // base::android::ApplicationStatusListener implementation:
   void SetCallback(const ApplicationStateChangeCallback& callback) override {
     DCHECK(!callback_);
@@ -419,17 +436,16 @@ class NetworkContextApplicationStatusListener
   }
 
  private:
-  ApplicationStateChangeCallback callback_;
-};
-
-base::android::ApplicationStatusListener* ReturnAppStatusListenerIfAlive(
-    base::WeakPtr<NetworkContext> network_context,
-    base::android::ApplicationStatusListener* listener) {
-  if (!network_context) {
-    return nullptr;
+  static base::android::ApplicationStatusListener*
+  ReturnAppStatusListenerIfAlive(
+      base::WeakPtr<base::android::ApplicationStatusListener> listener) {
+    return listener.get();
   }
-  return listener;
-}
+
+  ApplicationStateChangeCallback callback_;
+  base::WeakPtrFactory<base::android::ApplicationStatusListener>
+      weak_ptr_factory_{this};
+};
 
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -515,6 +531,52 @@ bool GetFullDataFilePath(
   full_path =
       file_paths->data_directory.path().Append(relative_file_path->value());
   return true;
+}
+
+// Produces URLLoaderFactoryParams suitable for a prefetch. Generally this
+// should match the params that are used for subresource fetches to render
+// processes.
+mojom::URLLoaderFactoryParamsPtr CreateURLLoaderFactoryParamsForPrefetch() {
+  auto params = mojom::URLLoaderFactoryParams::New();
+  params->process_id = mojom::kBrowserProcessId;
+  // We want to be able to use TrustedParams to set the IsolationInfo for each
+  // prefetch separately, so make it trusted.
+  // TODO(crbug.com/342445996): Maybe stop using TrustedParams and lock this
+  // down?
+  params->is_trusted = true;
+
+  // This can be set to true by the content::switches::kDisableWebSecurity
+  // switch, but that's not available in the network service. The consequences
+  // of this being disabled should just be that prefetches fail where this flag
+  // would have taken effect.
+  // TODO(crbug.com/342445996): Pass this through from the caller.
+  //
+  // Android WebView also disables web security when the
+  // `allow_universal_access_from_file_urls` flag is set, however, WebView
+  // doesn't currently support prefetch anyway.
+  params->disable_web_security = false;
+
+  // TODO(crbug.com/342445996): Find out if we need to set anything here.
+  params->client_security_state = mojom::ClientSecurityState::New();
+
+  // TODO(crbug.com/342445996): params->coep_reporter
+
+  // --disable-web-security also disables Opaque Response Blocking (ORB).
+  params->is_orb_enabled = !params->disable_web_security;
+
+  // TODO(crbug.com/342445996): trust_token_issuance_policy,
+  // trust_token_redemption_policy
+
+  // TODO(crbug.com/342445996): Add observers as needed for DevTools support,
+  // etc.
+
+  // TODO(crbug.com/342445996): params->cookie_setting_overrides
+
+  params->debug_tag = "CreateURLLoaderFactoryParamsForPrefetch";
+
+  // TODO(crbug.com/342445996): params->require_cross_site_requests_for_cookies
+
+  return params;
 }
 
 }  // namespace
@@ -605,8 +667,10 @@ NetworkContext::NetworkContext(
         params_->file_paths->shared_dictionary_directory &&
         !params_->file_paths->shared_dictionary_directory->path().empty()) {
 #if BUILDFLAG(IS_ANDROID)
+      disk_cache::ApplicationStatusListenerGetter get_callback;
       app_status_listeners_.push_back(
-          std::make_unique<NetworkContextApplicationStatusListener>());
+          std::make_unique<NetworkContextApplicationStatusListener>(
+              get_callback));
 #endif  // BUILDFLAG(IS_ANDROID)
       // TODO(crbug.com/40255884): Set `file_operations_factory` to support
       // sandboxed network service on Android.
@@ -618,10 +682,7 @@ NetworkContext::NetworkContext(
           params_->shared_dictionary_cache_max_size,
           shared_dictionary::kDictionaryMaxCountPerNetworkContext,
 #if BUILDFLAG(IS_ANDROID)
-          base::BindRepeating(&ReturnAppStatusListenerIfAlive,
-                              weak_factory_.GetWeakPtr(),
-                              base::UnsafeDanglingUntriaged(
-                                  app_status_listeners_.rbegin()->get())),
+          std::move(get_callback),
 #endif  // BUILDFLAG(IS_ANDROID)
           /*file_operations_factory=*/nullptr);
     } else {
@@ -2110,7 +2171,7 @@ void NetworkContext::CreateMdnsResponder(
 
   mdns_responder_manager_->CreateMdnsResponder(std::move(responder_receiver));
 #else
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 #endif  // BUILDFLAG(ENABLE_MDNS)
 }
 
@@ -2364,12 +2425,12 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
     // TODO(crbug.com/40928765): The TrustAnchorUsed callback should
     // work on all platforms. (Also consider whether this wrapper is the best
     // way to handle this or if it should be refactored.)
-    cert_verifier_with_trust_anchors_ =
-        new CertVerifierWithTrustAnchors(base::BindRepeating(
+    auto cert_verifier_with_trust_anchors =
+        std::make_unique<CertVerifierWithTrustAnchors>(base::BindRepeating(
             &NetworkContext::TrustAnchorUsed, base::Unretained(this)));
-    cert_verifier_with_trust_anchors_->InitializeOnIOThread(
+    cert_verifier_with_trust_anchors->InitializeOnIOThread(
         std::move(cert_verifier));
-    cert_verifier = base::WrapUnique(cert_verifier_with_trust_anchors_.get());
+    cert_verifier = std::move(cert_verifier_with_trust_anchors);
 #endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
@@ -2527,10 +2588,8 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
 
 #if BUILDFLAG(IS_ANDROID)
     app_status_listeners_.push_back(
-        std::make_unique<NetworkContextApplicationStatusListener>());
-    cache_params.app_status_listener_getter = base::BindRepeating(
-        &ReturnAppStatusListenerIfAlive, weak_factory_.GetWeakPtr(),
-        base::UnsafeDanglingUntriaged(app_status_listeners_.rbegin()->get()));
+        std::make_unique<NetworkContextApplicationStatusListener>(
+            cache_params.app_status_listener_getter));
 #endif  // BUILDFLAG(IS_ANDROID)
     builder.EnableHttpCache(cache_params);
   }
@@ -3117,6 +3176,37 @@ void NetworkContext::ExemptUrlFromNetworkRevocationForNonce(
   std::move(callback).Run();
 }
 
+void NetworkContext::Prefetch(
+    int32_t request_id,
+    uint32_t options,
+    const ResourceRequest& request,
+    const net::MutableNetworkTrafficAnnotationTag& traffic_annotation) {
+  if (!base::FeatureList::IsEnabled(features::kNetworkContextPrefetch)) {
+    return;
+  }
+
+  if (!prefetch_cache_) {
+    // Lazily initialized to avoid slowing down startup.
+    prefetch_cache_ = std::make_unique<PrefetchCache>();
+  }
+
+  if (!prefetch_url_loader_factory_remote_.is_bound() ||
+      !prefetch_url_loader_factory_remote_.is_connected()) {
+    InitializePrefetchURLLoaderFactory();
+  }
+
+  PrefetchURLLoaderClient* client = prefetch_cache_->Emplace(request);
+  if (!client) {
+    // This is normal if we already have a prefetch in progress for the {NIK,
+    // URL} combination.
+    return;
+  }
+
+  prefetch_url_loader_factory_remote_->CreateLoaderAndStart(
+      client->GetURLLoaderPendingReceiver(), request_id, options, request,
+      client->BindNewPipeAndPassRemote(), traffic_annotation);
+}
+
 bool NetworkContext::IsNetworkForNonceAndUrlAllowed(
     const base::UnguessableToken& nonce,
     const GURL& url) const {
@@ -3133,6 +3223,13 @@ bool NetworkContext::IsNetworkForNonceAndUrlAllowed(
   }
   // The nonce was revoked and the url isn't exempted.
   return false;
+}
+
+void NetworkContext::InitializePrefetchURLLoaderFactory() {
+  auto pending_receiver =
+      prefetch_url_loader_factory_remote_.BindNewPipeAndPassReceiver();
+  CreateURLLoaderFactory(std::move(pending_receiver),
+                         CreateURLLoaderFactoryParamsForPrefetch());
 }
 
 }  // namespace network

@@ -143,6 +143,7 @@ class AriaNotificationOptions;
 class Attr;
 class BeforeUnloadEventListener;
 class CaretPosition;
+class CaretPositionFromPointOptions;
 class CDATASection;
 class CSSStyleSheet;
 class CanvasFontCache;
@@ -489,12 +490,12 @@ class CORE_EXPORT Document : public ContainerNode,
 
   // Returns a |CaretPosition| from given point. If the point is inside a shadow
   // tree, then |CaretPosition| only points inside the shadow tree if it's
-  // provided in the |shadow_roots| argument.
+  // provided in the |shadowRoots| vector in |options| argument.
   // https://drafts.csswg.org/cssom-view/#ref-for-dom-document-caretpositionfrompoint
   CaretPosition* caretPositionFromPoint(
       float x,
       float y,
-      const HeapVector<Member<ShadowRoot>>& shadow_roots);
+      const CaretPositionFromPointOptions* options);
   Element* scrollingElement();
 
   // When calling from C++ code, use this method. scrollingElement() is
@@ -1184,9 +1185,12 @@ class CORE_EXPORT Document : public ContainerNode,
         kDOMCharacterDataModifiedListener,
   };
 
-  bool HasAnyListenerTypes() const { return listener_types_; }
   bool HasListenerType(ListenerType listener_type) const;
   void AddListenerTypeIfNeeded(const AtomicString& event_type, EventTarget&);
+
+  void DidAddEventListeners(uint32_t count);
+  void DidRemoveEventListeners(uint32_t count);
+  bool HasAnyNodeWithEventListeners() const { return event_listener_counts_; }
 
   bool HasMutationObserversOfType(MutationType type) const {
     return mutation_observer_types_ & type;
@@ -1523,12 +1527,12 @@ class CORE_EXPORT Document : public ContainerNode,
   void EnqueueVisualViewportScrollEvent();
   void EnqueueVisualViewportScrollEndEvent();
   void EnqueueVisualViewportResizeEvent();
-  void EnqueueSnapChangedEvent(Node* target,
-                               Member<Node>& block_target,
-                               Member<Node>& inline_target);
-  void EnqueueSnapChangingEvent(Node* target,
-                                Member<Node>& block_target,
-                                Member<Node>& inline_target);
+  void EnqueueScrollSnapChangeEvent(Node* target,
+                                    Member<Node>& block_target,
+                                    Member<Node>& inline_target);
+  void EnqueueScrollSnapChangingEvent(Node* target,
+                                      Member<Node>& block_target,
+                                      Member<Node>& inline_target);
 
   void DispatchEventsForPrinting();
 
@@ -1789,6 +1793,8 @@ class CORE_EXPORT Document : public ContainerNode,
   // attempts (both successful and not successful) by the page. This will return
   // null if the document is stopped.
   FontMatchingMetrics* GetFontMatchingMetrics();
+
+  void MaybeRecordShapeTextElapsedTime(base::TimeDelta elapsed_time);
 
   scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner(TaskType);
 
@@ -2307,11 +2313,6 @@ class CORE_EXPORT Document : public ContainerNode,
   const AtomicString& BodyAttributeValue(const QualifiedName&) const;
   void SetBodyAttribute(const QualifiedName&, const AtomicString&);
 
-  // Returns true if use of |method_name| for markup insertion is allowed by
-  // permissions policy; otherwise returns false and throws a DOM exception.
-  bool AllowedToUseDynamicMarkUpInsertion(const char* method_name,
-                                          ExceptionState&);
-
   void SetFreezingInProgress(bool is_freezing_in_progress) {
     is_freezing_in_progress_ = is_freezing_in_progress;
   }
@@ -2337,6 +2338,10 @@ class CORE_EXPORT Document : public ContainerNode,
   Resource* GetPendingLinkPreloadForTesting(const KURL&);
 
   ResizeObserver& GetLazyLoadedAutoSizedImgObserver();
+
+  // Initiates data loading for print that is dependent on style or layout.
+  // Returns true if data loading has started.
+  bool InitiateStyleOrLayoutDependentLoadForPrint();
 
   // Mutable because the token is lazily-generated on demand if no token is
   // explicitly set.
@@ -2483,6 +2488,10 @@ class CORE_EXPORT Document : public ContainerNode,
   AttachedRangeSet ranges_;
 
   uint16_t listener_types_;
+
+  // Used to record the counts of event listeners added from the nodes in the
+  // document.
+  uint32_t event_listener_counts_;
 
   MutationObserverOptions mutation_observer_types_;
 

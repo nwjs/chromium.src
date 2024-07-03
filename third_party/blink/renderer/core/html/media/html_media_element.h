@@ -112,6 +112,17 @@ class CORE_EXPORT HTMLMediaElement
   USING_PRE_FINALIZER(HTMLMediaElement, Dispose);
 
  public:
+  // TODO(crbug.com/40275580): Replace with mojo definition once available.
+  //
+  // `RequestVisibilityCallback` is used to enable computing video visibility
+  // on-demand. The callback is passed to the MediaVideoVisibilityTracker, where
+  // the on-demand visibility computation will take place.
+  //
+  // The boolean parameter represents whether a video element meets a given
+  // visibility threshold. This threshold (`kVisibilityThreshold`) is defined by
+  // the HTMLVideoElement.
+  using RequestVisibilityCallback = base::OnceCallback<void(bool)>;
+
   // Limits the range of media playback rate.
   static constexpr double kMinPlaybackRate = 0.0625;
   static constexpr double kMaxPlaybackRate = 16.0;
@@ -541,6 +552,8 @@ class CORE_EXPORT HTMLMediaElement
   void OnFirstFrame(base::TimeTicks frame_time,
                     size_t bytes_to_first_frame) override {}
 
+  int GetElementId() override { return GetDomNodeId(); }
+
   void SetCcLayer(cc::Layer*) final;
   WebMediaPlayer::TrackId AddAudioTrack(const WebString&,
                                         WebMediaPlayerClient::AudioTrackKind,
@@ -554,7 +567,7 @@ class CORE_EXPORT HTMLMediaElement
                                         const WebString&,
                                         bool) final;
   void RemoveVideoTrack(WebMediaPlayer::TrackId) final;
-  void MediaSourceOpened(WebMediaSource*) final;
+  void MediaSourceOpened(std::unique_ptr<WebMediaSource>) final;
   void RemotePlaybackCompatibilityChanged(const WebURL&,
                                           bool is_compatible) final;
   bool HasSelectedVideoTrack() final;
@@ -609,6 +622,10 @@ class CORE_EXPORT HTMLMediaElement
   void SuspendForFrameClosed() override;
   void RequestMediaRemoting() override {}
 
+  // TODO(crbug.com/40275580): Replace with mojo definition once available.
+  virtual void RequestVisibility(
+      RequestVisibilityCallback request_visibility_cb) {}
+
   void LoadTimerFired(TimerBase*);
   void ProgressEventTimerFired();
   void PlaybackProgressTimerFired();
@@ -621,8 +638,7 @@ class CORE_EXPORT HTMLMediaElement
   void FinishSeek();
   void AddPlayedRange(double start, double end);
 
-  // FIXME: Rename to scheduleNamedEvent for clarity.
-  void ScheduleEvent(const AtomicString& event_name);
+  void ScheduleNamedEvent(const AtomicString& event_name);
 
   // loading
   void InvokeLoadAlgorithm();

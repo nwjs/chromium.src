@@ -14,8 +14,8 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_permission_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "components/input/native_web_keyboard_event.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/input/native_web_keyboard_event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 
 using base::TimeTicks;
@@ -109,7 +109,7 @@ void KeyboardLockController::RequestKeyboardLock(WebContents* web_contents,
 }
 
 bool KeyboardLockController::HandleKeyEvent(
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   if (base::FeatureList::IsEnabled(
           features::kPressAndHoldEscToExitBrowserFullscreen)) {
     return false;
@@ -126,7 +126,7 @@ bool KeyboardLockController::HandleKeyEvent(
 
   // Note: This logic handles exiting fullscreen but the UI feedback element is
   // created and managed by the FullscreenControlHost class.
-  if (event.GetType() == content::NativeWebKeyboardEvent::Type::kKeyUp &&
+  if (event.GetType() == input::NativeWebKeyboardEvent::Type::kKeyUp &&
       hold_timer_.IsRunning()) {
     // Seeing a key up event on Esc with the hold timer running cancels the
     // timer and doesn't exit. This means the user pressed Esc, but not long
@@ -134,8 +134,9 @@ bool KeyboardLockController::HandleKeyEvent(
     hold_timer_.Stop();
     ReShowExitBubbleIfNeeded();
   } else if (event.GetType() ==
-                 content::NativeWebKeyboardEvent::Type::kRawKeyDown &&
-             !hold_timer_.IsRunning()) {
+                 input::NativeWebKeyboardEvent::Type::kRawKeyDown &&
+             !hold_timer_.IsRunning() &&
+             event.GetModifiers() == blink::WebInputEvent::kNoModifiers) {
     // Seeing a key down event on Esc when the hold timer is stopped starts
     // the timer. When the timer fires, the callback will trigger an exit from
     // fullscreen/pointerlock/keyboardlock.
@@ -204,6 +205,7 @@ void KeyboardLockController::HandleUserHeldEscapeDeprecated() {
   manager->fullscreen_controller()->HandleUserPressedEscape();
   manager->pointer_lock_controller()->HandleUserPressedEscape();
   HandleUserPressedEscape();
+  base::RecordAction(base::UserMetricsAction("UnlockKeyboard_PressAndHoldEsc"));
 }
 
 void KeyboardLockController::ReShowExitBubbleIfNeeded() {

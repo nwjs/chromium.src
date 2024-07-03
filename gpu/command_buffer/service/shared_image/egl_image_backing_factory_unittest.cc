@@ -408,7 +408,7 @@ TEST_P(EGLImageBackingFactoryThreadSafeTest, OneWriterOneReader) {
 #if BUILDFLAG(USE_DAWN) && BUILDFLAG(DAWN_ENABLE_BACKEND_OPENGLES) && \
     !BUILDFLAG(IS_ANDROID)
 // Test to check interaction between Dawn and skia GL representations.
-TEST_F(EGLImageBackingFactoryThreadSafeTest, Dawn_SkiaGL) {
+TEST_P(EGLImageBackingFactoryThreadSafeTest, Dawn_SkiaGL) {
   // Find a Dawn GLES adapter
   dawn::native::Instance instance;
   wgpu::RequestAdapterOptions adapter_options;
@@ -430,12 +430,12 @@ TEST_F(EGLImageBackingFactoryThreadSafeTest, Dawn_SkiaGL) {
   dawnProcSetProcs(&procs);
 
   // Create a backing using mailbox.
-  const auto mailbox = Mailbox::GenerateForSharedImage();
+  const auto mailbox = Mailbox::Generate();
   const auto format = viz::SinglePlaneFormat::kRGBA_8888;
   const gfx::Size size(1, 1);
   const auto color_space = gfx::ColorSpace::CreateSRGB();
   const gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
-  const uint32_t usage =
+  const gpu::SharedImageUsageSet usage =
       SHARED_IMAGE_USAGE_WEBGPU_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
   // Note that this backing is always thread safe by default even if it is not
@@ -521,11 +521,11 @@ TEST_P(EGLImageBackingFactoryThreadSafeTest, Dawn_SampledTexture) {
     wgpu::Device device = adapter.CreateDevice(&device_descriptor);
 
     // Create a backing using mailbox.
-    const auto mailbox = Mailbox::GenerateForSharedImage();
+    const auto mailbox = Mailbox::Generate();
     const auto format = viz::SinglePlaneFormat::kRGBA_8888;
     const gfx::Size size(1, 1);
     const auto color_space = gfx::ColorSpace::CreateSRGB();
-    const uint32_t usage =
+    const gpu::SharedImageUsageSet usage =
         SHARED_IMAGE_USAGE_WEBGPU_READ | SHARED_IMAGE_USAGE_WEBGPU_WRITE;
 
     std::vector<uint8_t> pixel_data = {0x80, 0x40, 0x20, 0x10};
@@ -664,7 +664,7 @@ CreateAndValidateSharedImageRepresentations::
   DCHECK(context_state);
   EXPECT_TRUE(
       context_state->MakeCurrent(context_state->surface(), true /* needs_gl*/));
-  mailbox_ = Mailbox::GenerateForSharedImage();
+  mailbox_ = Mailbox::Generate();
   auto color_space = gfx::ColorSpace::CreateSRGB();
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
@@ -674,8 +674,8 @@ CreateAndValidateSharedImageRepresentations::
   // compositor and SHARED_IMAGE_USAGE_RASTER_WRITE for modeling skia write via
   // raster. Tests that use this class also write to the created SharedImage via
   // GL.
-  uint32_t usage = SHARED_IMAGE_USAGE_GLES2_WRITE |
-                   SHARED_IMAGE_USAGE_RASTER_WRITE;
+  gpu::SharedImageUsageSet usage =
+      SHARED_IMAGE_USAGE_GLES2_WRITE | SHARED_IMAGE_USAGE_RASTER_WRITE;
   if (!is_thread_safe)
     usage |= SHARED_IMAGE_USAGE_DISPLAY_READ;
   if (upload_initial_data) {

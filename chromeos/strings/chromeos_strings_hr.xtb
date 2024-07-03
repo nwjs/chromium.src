@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastelno žuta</translation>
 <translation id="1056898198331236512">Upozorenje</translation>
 <translation id="1059913517121127803">Pokretanje skeniranja nije uspjelo</translation>
+<translation id="1061864016440983342">Koristi bez lokacije</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> od <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Otkriven je vatrozid</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Više postavki</translation>
 <translation id="2082932131694554252">Dodijeljena tipka tipkovnice</translation>
 <translation id="2085089206770112532">Smanjivanje svjetline zaslona</translation>
+<translation id="2086091080968010660">Promjene temeljene na vremenu možda nisu točne. Uključite pristup lokaciji sustava u postavkama.</translation>
 <translation id="2102231663024125441">Uređivanje teksta</translation>
 <translation id="2105810540595158374">Uređaj je kontroler za videoigre.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, verzija <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Uređivanje pojedinosti o APN-u</translation>
 <translation id="2195732836444333448">Radimo punim kapacitetom. Vratite se uskoro.</translation>
 <translation id="2201758491318984023">Bicikl</translation>
-<translation id="2203222757805818543">Trenutačni je raspored postavljen na <ph name="SUNRISE" /> – <ph name="SUNSET" />. Da biste automatski ažurirali raspored tamnog načina rada, <ph name="BEGIN_LINK" />uključite pristup lokaciji<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">termalni izvor</translation>
 <translation id="2203642483788377106">litice</translation>
 <translation id="2208388655216963643">impresionističkom</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Vrati zadano</translation>
 <translation id="2286454467119466181">Jednostavno sučelje</translation>
 <translation id="2287186687001756809">Slika nije dostupna. Da biste dodali fotografije, posjetite <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Trenutačni raspored postavljen je na <ph name="SUNRISE" /> – <ph name="SUNSET" />. Da biste automatski ažurirali raspored zalaska i izlaska sunca, uključite pristup lokaciji sustava.</translation>
 <translation id="2305172810646967500">crna</translation>
 <translation id="2307344026739914387">Upotrijebi trenutačni par ključeva</translation>
 <translation id="2308243864813041101">Iskopčajte USB kabel uređaja <ph name="DEVICE_NAME" /> da biste nastavili s postupkom ažuriranja</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">pješčane dine</translation>
 <translation id="2619761439309613843">Dnevno osvježavanje</translation>
 <translation id="2620436844016719705">Sustav</translation>
+<translation id="2637303424821734920">ISKLJUČENO – za prikaz lokalnih vremenskih prilika <ph name="BEGIN_LINK" />uključite pristup lokaciji sustava<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Slika za prijavu</translation>
 <translation id="2640549051766135490">Odabran je album <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Kontrole</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Pozadina</translation>
 <translation id="3027578600144895987">Zatvorite kameru</translation>
 <translation id="3031560714565892478">Uređaj je videokamera.</translation>
+<translation id="3051968340259309715">To uslugama sustava omogućuje da upotrebljavaju preciznost lokacije za određivanje vaše lokacije. Za procjenu lokacije uređaja postavka Preciznost lokacije upotrebljava podatke o bežičnim signalima, kao što su Wi-Fi pristupne točke, bazne stanice mobilnih mreža i GPS, uz podatke senzora uređaja, kao što su mjerač ubrzanja i žiroskop. Lokaciju možete isključiti u odjeljku Postavke &gt; Privatnost i sigurnost &gt; Kontrole privatnosti &gt; Pristup lokaciji. <ph name="LINK_BEGIN" />Saznajte više<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Završna točka</translation>
 <translation id="3060579846059757016">Obrisi</translation>
+<translation id="3061850252076394168">Omogućite Odabir za govor</translation>
 <translation id="3069085583900247081">Test nije uspio</translation>
 <translation id="3078740164268491126">tablica</translation>
 <translation id="3081652522083185657">svijetlo</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Razrješavanje svih hostova nije uspjelo</translation>
 <translation id="4593212453765072419">Potrebna je autentifikacija proxy poslužitelja</translation>
 <translation id="4609350030397390689">Smanjivanje svjetline tipkovnice</translation>
-<translation id="4617553623719764431">Vrijeme se ne prikazuje jer ta aplikacija ne zna vašu lokaciju. Da bi se prikazivali lokalni vremenski uvjeti, <ph name="BEGIN_LINK" />uključite pristup lokaciji<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> od <ph name="TOTAL_PAGE_NUMBER" />. Pritisnite tipku Enter da biste otkazali zadatak ispisa.</translation>
 <translation id="463791356324567266">Otkazivanje skeniranja...</translation>
 <translation id="4646949265910132906">Sigurna Wi-Fi veza</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Pokreni</translation>
 <translation id="4987769320337599931">Vatrozid</translation>
 <translation id="4988526792673242964">Stranice</translation>
+<translation id="4989542687859782284">Nije dostupno</translation>
 <translation id="4999333166442584738">Sakrij izvješće</translation>
 <translation id="500920857929044050">Zaustavi test</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">svjetlina tipkovnice</translation>
 <translation id="6412715219990689313">Ugrađena tipkovnica</translation>
 <translation id="6417265370957905582">Google asistent</translation>
+<translation id="6419454453018688975">Uključite pristup lokaciji sustava</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Time se uslugama sustava s dopuštenjem omogućuje da upotrebljavaju vašu lokaciju. Za procjenu lokacije vašeg uređaja mogu se upotrebljavati izvori kao što su Wi-Fi, mobilne mreže i senzori. <ph name="LINK_BEGIN" />Saznajte više<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Slab (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Idi na postavke računa</translation>
 <translation id="6462978824459367242">Gumb za dodavanje APN-a sada je omogućen</translation>

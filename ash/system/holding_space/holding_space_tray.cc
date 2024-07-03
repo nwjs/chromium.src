@@ -349,9 +349,6 @@ void HoldingSpaceTray::CloseBubble() {
   holding_space_metrics::RecordPodAction(
       holding_space_metrics::PodAction::kCloseBubble);
 
-  HoldingSpaceController::Get()->OnHoldingSpaceTrayBubbleVisibilityChanged(
-      this, /*visible=*/false);
-
   widget_observer_.Reset();
 
   bubble_.reset();
@@ -367,11 +364,15 @@ void HoldingSpaceTray::ShowBubble() {
 
   DCHECK(tray_container());
 
+  // Refresh suggestions before showing the bubble so that cached suggestions
+  // will be shown immediately rather than being animated in. This reduces the
+  // likelihood of a suggestions related animation occurring while also
+  // animating in the bubble. Note that a suggestions related animation may
+  // still occur in the case of a cache miss.
+  HoldingSpaceController::Get()->client()->RefreshSuggestions();
+
   bubble_ = std::make_unique<HoldingSpaceTrayBubble>(this);
   bubble_->Init();
-
-  HoldingSpaceController::Get()->OnHoldingSpaceTrayBubbleVisibilityChanged(
-      this, /*visible=*/true);
 
   // Observe the bubble widget so that we can close the bubble when a holding
   // space item is being dragged.
@@ -520,14 +521,6 @@ void HoldingSpaceTray::UpdateVisibility() {
     return;
   }
 
-  // Always show the holding space tray if there are clients forcing it to show
-  // in shelf. Note that this is intentionally respected only while the holding
-  // space model is attached and the user session is unblocked.
-  if (controller->force_show_in_shelf()) {
-    SetVisiblePreferred(true);
-    return;
-  }
-
   // If the predictability flag is enabled, always show the holding space tray.
   if (features::IsHoldingSpacePredictabilityEnabled()) {
     SetVisiblePreferred(true);
@@ -625,16 +618,6 @@ void HoldingSpaceTray::OnHoldingSpaceModelDetached(HoldingSpaceModel* model) {
   UpdatePreviewsState();
 }
 
-void HoldingSpaceTray::OnHoldingSpaceForceShowInShelfChanged() {
-  // Animations are distracting when forcibly toggling holding space visibility
-  // in the shelf. Disable them temporarily. Note that animations will be
-  // re-enabled when items are added/removed from the holding space model.
-  SetShouldAnimate(false);
-
-  UpdateVisibility();
-  UpdatePreviewsState();
-}
-
 void HoldingSpaceTray::OnHoldingSpaceItemsAdded(
     const std::vector<const HoldingSpaceItem*>& items) {
   // If an initialized holding space item is added to the model mid-session, the
@@ -693,7 +676,7 @@ void HoldingSpaceTray::ExecuteCommand(int command_id, int event_flags) {
           Shell::Get()->session_controller()->GetActivePrefService(), true);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 }

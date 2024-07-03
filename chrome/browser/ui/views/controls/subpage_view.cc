@@ -23,8 +23,7 @@
 
 namespace {
 constexpr int kSeparatorBottomMargin = 16;
-constexpr int kBackIconSize = 16;
-constexpr int kBackIconSizeRefreshStyle = 20;
+constexpr int kBackIconSize = 20;
 }  // namespace
 
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kSubpageViewId);
@@ -38,7 +37,11 @@ SubpageView::SubpageView(views::Button::PressedCallback callback,
       ->SetOrientation(views::LayoutOrientation::kVertical);
 }
 
-SubpageView::~SubpageView() = default;
+SubpageView::~SubpageView() {
+  if (title_) {
+    title_->RemoveObserver(this);
+  }
+}
 
 void SubpageView::SetTitle(const std::u16string& title) {
   title_->SetText(title);
@@ -54,12 +57,8 @@ void SubpageView::SetUpSubpageTitle(views::Button::PressedCallback callback) {
           .right());
 
   auto back_button = views::CreateVectorImageButtonWithNativeTheme(
-      std::move(callback),
-      features::IsChromeRefresh2023()
-          ? vector_icons::kArrowBackChromeRefreshIcon
-          : vector_icons::kArrowBackIcon,
-      features::IsChromeRefresh2023() ? kBackIconSizeRefreshStyle
-                                      : kBackIconSize);
+      std::move(callback), vector_icons::kArrowBackChromeRefreshIcon,
+      kBackIconSize);
   back_button->SetID(VIEW_ID_SUBPAGE_BACK_BUTTON);
   back_button->SetTooltipText(l10n_util::GetStringUTF16(IDS_ACCNAME_BACK));
   back_button->SetProperty(views::kInternalPaddingKey,
@@ -69,9 +68,7 @@ void SubpageView::SetUpSubpageTitle(views::Button::PressedCallback callback) {
 
   title_ = title_view->AddChildView(
       views::Builder<views::Label>()
-          .SetTextStyle(features::IsChromeRefresh2023()
-                            ? views::style::STYLE_HEADLINE_4
-                            : views::style::STYLE_SECONDARY)
+          .SetTextStyle(views::style::STYLE_HEADLINE_4)
           .SetTextContext(views::style::CONTEXT_DIALOG_TITLE)
           .SetHorizontalAlignment(gfx::ALIGN_LEFT)
           .Build());
@@ -91,6 +88,11 @@ void SubpageView::SetUpSubpageTitle(views::Button::PressedCallback callback) {
     title_width -= close_button_width;
   }
   title_->SetMaximumWidth(title_width);
+  // We need to observe the `title_` view for destruction in order to clear the
+  // raw_ptr to prevent a dangling reference. This is because the `title_` is
+  // owned by a view other than this view. That other view is destroyed prior
+  // to the destruction of this view.
+  title_->AddObserver(this);
 
   bubble_frame_view_->SetTitleView(std::move(title_view));
 }
@@ -119,6 +121,13 @@ void SubpageView::SetHeaderView(std::unique_ptr<views::View> header_view) {
 
 void SubpageView::SetFootnoteView(std::unique_ptr<views::View> footnote_view) {
   bubble_frame_view_->SetFootnoteView(std::move(footnote_view));
+}
+
+void SubpageView::OnViewIsDeleting(views::View* view) {
+  if (view == title_.get()) {
+    title_->RemoveObserver(this);
+    title_ = nullptr;
+  }
 }
 
 BEGIN_METADATA(SubpageView)

@@ -51,7 +51,8 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
@@ -223,7 +224,7 @@ class BookmarkFolderButton : public BookmarkMenuButtonBase {
     SetTriggerableEventFlags(ui::EF_LEFT_MOUSE_BUTTON |
                              ui::EF_MIDDLE_MOUSE_BUTTON);
 
-    SetAccessibleName(GetAccessibleText());
+    GetViewAccessibility().SetName(GetAccessibleText());
   }
   BookmarkFolderButton(const BookmarkFolderButton&) = delete;
   BookmarkFolderButton& operator=(const BookmarkFolderButton&) = delete;
@@ -1111,6 +1112,10 @@ void BookmarkBarView::ChildPreferredSizeChanged(views::View* child) {
   InvalidateDrop();
 }
 
+void BookmarkBarView::AddedToWidget() {
+  MaybeShowSavedTabGroupsIntroPromo();
+}
+
 void BookmarkBarView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kToolbar;
   node_data->SetNameChecked(l10n_util::GetStringUTF8(IDS_ACCNAME_BOOKMARKS));
@@ -1147,10 +1152,11 @@ void BookmarkBarView::BookmarkModelLoaded(bool ids_reassigned) {
   DCHECK(bookmark_buttons_.empty());
   const std::u16string all_bookmarks_button_text =
       l10n_util::GetStringUTF16(IDS_BOOKMARKS_ALL_BOOKMARKS);
-  all_bookmarks_button_->SetAccessibleName(all_bookmarks_button_text);
+  all_bookmarks_button_->GetViewAccessibility().SetName(
+      all_bookmarks_button_text);
   all_bookmarks_button_->SetText(all_bookmarks_button_text);
   const auto managed_title = managed_->managed_node()->GetTitle();
-  managed_bookmarks_button_->SetAccessibleName(
+  managed_bookmarks_button_->GetViewAccessibility().SetName(
       GetFolderButtonAccessibleName(managed_title));
   managed_bookmarks_button_->SetText(managed_title);
   UpdateAppearanceForTheme();
@@ -1572,7 +1578,7 @@ std::unique_ptr<MenuButton> BookmarkBarView::CreateOverflowButton() {
   // Make visible as necessary.
   button->SetVisible(false);
   // Set accessibility name.
-  button->SetAccessibleName(
+  button->GetViewAccessibility().SetName(
       l10n_util::GetStringUTF16(IDS_ACCNAME_BOOKMARKS_CHEVRON));
   button->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_BOOKMARK_BAR_OVERFLOW_BUTTON_TOOLTIP));
@@ -1626,7 +1632,7 @@ BookmarkBarView::CreateAppsPageShortcutButton() {
 void BookmarkBarView::ConfigureButton(const BookmarkNode* node,
                                       views::LabelButton* button) {
   button->SetText(node->GetTitle());
-  button->SetAccessibleName(node->GetTitle());
+  button->GetViewAccessibility().SetName(node->GetTitle());
   button->SetID(VIEW_ID_BOOKMARK_BAR_ELEMENT);
   // We don't always have a color provider (ui tests, for example).
   SkColor text_color = gfx::kPlaceholderColor;
@@ -1739,7 +1745,7 @@ void BookmarkBarView::BookmarkNodeChangedImpl(const BookmarkNode* node) {
     // If the folder is unnamed, set the name to a default string for unnamed
     // folders; otherwise set the name to the user-supplied folder name.
     const auto managed_title = managed_->managed_node()->GetTitle();
-    managed_bookmarks_button_->SetAccessibleName(
+    managed_bookmarks_button_->GetViewAccessibility().SetName(
         GetFolderButtonAccessibleName(managed_title));
     managed_bookmarks_button_->SetText(managed_title);
     return;
@@ -2157,6 +2163,70 @@ int BookmarkBarView::GetDropLocationModelIndexForTesting() const {
 const views::View* BookmarkBarView::GetSavedTabGroupsSeparatorViewForTesting()
     const {
   return saved_tab_groups_separator_view_;
+}
+
+void BookmarkBarView::MaybeShowSavedTabGroupsIntroPromo() const {
+  // Only show this promo with the V2 enabled flag.
+  if (!tab_groups::IsTabGroupsSaveV2Enabled()) {
+    return;
+  }
+
+  // Attempting to queue up an IPH that should show at startup, this requires
+  // the BrowserFeaturePromoController.
+  BrowserFeaturePromoController* const promo_controller =
+      BrowserFeaturePromoController::GetForView(saved_tab_group_bar_);
+  if (!promo_controller) {
+    return;
+  }
+
+  // Check whether to show the synced, or unsyned version of the promo.
+  tab_groups::SavedTabGroupKeyedService* const service =
+      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+          browser_->profile());
+  if (!service) {
+    return;
+  }
+
+  // In order for IPH's for V2 to show up, there must be at least 1 group.
+  if (service->model()->saved_tab_groups().empty()) {
+    return;
+  }
+
+  user_education::FeaturePromoParams params(
+      feature_engagement::kIPHTabGroupsSaveV2IntroFeature);
+
+  const bool everything_button_is_visible =
+      saved_tab_group_bar_ && saved_tab_group_bar_->GetVisible();
+
+  // TODO (crbug.com/343258921) Once A11y text is supported with string
+  // substitutions, add them in.
+
+  // If tabs groups are syncing...
+  if (service->AreSavedTabGroupsSynced()) {
+    // Anchor the IPH to the bookmarks bar if the everything button is visible.
+    // Otherwise, anchor to the AppMenu.
+    if (everything_button_is_visible) {
+      params.body_params = {l10n_util::GetStringUTF16(
+          IDS_SAVED_TAB_GROUPS_V2_INTRO_IPH_BOOKMARKS_BAR_SYNCED_BODY)};
+    } else {
+      params.body_params = {l10n_util::GetStringUTF16(
+          IDS_SAVED_TAB_GROUPS_V2_INTRO_IPH_APP_MENU_SYNCED_BODY)};
+    }
+  } else {
+    // Anchor the IPH to the bookmarks bar if the everything button is visible.
+    // Otherwise, anchor to the AppMenu.
+    if (everything_button_is_visible) {
+      params.body_params =
+          std::vector<std::u16string>{l10n_util::GetStringUTF16(
+              IDS_SAVED_TAB_GROUPS_V2_INTRO_IPH_BOOKMARKS_BAR_NOT_SYNCED_BODY)};
+    } else {
+      params.body_params =
+          std::vector<std::u16string>{l10n_util::GetStringUTF16(
+              IDS_SAVED_TAB_GROUPS_V2_INTRO_IPH_APP_MENU_NOT_SYNCED_BODY)};
+    }
+  }
+
+  promo_controller->MaybeShowStartupPromo(std::move(params));
 }
 
 BEGIN_METADATA(BookmarkBarView)

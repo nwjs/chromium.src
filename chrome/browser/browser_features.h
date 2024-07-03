@@ -18,18 +18,11 @@ namespace features {
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 
-#if BUILDFLAG(IS_WIN)
-BASE_DECLARE_FEATURE(kAppBoundEncryptionMetrics);
-#endif
-
 BASE_DECLARE_FEATURE(kAutocompleteActionPredictorConfidenceCutoff);
+BASE_DECLARE_FEATURE(kBookmarksTreeView);
 BASE_DECLARE_FEATURE(kBookmarkTriggerForPrerender2);
 BASE_DECLARE_FEATURE(kCertificateTransparencyAskBeforeEnabling);
 BASE_DECLARE_FEATURE(kClosedTabCache);
-BASE_DECLARE_FEATURE(kDeferredSpareRendererForTopChromeWebUI);
-extern const base::FeatureParam<base::TimeDelta> kSpareRendererWarmupDelay;
-extern const base::FeatureParam<bool>
-    kSpareRendererWarmupDelayUntilPageStopsLoading;
 
 BASE_DECLARE_FEATURE(kDestroyProfileOnBrowserClose);
 BASE_DECLARE_FEATURE(kDestroySystemProfiles);
@@ -56,6 +49,9 @@ extern const base::FeatureParam<bool> kDevToolsConsoleInsightsDogfoodOptIn;
 BASE_DECLARE_FEATURE(kDevToolsConsoleInsightsSettingVisible);
 extern const base::FeatureParam<std::string>
     kDevToolsConsoleInsightsSettingVisibleBlockedReason;
+
+BASE_DECLARE_FEATURE(kDevToolsFreestylerDogfood);
+
 BASE_DECLARE_FEATURE(kDevToolsSharedProcessInfobar);
 BASE_DECLARE_FEATURE(kDevToolsTabTarget);
 BASE_DECLARE_FEATURE(kDevToolsVeLogging);
@@ -65,16 +61,13 @@ BASE_DECLARE_FEATURE(kDoubleTapToZoomInTabletMode);
 #endif
 
 #if BUILDFLAG(IS_WIN)
-BASE_DECLARE_FEATURE(kEnableDPAPIEncryptionProvider);
 BASE_DECLARE_FEATURE(kRegisterAppBoundEncryptionProvider);
+BASE_DECLARE_FEATURE(kUseAppBoundEncryptionProviderForEncryption);
 #endif
 
-BASE_DECLARE_FEATURE(kFedCmWithoutThirdPartyCookies);
 BASE_DECLARE_FEATURE(kFlexOrgManagementDisclosure);
 BASE_DECLARE_FEATURE(kIncomingCallNotifications);
 BASE_DECLARE_FEATURE(kKeyPinningComponentUpdater);
-BASE_DECLARE_FEATURE(kLargeFaviconFromGoogle);
-extern const base::FeatureParam<int> kLargeFaviconFromGoogleSizeInDip;
 
 #if BUILDFLAG(IS_WIN)
 BASE_DECLARE_FEATURE(kLockProfileCookieDatabase);
@@ -110,6 +103,8 @@ BASE_DECLARE_FEATURE(kNoPreReadMainDll);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kNotificationOneTapUnsubscribe);
+extern base::FeatureParam<bool>
+    kNotificationOneTapUnsubscribeUseServiceIntentParam;
 #endif
 
 BASE_DECLARE_FEATURE(kOmniboxTriggerForPrerender2);
@@ -153,6 +148,9 @@ BASE_DECLARE_FEATURE(kTabCaptureBlueBorderCrOS);
 BASE_DECLARE_FEATURE(kUseOsCryptAsyncForCookieEncryption);
 BASE_DECLARE_FEATURE(kWebUsbDeviceDetection);
 
+#if BUILDFLAG(IS_WIN)
+BASE_DECLARE_FEATURE(kBrowserDynamicCodeDisabled);
+#endif
 }  // namespace features
 
 #endif  // CHROME_BROWSER_BROWSER_FEATURES_H_

@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastelno rumene</translation>
 <translation id="1056898198331236512">Opozorilo</translation>
 <translation id="1059913517121127803">Ni bilo mogoče začeti optično brati</translation>
+<translation id="1061864016440983342">Uporabi brez lokacije</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> od <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Zaznan je požarni zid</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Več nastavitev</translation>
 <translation id="2082932131694554252">Dodeljena tipka tipkovnice</translation>
 <translation id="2085089206770112532">Zmanjšanje svetlosti zaslona</translation>
+<translation id="2086091080968010660">Časovne spremembe morda niso točne. V nastavitvah vklopite dostop do lokacije sistema.</translation>
 <translation id="2102231663024125441">Urejanje besedila</translation>
 <translation id="2105810540595158374">Naprava je krmilnik za igre.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, različica: <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Urejanje podrobnosti APN-ja</translation>
 <translation id="2195732836444333448">Trenutno ni prostih zmogljivosti. Vrnite se pozneje.</translation>
 <translation id="2201758491318984023">kolo</translation>
-<translation id="2203222757805818543">Trenutni razpored je nastavljen na <ph name="SUNRISE" />–<ph name="SUNSET" />. Če želite samodejno posodobiti razpored temnega načina, <ph name="BEGIN_LINK" />vklopite dostop do lokacije<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">termalni vrelci</translation>
 <translation id="2203642483788377106">pečina</translation>
 <translation id="2208388655216963643">impresionizem</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Ponastavi na privzeto</translation>
 <translation id="2286454467119466181">Preprosti</translation>
 <translation id="2287186687001756809">Na voljo ni nobene slike. Fotografije lahko dodate na <ph name="LINK" />.</translation>
+<translation id="2294577623958216786">Trenutni razpored je nastavljen na <ph name="SUNRISE" />–<ph name="SUNSET" />. Če želite samodejno posodobiti razpored sončnega zahoda in sončnega vzhoda, vklopite dostop do lokacije.</translation>
 <translation id="2305172810646967500">črne</translation>
 <translation id="2307344026739914387">Uporaba trenutnega para ključev</translation>
 <translation id="2308243864813041101">Če želite nadaljevati postopek posodobitve, odklopite kabel USB naprave <ph name="DEVICE_NAME" /></translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">peščena sipina</translation>
 <translation id="2619761439309613843">Dnevno osveževanje</translation>
 <translation id="2620436844016719705">Sistem</translation>
+<translation id="2637303424821734920">IZKLOPLJENO – Za prikaz lokalnega vremena <ph name="BEGIN_LINK" />vklopite dostop do lokacije sistema<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Slika za prijavo</translation>
 <translation id="2640549051766135490">Album <ph name="TITLE" /> <ph name="DESC" /> je bil izbran</translation>
 <translation id="2645380101799517405">Kontrolniki</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Ozadje</translation>
 <translation id="3027578600144895987">Zapri kamero</translation>
 <translation id="3031560714565892478">Naprava je videokamera.</translation>
+<translation id="3051968340259309715">To sistemskim storitvam omogoča uporabo natančnosti zaznavanja lokacije za določanje vaše lokacije. Natančnost zaznavanja lokacije uporablja podatke o brezžičnih signalih, kot so dostopne točke Wi-Fi, bazne postaje mobilnih omrežij in GPS, skupaj s podatki tipal naprave, kot sta merilnik pospeška in žiroskop, za oceno lokacije naprave. Lokacijo lahko izklopite v Nastavitve &gt; Zasebnost in varnost &gt; Nastavitve zasebnosti &gt; Dostop do lokacije. <ph name="LINK_BEGIN" />Več o tem<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Končna točka</translation>
 <translation id="3060579846059757016">Orisi</translation>
+<translation id="3061850252076394168">omogočanje storitve Izberite in poslušajte</translation>
 <translation id="3069085583900247081">Preizkus ni uspel</translation>
 <translation id="3078740164268491126">tabela</translation>
 <translation id="3081652522083185657">svetlo</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Ni bilo mogoče razrešiti vseh gostiteljev</translation>
 <translation id="4593212453765072419">Zahtevano je preverjanje pristnosti prek strežnika proxy</translation>
 <translation id="4609350030397390689">Zmanjšanje svetlosti osvetlitve tipkovnice</translation>
-<translation id="4617553623719764431">Vreme ni prikazano, ker ne pozna vaše lokacije. Če želite prikazati lokalno vreme, <ph name="BEGIN_LINK" />vklopite dostop do lokacije<ph name="END_LINK" />.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> od <ph name="TOTAL_PAGE_NUMBER" />. Pritisnite tipko Enter, če želite preklicati tiskalno opravilo.</translation>
 <translation id="463791356324567266">Preklic optičnega branja ...</translation>
 <translation id="4646949265910132906">Varna povezava Wi-Fi</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Izvedi</translation>
 <translation id="4987769320337599931">Požarni zid</translation>
 <translation id="4988526792673242964">Strani</translation>
+<translation id="4989542687859782284">Ni na voljo</translation>
 <translation id="4999333166442584738">Skrij poročilo</translation>
 <translation id="500920857929044050">Ustavi preizkus</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">svetlost osvetlitve tipkovnice</translation>
 <translation id="6412715219990689313">Vgrajena tipkovnica</translation>
 <translation id="6417265370957905582">Pomočnik Google</translation>
+<translation id="6419454453018688975">Vklopite dostop do lokacije sistema</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">To sistemskim storitvam z dovoljenjem omogoča uporabo vaše lokacije. Lokacijska storitev si pri zaznavanju lokacije naprave pomaga z viri, kot so omrežja Wi-Fi, mobilna omrežja in tipala. <ph name="LINK_BEGIN" />Več o tem<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Šibka (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Odpri nastavitve računa</translation>
 <translation id="6462978824459367242">Gumb za dodajanje APN-ja je zdaj omogočen</translation>

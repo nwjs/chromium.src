@@ -44,11 +44,12 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/autofill_switches.h"
+#include "components/autofill/core/common/credit_card_number_validation.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/prefs/pref_service.h"
 #include "url/android/gurl_android.h"
 
-// Must come after other includes, because FromJniType() uses Profile.
+// Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/autofill/android/jni_headers/PersonalDataManager_jni.h"
 #include "components/autofill/android/payments_jni_headers/BankAccount_jni.h"
 #include "components/autofill/android/payments_jni_headers/PaymentInstrument_jni.h"
@@ -207,7 +208,7 @@ PersonalDataManagerAndroid::GetProfileGUIDsToSuggest(JNIEnv* env) {
 ScopedJavaLocalRef<jobject> PersonalDataManagerAndroid::GetProfileByGUID(
     JNIEnv* env,
     const JavaParamRef<jstring>& jguid) {
-  AutofillProfile* profile =
+  const AutofillProfile* profile =
       personal_data_manager_->address_data_manager().GetProfileByGUID(
           ConvertJavaStringToUTF8(env, jguid));
   if (!profile)
@@ -439,7 +440,7 @@ void PersonalDataManagerAndroid::OnPersonalDataChanged() {
 void PersonalDataManagerAndroid::RecordAndLogProfileUse(
     JNIEnv* env,
     const JavaParamRef<jstring>& jguid) {
-  AutofillProfile* profile =
+  const AutofillProfile* profile =
       personal_data_manager_->address_data_manager().GetProfileByGUID(
           ConvertJavaStringToUTF8(env, jguid));
   if (profile) {
@@ -454,20 +455,18 @@ void PersonalDataManagerAndroid::SetProfileUseStatsForTesting(
     jint days_since_last_used) {
   DCHECK(count >= 0 && days_since_last_used >= 0);
 
-  AutofillProfile* profile =
-      personal_data_manager_->address_data_manager().GetProfileByGUID(
+  AutofillProfile profile =
+      *personal_data_manager_->address_data_manager().GetProfileByGUID(
           ConvertJavaStringToUTF8(env, jguid));
-  profile->set_use_count(static_cast<size_t>(count));
-  profile->set_use_date(AutofillClock::Now() -
-                        base::Days(days_since_last_used));
-
-  personal_data_manager_->NotifyPersonalDataObserver();
+  profile.set_use_count(static_cast<size_t>(count));
+  profile.set_use_date(AutofillClock::Now() - base::Days(days_since_last_used));
+  personal_data_manager_->address_data_manager().UpdateProfile(profile);
 }
 
 jint PersonalDataManagerAndroid::GetProfileUseCountForTesting(
     JNIEnv* env,
     const base::android::JavaParamRef<jstring>& jguid) {
-  AutofillProfile* profile =
+  const AutofillProfile* profile =
       personal_data_manager_->address_data_manager().GetProfileByGUID(
           ConvertJavaStringToUTF8(env, jguid));
   return profile->use_count();
@@ -476,7 +475,7 @@ jint PersonalDataManagerAndroid::GetProfileUseCountForTesting(
 jlong PersonalDataManagerAndroid::GetProfileUseDateForTesting(
     JNIEnv* env,
     const base::android::JavaParamRef<jstring>& jguid) {
-  AutofillProfile* profile =
+  const AutofillProfile* profile =
       personal_data_manager_->address_data_manager().GetProfileByGUID(
           ConvertJavaStringToUTF8(env, jguid));
   return profile->use_date().ToTimeT();
@@ -665,10 +664,11 @@ BankAccount PersonalDataManagerAndroid::CreateNativeBankAccountFromJava(
 
 ScopedJavaLocalRef<jobjectArray> PersonalDataManagerAndroid::GetProfileGUIDs(
     JNIEnv* env,
-    const std::vector<AutofillProfile*>& profiles) {
+    const std::vector<const AutofillProfile*>& profiles) {
   std::vector<std::u16string> guids;
-  for (AutofillProfile* profile : profiles)
+  for (const AutofillProfile* profile : profiles) {
     guids.push_back(base::UTF8ToUTF16(profile->guid()));
+  }
 
   return base::android::ToJavaArrayOfStrings(env, guids);
 }
@@ -689,7 +689,7 @@ ScopedJavaLocalRef<jobjectArray> PersonalDataManagerAndroid::GetProfileLabels(
     bool include_name_in_label,
     bool include_organization_in_label,
     bool include_country_in_label,
-    std::vector<AutofillProfile*> profiles) {
+    std::vector<const AutofillProfile*> profiles) {
   FieldTypeSet suggested_fields;
   size_t minimal_fields_shown = 2;
   if (address_only) {
@@ -713,8 +713,7 @@ ScopedJavaLocalRef<jobjectArray> PersonalDataManagerAndroid::GetProfileLabels(
   FieldType excluded_field = include_name_in_label ? UNKNOWN_TYPE : NAME_FULL;
 
   std::vector<std::u16string> labels;
-  // TODO(crbug.com/40283168): Replace by `profiles` when `GetProfilesToSuggest`
-  // starts returning a list of const AutofillProfile*.
+  // TODO(crbug.com/40283168): Replace by `profiles`.
   AutofillProfile::CreateInferredLabels(
       std::vector<raw_ptr<const AutofillProfile, VectorExperimental>>(
           profiles.begin(), profiles.end()),
@@ -728,14 +727,29 @@ ScopedJavaLocalRef<jobjectArray> PersonalDataManagerAndroid::GetProfileLabels(
 ScopedJavaLocalRef<jobject>
 PersonalDataManagerAndroid::CreateJavaIbanFromNative(JNIEnv* env,
                                                      const Iban& iban) {
-  // TODO(b/324635902): Add support for server IBAN.
-  return Java_Iban_create(
-      env, ConvertUTF8ToJavaString(env, iban.guid()),
-      ConvertUTF16ToJavaString(env,
-                               iban.GetIdentifierStringForAutofillDisplay()),
-      ConvertUTF16ToJavaString(env, iban.nickname()),
-      static_cast<jint>(iban.record_type()),
-      ConvertUTF16ToJavaString(env, iban.GetRawInfo(IBAN_VALUE)));
+  switch (iban.record_type()) {
+    case Iban::kLocalIban:
+      return Java_Iban_createLocal(
+          env, ConvertUTF8ToJavaString(env, iban.guid()),
+          ConvertUTF16ToJavaString(
+              env, iban.GetIdentifierStringForAutofillDisplay()),
+          ConvertUTF16ToJavaString(env, iban.nickname()),
+          ConvertUTF16ToJavaString(env, iban.GetRawInfo(IBAN_VALUE)));
+    case Iban::kServerIban:
+      return Java_Iban_createServer(
+          env, iban.instrument_id(),
+          ConvertUTF16ToJavaString(
+              env, iban.GetIdentifierStringForAutofillDisplay()),
+          ConvertUTF16ToJavaString(env, iban.nickname()),
+          ConvertUTF16ToJavaString(env, iban.GetRawInfo(IBAN_VALUE)));
+    case Iban::kUnknown:
+      return Java_Iban_createEphemeral(
+          env,
+          ConvertUTF16ToJavaString(
+              env, iban.GetIdentifierStringForAutofillDisplay()),
+          ConvertUTF16ToJavaString(env, iban.nickname()),
+          ConvertUTF16ToJavaString(env, iban.GetRawInfo(IBAN_VALUE)));
+  }
 }
 
 void PersonalDataManagerAndroid::PopulateNativeIbanFromJava(
@@ -867,9 +881,8 @@ JNI_PersonalDataManager_GetBasicCardIssuerNetwork(
     return ConvertUTF8ToJavaString(env, "");
   }
   return ConvertUTF8ToJavaString(
-      env,
-      data_util::GetPaymentRequestData(CreditCard::GetCardNetwork(card_number))
-          .basic_card_issuer_network);
+      env, data_util::GetPaymentRequestData(GetCardNetwork(card_number))
+               .basic_card_issuer_network);
 }
 
 // Returns an ISO 3166-1-alpha-2 country code for a |jcountry_name| using

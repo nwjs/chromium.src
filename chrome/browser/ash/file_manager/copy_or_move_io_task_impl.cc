@@ -94,7 +94,7 @@ storage::FileSystemOperationRunner::OperationID StartMoveOnIOThread(
 // different file systems or not. The entries are seen as being on different
 // filesystems if either:
 // - the entries are not on the same volume OR
-// - one entry is in My files, and the other one in Downloads.
+// - one entry is in MyFiles, and the other one in Downloads.
 // crbug.com/1200251
 bool IsCrossFileSystem(Profile* profile,
                        const storage::FileSystemURL& source_url,
@@ -128,8 +128,8 @@ bool IsCrossFileSystem(Profile* profile,
     return false;
   }
 
-  // The Downloads folder being bind mounted in My files, I/O operations within
-  // My files may need to be considered cross-filesystem (if one path is in
+  // The Downloads folder being bind mounted in MyFiles, I/O operations within
+  // MyFiles may need to be considered cross-filesystem (if one path is in
   // Downloads and the other is not).
   base::FilePath my_files_path =
       file_manager::util::GetMyFilesFolderForProfile(profile);
@@ -707,7 +707,7 @@ void CopyOrMoveIOTaskImpl::ContinueCopyOrMoveFile(
           kRemovePartiallyCopiedFilesOnError};
 
   // To ensure progress updates, force cross-filesystem I/O operations when the
-  // source and the destination are on different volumes, or between My files
+  // source and the destination are on different volumes, or between MyFiles
   // and Downloads.
   if (IsCrossFileSystem(profile_, source_url, destination_url)) {
     options.Put(
@@ -811,7 +811,7 @@ void CopyOrMoveIOTaskImpl::OnCopyOrMoveProgress(
         log_progress();
         return;
       default:
-        NOTREACHED() << "Unknown ProgressType: " << int(type);
+        NOTREACHED_IN_MIGRATION() << "Unknown ProgressType: " << int(type);
         return;
     }
   }
@@ -881,8 +881,8 @@ void CopyOrMoveIOTaskImpl::OnCopyOrMoveComplete(size_t idx,
   // source errors are found.
   for (const auto& source : progress_->sources) {
     DCHECK(source.error.has_value());
-    if (source.error != base::File::FILE_OK) {
-      LOG(ERROR) << "Error on complete: error " << source.error.value() << " "
+    if (source.error.value() != base::File::FILE_OK) {
+      LOG(ERROR) << "Cannot copy or move " << source.url.DebugString() << ": "
                  << base::File::ErrorToString(source.error.value());
       complete_state = State::kError;
       break;

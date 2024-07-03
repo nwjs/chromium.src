@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if defined(UNSAFE_BUFFERS_BUILD)
+// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
+// then remove this pragma.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "ui/views/controls/textfield/textfield_unittest.h"
 
 #include <stddef.h>
@@ -4113,7 +4119,8 @@ TEST_F(TextfieldTest, SetAccessibleNameNotifiesAccessibilityEvent) {
   EXPECT_EQ(0, counter.GetCount(ax::mojom::Event::kTextChanged));
   textfield_->SetAccessibleName(test_tooltip_text);
   EXPECT_EQ(1, counter.GetCount(ax::mojom::Event::kTextChanged));
-  EXPECT_EQ(test_tooltip_text, textfield_->GetAccessibleName());
+  EXPECT_EQ(test_tooltip_text,
+            textfield_->GetViewAccessibility().GetCachedName());
   ui::AXNodeData data;
   textfield_->GetViewAccessibility().GetAccessibleNodeData(&data);
   const std::string& name =
@@ -4132,7 +4139,7 @@ TEST_F(TextfieldTest, AccessibleNameFromLabel) {
 
   const std::u16string label_text = u"Some label";
   View label;
-  label.SetAccessibleRole(ax::mojom::Role::kStaticText);
+  label.GetViewAccessibility().SetRole(ax::mojom::Role::kStaticText);
   label.SetAccessibleName(label_text);
   textfield_->SetAccessibleName(&label);
 
@@ -4146,7 +4153,7 @@ TEST_F(TextfieldTest, AccessibleNameFromLabel) {
   EXPECT_EQ(
       textfield_data.GetString16Attribute(ax::mojom::StringAttribute::kName),
       label_text);
-  EXPECT_EQ(textfield_->GetAccessibleName(), label_text);
+  EXPECT_EQ(textfield_->GetViewAccessibility().GetCachedName(), label_text);
   EXPECT_EQ(textfield_data.GetNameFrom(), ax::mojom::NameFrom::kRelatedElement);
   EXPECT_EQ(textfield_data.GetIntListAttribute(
                 ax::mojom::IntListAttribute::kLabelledbyIds)[0],
@@ -4568,14 +4575,16 @@ TEST_F(TextfieldTest, AccessibleRole) {
   ui::AXNodeData data;
   textfield_->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.role, ax::mojom::Role::kTextField);
-  EXPECT_EQ(textfield_->GetAccessibleRole(), ax::mojom::Role::kTextField);
+  EXPECT_EQ(textfield_->GetViewAccessibility().GetCachedRole(),
+            ax::mojom::Role::kTextField);
 
-  textfield_->SetAccessibleRole(ax::mojom::Role::kSearchBox);
+  textfield_->GetViewAccessibility().SetRole(ax::mojom::Role::kSearchBox);
 
   data = ui::AXNodeData();
   textfield_->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.role, ax::mojom::Role::kSearchBox);
-  EXPECT_EQ(textfield_->GetAccessibleRole(), ax::mojom::Role::kSearchBox);
+  EXPECT_EQ(textfield_->GetViewAccessibility().GetCachedRole(),
+            ax::mojom::Role::kSearchBox);
 }
 
 // Verify that cursor visibility is controlled by SetCursorEnabled.
@@ -4681,7 +4690,8 @@ TEST_F(TextfieldTest, TextfieldBoundsChangeTest) {
 // Verify that after creating a new Textfield, the Textfield doesn't
 // automatically receive focus and the text cursor is not visible.
 TEST_F(TextfieldTest, TextfieldInitialization) {
-  std::unique_ptr<Widget> widget = CreateTestWidget();
+  std::unique_ptr<Widget> widget =
+      CreateTestWidget(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
   {
     View* container = widget->SetContentsView(std::make_unique<View>());
     TestTextfield* new_textfield =

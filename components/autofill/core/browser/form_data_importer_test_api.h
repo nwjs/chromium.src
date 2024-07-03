@@ -11,6 +11,8 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_data_importer.h"
 #include "components/autofill/core/browser/payments/credit_card_save_manager.h"
+#include "components/autofill/core/browser/payments/iban_save_manager.h"
+#include "components/autofill/core/browser/payments/local_card_migration_manager.h"
 
 namespace autofill {
 
@@ -21,6 +23,12 @@ class FormDataImporterTestApi {
   using ExtractedFormData = FormDataImporter::ExtractedFormData;
 
   explicit FormDataImporterTestApi(FormDataImporter* fdi) : fdi_(*fdi) {}
+
+  std::optional<NonInteractivePaymentMethodType>
+  payment_method_type_if_non_interactive_authentication_flow_completed() const {
+    return fdi_
+        ->payment_method_type_if_non_interactive_authentication_flow_completed_;
+  }
 
   void set_credit_card_save_manager(
       std::unique_ptr<CreditCardSaveManager> ccsm) {

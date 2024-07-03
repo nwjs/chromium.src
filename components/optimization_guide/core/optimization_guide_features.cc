@@ -101,7 +101,6 @@ BASE_FEATURE(kPreventLongRunningPredictionModels,
              "PreventLongRunningPredictionModels",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-
 BASE_FEATURE(kOverrideNumThreadsForModelExecution,
              "OverrideNumThreadsForModelExecution",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -119,7 +118,6 @@ BASE_FEATURE(kOptimizationHintsComponent,
 BASE_FEATURE(kOptimizationGuideFetchingForSRP,
              "OptimizationHintsFetchingSRP",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
 
 // Kill switch for disabling model quality logging.
 BASE_FEATURE(kModelQualityLogging,
@@ -164,12 +162,17 @@ BASE_FEATURE(kLogOnDeviceMetricsOnStartup,
 // Whether to download the text safety classifier model.
 BASE_FEATURE(kTextSafetyClassifier,
              "TextSafetyClassifier",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether the text safety remote fallback should be used.
 BASE_FEATURE(kTextSafetyRemoteFallback,
              "TextSafetyRemoteFallback",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Whether the on-device model validation checks are enabled.
+BASE_FEATURE(kOnDeviceModelValidation,
+             "OnDeviceModelValidation",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // The default value here is a bit of a guess.
 // TODO(crbug.com/40163041): This should be tuned once metrics are available.
@@ -243,10 +246,11 @@ GURL GetOptimizationGuideServiceGetHintsURL() {
   std::string url = base::GetFieldTrialParamValueByFeature(
       kRemoteOptimizationGuideFetching, "optimization_guide_service_url");
   if (url.empty() || !GURL(url).SchemeIs(url::kHttpsScheme)) {
-    if (!url.empty())
+    if (!url.empty()) {
       LOG(WARNING)
           << "Empty or invalid optimization_guide_service_url provided: "
           << url;
+    }
     return GURL(kOptimizationGuideServiceGetHintsDefaultURL);
   }
 
@@ -400,7 +404,6 @@ base::TimeDelta URLKeyedHintValidCacheDuration() {
       60 * 60 /* 1 hour */));
 }
 
-
 size_t MaxHostsForOptimizationGuideServiceModelsFetch() {
   return GetFieldTrialParamByFeatureAsInt(
       kOptimizationTargetPrediction,
@@ -457,8 +460,9 @@ RequestContextSet GetAllowedContextsForPersonalizedMetadata() {
 
 bool ShouldOverrideOptimizationTargetDecisionForMetricsPurposes(
     proto::OptimizationTarget optimization_target) {
-  if (optimization_target != proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD)
+  if (optimization_target != proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD) {
     return false;
+  }
 
   return base::GetFieldTrialParamByFeatureAsBool(
       kOptimizationTargetPrediction, "painful_page_load_metrics_only", false);
@@ -706,6 +710,9 @@ bool IsPerformanceClassCompatibleWithOnDeviceModel(
   if (perf_classes_string.empty()) {
     perf_classes_string = "3,4,5,6";
   }
+  if (perf_classes_string == "*") {
+    return true;
+  }
   std::vector<std::string_view> perf_classes_list = base::SplitStringPiece(
       perf_classes_string, ",", base::WhitespaceHandling::TRIM_WHITESPACE,
       base::SplitResult::SPLIT_WANT_NONEMPTY);
@@ -722,6 +729,12 @@ bool IsOnDeviceExecutionEnabled() {
   return base::FeatureList::IsEnabled(
              features::kOptimizationGuideModelExecution) &&
          base::FeatureList::IsEnabled(kOptimizationGuideOnDeviceModel);
+}
+
+base::TimeDelta GetOnDeviceEligibleModelFeatureRecentUsePeriod() {
+  return base::GetFieldTrialParamByFeatureAsTimeDelta(
+      kOptimizationGuideOnDeviceModel,
+      "on_device_model_feature_recent_use_period", base::Days(30));
 }
 
 base::TimeDelta GetOnDeviceModelRetentionTime() {
@@ -751,12 +764,6 @@ bool GetOnDeviceModelRetractUnsafeContent() {
       kOnDeviceModelShouldRetractUnsafeContent{
           &kTextSafetyClassifier, "on_device_retract_unsafe_content", false};
   return kOnDeviceModelShouldRetractUnsafeContent.Get();
-}
-
-bool GetOnDeviceModelMustUseSafetyModel() {
-  static const base::FeatureParam<bool> kOnDeviceModelMustUseSafetyModel{
-      &kTextSafetyClassifier, "on_device_must_use_safety_model", false};
-  return kOnDeviceModelMustUseSafetyModel.Get();
 }
 
 bool ShouldUseTextSafetyClassifierModel() {
@@ -812,6 +819,56 @@ double GetOnDeviceModelDefaultTemperature() {
   static const base::FeatureParam<double> kTemperature{
       &kOptimizationGuideOnDeviceModel, "on_device_model_temperature", 0.8};
   return kTemperature.Get();
+}
+
+std::vector<uint32_t> GetOnDeviceModelAllowedAdaptationRanks() {
+  static const base::FeatureParam<std::string>
+      kOnDeviceModelAllowedAdaptationRanks{&kOptimizationGuideOnDeviceModel,
+                                           "allowed_adaptation_ranks", "32"};
+  std::vector<uint32_t> ranks;
+  const auto ranks_str = kOnDeviceModelAllowedAdaptationRanks.Get();
+  auto rank_strs = base::SplitStringPiece(
+      ranks_str, ",", base::WhitespaceHandling::TRIM_WHITESPACE,
+      base::SplitResult::SPLIT_WANT_NONEMPTY);
+  ranks.reserve(rank_strs.size());
+  for (const auto& rank_str : rank_strs) {
+    uint32_t rank;
+    if (base::StringToUint(rank_str, &rank)) {
+      ranks.push_back(rank);
+    }
+  }
+  return ranks;
+}
+
+bool IsOnDeviceModelValidationEnabled() {
+  return base::FeatureList::IsEnabled(kOnDeviceModelValidation);
+}
+
+bool ShouldOnDeviceModelBlockOnValidationFailure() {
+  static const base::FeatureParam<bool> kParam{
+      &kOnDeviceModelValidation, "on_device_model_block_on_validation_failure",
+      false};
+  return kParam.Get();
+}
+
+bool ShouldOnDeviceModelClearValidationOnVersionChange() {
+  static const base::FeatureParam<bool> kParam{
+      &kOnDeviceModelValidation,
+      "on_device_model_clear_validation_on_version_change", false};
+  return kParam.Get();
+}
+
+base::TimeDelta GetOnDeviceModelValidationDelay() {
+  static const base::FeatureParam<base::TimeDelta> kParam{
+      &kOnDeviceModelValidation, "on_device_model_validation_delay",
+      base::Seconds(30)};
+  return kParam.Get();
+}
+
+int GetOnDeviceModelValidationAttemptCount() {
+  static const base::FeatureParam<int> kParam{
+      &kOnDeviceModelValidation, "on_device_model_validation_attempt_count", 3};
+  return kParam.Get();
 }
 
 }  // namespace features

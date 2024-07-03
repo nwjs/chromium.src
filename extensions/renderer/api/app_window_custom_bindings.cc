@@ -96,7 +96,7 @@ void AppWindowCustomBindings::GetFrame(
 void AppWindowCustomBindings::ResumeParser(
     const v8::FunctionCallbackInfo<v8::Value>& args) {
   if (args.Length() < 1) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -105,14 +105,14 @@ void AppWindowCustomBindings::ResumeParser(
     ExtensionFrameHelper::FindFrameFromFrameTokenString(context()->isolate(),
                                                         args[0]);
   if (!app_frame) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
   blink::WebDocumentLoader* loader =
       app_frame->GetWebFrame()->GetDocumentLoader();
   if (!loader) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 

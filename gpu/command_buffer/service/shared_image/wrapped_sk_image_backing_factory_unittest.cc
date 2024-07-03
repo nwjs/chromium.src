@@ -35,7 +35,7 @@ namespace {
 constexpr GrSurfaceOrigin kSurfaceOrigin = kTopLeft_GrSurfaceOrigin;
 constexpr SkAlphaType kAlphaType = kPremul_SkAlphaType;
 constexpr auto kColorSpace = gfx::ColorSpace::CreateSRGB();
-constexpr uint32_t kUsage =
+constexpr SharedImageUsageSet kUsage =
     SHARED_IMAGE_USAGE_DISPLAY_READ | SHARED_IMAGE_USAGE_RASTER_READ |
     SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_CPU_UPLOAD;
 class WrappedSkImageBackingFactoryTest
@@ -94,7 +94,7 @@ class WrappedSkImageBackingFactoryTest
 // Verify creation and Skia access works as expected.
 TEST_P(WrappedSkImageBackingFactoryTest, Basic) {
   auto format = GetFormat();
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   gfx::Size size(100, 100);
 
   bool supported = backing_factory_->CanCreateSharedImage(
@@ -177,7 +177,7 @@ TEST_P(WrappedSkImageBackingFactoryTest, Basic) {
 // Verify that pixel upload works as expected.
 TEST_P(WrappedSkImageBackingFactoryTest, Upload) {
   auto format = GetFormat();
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   gfx::Size size(100, 100);
 
   auto backing = backing_factory_->CreateSharedImage(

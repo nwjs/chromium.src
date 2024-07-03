@@ -8,6 +8,7 @@
 #include "chrome/browser/ui/views/controls/hover_button.h"
 #include "chrome/browser/ui/views/webid/account_selection_bubble_view.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/image_fetcher/core/image_decoder.h"
 #include "components/image_fetcher/core/image_fetcher_impl.h"
 #include "components/vector_icons/vector_icons.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
@@ -154,7 +155,7 @@ void BrandIconImageView::OnImageFetched(
     const gfx::Image& image,
     const image_fetcher::RequestMetadata& metadata) {
   if (image.Width() != image.Height() ||
-      image.Width() < AccountSelectionView::GetBrandIconMinimumSize()) {
+      image.Width() < (image_size_ / kMaskableWebIconSafeZoneRatio)) {
     return;
   }
   gfx::ImageSkia skia_image = image.AsImageSkia();
@@ -181,46 +182,27 @@ class AccountImageView : public views::ImageView {
   AccountImageView& operator=(const AccountImageView&) = delete;
   ~AccountImageView() override = default;
 
-  // Fetch image and set it on AccountImageView.
-  void FetchAccountImage(const content::IdentityRequestAccount& account,
-                         image_fetcher::ImageFetcher& image_fetcher,
-                         int image_size) {
-    image_fetcher::ImageFetcherParams params(kTrafficAnnotation,
-                                             kImageFetcherUmaClient);
-
-    // OnImageFetched() is a member of AccountImageView so that the callback
-    // is cancelled in the case that AccountImageView is destroyed prior to
-    // the callback returning.
-    image_fetcher.FetchImage(account.picture,
-                             base::BindOnce(&AccountImageView::OnImageFetched,
-                                            weak_ptr_factory_.GetWeakPtr(),
-                                            base::UTF8ToUTF16(account.name),
-                                            &image_fetcher, image_size),
-                             std::move(params));
-  }
-
- private:
-  void OnImageFetched(const std::u16string& account_name,
-                      image_fetcher::ImageFetcher* image_fetcher,
-                      int image_size,
-                      const gfx::Image& image,
-                      const image_fetcher::RequestMetadata& metadata) {
+  // Check image and set it on AccountImageView.
+  void SetAccountImage(const content::IdentityRequestAccount& account,
+                       image_fetcher::ImageFetcher& image_fetcher,
+                       int image_size) {
     gfx::ImageSkia avatar;
-    if (image.IsEmpty()) {
-      std::u16string letter = account_name;
+    if (account.decoded_picture.IsEmpty()) {
+      std::u16string letter = base::UTF8ToUTF16(account.name);
       if (letter.length() > 0) {
-        letter = base::i18n::ToUpper(account_name.substr(0, 1));
+        letter = base::i18n::ToUpper(letter.substr(0, 1));
       }
       avatar = gfx::CanvasImageSource::MakeImageSkia<
           LetterCircleCroppedImageSkiaSource>(letter, image_size);
     } else {
       avatar =
           gfx::CanvasImageSource::MakeImageSkia<CircleCroppedImageSkiaSource>(
-              image.AsImageSkia(), std::nullopt, image_size);
+              account.decoded_picture.AsImageSkia(), std::nullopt, image_size);
     }
     SetImage(ui::ImageModel::FromImageSkia(avatar));
   }
 
+ private:
   base::WeakPtrFactory<AccountImageView> weak_ptr_factory_{this};
 };
 
@@ -232,7 +214,7 @@ AccountSelectionViewBase::AccountSelectionViewBase(
     AccountSelectionViewBase::Observer* observer,
     views::WidgetObserver* widget_observer,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
-    : web_contents_(web_contents),
+    : web_contents_(web_contents->GetWeakPtr()),
       widget_observer_(widget_observer),
       observer_(observer) {
   image_fetcher_ = std::make_unique<image_fetcher::ImageFetcherImpl>(
@@ -274,8 +256,8 @@ std::unique_ptr<views::View> AccountSelectionViewBase::CreateAccountRow(
   CHECK(should_hover || !should_include_idp);
   if (should_hover) {
     if (should_include_idp) {
-      account_image_view->FetchAccountImage(account, *image_fetcher_,
-                                            avatar_size);
+      account_image_view->SetAccountImage(account, *image_fetcher_,
+                                          avatar_size);
       // Introduce a border so that the IDP image is a bit past the account
       // image.
       account_image_view->SetBorder(views::CreateEmptyBorder(
@@ -315,8 +297,8 @@ std::unique_ptr<views::View> AccountSelectionViewBase::CreateAccountRow(
 
       avatar_view = std::move(background_container);
     } else {
-      account_image_view->FetchAccountImage(account, *image_fetcher_,
-                                            avatar_size);
+      account_image_view->SetAccountImage(account, *image_fetcher_,
+                                          avatar_size);
       avatar_view = std::move(account_image_view);
     }
     std::unique_ptr<views::ImageView> arrow_icon_view = nullptr;
@@ -356,7 +338,7 @@ std::unique_ptr<views::View> AccountSelectionViewBase::CreateAccountRow(
     }
     return row;
   }
-  account_image_view->FetchAccountImage(account, *image_fetcher_, avatar_size);
+  account_image_view->SetAccountImage(account, *image_fetcher_, avatar_size);
   auto row = std::make_unique<views::View>();
   row->SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kHorizontal,
@@ -395,11 +377,8 @@ void AccountSelectionViewBase::AddIdpImage(const GURL& image_url,
 void AccountSelectionViewBase::ConfigureBrandImageView(
     BrandIconImageView* image_view,
     const GURL& brand_icon_url) {
-  // Show placeholder brand icon prior to brand icon being fetched so that
-  // header text wrapping does not change when brand icon is fetched.
-  bool has_icon = brand_icon_url.is_valid();
-  image_view->SetVisible(has_icon);
-  if (!has_icon) {
+  bool is_valid_icon_url = brand_icon_url.is_valid();
+  if (!is_valid_icon_url) {
     return;
   }
 
@@ -478,4 +457,20 @@ base::WeakPtr<views::Widget> AccountSelectionViewBase::GetDialogWidget() {
 net::NetworkTrafficAnnotationTag
 AccountSelectionViewBase::GetTrafficAnnotation() {
   return kTrafficAnnotation;
+}
+
+bool AccountSelectionViewBase::CanFitInWebContents() {
+  CHECK(web_contents_ && dialog_widget_);
+
+  gfx::Size web_contents_size = web_contents_->GetSize();
+  gfx::Size preferred_bubble_size =
+      dialog_widget_->GetContentsView()->GetPreferredSize();
+
+  // TODO(crbug.com/340368623): Figure out what to do when button flow modal
+  // cannot fit in web contents. The offsets kRightMargin and kTopMargin pertain
+  // to the bubble widget.
+  return preferred_bubble_size.width() <
+             (web_contents_size.width() - kRightMargin) &&
+         preferred_bubble_size.height() <
+             (web_contents_size.height() - kTopMargin);
 }

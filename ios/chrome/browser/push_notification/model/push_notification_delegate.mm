@@ -28,7 +28,11 @@
 #import "ios/chrome/browser/push_notification/model/push_notification_service.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_util.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser/browser_provider.h"
+#import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
 #import "ios/chrome/browser/shared/model/browser_state/browser_state_info_cache.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
@@ -78,7 +82,7 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
     base::FilePath path = info_cache->GetPathOfBrowserStateAtIndex(i);
     PrefService* pref_service = GetApplicationContext()
                                     ->GetChromeBrowserStateManager()
-                                    ->GetBrowserState(path)
+                                    ->GetBrowserStateByPath(path)
                                     ->GetPrefs();
 
     NSMutableDictionary<NSString*, NSNumber*>* preference_map =
@@ -263,11 +267,9 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
           ->GetPushNotificationClientManager();
   DCHECK(clientManager);
   clientManager->OnSceneActiveForegroundBrowserReady();
-  // TODO(crbug.com/339102426): Cleanup browserStates.
   ChromeBrowserState* browserState =
-      GetApplicationContext()
-          ->GetChromeBrowserStateManager()
-          ->GetLastUsedBrowserStateDeprecatedDoNotUse();
+      sceneState.browserProviderInterface.mainBrowserProvider.browser
+          ->GetBrowserState();
   if ([self isContentNotificationAvailable:browserState]) {
     // Send an NAU every time the OS authorization status changes.
     [PushNotificationUtil
@@ -303,31 +305,8 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
 }
 
 - (BOOL)isContentNotificationAvailable:(ChromeBrowserState*)browserState {
-  if (!IsContentNotificationExperimentEnalbed()) {
-    return false;
-  }
-  if (!browserState) {
-    return false;
-  }
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForBrowserState(browserState);
-  BOOL isSignedIn = authService && authService->HasPrimaryIdentity(
-                                       signin::ConsentLevel::kSignin);
-  const TemplateURL* defaultSearchURLTemplate =
-      ios::TemplateURLServiceFactory::GetForBrowserState(browserState)
-          ->GetDefaultSearchProvider();
-  bool isDefaultSearchEngine =
-      defaultSearchURLTemplate && defaultSearchURLTemplate->prepopulate_id() ==
-                                      TemplateURLPrepopulateData::google.id;
-  PrefService* prefService = browserState->GetPrefs();
-  // Created the local variables to make sure all experimental types have been
-  // checked, because multiple experimental types can be enabled at the same
-  // time, and the UMA will be active after the feature check.
-  bool contentNotificationEnabled = IsContentNotificationEnabled(
-      isSignedIn, isDefaultSearchEngine, prefService);
-  bool contentNotificationRegistered = IsContentNotificationRegistered(
-      isSignedIn, isDefaultSearchEngine, prefService);
-  return contentNotificationEnabled || contentNotificationRegistered;
+  return IsContentNotificationEnabled(browserState) ||
+         IsContentNotificationRegistered(browserState);
 }
 
 @end

@@ -34,6 +34,7 @@ import android.content.Intent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.Nullable;
 import androidx.test.espresso.Espresso;
 import androidx.test.espresso.intent.Intents;
 import androidx.test.filters.LargeTest;
@@ -64,6 +65,7 @@ import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkEditActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
+import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
@@ -147,6 +149,7 @@ public class SelectableTabListEditorTest {
     private ViewGroup mParentView;
     private SnackbarManager mSnackbarManager;
     private BookmarkModel mBookmarkModel;
+    private TabGroupCreationDialogManager mCreationDialogManager;
 
     @Before
     public void setUp() throws Exception {
@@ -168,6 +171,11 @@ public class SelectableTabListEditorTest {
         mParentView = (ViewGroup) cta.findViewById(R.id.coordinator);
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
+                    mCreationDialogManager =
+                            new TabGroupCreationDialogManager(
+                                    cta,
+                                    cta.getModalDialogManager(),
+                                    /* onTabGroupCreation= */ null);
                     ViewGroup compositorViewHolder = cta.getCompositorViewHolderForTesting();
                     ViewGroup rootView =
                             DeviceFormFactor.isNonMultiDisplayContextOnTablet(cta)
@@ -184,7 +192,6 @@ public class SelectableTabListEditorTest {
                                     mParentView,
                                     cta.getBrowserControlsManager(),
                                     currentTabModelFilterSupplier,
-                                    () -> mTabModelSelector.getModel(false),
                                     cta.getTabContentManager(),
                                     mSetRecyclerViewPosition,
                                     getMode(),
@@ -228,6 +235,7 @@ public class SelectableTabListEditorTest {
                     if (mSnackbarManager == null) return;
                     mSnackbarManager.dismissAllSnackbars();
                 });
+        BookmarkUtils.clearLastUsedPrefs();
     }
 
     private @TabListCoordinator.TabListMode int getMode() {
@@ -312,6 +320,7 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
@@ -321,16 +330,13 @@ public class SelectableTabListEditorTest {
                                     ShowMode.MENU_ONLY,
                                     ButtonType.TEXT,
                                     IconPosition.START));
-
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.resultRobot
                 .verifyTabListEditorIsVisible()
                 .verifyToolbarActionViewDisabled(R.id.tab_list_editor_group_menu_item)
-                .verifyToolbarActionViewWithText(
-                        R.id.tab_list_editor_group_menu_item, "Group tabs")
+                .verifyToolbarActionViewWithText(R.id.tab_list_editor_group_menu_item, "Group tabs")
                 .verifyToolbarSelectionTextWithResourceId(
                         R.string.tab_selection_editor_toolbar_select_tabs)
                 .verifyAdapterHasItemCount(tabs.size())
@@ -346,7 +352,7 @@ public class SelectableTabListEditorTest {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
 
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
 
         mRobot.resultRobot.verifyItemNotSelectedAtAdapterPosition(0);
 
@@ -368,7 +374,7 @@ public class SelectableTabListEditorTest {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
 
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
 
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
@@ -383,14 +389,14 @@ public class SelectableTabListEditorTest {
     public void testHideOnNewTab() {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
         createNewTab(TabLaunchType.FROM_STARTUP, false);
         mRobot.resultRobot.verifyTabListEditorIsHidden();
 
         tabs = getTabsInCurrentTabModel();
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
         createNewTab(TabLaunchType.FROM_RESTORE, false);
@@ -409,15 +415,14 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
-        mRobot.resultRobot.verifyToolbarActionViewDisabled(
-                R.id.tab_list_editor_group_menu_item);
+        mRobot.resultRobot.verifyToolbarActionViewDisabled(R.id.tab_list_editor_group_menu_item);
 
         mRobot.actionRobot.clickItemAtAdapterPosition(0);
         mRobot.resultRobot.verifyToolbarActionViewEnabled(R.id.tab_list_editor_group_menu_item);
@@ -446,15 +451,14 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
-        mRobot.resultRobot.verifyToolbarActionViewDisabled(
-                R.id.tab_list_editor_group_menu_item);
+        mRobot.resultRobot.verifyToolbarActionViewDisabled(R.id.tab_list_editor_group_menu_item);
 
         mRobot.actionRobot
                 .clickItemAtAdapterPosition(0)
@@ -487,13 +491,13 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.MENU_ONLY,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int closeId = R.id.tab_list_editor_close_menu_item;
         mRobot.resultRobot
@@ -539,10 +543,8 @@ public class SelectableTabListEditorTest {
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
-
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int closeId = R.id.tab_list_editor_close_menu_item;
         mRobot.resultRobot.verifyToolbarActionViewDisabled(closeId);
@@ -574,9 +576,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int closeId = R.id.tab_list_editor_close_menu_item;
         mRobot.resultRobot.verifyToolbarActionViewDisabled(closeId);
@@ -614,13 +615,13 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int groupId = R.id.tab_list_editor_group_menu_item;
         mRobot.resultRobot.verifyToolbarActionViewDisabled(groupId);
@@ -674,13 +675,13 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int groupId = R.id.tab_list_editor_group_menu_item;
         mRobot.resultRobot.verifyToolbarActionViewDisabled(groupId);
@@ -749,9 +750,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.actionRobot.clickToolbarMenuButton().clickToolbarMenuItem("Close tabs");
         Espresso.pressBack();
@@ -788,9 +788,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int shareId = R.id.tab_list_editor_share_menu_item;
         mRobot.resultRobot.verifyToolbarActionViewWithText(shareId, "Share tabs");
@@ -850,9 +849,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.actionRobot.clickItemAtAdapterPosition(0).clickItemAtAdapterPosition(2);
 
@@ -899,9 +897,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.actionRobot.clickItemAtAdapterPosition(1).clickItemAtAdapterPosition(2);
 
@@ -953,9 +950,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.actionRobot
                 .clickItemAtAdapterPosition(0)
@@ -991,9 +987,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int shareId = R.id.tab_list_editor_share_menu_item;
         mRobot.actionRobot.clickItemAtAdapterPosition(0).clickItemAtAdapterPosition(1);
@@ -1023,9 +1018,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int bookmarkId = R.id.tab_list_editor_bookmark_menu_item;
         mRobot.actionRobot.clickItemAtAdapterPosition(0);
@@ -1067,9 +1061,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int bookmarkId = R.id.tab_list_editor_bookmark_menu_item;
         mRobot.actionRobot.clickItemAtAdapterPosition(0).clickItemAtAdapterPosition(1);
@@ -1125,9 +1118,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int bookmarkId = R.id.tab_list_editor_bookmark_menu_item;
         mRobot.resultRobot.verifyToolbarActionViewWithText(bookmarkId, "Bookmark tabs");
@@ -1177,9 +1169,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int selectionId = R.id.tab_list_editor_selection_menu_item;
         mRobot.resultRobot
@@ -1217,6 +1208,7 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
@@ -1226,12 +1218,10 @@ public class SelectableTabListEditorTest {
                                     ShowMode.MENU_ONLY,
                                     ButtonType.TEXT,
                                     IconPosition.START));
-
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
                     mTabListEditorController.show(
                             tabs, preSelectedTabCount, /* recyclerViewPosition= */ null);
+                    mTabListEditorController.configureToolbarWithMenuItems(actions);
                 });
-
         mRobot.resultRobot
                 .verifyTabListEditorIsVisible()
                 .verifyToolbarActionViewEnabled(R.id.tab_list_editor_group_menu_item)
@@ -1252,13 +1242,13 @@ public class SelectableTabListEditorTest {
         prepareBlankTab(7, false);
         int preSelectedTabCount = 6;
         List<Tab> tabs = getTabsInCurrentTabModel();
-
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     List<TabListEditorAction> actions = new ArrayList<>();
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
@@ -1269,9 +1259,9 @@ public class SelectableTabListEditorTest {
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
                     mTabListEditorController.show(
                             tabs, preSelectedTabCount, /* recyclerViewPosition= */ null);
+                    mTabListEditorController.configureToolbarWithMenuItems(actions);
                 });
 
         mRobot.resultRobot
@@ -1313,13 +1303,13 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
@@ -1354,13 +1344,13 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.actionRobot.clickItemAtAdapterPosition(0);
 
@@ -1398,13 +1388,14 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
                     mTabListEditorController.show(
                             tabs, preSelectedTabCount, /* recyclerViewPosition= */ null);
+                    mTabListEditorController.configureToolbarWithMenuItems(actions);
                 });
 
         mRobot.resultRobot.verifyTabListEditorIsVisible();
@@ -1440,13 +1431,14 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
                     mTabListEditorController.show(
                             tabs, preSelectedTabCount, /* recyclerViewPosition= */ null);
+                    mTabListEditorController.configureToolbarWithMenuItems(actions);
                 });
 
         mRobot.resultRobot.verifyTabListEditorIsVisible();
@@ -1482,13 +1474,14 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
                     mTabListEditorController.show(
                             tabs, preSelectedTabCount, /* recyclerViewPosition= */ null);
+                    mTabListEditorController.configureToolbarWithMenuItems(actions);
                 });
 
         mRobot.resultRobot.verifyTabListEditorIsVisible();
@@ -1527,9 +1520,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.ICON_AND_TEXT,
                                     IconPosition.END));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         final int selectionId = R.id.tab_list_editor_selection_menu_item;
         mRobot.resultRobot
@@ -1584,13 +1576,13 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
@@ -1606,7 +1598,7 @@ public class SelectableTabListEditorTest {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
 
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
 
         mRobot.resultRobot.verifyTabListEditorIsVisible();
     }
@@ -1625,13 +1617,13 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.actionRobot.clickItemAtAdapterPosition(0);
 
@@ -1654,13 +1646,13 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.IF_ROOM,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
 
         mRobot.actionRobot.clickItemAtAdapterPosition(0);
         mRobot.resultRobot
@@ -1691,7 +1683,7 @@ public class SelectableTabListEditorTest {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
 
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
         // Test deselected tab
@@ -1730,9 +1722,8 @@ public class SelectableTabListEditorTest {
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
         mRobot.actionRobot.clickToolbarMenuButton();
@@ -1767,13 +1758,13 @@ public class SelectableTabListEditorTest {
                     actions.add(
                             TabListEditorGroupAction.createAction(
                                     sActivityTestRule.getActivity(),
+                                    mCreationDialogManager,
                                     ShowMode.MENU_ONLY,
                                     ButtonType.TEXT,
                                     IconPosition.START));
 
-                    mTabListEditorController.configureToolbarWithMenuItems(actions, null);
+                    showSelectionEditor(tabs, actions);
                 });
-        showSelectionEditor(tabs);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
         final int closeId = R.id.tab_list_editor_close_menu_item;
@@ -1809,7 +1800,7 @@ public class SelectableTabListEditorTest {
     public void testTabListEditorContentDescription() {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
         assertEquals("Multi-select mode", mTabListEditorLayout.getContentDescription());
@@ -1820,7 +1811,7 @@ public class SelectableTabListEditorTest {
     public void testToolbarNavigationButtonContentDescription() {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
         assertEquals(
@@ -1833,13 +1824,13 @@ public class SelectableTabListEditorTest {
     public void testEditorHideCorrectly() {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
 
         TestThreadUtils.runOnUiThreadBlockingNoException(
                 () -> mTabListEditorController.handleBackPressed());
         mRobot.resultRobot.verifyTabListEditorIsHidden();
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
     }
 
@@ -1851,7 +1842,7 @@ public class SelectableTabListEditorTest {
 
         Map<View, Integer> initialValues = getParentViewAccessibilityImportanceMap();
 
-        showSelectionEditor(tabs);
+        showSelectionEditor(tabs, null);
         mRobot.resultRobot.verifyTabListEditorIsVisible();
         ViewGroup parentView = (ViewGroup) mTabListEditorLayout.getParent();
         verifyBackgroundViewAccessibilityImportance(parentView, true, initialValues);
@@ -1926,11 +1917,14 @@ public class SelectableTabListEditorTest {
         return tabs;
     }
 
-    private void showSelectionEditor(List<Tab> tabs) {
+    private void showSelectionEditor(List<Tab> tabs, @Nullable List<TabListEditorAction> actions) {
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTabListEditorController.show(
                             tabs, /* preSelectedTabCount= */ 0, /* recyclerViewPosition= */ null);
+                    if (actions != null) {
+                        mTabListEditorController.configureToolbarWithMenuItems(actions);
+                    }
                 });
     }
 }

@@ -160,7 +160,7 @@ chromium-metrics-reviews@google.com.
   <int value="106" label="ToggleOverview"/>
   <int value="107" label="ToggleProjectorMarker"/>
   <int value="108" label="ToggleResizeLockMenu"/>
-  <int value="109" label="ToggleSnapGroupWindowsGroupAndUngroup"/>
+  <int value="109" label="CreateSnapGroup"/>
   <int value="110" label="ToggleSnapGroupWindowsMinimizeAndRestore"/>
   <int value="111" label="ToggleSpokenFeedback"/>
   <int value="112" label="ToggleStylusTools"/>
@@ -182,6 +182,11 @@ chromium-metrics-reviews@google.com.
   <int value="128" label="VolumeMuteToggle"/>
   <int value="129" label="TogglePicker"/>
   <int value="130" label="AccessibilityAction"/>
+  <int value="131" label="EnableSelectToSpeak"/>
+  <int value="132" label="TilingWindowResizeLeft"/>
+  <int value="133" label="TilingWindowResizeRight"/>
+  <int value="134" label="TilingWindowResizeUp"/>
+  <int value="135" label="TilingWindowResizeDown"/>
   <int value="9000" label="DebugClearUseKMeansPref"/>
   <int value="9001" label="DebugKeyboardBacklightToggle"/>
   <int value="9002" label="DebugMicrophoneMuteToggle"/>
@@ -876,17 +881,6 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Failure"/>
 </enum>
 
-<enum name="EnterprisePolicyDeviceIdValidity">
-  <summary>
-    Defined as PolicyDeviceIdValidity in
-    components/policy/core/common/cloud/enterprise_metrics.h.
-  </summary>
-  <int value="0" label="Valid"/>
-  <int value="1" label="Actual device ID is unknown"/>
-  <int value="2" label="Missing"/>
-  <int value="3" label="Invalid"/>
-</enum>
-
 <enum name="ExtendedFkeysModifier">
   <int value="0" label="Disabled"/>
   <int value="1" label="Alt"/>
@@ -937,7 +931,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="DEPRECATED: InstallFailed"/>
   <int value="2" label="FailedToCreateUpdateDirectory"/>
   <int value="3" label="DEPRECATED: InvalidDestinationFile"/>
-  <int value="4" label="InvalidFileDescriptor"/>
+  <int value="4" label="InvalidFile"/>
   <int value="5" label="FailedToDownloadToFile"/>
   <int value="6" label="FailedToCreatePatchFile"/>
   <int value="7" label="EmptyPatchFile"/>
@@ -1165,6 +1159,7 @@ chromium-metrics-reviews@google.com.
   <int value="21" label="EmojiPicker"/>
   <int value="22" label="Dictation"/>
   <int value="23" label="PrivacyScreenToggle"/>
+  <int value="24" label="Accessibility"/>
 </enum>
 
 <enum name="KeyboardTopRowLayoutWithExtraSublayout">
@@ -1180,6 +1175,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Layout3"/>
   <int value="5" label="Layout4"/>
   <int value="6" label="LayoutCustom1"/>
+  <int value="7" label="LayoutCustom2"/>
 </enum>
 
 <enum name="KeyPermissionsManagerMigrationStatus">
@@ -1187,6 +1183,13 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="kSucceeded"/>
   <int value="2" label="kFailed"/>
   <int value="3" label="kNecessary"/>
+</enum>
+
+<enum name="KeyUsageCategory">
+  <int value="0" label="PhysicallyPresent"/>
+  <int value="1" label="VirtuallyPresent"/>
+  <int value="2" label="PhysicallyPressed"/>
+  <int value="3" label="VirtuallyPressed"/>
 </enum>
 
 <enum name="LanguagePackDlcErrorType">
@@ -1325,6 +1328,12 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="2" label="Settings changed"/>
 </enum>
 
+<enum name="MahiCacheHit">
+  <int value="0" label="No Hit"/>
+  <int value="1" label="Summary"/>
+  <int value="2" label="Content"/>
+</enum>
+
 <enum name="MahiContextMenuButtonType">
   <int value="0" label="Summary Button"/>
   <int value="1" label="Outline"/>
@@ -1338,6 +1347,19 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="2" label="Submit Question Button"/>
   <int value="3" label="Condensed Menu Button"/>
   <int value="4" label="Settings Button"/>
+</enum>
+
+<enum name="MahiResponseStatus">
+  <int value="0" label="Success"/>
+  <int value="1" label="Unknown Error"/>
+  <int value="2" label="Inappropriate"/>
+  <int value="3" label="Low Quota"/>
+  <int value="4" label="Quota Limit Hit"/>
+  <int value="5" label="Resource Exhausted"/>
+  <int value="6" label="Content Extraction Error"/>
+  <int value="7" label="Can't Find Output Data"/>
+  <int value="8" label="Restricted Country"/>
+  <int value="9" label="Unsupported Language"/>
 </enum>
 
 <enum name="MetadataTier">

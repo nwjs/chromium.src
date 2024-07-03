@@ -143,7 +143,7 @@ BASE_FEATURE(kIOSEditMenuHideSearchWeb,
 
 BASE_FEATURE(kIOSNewOmniboxImplementation,
              "kIOSNewOmniboxImplementation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableColorLensAndVoiceIconsInHomeScreenWidget,
              "kEnableColorLensAndVoiceIconsInHomeScreenWidget",
@@ -151,6 +151,10 @@ BASE_FEATURE(kEnableColorLensAndVoiceIconsInHomeScreenWidget,
 
 BASE_FEATURE(kEnableLensInOmniboxCopiedImage,
              "EnableLensInOmniboxCopiedImage",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableLensOverlay,
+             "EnableLensOverlay",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableTraitCollectionWorkAround,
@@ -309,14 +313,6 @@ BASE_FEATURE(kTabGridAlwaysBounce,
              "TabGridAlwaysBounce",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTabGridCompositionalLayout,
-             "TabGridCompositionalLayout",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsTabGridCompositionalLayoutEnabled() {
-  return base::FeatureList::IsEnabled(kTabGridCompositionalLayout);
-}
-
 BASE_FEATURE(kTabGridRefactoring,
              "TabGridRefactoring",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -336,22 +332,6 @@ BASE_FEATURE(kIOSSaveToPhotos,
 BASE_FEATURE(kIOSDownloadNoUIUpdateInBackground,
              "IOSDownloadNoUIUpdateInBackground",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kHistoryOptInForRestoreShortyAndReSignin,
-             "HistoryOptInForRestoreShortyAndReSignin",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kEnableBatchUploadFromBookmarksManager,
-             "EnableBatchUploadFromBookmarksManager",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kEnableReviewAccountSettingsPromo,
-             "EnableReviewAccountSettingsPromo",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kLinkAccountSettingsToPrivacyFooter,
-             "LinkAccountSettingsToPrivacyFooter",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableWebChannels,
              "EnableWebChannels",
@@ -388,8 +368,17 @@ BASE_FEATURE(kContentNotificationExperiment,
              "ContentNotificationExperiment",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool IsContentNotificationExperimentEnalbed() {
+bool IsContentNotificationExperimentEnabled() {
   return base::FeatureList::IsEnabled(kContentNotificationExperiment);
+}
+
+BASE_FEATURE(kContentNotificationProvisionalIgnoreConditions,
+             "ContentNotificationProvisionalIgnoreConditions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsContentNotificationProvisionalIgnoreConditions() {
+  return base::FeatureList::IsEnabled(
+      kContentNotificationProvisionalIgnoreConditions);
 }
 
 BASE_FEATURE(kIOSLargeFakebox,
@@ -429,6 +418,14 @@ BASE_FEATURE(kDisableLensCamera,
 
 BASE_FEATURE(kOmniboxColorIcons,
              "OmniboxColorIcons",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kClearDeviceDataOnSignOutForManagedUsers,
+             "ClearDeviceDataOnSignOutForManagedUsers",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDownloadedPDFOpening,
+             "DownloadedPDFOpening",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Key for NSUserDefaults containing a bool indicating whether the next run
@@ -648,16 +645,7 @@ bool IsContentPushNotificationsSetUpListEnabled() {
 
 bool IsContentPushNotificationsProvisionalEnabled() {
   return (ContentNotificationsExperimentTypeEnabled() ==
-              NotificationsExperimentTypeProvisional ||
-          ContentNotificationsExperimentTypeEnabled() ==
-              NotificationsExperimentTypeProvisionalBypass);
-}
-
-// TODO(b/322348322): Remove provisional notifications bypass conditions testing
-// flag param.
-bool IsContentPushNotificationsProvisionalBypass() {
-  return (ContentNotificationsExperimentTypeEnabled() ==
-          NotificationsExperimentTypeProvisionalBypass);
+          NotificationsExperimentTypeProvisional);
 }
 
 bool IsContentPushNotificationsPromoRegistrationOnly() {
@@ -692,6 +680,10 @@ BASE_FEATURE(kEnableFeedContainment,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabResumption, "TabResumption", base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabResumption2,
+             "TabResumption2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kMagicStackMostVisitedModuleParam[] = "MagicStackMostVisitedModule";
 
@@ -735,6 +727,13 @@ bool IsTabResumptionEnabledForMostRecentTabOnly() {
   return feature_param != kTabResumptionAllTabsParam;
 }
 
+bool IsTabResumption2_0Enabled() {
+  if (!IsTabResumptionEnabled()) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(kTabResumption2);
+}
+
 const base::TimeDelta TabResumptionForXDevicesTimeThreshold() {
   CHECK(!IsTabResumptionEnabledForMostRecentTabOnly());
 
@@ -744,6 +743,30 @@ const base::TimeDelta TabResumptionForXDevicesTimeThreshold() {
     return base::Days(1);
   }
   return base::Hours(12);
+}
+
+BASE_FEATURE(kTabResumption1_5,
+             "TabResumption1_5",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsTabResumption1_5Enabled() {
+  return IsTabResumptionEnabled() &&
+         base::FeatureList::IsEnabled(kTabResumption1_5);
+}
+
+const char kTR15SalientImageParam[] = "tr15-salient-image";
+const char kTR15SeeMoreButtonParam[] = "tr15-see-more-button";
+
+bool IsTabResumption1_5SalientImageEnabled() {
+  return IsTabResumption1_5Enabled() &&
+         base::GetFieldTrialParamByFeatureAsBool(kTabResumption1_5,
+                                                 kTR15SalientImageParam, true);
+}
+
+bool IsTabResumption1_5SeeMoreEnabled() {
+  return IsTabResumption1_5Enabled() &&
+         base::GetFieldTrialParamByFeatureAsBool(kTabResumption1_5,
+                                                 kTR15SeeMoreButtonParam, true);
 }
 
 bool ShouldPutMostVisitedSitesInMagicStack() {

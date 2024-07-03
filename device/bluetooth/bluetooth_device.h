@@ -23,7 +23,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "device/bluetooth/bluetooth_common.h"
@@ -111,6 +110,10 @@ class DEVICE_BLUETOOTH_EXPORT BluetoothDevice {
     ERROR_DOES_NOT_EXIST = 12,
     ERROR_INVALID_ARGS = 13,
     ERROR_NON_AUTH_TIMEOUT = 14,
+    ERROR_NO_MEMORY = 15,
+    ERROR_JNI_ENVIRONMENT = 16,
+    ERROR_JNI_THREAD_ATTACH = 17,
+    ERROR_WAKELOCK = 18,
     NUM_CONNECT_ERROR_CODES,  // Keep as last enum.
   };
 

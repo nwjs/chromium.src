@@ -95,7 +95,7 @@ SharedImageInterfaceProxy::~SharedImageInterfaceProxy() = default;
 
 Mailbox SharedImageInterfaceProxy::CreateSharedImage(
     const SharedImageInfo& si_info) {
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto params = mojom::CreateSharedImageParams::New();
   params->mailbox = mailbox;
   params->si_info = CreateSharedImageInfo(si_info);
@@ -175,7 +175,7 @@ Mailbox SharedImageInterfaceProxy::CreateSharedImage(
     return Mailbox();
   }
 
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
   auto params = mojom::CreateSharedImageWithDataParams::New();
   params->mailbox = mailbox;
   params->si_info = CreateSharedImageInfo(si_info);
@@ -195,7 +195,7 @@ Mailbox SharedImageInterfaceProxy::CreateSharedImage(
     const SharedImageInfo& si_info,
     gfx::GpuMemoryBufferHandle buffer_handle) {
   // TODO(kylechar): Verify buffer_handle works for size+format.
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
 
   auto params = mojom::CreateSharedImageWithBufferParams::New();
   params->mailbox = mailbox;
@@ -222,7 +222,7 @@ Mailbox SharedImageInterfaceProxy::CreateSharedImage(
     const gfx::Size& size,
     const SharedImageInfo& si_info,
     gfx::GpuMemoryBufferHandle buffer_handle) {
-  auto mailbox = Mailbox::GenerateForSharedImage();
+  auto mailbox = Mailbox::Generate();
 
   auto params = mojom::CreateGMBSharedImageParams::New();
   params->mailbox = mailbox;
@@ -501,8 +501,8 @@ SharedImageInterfaceProxy::CreateSwapChain(viz::SharedImageFormat format,
                                            SkAlphaType alpha_type,
                                            uint32_t usage) {
 #if BUILDFLAG(IS_WIN)
-  const SwapChainMailboxes mailboxes = {Mailbox::GenerateForSharedImage(),
-                                        Mailbox::GenerateForSharedImage()};
+  const SwapChainMailboxes mailboxes = {Mailbox::Generate(),
+                                        Mailbox::Generate()};
   auto params = mojom::CreateSwapChainParams::New();
   params->front_buffer_mailbox = mailboxes.front_buffer;
   params->back_buffer_mailbox = mailboxes.back_buffer;
@@ -526,7 +526,7 @@ SharedImageInterfaceProxy::CreateSwapChain(viz::SharedImageFormat format,
   }
   return mailboxes;
 #else
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return {};
 #endif  // BUILDFLAG(IS_WIN)
 }
@@ -546,7 +546,7 @@ void SharedImageInterfaceProxy::PresentSwapChain(const SyncToken& sync_token,
     host_->EnsureFlush(last_flush_id_);
   }
 #else
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 #endif  // BUILDFLAG(IS_WIN)
 }
 

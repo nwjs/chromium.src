@@ -15,6 +15,7 @@
 #include "gpu/command_buffer/service/shared_image/d3d_image_backing.h"
 #include "gpu/command_buffer/service/shared_image/d3d_image_utils.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
+#include "gpu/config/gpu_finch_features.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gl/direct_composition_support.h"
@@ -25,6 +26,15 @@
 namespace gpu {
 
 namespace {
+
+// Formats supported by CreateSharedImage() for uploading initial data.
+bool IsFormatSupportedForInitialData(viz::SharedImageFormat format) {
+  // The set of formats is artificially limited to avoid needing to handle
+  // formats outside of what is required. If more are needed, we may need to
+  // adjust our initial data's packing or the |D3D11_SUBRESOURCE_DATA|'s pitch.
+  return format == viz::SinglePlaneFormat::kRGBA_8888 ||
+         format == viz::SinglePlaneFormat::kBGRA_8888;
+}
 
 // Formats supported by CreateSharedImage() with no GpuMemoryBufferHandle.
 DXGI_FORMAT GetDXGIFormatForCreateTexture(viz::SharedImageFormat format) {
@@ -82,6 +92,12 @@ DXGI_FORMAT GetDXGITypelessFormat(viz::SharedImageFormat format) {
   return DXGI_FORMAT_UNKNOWN;
 }
 
+bool UseUpdateSubresource1(const GpuDriverBugWorkarounds& workarounds) {
+  return base::FeatureList::IsEnabled(
+             features::kD3DBackingUploadWithUpdateSubresource) &&
+         !workarounds.disable_d3d11_update_subresource1;
+}
+
 constexpr uint32_t kSupportedUsage =
     SHARED_IMAGE_USAGE_GLES2_READ | SHARED_IMAGE_USAGE_GLES2_WRITE |
     SHARED_IMAGE_USAGE_GLES2_FOR_RASTER_ONLY |
@@ -100,12 +116,14 @@ constexpr uint32_t kSupportedUsage =
 D3DImageBackingFactory::D3DImageBackingFactory(
     Microsoft::WRL::ComPtr<ID3D11Device> d3d11_device,
     scoped_refptr<DXGISharedHandleManager> dxgi_shared_handle_manager,
-    const GLFormatCaps& gl_format_caps)
+    const GLFormatCaps& gl_format_caps,
+    const GpuDriverBugWorkarounds& workarounds)
     : SharedImageBackingFactory(kSupportedUsage),
       d3d11_device_(std::move(d3d11_device)),
       dxgi_shared_handle_manager_(std::move(dxgi_shared_handle_manager)),
       angle_d3d11_device_(gl::QueryD3D11DeviceObjectFromANGLE()),
-      gl_format_caps_(gl_format_caps) {
+      gl_format_caps_(gl_format_caps),
+      use_update_subresource1_(UseUpdateSubresource1(workarounds)) {
   CHECK(angle_d3d11_device_);
 }
 
@@ -302,7 +320,7 @@ std::unique_ptr<SharedImageBacking> D3DImageBackingFactory::CreateSharedImage(
     const gfx::ColorSpace& color_space,
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
-    uint32_t usage,
+    SharedImageUsageSet usage,
     std::string debug_label,
     bool is_thread_safe) {
   return CreateSharedImage(mailbox, format, size, color_space, surface_origin,
@@ -317,7 +335,7 @@ std::unique_ptr<SharedImageBacking> D3DImageBackingFactory::CreateSharedImage(
     const gfx::ColorSpace& color_space,
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
-    uint32_t usage,
+    SharedImageUsageSet usage,
     std::string debug_label,
     bool is_thread_safe,
     base::span<const uint8_t> pixel_data) {
@@ -390,7 +408,7 @@ std::unique_ptr<SharedImageBacking> D3DImageBackingFactory::CreateSharedImage(
 
   D3D11_SUBRESOURCE_DATA initial_data = {};
   if (!pixel_data.empty()) {
-    if (format != viz::SinglePlaneFormat::kRGBA_8888) {
+    if (!IsFormatSupportedForInitialData(format)) {
       LOG(ERROR) << "Unsupported format: " << format.ToString();
       return nullptr;
     }
@@ -445,7 +463,7 @@ std::unique_ptr<SharedImageBacking> D3DImageBackingFactory::CreateSharedImage(
       mailbox, format, size, color_space, surface_origin, alpha_type, usage,
       std::move(debug_label), std::move(d3d11_texture),
       std::move(dxgi_shared_handle_state), gl_format_caps_, texture_target,
-      /*array_slice=*/0u, /*plane_index=*/0u);
+      /*array_slice=*/0u, /*plane_index=*/0u, use_update_subresource1_);
   if (backing && !pixel_data.empty()) {
     backing->SetCleared();
   }
@@ -460,7 +478,7 @@ std::unique_ptr<SharedImageBacking> D3DImageBackingFactory::CreateSharedImage(
     const gfx::ColorSpace& color_space,
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
-    uint32_t usage,
+    SharedImageUsageSet usage,
     std::string debug_label,
     gfx::GpuMemoryBufferHandle handle) {
   // Windows does not support external sampler.
@@ -479,7 +497,7 @@ std::unique_ptr<SharedImageBacking> D3DImageBackingFactory::CreateSharedImage(
     const gfx::ColorSpace& color_space,
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
-    uint32_t usage,
+    SharedImageUsageSet usage,
     std::string debug_label) {
   if (!IsPlaneValidForGpuMemoryBufferFormat(plane, buffer_format)) {
     LOG(ERROR) << "Invalid plane " << gfx::BufferPlaneToString(plane)
@@ -525,7 +543,7 @@ bool D3DImageBackingFactory::IsSupported(uint32_t usage,
                                          gfx::GpuMemoryBufferType gmb_type,
                                          GrContextType gr_context_type,
                                          base::span<const uint8_t> pixel_data) {
-  if (!pixel_data.empty() && format != viz::SinglePlaneFormat::kRGBA_8888) {
+  if (!pixel_data.empty() && !IsFormatSupportedForInitialData(format)) {
     return false;
   }
 
@@ -622,15 +640,14 @@ D3DImageBackingFactory::CreateSharedImageGMBs(
         mailbox, plane_format, plane_size, color_space, surface_origin,
         alpha_type, usage, std::move(debug_label), std::move(d3d11_texture),
         std::move(dxgi_shared_handle_state), gl_format_caps_, texture_target,
-        /*array_slice=*/0u,
-        /*plane_index=*/plane_index);
+        /*array_slice=*/0u, plane_index, use_update_subresource1_);
   } else {
     backing = D3DImageBacking::Create(
         mailbox, format, size, color_space, surface_origin, alpha_type, usage,
         std::move(debug_label), std::move(d3d11_texture),
         std::move(dxgi_shared_handle_state), gl_format_caps_, texture_target,
-        /*array_slice=*/0u,
-        /*plane_index=*/0);
+        /*array_slice=*/0u, /*plane_index=*/0,
+        use_update_subresource1_);
   }
 
   if (backing) {

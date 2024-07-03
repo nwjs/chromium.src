@@ -97,7 +97,7 @@ class ComboboxMenuOption : public RadioButton {
     // pressed option will get selected for the combobox. For this reason, for
     // accessibility, treat the menu option as a list box option instead of
     // radio button.
-    SetAccessibilityProperties(ax::mojom::Role::kListBoxOption);
+    GetViewAccessibility().SetProperties(ax::mojom::Role::kListBoxOption);
   }
 
   // RadioButton:
@@ -129,7 +129,7 @@ class ComboboxMenuOptionGroup : public RadioButtonGroup {
                          RadioButton::IconType::kCheck,
                          kMenuItemInnerPadding,
                          kCheckmarkLabelSpacing) {
-    SetAccessibilityProperties(ax::mojom::Role::kListBox);
+    GetViewAccessibility().SetProperties(ax::mojom::Role::kListBox);
   }
 
   // RadioButtonGroup:
@@ -173,7 +173,6 @@ class Combobox::ComboboxMenuView : public views::View {
 
     scroll_view_ = AddChildView(std::make_unique<views::ScrollView>(
         views::ScrollView::ScrollWithLayers::kEnabled));
-    SetLayoutManager(std::make_unique<views::FillLayout>());
     scroll_view_->SetPaintToLayer(ui::LAYER_NOT_DRAWN);
     scroll_view_->layer()->SetFillsBoundsOpaquely(false);
     scroll_view_->ClipHeightTo(0, std::numeric_limits<int>::max());
@@ -353,6 +352,9 @@ Combobox::Combobox(ui::ComboboxModel* model)
   // Set up layout.
   SetLayoutManager(std::make_unique<views::FlexLayout>())
       ->SetInteriorMargin(kComboboxBorderInsets);
+  // TODO(crbug.com/40232718): See View::SetLayoutManagerUseConstrainedSpace.
+  SetLayoutManagerUseConstrainedSpace(false);
+
   // Allow `title_` to shrink and elide, so that `drop_down_arrow_` on the
   // right always remains visible.
   title_->SetProperty(
@@ -365,6 +367,7 @@ Combobox::Combobox(ui::ComboboxModel* model)
                                         *title_.get());
   title_->SetAutoColorReadabilityEnabled(false);
   title_->SetEnabledColorId(kInactiveTitleAndIconColorId);
+  title_->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT);
 
   SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
 
@@ -383,7 +386,7 @@ Combobox::Combobox(ui::ComboboxModel* model)
   // `ax::mojom::Role::kComboBox` is for UI elements with a dropdown and
   // an editable text field, which `views::Combobox` does not have. Use
   // `ax::mojom::Role::kPopUpButton` to match an HTML <select> element.
-  SetAccessibilityProperties(ax::mojom::Role::kPopUpButton);
+  GetViewAccessibility().SetProperties(ax::mojom::Role::kPopUpButton);
 }
 
 Combobox::~Combobox() = default;
@@ -447,8 +450,9 @@ views::View* Combobox::MenuView() const {
 }
 
 void Combobox::SetCallback(PressedCallback callback) {
-  NOTREACHED() << "Clients shouldn't modify this. Maybe you want to use "
-                  "SetSelectionChangedCallback?";
+  NOTREACHED_IN_MIGRATION()
+      << "Clients shouldn't modify this. Maybe you want to use "
+         "SetSelectionChangedCallback?";
 }
 
 void Combobox::OnBoundsChanged(const gfx::Rect& previous_bounds) {
@@ -590,7 +594,9 @@ void Combobox::ShowDropDownMenu() {
       std::make_unique<ComboboxMenuView>(weak_ptr_factory_.GetWeakPtr());
   menu_view_ = menu_view.get();
 
-  views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
+  views::Widget::InitParams params(
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_POPUP);
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.shadow_type = views::Widget::InitParams::ShadowType::kDrop;
   params.shadow_elevation = kMenuShadowElevation;

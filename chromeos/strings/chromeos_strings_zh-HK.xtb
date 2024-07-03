@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">淡彩黃</translation>
 <translation id="1056898198331236512">警告</translation>
 <translation id="1059913517121127803">無法開始掃瞄</translation>
+<translation id="1061864016440983342">在不啟用位置功能的情況下使用</translation>
 <translation id="1062823486781306604">名稱：<ph name="NAME" /> (第 <ph name="INDEX" /> 項，總共 <ph name="COUNT" /> 項)。</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">偵測到防火牆</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">顯示更多設定</translation>
 <translation id="2082932131694554252">指定的鍵盤按鍵</translation>
 <translation id="2085089206770112532">顯示屏校暗亮度</translation>
+<translation id="2086091080968010660">時間相關的變更可能不準確。請在設定中開啟系統位置資料存取權。</translation>
 <translation id="2102231663024125441">文字編輯</translation>
 <translation id="2105810540595158374">裝置類型係遊戲控制器。</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />，版本 <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">編輯 APN 詳情</translation>
 <translation id="2195732836444333448">目前已達資源上限，請稍後再回來。</translation>
 <translation id="2201758491318984023">單車</translation>
-<translation id="2203222757805818543">目前的時間表已設定為<ph name="SUNRISE" />至<ph name="SUNSET" />。如要自動更新深色模式時間表，請<ph name="BEGIN_LINK" />開啟位置存取權<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">溫泉</translation>
 <translation id="2203642483788377106">懸崖</translation>
 <translation id="2208388655216963643">印象派</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">還原預設值</translation>
 <translation id="2286454467119466181">簡單</translation>
 <translation id="2287186687001756809">沒有圖片。如要新增相片，請前往 <ph name="LINK" /></translation>
+<translation id="2294577623958216786">目前的時間表設定為<ph name="SUNRISE" />至<ph name="SUNSET" />。如要自動更新日落和日出時間表，請開啟系統位置資料存取權。</translation>
 <translation id="2305172810646967500">黑色</translation>
 <translation id="2307344026739914387">使用目前的配對金鑰</translation>
 <translation id="2308243864813041101">請拔除「<ph name="DEVICE_NAME" />」的 USB 連接線，以繼續更新程序</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">沙丘</translation>
 <translation id="2619761439309613843">每日重新整理</translation>
 <translation id="2620436844016719705">系統</translation>
+<translation id="2637303424821734920">關閉 - 如要顯示本地天氣，請<ph name="BEGIN_LINK" />開啟系統位置存取權<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">登入圖片</translation>
 <translation id="2640549051766135490">揀咗相簿 <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">控制項</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">背景</translation>
 <translation id="3027578600144895987">閂相機</translation>
 <translation id="3031560714565892478">裝置類型係攝影機。</translation>
+<translation id="3051968340259309715">此操作會允許系統服務使用「定位精確度」以判斷你的位置。「定位精確度」會使用 Wi-Fi 存取點、流動網絡發射塔和 GPS 等無線訊號相關資料，以及加速計和陀螺儀等裝置感應器資料。如要關閉位置，請前往 [設定] &gt; [私隱與安全] &gt; [私隱權設定] &gt; [位置資料存取權]。<ph name="LINK_BEGIN" />瞭解詳情<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">端點</translation>
 <translation id="3060579846059757016">概要</translation>
+<translation id="3061850252076394168">啟用揀選朗讀內容</translation>
 <translation id="3069085583900247081">未通過測試</translation>
 <translation id="3078740164268491126">表格</translation>
 <translation id="3081652522083185657">明亮</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">無法解析所有主機</translation>
 <translation id="4593212453765072419">需要 Proxy 驗證</translation>
 <translation id="4609350030397390689">鍵盤校暗亮度</translation>
-<translation id="4617553623719764431">系統不知道你的所在位置，因此無法顯示天氣資料。如要顯示本地天氣，請<ph name="BEGIN_LINK" />開啟「位置」存取權<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />、<ph name="PRINTER_NAME" />、<ph name="CREATION_TIME" />，印咗 <ph name="PRINTED_PAGE_NUMBER" /> 頁，總共有 <ph name="TOTAL_PAGE_NUMBER" /> 頁。㩒一下 Enter 鍵就可以取消列印工作。</translation>
 <translation id="463791356324567266">正在取消掃瞄…</translation>
 <translation id="4646949265910132906">安全 Wi-Fi 連線</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">執行</translation>
 <translation id="4987769320337599931">防火牆</translation>
 <translation id="4988526792673242964">網頁</translation>
+<translation id="4989542687859782284">不受支援的實驗</translation>
 <translation id="4999333166442584738">隱藏報告</translation>
 <translation id="500920857929044050">停止測試</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">鍵盤亮度</translation>
 <translation id="6412715219990689313">內置鍵盤</translation>
 <translation id="6417265370957905582">Google 助理</translation>
+<translation id="6419454453018688975">開啟系統位置資料存取權</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">這麼做將允許系統服務使用你的位置。定位服務可能會使用 Wi-Fi、流動網絡和感應器等來源去偵測裝置的所在位置。<ph name="LINK_BEGIN" />瞭解詳情<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">弱 (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">去帳戶設定</translation>
 <translation id="6462978824459367242">宜家啟用咗「加入 APN」掣</translation>

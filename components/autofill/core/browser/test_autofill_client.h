@@ -30,13 +30,11 @@
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/mock_autocomplete_history_manager.h"
 #include "components/autofill/core/browser/mock_autofill_optimization_guide.h"
-#include "components/autofill/core/browser/mock_iban_manager.h"
 #include "components/autofill/core/browser/mock_merchant_promo_code_manager.h"
 #include "components/autofill/core/browser/payments/autofill_offer_manager.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/payments/local_card_migration_manager.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
-#include "components/autofill/core/browser/payments/mock_iban_access_manager.h"
 #include "components/autofill/core/browser/payments/test/mock_mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
@@ -74,6 +72,8 @@
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 #include "components/autofill/core/browser/ml_model/autofill_ml_prediction_model_handler.h"
 #endif
+
+using ::autofill::test::AutofillTestingPrefService;
 
 namespace autofill {
 
@@ -139,12 +139,6 @@ class TestAutofillClientTemplate : public T {
     return &mock_autocomplete_history_manager_;
   }
 
-  IbanManager* GetIbanManager() override { return GetMockIbanManager(); }
-
-  IbanAccessManager* GetIbanAccessManager() override {
-    return GetMockIbanAccessManager();
-  }
-
   AutofillPlusAddressDelegate* GetPlusAddressDelegate() override {
     return plus_address_delegate_.get();
   }
@@ -153,14 +147,14 @@ class TestAutofillClientTemplate : public T {
     return &mock_merchant_promo_code_manager_;
   }
 
-  PrefService* GetPrefs() override {
+  AutofillTestingPrefService* GetPrefs() override {
     if (!prefs_) {
       prefs_ = autofill::test::PrefServiceForTesting();
     }
     return prefs_.get();
   }
 
-  const PrefService* GetPrefs() const override {
+  const AutofillTestingPrefService* GetPrefs() const override {
     return const_cast<TestAutofillClientTemplate*>(this)->GetPrefs();
   }
 
@@ -174,7 +168,7 @@ class TestAutofillClientTemplate : public T {
     if (!form_data_importer_) {
       set_test_form_data_importer(std::make_unique<FormDataImporter>(
           /*client=*/this,
-          /*personal_data_manager=*/nullptr, /*history_service=*/nullptr,
+          /*history_service=*/nullptr,
           /*app_locale=*/"en-US"));
     }
     return form_data_importer_.get();
@@ -259,12 +253,7 @@ class TestAutofillClientTemplate : public T {
   }
 #endif
 
-  void ShowAutofillSettings(FillingProduct main_filling_product) override {}
-
-  void ShowVirtualCardEnrollDialog(
-      const VirtualCardEnrollmentFields& virtual_card_enrollment_fields,
-      base::OnceClosure accept_virtual_card_callback,
-      base::OnceClosure decline_virtual_card_callback) override {}
+  void ShowAutofillSettings(SuggestionType suggestion_type) override {}
 
   payments::MockMandatoryReauthManager*
   GetOrCreatePaymentsMandatoryReauthManager() override {
@@ -298,17 +287,7 @@ class TestAutofillClientTemplate : public T {
   }
 #endif
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-
-  bool CloseWebauthnDialog() override { return true; }
-
-#else  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-
-  void ConfirmAccountNameFixFlow(
-      base::OnceCallback<void(const std::u16string&)> callback) override {
-    credit_card_name_fix_flow_bubble_was_shown_ = true;
-    std::move(callback).Run(std::u16string(u"Gaia Name"));
-  }
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
   void ConfirmExpirationDateFixFlow(
       const CreditCard& card,
@@ -344,11 +323,6 @@ class TestAutofillClientTemplate : public T {
     std::move(callback).Run(get_save_card_offer_user_decision(), {});
   }
 
-  void ConfirmCreditCardFillAssist(const CreditCard& card,
-                                   base::OnceClosure callback) override {
-    std::move(callback).Run();
-  }
-
   void ConfirmSaveAddressProfile(
       const AutofillProfile& profile,
       const AutofillProfile* original_profile,
@@ -372,7 +346,8 @@ class TestAutofillClientTemplate : public T {
 
   bool ShowTouchToFillCreditCard(
       base::WeakPtr<TouchToFillDelegate> delegate,
-      base::span<const autofill::CreditCard> cards_to_suggest) override {
+      base::span<const autofill::CreditCard> cards_to_suggest,
+      const std::vector<bool>& card_acceptabilities) override {
     return false;
   }
 
@@ -476,25 +451,6 @@ class TestAutofillClientTemplate : public T {
     device_authenticator_ = std::move(device_authenticator);
   }
 
-  void ShowMandatoryReauthOptInPrompt(
-      base::OnceClosure accept_mandatory_reauth_callback,
-      base::OnceClosure cancel_mandatory_reauth_callback,
-      base::RepeatingClosure close_mandatory_reauth_callback) override {
-    mandatory_reauth_opt_in_prompt_was_shown_ = true;
-  }
-
-  bool GetMandatoryReauthOptInPromptWasShown() {
-    return mandatory_reauth_opt_in_prompt_was_shown_;
-  }
-
-  void ShowMandatoryReauthOptInConfirmation() override {
-    mandatory_reauth_opt_in_prompt_was_reshown_ = true;
-  }
-
-  bool GetMandatoryReauthOptInPromptWasReshown() {
-    return mandatory_reauth_opt_in_prompt_was_reshown_;
-  }
-
 #if BUILDFLAG(IS_IOS)
   bool IsLastQueriedField(FieldGlobalId field_id) override { return true; }
 #endif
@@ -508,11 +464,14 @@ class TestAutofillClientTemplate : public T {
     return test_addresses_;
   }
 
-  void SetPrefs(std::unique_ptr<PrefService> prefs) {
+  void SetPrefs(std::unique_ptr<AutofillTestingPrefService> prefs) {
     prefs_ = std::move(prefs);
   }
 
   void set_personal_data_manager(std::unique_ptr<TestPersonalDataManager> pdm) {
+    // `FormDataImporter` has a reference to the PDM.
+    CHECK(!form_data_importer_)
+        << "Do not reset PDM after using FormDataImporter.";
     test_personal_data_manager_ = std::move(pdm);
   }
 
@@ -597,22 +556,6 @@ class TestAutofillClientTemplate : public T {
     return &mock_autocomplete_history_manager_;
   }
 
-  MockIbanManager* GetMockIbanManager() {
-    if (!mock_iban_manager_) {
-      mock_iban_manager_ = std::make_unique<testing::NiceMock<MockIbanManager>>(
-          test_personal_data_manager_.get());
-    }
-    return mock_iban_manager_.get();
-  }
-
-  MockIbanAccessManager* GetMockIbanAccessManager() {
-    if (!mock_iban_access_manager_) {
-      mock_iban_access_manager_ =
-          std::make_unique<testing::NiceMock<MockIbanAccessManager>>(this);
-    }
-    return mock_iban_access_manager_.get();
-  }
-
   MockMerchantPromoCodeManager* GetMockMerchantPromoCodeManager() {
     return &mock_merchant_promo_code_manager_;
   }
@@ -678,10 +621,8 @@ class TestAutofillClientTemplate : public T {
 #endif
 
   // NULL by default.
-  std::unique_ptr<PrefService> prefs_;
+  std::unique_ptr<AutofillTestingPrefService> prefs_;
   std::unique_ptr<TestStrikeDatabase> test_strike_database_;
-  std::unique_ptr<testing::NiceMock<MockIbanAccessManager>>
-      mock_iban_access_manager_;
 
   std::unique_ptr<TestPersonalDataManager> test_personal_data_manager_;
   // The below objects must be destroyed before `TestPersonalDataManager`
@@ -689,7 +630,6 @@ class TestAutofillClientTemplate : public T {
   std::unique_ptr<AutofillOfferManager> autofill_offer_manager_;
   std::unique_ptr<payments::TestPaymentsAutofillClient>
       payments_autofill_client_;
-  std::unique_ptr<testing::NiceMock<MockIbanManager>> mock_iban_manager_;
   std::unique_ptr<FormDataImporter> form_data_importer_;
 
   GURL form_origin_{"https://example.test"};
@@ -739,11 +679,6 @@ class TestAutofillClientTemplate : public T {
   // User decision when credit card / CVC local save or upload was offered.
   AutofillClient::SaveCardOfferUserDecision save_card_offer_user_decision_ =
       AutofillClient::SaveCardOfferUserDecision::kAccepted;
-
-  // Populated if mandatory re-auth opt-in was offered, or re-offered,
-  // respectively.
-  bool mandatory_reauth_opt_in_prompt_was_shown_ = false;
-  bool mandatory_reauth_opt_in_prompt_was_reshown_ = false;
 
   // Test addresses used to allow developers to test their forms.
   std::vector<AutofillProfile> test_addresses_;

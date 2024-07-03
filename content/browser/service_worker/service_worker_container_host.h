@@ -180,6 +180,9 @@ class CONTENT_EXPORT ServiceWorkerClient final
   ServiceWorkerContainerHostForClient& container_host() {
     return *container_host_;
   }
+  const ServiceWorkerContainerHostForClient& container_host() const {
+    return *container_host_;
+  }
 
   void set_container_host(
       std::unique_ptr<ServiceWorkerContainerHostForClient> container_host);
@@ -225,19 +228,9 @@ class CONTENT_EXPORT ServiceWorkerClient final
   // load. All service workers are updated.
   void AddServiceWorkerToUpdate(scoped_refptr<ServiceWorkerVersion> version);
 
-  // Dispatches message event to the client (document, dedicated worker when
-  // PlzDedicatedWorker is enabled, or shared worker).
-  void PostMessageToClient(ServiceWorkerVersion* version,
-                           blink::TransferableMessage message);
-
   // Notifies the client that its controller used a feature, for UseCounter
   // purposes. This can only be called if IsContainerForClient() is true.
   void CountFeature(blink::mojom::WebFeature feature);
-
-  // Sends information about the controller to the container of the service
-  // worker clients in the renderer. If |notify_controllerchange| is true,
-  // instructs the renderer to dispatch a 'controllerchange' event.
-  void SendSetControllerServiceWorker(bool notify_controllerchange);
 
   // Called when this container host's controller has been terminated and doomed
   // due to an exceptional condition like it could no longer be read from the
@@ -273,9 +266,18 @@ class CONTENT_EXPORT ServiceWorkerClient final
   // for that RenderFrameHost no longer exists.
   void OnEndNavigationCommit();
 
+  // Must be called before `CommitResponse()`.
   void UpdateUrls(const GURL& url,
                   const std::optional<url::Origin>& top_frame_origin,
                   const blink::StorageKey& storage_key);
+
+  // TODO(crbug.com/336154571): For some tests that want UpdateUrls() after
+  // response commit. Investigate whether this can be removed and related
+  // condition checks can be turned to CHECK()s.
+  void UpdateUrlsAfterCommitResponseForTesting(
+      const GURL& url,
+      const std::optional<url::Origin>& top_frame_origin,
+      const blink::StorageKey& storage_key);
 
   // For service worker clients. Makes this client be controlled by
   // |registration|'s active worker, or makes this client be not
@@ -284,45 +286,6 @@ class CONTENT_EXPORT ServiceWorkerClient final
   void SetControllerRegistration(
       scoped_refptr<ServiceWorkerRegistration> controller_registration,
       bool notify_controllerchange);
-
-  // For service worker clients. Similar to EnsureControllerServiceWorker, but
-  // this returns a bound Mojo ptr which is supposed to be sent to clients. The
-  // controller ptr passed to the clients will be used to intercept requests
-  // from them.
-  // It is invalid to call this when controller_ is null.
-  //
-  // This method can be called in one of the following cases:
-  //
-  // - During navigation, right after a request handler for the main resource
-  //   has found the matching registration and has started the worker.
-  // - When a controller is updated by UpdateController() (e.g.
-  //   by OnSkippedWaiting() or SetControllerRegistration()).
-  //   In some cases the controller worker may not be started yet.
-  //
-  // This may return nullptr if the controller service worker does not have a
-  // fetch handler, i.e. when the renderer does not need the controller ptr.
-  //
-  // WARNING:
-  // Unlike EnsureControllerServiceWorker, this method doesn't guarantee that
-  // the controller worker is running because this method can be called in some
-  // situations where the worker isn't running yet. When the returned ptr is
-  // stored somewhere and intended to use later, clients need to make sure
-  // that the worker is eventually started to use the ptr.
-  // Currently all the callsites do this, i.e. they start the worker before
-  // or after calling this, but there's no mechanism to prevent future breakage.
-  // TODO(crbug.com/40569659): Figure out a way to prevent misuse of this
-  // method.
-  // TODO(crbug.com/40569659): Make sure the connection error handler fires in
-  // ControllerServiceWorkerConnector (so that it can correctly call
-  // EnsureControllerServiceWorker later) if the worker gets killed before
-  // events are dispatched.
-  //
-  // TODO(kinuko): revisit this if we start to use the ControllerServiceWorker
-  // for posting messages.
-  // TODO(hayato): Return PendingRemote, instead of Remote. Binding to Remote
-  // as late as possible is more idiomatic for new Mojo types.
-  mojo::Remote<blink::mojom::ControllerServiceWorker>
-  GetRemoteControllerServiceWorker();
 
   // Create a receiver to notice on ServiceWorker running status change.
   mojo::PendingReceiver<blink::mojom::ServiceWorkerRunningStatusCallback>
@@ -386,6 +349,8 @@ class CONTENT_EXPORT ServiceWorkerClient final
   // committed.
   // https://html.spec.whatwg.org/multipage/webappapis.html#concept-environment-execution-ready-flag
   bool is_execution_ready() const;
+
+  bool is_container_ready() const;
 
   const base::UnguessableToken& fetch_request_window_id() const {
     return fetch_request_window_id_;
@@ -460,8 +425,6 @@ class CONTENT_EXPORT ServiceWorkerClient final
   static SubresourceLoaderParams MaybeCreateSubresourceLoaderParams(
       base::WeakPtr<ServiceWorkerClient> service_worker_client);
 
-  ukm::SourceId ukm_source_id() const { return ukm_source_id_; }
-
   void SetContainerReady();
 
   bool is_inherited() const { return is_inherited_; }
@@ -483,11 +446,6 @@ class CONTENT_EXPORT ServiceWorkerClient final
           callback);
   void OnExecutionReady();
 
-  const std::optional<PolicyContainerPolicies>& policy_container_policies()
-      const {
-    return policy_container_policies_;
-  }
-
   // Sets execution ready flag and runs execution ready callbacks.
   // https://html.spec.whatwg.org/multipage/webappapis.html#concept-environment-execution-ready-flag
   void SetExecutionReady();
@@ -501,6 +459,10 @@ class CONTENT_EXPORT ServiceWorkerClient final
 
   friend class ServiceWorkerContainerHostTest;
 
+  void UpdateUrlsInternal(const GURL& url,
+                          const std::optional<url::Origin>& top_frame_origin,
+                          const blink::StorageKey& storage_key);
+
   // Syncs matching registrations with live registrations.
   void SyncMatchingRegistrations();
 
@@ -513,15 +475,44 @@ class CONTENT_EXPORT ServiceWorkerClient final
 
   void RunExecutionReadyCallbacks();
 
-  // For service worker clients. The flow is kInitial -> kResponseCommitted ->
-  // kExecutionReady.
+  // For service worker clients. The flow is:
+  // - kInitial -> kResponseCommitted -> kContainerReady -> kExecutionReady
+  // - kInitial -> kResponseNotCommitted (client initialization failure cases)
+  // - kInitial (no transitions, client initialization failure cases)
   //
-  // - kInitial: The initial phase.
-  // - kResponseCommitted: The response for the main resource has been
-  //   committed to the renderer. This client's URL should no longer change.
-  // - kExecutionReady: This client can be exposed to JavaScript as a Client
-  //   object.
-  enum class ClientPhase { kInitial, kResponseCommitted, kExecutionReady };
+  // - kInitial: The initial phase. Container host mojo messages are buffered
+  //   because the message pipe is piggy-backed and isn't associated to the
+  //   existing message pipe yet.
+  //
+  // - kResponseCommitted: `CommitResponse()` is called, i.e. the response for
+  //   the main resource is about to be committed to the renderer and container
+  //   host's mojo endpoints are about to be passed to the renderer. This
+  //   client's URL should no longer change. The client should immediately
+  //   transition to kContainerReady and thus the kResponseCommitted state
+  //   shouldn't be observed (except for the code for response commit and
+  //   transitioning to kContainerReady).
+  //
+  // - kContainerReady: `SetContainerReady()` is called. The response commit has
+  //   completed. The container host's mojo pipes are ready to use.
+  //
+  // - kExecutionReady: `SetExecutionReady()` is called. This client can be
+  //   exposed to JavaScript as a Client object.
+  //   https://html.spec.whatwg.org/multipage/webappapis.html#concept-environment-execution-ready-flag
+  //
+  // - kResponseNotCommitted: `CommitResponse()` is not called (and worker
+  //   script loading is considered failed) but `SetExecutionReady()` is called.
+  //   This can happen e.g. on COEP errors because its caller
+  //   (`WorkerScriptLoader::CommitCompleted()`) doesn't take COEP errors into
+  //   account. `CommitResponse()` is never called after reaching this state
+  //   (i.e. it's not a race condition between `CommitResponse()` and
+  //   `SetExecutionReady()`).
+  enum class ClientPhase {
+    kInitial,
+    kResponseCommitted,
+    kContainerReady,
+    kExecutionReady,
+    kResponseNotCommitted
+  };
   void TransitionToClientPhase(ClientPhase new_phase);
 
   // Sets the controller to |controller_registration_->active_version()| or null
@@ -535,19 +526,9 @@ class CONTENT_EXPORT ServiceWorkerClient final
   void CheckControllerConsistency(bool should_crash) const;
 #endif  // DCHECK_IS_ON()
 
-  // Should be called only when `controller()` is non-null.
-  // Callers should fill `ControllerServiceWorkerInfo::object_info` when needed.
-  blink::mojom::ControllerServiceWorkerInfoPtr
-  CreateControllerServiceWorkerInfo();
-
   // Flushes features stored, when it gets ready to send.
   // If it is still not ready to send, the features are buffered again.
   void FlushFeatures();
-
-  // Callback for ServiceWorkerVersion::RunAfterStartWorker()
-  void StartControllerComplete(
-      mojo::PendingReceiver<blink::mojom::ControllerServiceWorker> receiver,
-      blink::ServiceWorkerStatusCode status);
 
   base::WeakPtr<ServiceWorkerContextCore> context_;
 
@@ -609,26 +590,8 @@ class CONTENT_EXPORT ServiceWorkerClient final
 
   base::flat_set<PendingUpdateVersion> versions_to_update_;
 
-  // Mojo endpoint which will be be sent to the service worker just before
-  // the response is committed, where |cross_origin_embedder_policy_| is ready.
-  // We need to store this here because navigation code depends on having a
-  // mojo::Remote<ControllerServiceWorker> for making a SubresourceLoaderParams,
-  // which is created before the response header is ready.
-  mojo::PendingReceiver<blink::mojom::ControllerServiceWorker>
-      pending_controller_receiver_;
-
-  // |is_container_ready_| is set to be true after |container_| has been passed
-  // to the renderer process. This flag is needed to prevent |container_| used
-  // before the association to the existing message pipe, which happens when
-  // |container_| is passed to the renderer via a mojo call. Note that the mojo
-  // call's message pipe is piggy-backed.
-  bool is_container_ready_ = false;
-
   // The type of client.
   std::optional<ServiceWorkerClientInfo> client_info_;
-
-  // The source id of the client's ExecutionContext, set on response commit.
-  ukm::SourceId ukm_source_id_ = ukm::kInvalidSourceId;
 
   // The URL used for service worker scope matching. It is empty except in the
   // case of a service worker client with a blob URL.
@@ -646,11 +609,6 @@ class CONTENT_EXPORT ServiceWorkerClient final
   // If CountFeature() is called before |container_| gets ready, features are
   // kept here, and flushed in SetContainerReady().
   std::set<blink::mojom::WebFeature> buffered_used_features_;
-
-  // Until |container_| gets associated, postMessage will be queued.
-  std::vector<std::tuple<base::WeakPtr<ServiceWorkerObjectHost>,
-                         blink::TransferableMessage>>
-      buffered_messages_;
 
   // For worker clients only ---------------------------------------------------
 
@@ -671,14 +629,6 @@ class CONTENT_EXPORT ServiceWorkerClient final
   // right now because this gets reset on redirects, and potentially sites rely
   // on the GUID format.
   base::UnguessableToken fetch_request_window_id_;
-
-  // The policy container policies of the client. Set on response commit.
-  std::optional<PolicyContainerPolicies> policy_container_policies_;
-
-  // An endpoint connected to the COEP reporter. A clone of this connection is
-  // passed to the service worker. Bound on response commit.
-  mojo::Remote<network::mojom::CrossOriginEmbedderPolicyReporter>
-      coep_reporter_;
 
   // Indicates if this container host is in the back-forward cache.
   //
@@ -801,18 +751,16 @@ class CONTENT_EXPORT ServiceWorkerContainerHost
 class CONTENT_EXPORT ServiceWorkerContainerHostForClient final
     : public ServiceWorkerContainerHost {
  public:
-  // Creates `ServiceWorkerContainerHostForClient` and associates it with
-  // `service_worker_client`.
+  // Creates `ServiceWorkerContainerHostForClient`, binds mojo pipes of
+  // `container_info` and associates it with `service_worker_client`.
   static void Create(
       base::WeakPtr<ServiceWorkerClient> service_worker_client,
-      mojo::PendingAssociatedRemote<blink::mojom::ServiceWorkerContainer>
-          container_remote);
+      blink::mojom::ServiceWorkerContainerInfoForClientPtr& container_info);
 
   // Use Create() instead.
   ServiceWorkerContainerHostForClient(
       base::WeakPtr<ServiceWorkerClient> service_worker_client,
-      mojo::PendingAssociatedRemote<blink::mojom::ServiceWorkerContainer>
-          container_remote);
+      blink::mojom::ServiceWorkerContainerInfoForClientPtr& container_info);
   ~ServiceWorkerContainerHostForClient() override;
 
   ServiceWorkerClient& service_worker_client() {
@@ -822,17 +770,36 @@ class CONTENT_EXPORT ServiceWorkerContainerHostForClient final
     return *service_worker_client_;
   }
 
-  // Called from ServiceWorkerClient.
-  void PostMessageToClient(base::WeakPtr<ServiceWorkerObjectHost> object_host,
+  // Must be called during `ServiceWorkerClient::CommitResponse()`.
+  void CommitResponse(
+      base::PassKey<ServiceWorkerClient>,
+      const PolicyContainerPolicies& policy_container_policies,
+      mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
+          coep_reporter,
+      ukm::SourceId ukm_source_id);
+
+  // Should be called only when `controller()` is non-null.
+  blink::mojom::ControllerServiceWorkerInfoPtr
+  CreateControllerServiceWorkerInfo();
+
+  // Dispatches message event to the client (document, dedicated worker when
+  // PlzDedicatedWorker is enabled, or shared worker).
+  void PostMessageToClient(ServiceWorkerVersion& version,
                            blink::TransferableMessage message);
-  void SendSetController(
-      blink::mojom::ControllerServiceWorkerInfoPtr controller_info,
-      bool notify_controllerchange);
+
+  // Sends information about the controller to the container of the service
+  // worker clients in the renderer. If |notify_controllerchange| is true,
+  // instructs the renderer to dispatch a 'controllerchange' event.
+  void SendSetController(bool notify_controllerchange);
+
+  // Called from ServiceWorkerClient.
   void CountFeature(blink::mojom::WebFeature feature);
   void OnVersionAttributesChanged(
       ServiceWorkerRegistration* registration,
       blink::mojom::ChangedServiceWorkerObjectsMaskPtr changed_mask);
   void ReturnRegistrationForReadyIfNeeded();
+  void CloneControllerServiceWorker(
+      mojo::PendingReceiver<blink::mojom::ControllerServiceWorker> receiver);
 
   // Implements blink::mojom::ServiceWorkerContainerHost.
   void Register(const GURL& script_url,
@@ -867,6 +834,11 @@ class CONTENT_EXPORT ServiceWorkerContainerHostForClient final
               blink::mojom::ServiceWorkerRegistrationObjectHost::UpdateCallback
                   callback) override;
 
+  ukm::SourceId ukm_source_id() const { return ukm_source_id_; }
+  ServiceWorkerVersion* controller() const {
+    return service_worker_client().controller();
+  }
+
  private:
   // Callback for ServiceWorkerContextCore::RegisterServiceWorker().
   void RegistrationComplete(const GURL& script_url,
@@ -890,6 +862,10 @@ class CONTENT_EXPORT ServiceWorkerContainerHostForClient final
       blink::ServiceWorkerStatusCode status,
       const std::vector<scoped_refptr<ServiceWorkerRegistration>>&
           registrations);
+  // Callback for ServiceWorkerVersion::RunAfterStartWorker()
+  void StartControllerComplete(
+      mojo::PendingReceiver<blink::mojom::ControllerServiceWorker> receiver,
+      blink::ServiceWorkerStatusCode status);
 
   bool IsValidGetRegistrationMessage(const GURL& client_url,
                                      std::string* out_error) const;
@@ -911,6 +887,42 @@ class CONTENT_EXPORT ServiceWorkerContainerHostForClient final
                                     const char* error_prefix,
                                     Args... args);
 
+  // For service worker clients. Similar to EnsureControllerServiceWorker, but
+  // this returns a bound Mojo ptr which is supposed to be sent to clients. The
+  // controller ptr passed to the clients will be used to intercept requests
+  // from them.
+  // It is invalid to call this when controller_ is null.
+  //
+  // This method can be called in one of the following cases:
+  //
+  // - During navigation, right after CommitResponse().
+  // - When a controller is updated by UpdateController() (e.g.
+  //   by OnSkippedWaiting() or SetControllerRegistration()).
+  //   In some cases the controller worker may not be started yet.
+  //
+  // This may return nullptr if the controller service worker does not have a
+  // fetch handler, i.e. when the renderer does not need the controller ptr.
+  //
+  // WARNING:
+  // Unlike EnsureControllerServiceWorker, this method doesn't guarantee that
+  // the controller worker is running because this method can be called in some
+  // situations where the worker isn't running yet. When the returned ptr is
+  // stored somewhere and intended to use later, clients need to make sure
+  // that the worker is eventually started to use the ptr.
+  // Currently all the callsites do this, i.e. they start the worker before
+  // or after calling this, but there's no mechanism to prevent future breakage.
+  // TODO(crbug.com/40569659): Figure out a way to prevent misuse of this
+  // method.
+  // TODO(crbug.com/40569659): Make sure the connection error handler fires in
+  // ControllerServiceWorkerConnector (so that it can correctly call
+  // EnsureControllerServiceWorker later) if the worker gets killed before
+  // events are dispatched.
+  //
+  // TODO(kinuko): revisit this if we start to use the ControllerServiceWorker
+  // for posting messages.
+  mojo::PendingRemote<blink::mojom::ControllerServiceWorker>
+  GetRemoteControllerServiceWorker();
+
   // The corresponding service worker client that owns `this`.
   // Always valid and non-null except for initialization/destruction.
   base::WeakPtr<ServiceWorkerClient> service_worker_client_;
@@ -927,6 +939,17 @@ class CONTENT_EXPORT ServiceWorkerContainerHostForClient final
   // |container_| is the remote renderer-side ServiceWorkerContainer that |this|
   // is hosting.
   mojo::AssociatedRemote<blink::mojom::ServiceWorkerContainer> container_;
+
+  // The source id of the client's ExecutionContext, set on response commit.
+  ukm::SourceId ukm_source_id_ = ukm::kInvalidSourceId;
+
+  // The policy container policies of the client. Set on response commit.
+  std::optional<PolicyContainerPolicies> policy_container_policies_;
+
+  // An endpoint connected to the COEP reporter. A clone of this connection is
+  // passed to the service worker. Bound on response commit.
+  mojo::Remote<network::mojom::CrossOriginEmbedderPolicyReporter>
+      coep_reporter_;
 };
 
 // ServiceWorkerContainerHostForServiceWorker is owned by ServiceWorkerHost,

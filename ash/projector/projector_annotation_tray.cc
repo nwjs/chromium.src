@@ -8,7 +8,7 @@
 #include "ash/constants/tray_background_view_catalog.h"
 #include "ash/projector/projector_controller_impl.h"
 #include "ash/projector/ui/projector_color_button.h"
-#include "ash/public/cpp/projector/annotator_tool.h"
+#include "ash/public/cpp/annotator/annotator_tool.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shelf/shelf.h"
@@ -91,7 +91,7 @@ const gfx::VectorIcon& GetIconForTool(ProjectorTool tool, SkColor color) {
       }
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return kPaletteTrayIconProjectorIcon;
 }
 
@@ -344,7 +344,7 @@ int ProjectorAnnotationTray::GetAccessibleNameForColor(SkColor color) {
     case kProjectorMagentaPenColor:
       return IDS_MAGENTA_COLOR_BUTTON;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return IDS_RED_COLOR_BUTTON;
 }
 

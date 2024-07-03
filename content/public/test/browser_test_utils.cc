@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/public/test/browser_test_utils.h"
 
 #include <stddef.h>
@@ -56,13 +61,13 @@
 #include "content/browser/renderer_host/render_frame_proxy_host.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
-#include "content/browser/renderer_host/render_widget_host_input_event_router.h"
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/browser/screen_orientation/screen_orientation_provider.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_contents/web_contents_view.h"
 #include "content/common/frame.mojom.h"
+#include "content/common/input/render_widget_host_input_event_router.h"
 #include "content/common/input/synthetic_touchscreen_pinch_gesture.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -178,7 +183,7 @@ void BuildSimpleWebKeyEvent(blink::WebInputEvent::Type type,
                             ui::DomKey key,
                             ui::DomCode code,
                             ui::KeyboardCode key_code,
-                            NativeWebKeyboardEvent* event) {
+                            input::NativeWebKeyboardEvent* event) {
   event->dom_key = key;
   event->dom_code = static_cast<int>(code);
   event->native_key_code = ui::KeycodeConverter::DomCodeToNativeKeycode(code);
@@ -206,7 +211,7 @@ void InjectRawKeyEvent(WebContents* web_contents,
                        ui::DomCode code,
                        ui::KeyboardCode key_code,
                        int modifiers) {
-  NativeWebKeyboardEvent event(type, modifiers, base::TimeTicks::Now());
+  input::NativeWebKeyboardEvent event(type, modifiers, base::TimeTicks::Now());
   BuildSimpleWebKeyEvent(type, key, code, key_code, &event);
   WebContentsImpl* web_contents_impl =
       static_cast<WebContentsImpl*>(web_contents);
@@ -756,7 +761,7 @@ std::string ReferrerPolicyToString(
     case network::mojom::ReferrerPolicy::kStrictOriginWhenCrossOrigin:
       return "strict-origin-when-cross-origin";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "";
 }
 
@@ -940,6 +945,59 @@ void WaitForResizeComplete(WebContents* web_contents) {
   }
 }
 #endif
+
+void NotifyCopyableViewInWebContents(WebContents* web_contents,
+                                     base::OnceClosure done_callback) {
+  NotifyCopyableViewInFrame(web_contents->GetPrimaryMainFrame(),
+                            std::move(done_callback));
+}
+
+void NotifyCopyableViewInFrame(RenderFrameHost* render_frame_host,
+                               base::OnceClosure done_callback) {
+  RenderWidgetHostImpl* rwhi = static_cast<RenderWidgetHostImpl*>(
+      render_frame_host->GetView()->GetRenderWidgetHost());
+
+  // Note: this function intentionally avoids using RunLoops, which would make
+  // the code easier to read, so that it can be used on Android which doesn't
+  // support nested run loops.
+
+  auto first_frame_done = base::BindOnce(
+      [](base::WeakPtr<RenderWidgetHostImpl> rwhi,
+         base::OnceClosure done_callback, bool success) {
+        // This is invoked when the first `CompositorFrame` is submitted from
+        // the renderer to the GPU. However, we want to wait until the Viz
+        // process has received the new `CompositorFrame` so that the previously
+        // submitted frame is available for copy. Waiting for a second frame to
+        // be submitted guarantees this, since the second frame cannot be sent
+        // until the first frame was ACKed by Viz.
+
+        if (!rwhi || !success) {
+          std::move(done_callback).Run();
+          return;
+        }
+
+        // Force a redraw to ensure the callback below goes through the complete
+        // compositing pipeline.
+        rwhi->ForceRedrawForTesting();
+        rwhi->InsertVisualStateCallback(base::BindOnce(
+            [](base::WeakPtr<RenderWidgetHostImpl> rwhi,
+               base::OnceClosure final_done_callback, bool success) {
+              if (rwhi) {
+                // `IsSurfaceAvailableForCopy` actually only checks if the
+                // browser currently embeds a surface or not (as opposed to
+                // sending a IPC to the GPU). However if the browser does not
+                // embed any surface, we won't be able to issue any copy
+                // requests.
+                ASSERT_TRUE(rwhi->GetView()->IsSurfaceAvailableForCopy());
+              }
+              std::move(final_done_callback).Run();
+            },
+            rwhi->GetWeakPtr(), std::move(done_callback)));
+      },
+      rwhi->GetWeakPtr(), std::move(done_callback));
+
+  rwhi->InsertVisualStateCallback(std::move(first_frame_done));
+}
 
 void SimulateMouseClick(WebContents* web_contents,
                         int modifiers,
@@ -1386,8 +1444,7 @@ void SimulateProxyHostPostMessage(RenderFrameHost* source_render_frame_host,
 
   proxy_host->RouteMessageEvent(
       source_render_frame_host->GetFrameToken(),
-      base::UTF8ToUTF16(
-          source_render_frame_host->GetLastCommittedOrigin().Serialize()),
+      source_render_frame_host->GetLastCommittedOrigin(),
       base::UTF8ToUTF16(
           target_render_frame_host->GetLastCommittedOrigin().Serialize()),
       std::move(message));
@@ -3611,7 +3668,7 @@ void DevToolsInspectorLogWatcher::DispatchProtocolMessage(
         run_loop_disable_log_.Quit();
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
     return;
   }

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/containers/span.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "cc/base/features.h"
@@ -828,6 +829,49 @@ TEST_P(CompositingTest, HitTestOpaquenessOnChangeOfUsedPointerEvents) {
   EXPECT_EQ(hit_test_opaque, target_layer->hit_test_opaqueness());
 }
 
+// Based on the minimized test case of https://crbug.com/343198769.
+TEST_P(CompositingTest,
+       NonStackedScrollerWithRelativeChildAboveFixedAndAbsolute) {
+  GetLocalFrameView()
+      ->GetFrame()
+      .GetSettings()
+      ->SetPreferCompositingToLCDTextForTesting(false);
+
+  InitializeWithHTML(*WebView()->MainFrameImpl()->GetFrame(), R"HTML(
+    <!doctype html>
+    <style>
+      div { width: 100px; height: 100px; }
+      ::-webkit-scrollbar { display: none; }
+    </style>
+    <div id="fixed" style="position: fixed"></div>
+    <div id="absolute" style="position: absolute"></div>
+    <div style="overflow: scroll">
+      <div id="relative" style="position: relative; height: 2000px">
+        Contents
+      </div>
+    </div>
+  )HTML");
+
+  EXPECT_TRUE(CcLayerByDOMElementId("fixed"));     // Directly composited.
+  EXPECT_TRUE(CcLayerByDOMElementId("absolute"));  // Overlaps with #fixed.
+  if (RuntimeEnabledFeatures::HitTestOpaquenessEnabled()) {
+    // Not merged because that would miss #relative's scroll state without a
+    // NonFastScrollableRegion.
+    EXPECT_TRUE(CcLayerByDOMElementId("relative"));
+  } else {
+    // Merged into #absolute.
+    EXPECT_FALSE(CcLayerByDOMElementId("relative"));
+  }
+
+  GetElementById("fixed")->SetInlineStyleProperty(CSSPropertyID::kPosition,
+                                                  "absolute");
+  UpdateAllLifecyclePhases();
+  // All layers are merged together.
+  EXPECT_FALSE(CcLayerByDOMElementId("fixed"));
+  EXPECT_FALSE(CcLayerByDOMElementId("absolute"));
+  EXPECT_FALSE(CcLayerByDOMElementId("relative"));
+}
+
 TEST_P(CompositingTest, AnchorPositionAdjustmentTransformIdReference) {
   GetLocalFrameView()
       ->GetFrame()
@@ -865,16 +909,79 @@ TEST_P(CompositingTest, AnchorPositionAdjustmentTransformIdReference) {
                 ->transform_tree_index());
 }
 
-constexpr unsigned kFillScrollingContentsLayer = 1 << 10;
+TEST_P(CompositingTest, ScrollingContentsCullRect) {
+  GetLocalFrameView()
+      ->GetFrame()
+      .GetSettings()
+      ->SetPreferCompositingToLCDTextForTesting(false);
 
-class CompositingSimTest : public PaintTestConfigurations,
-                           public SimTest,
-                           private ScopedFillScrollingContentsLayerForTest {
+  InitializeWithHTML(*WebView()->MainFrameImpl()->GetFrame(), R"HTML(
+    <!doctype html>
+    <style>
+      .scroller { width: 200px; height: 200px; overflow: scroll; }
+    </style>
+    <div id="short-composited-scroller" class="scroller">
+      <div style="height: 2000px; background: yellow">Content</div>
+    </div>
+    <div id="long-composited-scroller" class="scroller">
+      <div style="height: 10000px; background: yellow">Content</div>
+    </div>
+    <div id="narrow-non-composited-scroller" class="scroller">
+      <div style="width: 200px; height: 2000px">Content</div>
+    </div>
+    <div id="wide-non-composited-scroller" class="scroller">
+      <div style="width: 10000px; height: 200px">Content</div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhases();
+
+  EXPECT_TRUE(CcLayerByDOMElementId("short-composited-scroller"));
+  EXPECT_TRUE(CcLayerByDOMElementId("long-composited-scroller"));
+  EXPECT_FALSE(CcLayerByDOMElementId("narrow-non-composited-scroller"));
+  EXPECT_FALSE(CcLayerByDOMElementId("wide-non-composited-scroller"));
+
+  auto check_cull_rect = [&](const char* id,
+                             const std::optional<gfx::Rect>& expected) {
+    const gfx::Rect* actual =
+        GetPropertyTrees()->scroll_tree().ScrollingContentsCullRect(
+            GetLayoutObjectById(id)
+                ->FirstFragment()
+                .PaintProperties()
+                ->Scroll()
+                ->GetCompositorElementId());
+    if (expected) {
+      ASSERT_TRUE(actual);
+      EXPECT_EQ(*expected, *actual);
+    } else {
+      EXPECT_FALSE(actual);
+    }
+  };
+
+  check_cull_rect("short-composited-scroller", std::nullopt);
+  check_cull_rect("long-composited-scroller", gfx::Rect(0, 0, 200, 4200));
+  check_cull_rect("narrow-non-composited-scroller", std::nullopt);
+  check_cull_rect("wide-non-composited-scroller", gfx::Rect(0, 0, 4200, 200));
+
+  GetElementById("short-composited-scroller")->scrollTo(5000, 5000);
+  GetElementById("long-composited-scroller")->scrollTo(5000, 5000);
+  GetElementById("narrow-non-composited-scroller")->scrollTo(5000, 5000);
+  GetElementById("wide-non-composited-scroller")->scrollTo(5000, 5000);
+  UpdateAllLifecyclePhases();
+
+  EXPECT_TRUE(CcLayerByDOMElementId("short-composited-scroller"));
+  EXPECT_TRUE(CcLayerByDOMElementId("long-composited-scroller"));
+  EXPECT_FALSE(CcLayerByDOMElementId("narrow-non-composited-scroller"));
+  EXPECT_FALSE(CcLayerByDOMElementId("wide-non-composited-scroller"));
+
+  check_cull_rect("short-composited-scroller", std::nullopt);
+  check_cull_rect("long-composited-scroller", gfx::Rect(0, 1000, 200, 8200));
+  check_cull_rect("narrow-non-composited-scroller", std::nullopt);
+  check_cull_rect("wide-non-composited-scroller",
+                  gfx::Rect(1000, 0, 8200, 200));
+}
+
+class CompositingSimTest : public PaintTestConfigurations, public SimTest {
  public:
-  CompositingSimTest()
-      : ScopedFillScrollingContentsLayerForTest(GetParam() &
-                                                kFillScrollingContentsLayer) {}
-
   void InitializeWithHTML(const String& html) {
     SimRequest request("https://example.com/test.html", "text/html");
     LoadURL("https://example.com/test.html");
@@ -944,11 +1051,7 @@ class CompositingSimTest : public PaintTestConfigurations,
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         CompositingSimTest,
-                         ::testing::Values(PAINT_TEST_SUITE_P_VALUES,
-                                           kHitTestOpaqueness |
-                                               kFillScrollingContentsLayer));
+INSTANTIATE_PAINT_TEST_SUITE_P(CompositingSimTest);
 
 TEST_P(CompositingSimTest, LayerUpdatesDoNotInvalidateEarlierLayers) {
   InitializeWithHTML(R"HTML(
@@ -3303,8 +3406,8 @@ TEST_P(CompositingSimTest, CompositorAnimationRevealsChild) {
 
 static String ImageFileAsDataURL(const String& filename) {
   return "data:image/jpeg;base64," +
-         Base64Encode(test::ReadFromFile(test::CoreTestDataPath(filename))
-                          ->CopyAs<Vector<uint8_t>>());
+         Base64Encode(base::as_byte_span(
+             *test::ReadFromFile(test::CoreTestDataPath(filename))));
 }
 
 TEST_P(CompositingSimTest, CompositedImageWithSubpixelOffset) {
@@ -3319,7 +3422,7 @@ TEST_P(CompositingSimTest, CompositedImageWithSubpixelOffset) {
   ASSERT_TRUE(image_layer);
   EXPECT_EQ(gfx::Vector2dF(0.25f, 0.0625f),
             image_layer->GetRecordingSourceForTesting()
-                ->directly_composited_image_info()
+                .directly_composited_image_info()
                 ->default_raster_scale);
 }
 
@@ -3335,7 +3438,7 @@ TEST_P(CompositingSimTest, CompositedImageWithSubpixelOffsetAndOrientation) {
   ASSERT_TRUE(image_layer);
   EXPECT_EQ(gfx::Vector2dF(0.0625f, 0.25f),
             image_layer->GetRecordingSourceForTesting()
-                ->directly_composited_image_info()
+                .directly_composited_image_info()
                 ->default_raster_scale);
 }
 
@@ -3343,7 +3446,9 @@ TEST_P(CompositingSimTest, ScrollingContentsLayerRecordedBounds) {
   InitializeWithHTML(R"HTML(
     <!DOCTYPE html>
     <style>
-      div div { width: 2000px; height: 2000px; margin-top: 2000px; }
+      div div {
+        width: 2000px; height: 2000px; margin-top: 2000px; background: white;
+      }
     </style>
     <div id="scroller" style="overflow: scroll; will-change: scroll-position;
                               width: 200px; height: 200px">
@@ -3362,17 +3467,14 @@ TEST_P(CompositingSimTest, ScrollingContentsLayerRecordedBounds) {
                                                     ->GetScrollableArea()
                                                     ->GetScrollElementId()));
   ASSERT_TRUE(layer);
-  if (RuntimeEnabledFeatures::HitTestOpaquenessEnabled() ||
-      // This will make a difference when UseRecordedBoundsForTiling is enabled
-      // by default.
-      RuntimeEnabledFeatures::FillScrollingContentsLayerEnabled()) {
+  if (RuntimeEnabledFeatures::HitTestOpaquenessEnabled()) {
     EXPECT_EQ(gfx::Size(2000, 16000), layer->bounds());
     EXPECT_EQ(gfx::Rect(0, 0, 2000, 16000),
-              layer->GetRecordingSourceForTesting()->recorded_bounds());
+              layer->GetRecordingSourceForTesting().recorded_bounds());
   } else {
     EXPECT_EQ(gfx::Size(2000, 2000), layer->bounds());
     EXPECT_EQ(gfx::Rect(0, 0, 2000, 2000),
-              layer->GetRecordingSourceForTesting()->recorded_bounds());
+              layer->GetRecordingSourceForTesting().recorded_bounds());
   }
 }
 

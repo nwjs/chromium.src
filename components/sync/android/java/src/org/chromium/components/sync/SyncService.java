@@ -7,6 +7,7 @@ package org.chromium.components.sync;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.jni_zero.CalledByNative;
 import org.json.JSONArray;
 
 import org.chromium.base.Callback;
@@ -45,20 +46,6 @@ public interface SyncService {
      * @return true if the transport state is active.
      */
     public boolean isTransportStateActive();
-
-    /**
-     * Checks whether Sync-the-feature can (attempt to) start. This means that there is a
-     * ConsentLevel::kSync account and no disable reasons. It does *not* require first-time Sync
-     * setup to be complete.
-     *
-     * <p>Note: This refers to Sync-the-feature. Sync-the-transport may be running even if this is
-     * false.
-     *
-     * @return true if Sync can start, false otherwise.
-     */
-    // TODO(crbug.com/40066949): Remove once kSync becomes unreachable or is deleted from the
-    // codebase. See ConsentLevel::kSync documentation for details.
-    public boolean canSyncFeatureStart();
 
     /**
      * Returns whether all conditions are satisfied for Sync-the-feature to start. This means that
@@ -106,12 +93,14 @@ public interface SyncService {
      *
      * @return true if the primary account is consented to Sync (the feature), false otherwise.
      */
+    // TODO(crbug.com/40066949): Remove once kSync becomes unreachable or is deleted from the
+    // codebase. See ConsentLevel::kSync documentation for details.
     public boolean hasSyncConsent();
 
     /**
      * Gets the set of data types that are currently syncing.
      *
-     * This is affected by whether sync is on.
+     * <p>This is affected by whether sync is on.
      *
      * @return ModelType set of active data types.
      */
@@ -285,6 +274,10 @@ public interface SyncService {
 
     /** @return Whether sync is enabled to sync urls with a non custom passphrase. */
     public boolean isSyncingUnencryptedUrls();
+
+    /** @return Returns the pointer the corresponding native object. */
+    @CalledByNative
+    public long getNativeSyncServiceAndroidBridge();
 
     /**
      * Returns the time when the last sync cycle was completed.

@@ -11,11 +11,13 @@
 #include "ash/shell.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_controller.h"
-#include "ash/wm/desks/legacy_desk_bar_view.h"
+#include "ash/wm/desks/overview_desk_bar_view.h"
 #include "ash/wm/float/float_controller.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_session.h"
+#include "ash/wm/overview/overview_types.h"
+#include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "base/containers/adapters.h"
@@ -73,7 +75,7 @@ std::vector<aura::Window*> GetDesksContainers(aura::Window* root) {
 
 const char* GetDeskContainerName(int container_id) {
   if (!IsDeskContainerId(container_id)) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return "";
   }
 
@@ -184,6 +186,14 @@ const Desk* GetDeskForContext(aura::Window* context) {
 }
 
 bool ShouldDesksBarBeCreated() {
+  // Never show desk bar in pine session.
+  auto* overview_session = GetOverviewSession();
+  if (overview_session && overview_session->enter_exit_overview_type() ==
+                              OverviewEnterExitType::kPine) {
+    return false;
+  }
+
+  // If it is in tablet mode, only show desk bar with more than one desks.
   if (display::Screen::GetScreen()->InTabletMode()) {
     return DesksController::Get()->desks().size() > 1;
   }
@@ -211,7 +221,7 @@ bool IsDraggingAnyDesk() {
     return false;
 
   for (auto& grid : overview_session->grid_list()) {
-    const LegacyDeskBarView* desks_bar_view = grid->desks_bar_view();
+    const OverviewDeskBarView* desks_bar_view = grid->desks_bar_view();
     if (desks_bar_view && desks_bar_view->IsDraggingDesk())
       return true;
   }

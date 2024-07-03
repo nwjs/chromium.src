@@ -169,9 +169,9 @@ var mapperTab = (function () {
 	 */
 	Object.defineProperty(ProcessingQueue$1, "__esModule", { value: true });
 	ProcessingQueue$1.ProcessingQueue = void 0;
-	const log_js_1$d = log$1;
+	const log_js_1$e = log$1;
 	class ProcessingQueue {
-	    static LOGGER_PREFIX = `${log_js_1$d.LogType.debug}:queue`;
+	    static LOGGER_PREFIX = `${log_js_1$e.LogType.debug}:queue`;
 	    #logger;
 	    #processor;
 	    #queue = [];
@@ -201,13 +201,13 @@ var mapperTab = (function () {
 	            await entryPromise
 	                .then((entry) => {
 	                if (entry.kind === 'error') {
-	                    this.#logger?.(log_js_1$d.LogType.debugError, 'Event threw before sending:', entry.error.message, entry.error.stack);
+	                    this.#logger?.(log_js_1$e.LogType.debugError, 'Event threw before sending:', entry.error.message, entry.error.stack);
 	                    return;
 	                }
 	                return this.#processor(entry.value);
 	            })
 	                .catch((error) => {
-	                this.#logger?.(log_js_1$d.LogType.debugError, 'Event was not processed:', error?.message);
+	                this.#logger?.(log_js_1$e.LogType.debugError, 'Event was not processed:', error?.message);
 	            });
 	        }
 	        this.#isProcessing = false;
@@ -887,9 +887,12 @@ var mapperTab = (function () {
 	class BrowsingContextProcessor {
 	    #browserCdpClient;
 	    #browsingContextStorage;
-	    constructor(browserCdpClient, browsingContextStorage) {
+	    #eventManager;
+	    constructor(browserCdpClient, browsingContextStorage, eventManager) {
 	        this.#browserCdpClient = browserCdpClient;
 	        this.#browsingContextStorage = browsingContextStorage;
+	        this.#eventManager = eventManager;
+	        this.#eventManager.addSubscribeHook(protocol_js_1$l.ChromiumBidi.BrowsingContext.EventNames.ContextCreated, this.#onContextCreatedSubscribeHook.bind(this));
 	    }
 	    getTree(params) {
 	        const resultContexts = params.root === undefined
@@ -935,6 +938,7 @@ var mapperTab = (function () {
 	                url: 'about:blank',
 	                newWindow,
 	                browserContextId: userContext === 'default' ? undefined : userContext,
+	                background: params.background === true,
 	            });
 	        }
 	        catch (err) {
@@ -1054,6 +1058,21 @@ var mapperTab = (function () {
 	        const context = this.#browsingContextStorage.getContext(params.context);
 	        return await context.locateNodes(params);
 	    }
+	    #onContextCreatedSubscribeHook(contextId) {
+	        const context = this.#browsingContextStorage.getContext(contextId);
+	        const contextsToReport = [
+	            context,
+	            ...this.#browsingContextStorage.getContext(contextId).allChildren,
+	        ];
+	        contextsToReport.forEach((context) => {
+	            this.#eventManager.registerEvent({
+	                type: 'event',
+	                method: protocol_js_1$l.ChromiumBidi.BrowsingContext.EventNames.ContextCreated,
+	                params: context.serializeToBidiValue(),
+	            }, context.id);
+	        });
+	        return Promise.resolve();
+	    }
 	}
 	BrowsingContextProcessor$1.BrowsingContextProcessor = BrowsingContextProcessor;
 
@@ -1087,6 +1106,46 @@ var mapperTab = (function () {
 	assert$1.assert = assert;
 
 	var ActionDispatcher$1 = {};
+
+	var GraphemeTools = {};
+
+	/*
+	 * Copyright 2024 Google LLC.
+	 * Copyright (c) Microsoft Corporation.
+	 *
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 *     http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 */
+	Object.defineProperty(GraphemeTools, "__esModule", { value: true });
+	GraphemeTools.isSingleGrapheme = GraphemeTools.isSingleComplexGrapheme = void 0;
+	/**
+	 * Check if the given string is a single complex grapheme. A complex grapheme is one that
+	 * is made up of multiple characters.
+	 */
+	function isSingleComplexGrapheme(value) {
+	    return isSingleGrapheme(value) && value.length > 1;
+	}
+	GraphemeTools.isSingleComplexGrapheme = isSingleComplexGrapheme;
+	/**
+	 * Check if the given string is a single grapheme.
+	 */
+	function isSingleGrapheme(value) {
+	    // Theoretically there can be some strings considered a grapheme in some locales, like
+	    // slovak "ch" digraph. Use english locale for consistency.
+	    // https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries
+	    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+	    return [...segmenter.segment(value)].length === 1;
+	}
+	GraphemeTools.isSingleGrapheme = isSingleGrapheme;
 
 	var InputSource = {};
 
@@ -1162,6 +1221,9 @@ var mapperTab = (function () {
 	    pressed = new Set();
 	    x = 0;
 	    y = 0;
+	    radiusX;
+	    radiusY;
+	    force;
 	    constructor(id, subtype) {
 	        this.pointerId = id;
 	        this.subtype = subtype;
@@ -1257,6 +1319,10 @@ var mapperTab = (function () {
 	 */
 	Object.defineProperty(keyUtils, "__esModule", { value: true });
 	keyUtils.getKeyLocation = keyUtils.getKeyCode = keyUtils.getNormalizedKey = void 0;
+	/**
+	 * Returns the normalized key value for a given key according to the table:
+	 * https://w3c.github.io/webdriver/#dfn-normalized-key-value
+	 */
 	function getNormalizedKey(value) {
 	    switch (value) {
 	        case '\uE000':
@@ -1271,8 +1337,9 @@ var mapperTab = (function () {
 	            return 'Tab';
 	        case '\uE005':
 	            return 'Clear';
+	        // Specification declares the '\uE006' to be `Return`, but it is not supported by
+	        // Chrome, so fall back to `Enter`, which aligns with WPT.
 	        case '\uE006':
-	            return 'Return';
 	        case '\uE007':
 	            return 'Enter';
 	        case '\uE008':
@@ -1404,6 +1471,10 @@ var mapperTab = (function () {
 	    }
 	}
 	keyUtils.getNormalizedKey = getNormalizedKey;
+	/**
+	 * Returns the key code for a given key according to the table:
+	 * https://w3c.github.io/webdriver/#dfn-shifted-character
+	 */
 	function getKeyCode(key) {
 	    switch (key) {
 	        case '`':
@@ -1456,6 +1527,10 @@ var mapperTab = (function () {
 	        case '=':
 	        case '+':
 	            return 'Equal';
+	        // The spec declares the '<' to be `IntlBackslash` as well, but it is already covered
+	        // in the `Comma` above.
+	        case '>':
+	            return 'IntlBackslash';
 	        case 'a':
 	        case 'A':
 	            return 'KeyA';
@@ -1558,6 +1633,8 @@ var mapperTab = (function () {
 	            return 'ControlRight';
 	        case '\uE006':
 	            return 'Enter';
+	        case '\uE00B':
+	            return 'Pause';
 	        case '\uE03D':
 	            return 'MetaLeft';
 	        case '\uE053':
@@ -1619,6 +1696,8 @@ var mapperTab = (function () {
 	            return 'F11';
 	        case '\uE03C':
 	            return 'F12';
+	        case '\uE019':
+	            return 'NumpadEqual';
 	        case '\uE01A':
 	        case '\uE05C':
 	            return 'Numpad0';
@@ -1668,6 +1747,10 @@ var mapperTab = (function () {
 	    }
 	}
 	keyUtils.getKeyCode = getKeyCode;
+	/**
+	 * Returns the location of the key according to the table:
+	 * https://w3c.github.io/webdriver/#dfn-key-location
+	 */
 	function getKeyLocation(key) {
 	    switch (key) {
 	        case '\uE007':
@@ -1676,6 +1759,7 @@ var mapperTab = (function () {
 	        case '\uE00A':
 	        case '\uE03D':
 	            return 1;
+	        case '\uE019':
 	        case '\uE01A':
 	        case '\uE01B':
 	        case '\uE01C':
@@ -2009,6 +2093,7 @@ var mapperTab = (function () {
 	ActionDispatcher$1.ActionDispatcher = void 0;
 	const protocol_js_1$k = protocol;
 	const assert_js_1$6 = assert$1;
+	const GraphemeTools_1 = GraphemeTools;
 	const InputSource_js_1$1 = InputSource;
 	const keyUtils_js_1 = keyUtils;
 	const USKeyboardLayout_js_1 = USKeyboardLayout;
@@ -2129,7 +2214,7 @@ var mapperTab = (function () {
 	            }
 	        }
 	    }
-	    #dispatchPointerDownAction(source, keyState, action) {
+	    async #dispatchPointerDownAction(source, keyState, action) {
 	        const { button } = action;
 	        if (source.pressed.has(button)) {
 	            return;
@@ -2140,11 +2225,12 @@ var mapperTab = (function () {
 	        const { tiltX, tiltY } = getTilt(action);
 	        // --- Platform-specific code begins here ---
 	        const { modifiers } = keyState;
+	        const { radiusX, radiusY } = getRadii(width ?? 1, height ?? 1);
 	        switch (pointerType) {
 	            case "mouse" /* Input.PointerType.Mouse */:
 	            case "pen" /* Input.PointerType.Pen */:
 	                // TODO: Implement width and height when available.
-	                return this.#context.cdpTarget.cdpClient.sendCommand('Input.dispatchMouseEvent', {
+	                await this.#context.cdpTarget.cdpClient.sendCommand('Input.dispatchMouseEvent', {
 	                    type: 'mousePressed',
 	                    x,
 	                    y,
@@ -2159,14 +2245,16 @@ var mapperTab = (function () {
 	                    twist,
 	                    force: pressure,
 	                });
+	                break;
 	            case "touch" /* Input.PointerType.Touch */:
-	                return this.#context.cdpTarget.cdpClient.sendCommand('Input.dispatchTouchEvent', {
+	                await this.#context.cdpTarget.cdpClient.sendCommand('Input.dispatchTouchEvent', {
 	                    type: 'touchStart',
 	                    touchPoints: [
 	                        {
 	                            x,
 	                            y,
-	                            ...getRadii(width ?? 1, height ?? 1),
+	                            radiusX,
+	                            radiusY,
 	                            tangentialPressure,
 	                            tiltX,
 	                            tiltY,
@@ -2177,7 +2265,11 @@ var mapperTab = (function () {
 	                    ],
 	                    modifiers,
 	                });
+	                break;
 	        }
+	        source.radiusX = radiusX;
+	        source.radiusY = radiusY;
+	        source.force = pressure;
 	        // --- Platform-specific code ends here ---
 	    }
 	    #dispatchPointerUpAction(source, keyState, action) {
@@ -2186,7 +2278,7 @@ var mapperTab = (function () {
 	            return;
 	        }
 	        source.pressed.delete(button);
-	        const { x, y, subtype: pointerType } = source;
+	        const { x, y, force, radiusX, radiusY, subtype: pointerType } = source;
 	        // --- Platform-specific code begins here ---
 	        const { modifiers } = keyState;
 	        switch (pointerType) {
@@ -2211,6 +2303,9 @@ var mapperTab = (function () {
 	                            x,
 	                            y,
 	                            id: source.pointerId,
+	                            force,
+	                            radiusX,
+	                            radiusY,
 	                        },
 	                    ],
 	                    modifiers,
@@ -2222,6 +2317,7 @@ var mapperTab = (function () {
 	        const { x: startX, y: startY, subtype: pointerType } = source;
 	        const { width, height, pressure, twist, tangentialPressure, x: offsetX, y: offsetY, origin = 'viewport', duration = this.#tickDuration, } = action;
 	        const { tiltX, tiltY } = getTilt(action);
+	        const { radiusX, radiusY } = getRadii(width ?? 1, height ?? 1);
 	        const { targetX, targetY } = await this.#getCoordinateFromOrigin(origin, offsetX, offsetY, startX, startY);
 	        if (targetX < 0 || targetY < 0) {
 	            throw new protocol_js_1$k.MoveTargetOutOfBoundsException(`Cannot move beyond viewport (x: ${targetX}, y: ${targetY})`);
@@ -2290,7 +2386,8 @@ var mapperTab = (function () {
 	                                    {
 	                                        x,
 	                                        y,
-	                                        ...getRadii(width ?? 1, height ?? 1),
+	                                        radiusX,
+	                                        radiusY,
 	                                        tangentialPressure,
 	                                        tiltX,
 	                                        tiltY,
@@ -2307,6 +2404,9 @@ var mapperTab = (function () {
 	                // --- Platform-specific code ends here ---
 	                source.x = x;
 	                source.y = y;
+	                source.radiusX = radiusX;
+	                source.radiusY = radiusY;
+	                source.force = pressure;
 	            }
 	        } while (!last);
 	    }
@@ -2375,10 +2475,13 @@ var mapperTab = (function () {
 	        } while (!last);
 	    }
 	    async #dispatchKeyDownAction(source, action) {
-	        if ([...action.value].length > 1) {
-	            throw new protocol_js_1$k.InvalidArgumentException(`Invalid key value: ${action.value}`);
-	        }
 	        const rawKey = action.value;
+	        if (!(0, GraphemeTools_1.isSingleGrapheme)(rawKey)) {
+	            // https://w3c.github.io/webdriver/#dfn-process-a-key-action
+	            // WebDriver spec allows a grapheme to be used.
+	            throw new protocol_js_1$k.InvalidArgumentException(`Invalid key value: ${rawKey}`);
+	        }
+	        const isGrapheme = (0, GraphemeTools_1.isSingleComplexGrapheme)(rawKey);
 	        const key = (0, keyUtils_js_1.getNormalizedKey)(rawKey);
 	        const repeat = source.pressed.has(key);
 	        const code = (0, keyUtils_js_1.getKeyCode)(rawKey);
@@ -2402,7 +2505,7 @@ var mapperTab = (function () {
 	        // --- Platform-specific code begins here ---
 	        // The spread is a little hack so JS gives us an array of unicode characters
 	        // to measure.
-	        const unmodifiedText = getKeyEventUnmodifiedText(key, source);
+	        const unmodifiedText = getKeyEventUnmodifiedText(key, source, isGrapheme);
 	        const text = getKeyEventText(code ?? '', source) ?? unmodifiedText;
 	        let command;
 	        // The following commands need to be declared because Chromium doesn't
@@ -2455,10 +2558,13 @@ var mapperTab = (function () {
 	        // --- Platform-specific code ends here ---
 	    }
 	    #dispatchKeyUpAction(source, action) {
-	        if ([...action.value].length > 1) {
-	            throw new protocol_js_1$k.InvalidArgumentException(`Invalid key value: ${action.value}`);
-	        }
 	        const rawKey = action.value;
+	        if (!(0, GraphemeTools_1.isSingleGrapheme)(rawKey)) {
+	            // https://w3c.github.io/webdriver/#dfn-process-a-key-action
+	            // WebDriver spec allows a grapheme to be used.
+	            throw new protocol_js_1$k.InvalidArgumentException(`Invalid key value: ${rawKey}`);
+	        }
+	        const isGrapheme = (0, GraphemeTools_1.isSingleComplexGrapheme)(rawKey);
 	        const key = (0, keyUtils_js_1.getNormalizedKey)(rawKey);
 	        if (!source.pressed.has(key)) {
 	            return;
@@ -2484,7 +2590,7 @@ var mapperTab = (function () {
 	        // --- Platform-specific code begins here ---
 	        // The spread is a little hack so JS gives us an array of unicode characters
 	        // to measure.
-	        const unmodifiedText = getKeyEventUnmodifiedText(key, source);
+	        const unmodifiedText = getKeyEventUnmodifiedText(key, source, isGrapheme);
 	        const text = getKeyEventText(code ?? '', source) ?? unmodifiedText;
 	        return this.#context.cdpTarget.cdpClient.sendCommand('Input.dispatchKeyEvent', {
 	            type: 'keyUp',
@@ -2502,10 +2608,20 @@ var mapperTab = (function () {
 	    }
 	}
 	ActionDispatcher$1.ActionDispatcher = ActionDispatcher;
-	const getKeyEventUnmodifiedText = (key, source) => {
+	/**
+	 * Translates a non-grapheme key to either an `undefined` for a special keys, or a single
+	 * character modified by shift if needed.
+	 */
+	const getKeyEventUnmodifiedText = (key, source, isGrapheme) => {
+	    if (isGrapheme) {
+	        // Graphemes should be presented as text in the CDP command.
+	        return key;
+	    }
 	    if (key === 'Enter') {
 	        return '\r';
 	    }
+	    // If key is not a single character, it is a normalized key value, and should be
+	    // presented as key, not text in the CDP command.
 	    return [...key].length === 1
 	        ? source.shift
 	            ? key.toLocaleUpperCase('en-US')
@@ -2920,36 +3036,42 @@ var mapperTab = (function () {
 	        try {
 	            result = await realm.callFunction(String(function getFiles(fileListLength) {
 	                if (!(this instanceof HTMLInputElement)) {
-	                    return 0 /* ErrorCode.Object */;
+	                    if (this instanceof Element) {
+	                        return 1 /* ErrorCode.Element */;
+	                    }
+	                    return 0 /* ErrorCode.Node */;
 	                }
 	                if (this.type !== 'file') {
-	                    return 1 /* ErrorCode.Type */;
+	                    return 2 /* ErrorCode.Type */;
 	                }
 	                if (this.disabled) {
-	                    return 2 /* ErrorCode.Disabled */;
+	                    return 3 /* ErrorCode.Disabled */;
 	                }
 	                if (fileListLength > 1 && !this.multiple) {
-	                    return 3 /* ErrorCode.Multiple */;
+	                    return 4 /* ErrorCode.Multiple */;
 	                }
 	                return;
 	            }), false, params.element, [{ type: 'number', value: params.files.length }]);
 	        }
 	        catch {
-	            throw new protocol_js_1$i.NoSuchElementException(`Could not find element ${params.element.sharedId}`);
+	            throw new protocol_js_1$i.NoSuchNodeException(`Could not find element ${params.element.sharedId}`);
 	        }
 	        (0, assert_js_1$4.assert)(result.type === 'success');
 	        if (result.result.type === 'number') {
 	            switch (result.result.value) {
-	                case 0 /* ErrorCode.Object */: {
+	                case 0 /* ErrorCode.Node */: {
 	                    throw new protocol_js_1$i.NoSuchElementException(`Could not find element ${params.element.sharedId}`);
 	                }
-	                case 1 /* ErrorCode.Type */: {
-	                    throw new protocol_js_1$i.UnableToSetFileInputException(`Element ${params.element.sharedId} is not a file input`);
+	                case 1 /* ErrorCode.Element */: {
+	                    throw new protocol_js_1$i.UnableToSetFileInputException(`Element ${params.element.sharedId} is not a input`);
 	                }
-	                case 2 /* ErrorCode.Disabled */: {
+	                case 2 /* ErrorCode.Type */: {
+	                    throw new protocol_js_1$i.UnableToSetFileInputException(`Input element ${params.element.sharedId} is not a file type`);
+	                }
+	                case 3 /* ErrorCode.Disabled */: {
 	                    throw new protocol_js_1$i.UnableToSetFileInputException(`Input element ${params.element.sharedId} is disabled`);
 	                }
-	                case 3 /* ErrorCode.Multiple */: {
+	                case 4 /* ErrorCode.Multiple */: {
 	                    throw new protocol_js_1$i.UnableToSetFileInputException(`Cannot set multiple files on a non-multiple input element`);
 	                }
 	            }
@@ -3151,7 +3273,7 @@ var mapperTab = (function () {
 	 *
 	 */
 	Object.defineProperty(NetworkUtils, "__esModule", { value: true });
-	NetworkUtils.matchUrlPattern = NetworkUtils.isSpecialScheme = NetworkUtils.sameSiteBiDiToCdp = NetworkUtils.bidiToCdpCookie = NetworkUtils.deserializeByteValue = NetworkUtils.cdpToBiDiCookie = NetworkUtils.cdpAuthChallengeResponseFromBidiAuthContinueWithAuthAction = NetworkUtils.cdpFetchHeadersFromBidiNetworkHeaders = NetworkUtils.bidiNetworkHeadersFromCdpFetchHeaders = NetworkUtils.cdpNetworkHeadersFromBidiNetworkHeaders = NetworkUtils.bidiNetworkHeadersFromCdpNetworkHeaders = NetworkUtils.computeHeadersSize = void 0;
+	NetworkUtils.matchUrlPattern = NetworkUtils.isSpecialScheme = NetworkUtils.sameSiteBiDiToCdp = NetworkUtils.bidiToCdpCookie = NetworkUtils.deserializeByteValue = NetworkUtils.cdpToBiDiCookie = NetworkUtils.cdpAuthChallengeResponseFromBidiAuthContinueWithAuthAction = NetworkUtils.cdpFetchHeadersFromBidiNetworkHeaders = NetworkUtils.bidiNetworkHeadersFromCdpFetchHeaders = NetworkUtils.cdpNetworkHeadersFromBidiNetworkHeaders = NetworkUtils.bidiNetworkHeadersFromCdpNetworkHeadersEntries = NetworkUtils.bidiNetworkHeadersFromCdpNetworkHeaders = NetworkUtils.computeHeadersSize = void 0;
 	const ErrorResponse_js_1 = ErrorResponse;
 	const Base64_js_1 = Base64;
 	const UrlPattern_js_1 = UrlPattern;
@@ -3162,7 +3284,7 @@ var mapperTab = (function () {
 	    return new TextEncoder().encode(requestHeaders).length;
 	}
 	NetworkUtils.computeHeadersSize = computeHeadersSize;
-	/** Converts from CDP Network domain headers to Bidi network headers. */
+	/** Converts from CDP Network domain headers to BiDi network headers. */
 	function bidiNetworkHeadersFromCdpNetworkHeaders(headers) {
 	    if (!headers) {
 	        return [];
@@ -3176,6 +3298,20 @@ var mapperTab = (function () {
 	    }));
 	}
 	NetworkUtils.bidiNetworkHeadersFromCdpNetworkHeaders = bidiNetworkHeadersFromCdpNetworkHeaders;
+	/** Converts from CDP Fetch domain headers to BiDi network headers. */
+	function bidiNetworkHeadersFromCdpNetworkHeadersEntries(headers) {
+	    if (!headers) {
+	        return [];
+	    }
+	    return headers.map(({ name, value }) => ({
+	        name,
+	        value: {
+	            type: 'string',
+	            value,
+	        },
+	    }));
+	}
+	NetworkUtils.bidiNetworkHeadersFromCdpNetworkHeadersEntries = bidiNetworkHeadersFromCdpNetworkHeadersEntries;
 	/** Converts from Bidi network headers to CDP Network domain headers. */
 	function cdpNetworkHeadersFromBidiNetworkHeaders(headers) {
 	    if (headers === undefined) {
@@ -3285,9 +3421,12 @@ var mapperTab = (function () {
 	        path: params.cookie.path ?? '/',
 	        secure: params.cookie.secure ?? false,
 	        httpOnly: params.cookie.httpOnly ?? false,
-	        // CDP's `partitionKey` is the BiDi's `partition.sourceOrigin`.
 	        ...(partitionKey.sourceOrigin !== undefined && {
-	            partitionKey: partitionKey.sourceOrigin,
+	            partitionKey: {
+	                hasCrossSiteAncestor: false,
+	                // CDP's `partitionKey.topLevelSite` is the BiDi's `partition.sourceOrigin`.
+	                topLevelSite: partitionKey.sourceOrigin,
+	            },
 	        }),
 	        ...(params.cookie.expiry !== undefined && {
 	            expires: params.cookie.expiry,
@@ -3405,22 +3544,38 @@ var mapperTab = (function () {
 	        if (params.url !== undefined) {
 	            NetworkProcessor.parseUrlString(params.url);
 	        }
+	        if (params.method !== undefined) {
+	            if (!NetworkProcessor.isMethodValid(params.method)) {
+	                throw new protocol_js_1$h.InvalidArgumentException(`Method '${method}' is invalid.`);
+	            }
+	        }
+	        if (params.headers) {
+	            NetworkProcessor.validateHeaders(params.headers);
+	        }
 	        const request = this.#getBlockedRequestOrFail(networkId, [
 	            "beforeRequestSent" /* Network.InterceptPhase.BeforeRequestSent */,
 	        ]);
 	        const headers = (0, NetworkUtils_js_1$3.cdpFetchHeadersFromBidiNetworkHeaders)(commandHeaders);
 	        // TODO: Set / expand.
 	        // ; Step 9. cookies
-	        await request.continueRequest({
-	            url,
-	            method,
-	            headers,
-	            postData: getCdpBodyFromBiDiBytesValue(body),
-	        });
+	        try {
+	            await request.continueRequest({
+	                url,
+	                method,
+	                headers,
+	                postData: getCdpBodyFromBiDiBytesValue(body),
+	            });
+	        }
+	        catch (error) {
+	            throw NetworkProcessor.wrapInterceptionError(error);
+	        }
 	        return {};
 	    }
 	    async continueResponse(params) {
 	        const { request: networkId, statusCode, reasonPhrase, headers } = params;
+	        if (params.headers) {
+	            NetworkProcessor.validateHeaders(params.headers);
+	        }
 	        const responseHeaders = (0, NetworkUtils_js_1$3.cdpFetchHeadersFromBidiNetworkHeaders)(headers);
 	        const request = this.#getBlockedRequestOrFail(networkId, [
 	            "authRequired" /* Network.InterceptPhase.AuthRequired */,
@@ -3449,11 +3604,16 @@ var mapperTab = (function () {
 	        if (request.interceptPhase === "responseStarted" /* Network.InterceptPhase.ResponseStarted */) {
 	            // TODO: Set / expand.
 	            // ; Step 10. cookies
-	            await request.continueResponse({
-	                responseCode: statusCode,
-	                responsePhrase: reasonPhrase,
-	                responseHeaders,
-	            });
+	            try {
+	                await request.continueResponse({
+	                    responseCode: statusCode,
+	                    responsePhrase: reasonPhrase,
+	                    responseHeaders,
+	                });
+	            }
+	            catch (error) {
+	                throw NetworkProcessor.wrapInterceptionError(error);
+	            }
 	        }
 	        return {};
 	    }
@@ -3490,12 +3650,14 @@ var mapperTab = (function () {
 	    }
 	    async provideResponse(params) {
 	        const { statusCode, reasonPhrase: responsePhrase, headers, body, request: networkId, } = params;
+	        if (params.headers) {
+	            NetworkProcessor.validateHeaders(params.headers);
+	        }
 	        // TODO: Step 6
 	        // https://w3c.github.io/webdriver-bidi/#command-network-continueResponse
 	        const responseHeaders = (0, NetworkUtils_js_1$3.cdpFetchHeadersFromBidiNetworkHeaders)(headers);
 	        // TODO: Set / expand.
 	        // ; Step 10. cookies
-	        // ; Step 11. credentials
 	        const request = this.#getBlockedRequestOrFail(networkId, [
 	            "beforeRequestSent" /* Network.InterceptPhase.BeforeRequestSent */,
 	            "responseStarted" /* Network.InterceptPhase.ResponseStarted */,
@@ -3511,19 +3673,24 @@ var mapperTab = (function () {
 	            });
 	            return {};
 	        }
-	        // If we con't modify the response
-	        // Just continue the request
+	        // If we don't modify the response
+	        // just continue the request
 	        if (!body && !headers) {
 	            await request.continueRequest();
 	            return {};
 	        }
 	        const responseCode = statusCode ?? request.statusCode ?? 200;
-	        await request.provideResponse({
-	            responseCode,
-	            responsePhrase,
-	            responseHeaders,
-	            body: getCdpBodyFromBiDiBytesValue(body),
-	        });
+	        try {
+	            await request.provideResponse({
+	                responseCode,
+	                responsePhrase,
+	                responseHeaders,
+	                body: getCdpBodyFromBiDiBytesValue(body),
+	            });
+	        }
+	        catch (error) {
+	            throw NetworkProcessor.wrapInterceptionError(error);
+	        }
 	        return {};
 	    }
 	    async removeIntercept(params) {
@@ -3549,6 +3716,29 @@ var mapperTab = (function () {
 	            throw new protocol_js_1$h.InvalidArgumentException(`Blocked request for network id '${id}' is in '${request.interceptPhase}' phase`);
 	        }
 	        return request;
+	    }
+	    /**
+	     * Validate https://fetch.spec.whatwg.org/#header-value
+	     */
+	    static validateHeaders(headers) {
+	        for (const header of headers) {
+	            let headerValue;
+	            if (header.value.type === 'string') {
+	                headerValue = header.value.value;
+	            }
+	            else {
+	                headerValue = atob(header.value.value);
+	            }
+	            if (headerValue !== headerValue.trim() ||
+	                headerValue.includes('\n') ||
+	                headerValue.includes('\0')) {
+	                throw new protocol_js_1$h.InvalidArgumentException(`Header value '${headerValue}' is not acceptable value`);
+	            }
+	        }
+	    }
+	    static isMethodValid(method) {
+	        // https://httpwg.org/specs/rfc9110.html#method.overview
+	        return /^[!#$%&'*+\-.^_`|~a-zA-Z\d]+$/.test(method);
 	    }
 	    /**
 	     * Attempts to parse the given url.
@@ -3638,6 +3828,13 @@ var mapperTab = (function () {
 	                    return urlPattern;
 	            }
 	        });
+	    }
+	    static wrapInterceptionError(error) {
+	        // https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/protocol/fetch_handler.cc;l=169
+	        if (error?.message.includes('Invalid header')) {
+	            return new protocol_js_1$h.InvalidArgumentException('Invalid header');
+	        }
+	        return error;
 	    }
 	}
 	NetworkProcessor$1.NetworkProcessor = NetworkProcessor;
@@ -3819,7 +4016,7 @@ var mapperTab = (function () {
 	Object.defineProperty(ChannelProxy$1, "__esModule", { value: true });
 	ChannelProxy$1.ChannelProxy = void 0;
 	const protocol_js_1$f = protocol;
-	const log_js_1$c = log$1;
+	const log_js_1$d = log$1;
 	const uuid_js_1$3 = uuid;
 	/**
 	 * Used to send messages from realm to BiDi user.
@@ -3849,7 +4046,7 @@ var mapperTab = (function () {
 	            void this.#startListener(realm, channelHandle, eventManager);
 	        }
 	        catch (error) {
-	            this.#logger?.(log_js_1$c.LogType.debugError, error);
+	            this.#logger?.(log_js_1$d.LogType.debugError, error);
 	        }
 	    }
 	    /**
@@ -3956,7 +4153,7 @@ var mapperTab = (function () {
 	            catch (error) {
 	                // If an error is thrown, then the channel is permanently broken, so we
 	                // exit the loop.
-	                this.#logger?.(log_js_1$c.LogType.debugError, error);
+	                this.#logger?.(log_js_1$d.LogType.debugError, error);
 	                break;
 	            }
 	        }
@@ -4315,7 +4512,7 @@ var mapperTab = (function () {
 	StorageProcessor$1.StorageProcessor = void 0;
 	const protocol_js_1$d = protocol;
 	const assert_js_1$3 = assert$1;
-	const log_js_1$b = log$1;
+	const log_js_1$c = log$1;
 	const NetworkProcessor_js_1$1 = NetworkProcessor$1;
 	const NetworkUtils_js_1$2 = NetworkUtils;
 	/**
@@ -4351,7 +4548,7 @@ var mapperTab = (function () {
 	        // `sourceOrigin` partition key, only cookies with the requested source origin
 	        // are returned.
 	        (c) => partitionKey.sourceOrigin === undefined ||
-	            c.partitionKey === partitionKey.sourceOrigin)
+	            c.partitionKey?.topLevelSite === partitionKey.sourceOrigin)
 	            .filter((cdpCookie) => {
 	            const bidiCookie = (0, NetworkUtils_js_1$2.cdpToBiDiCookie)(cdpCookie);
 	            return this.#matchCookie(bidiCookie, params.filter);
@@ -4390,7 +4587,7 @@ var mapperTab = (function () {
 	        // `sourceOrigin` partition key, only cookies with the requested source origin
 	        // are returned.
 	        (c) => partitionKey.sourceOrigin === undefined ||
-	            c.partitionKey === partitionKey.sourceOrigin)
+	            c.partitionKey?.topLevelSite === partitionKey.sourceOrigin)
 	            .map((c) => (0, NetworkUtils_js_1$2.cdpToBiDiCookie)(c))
 	            .filter((c) => this.#matchCookie(c, params.filter));
 	        return {
@@ -4412,7 +4609,7 @@ var mapperTab = (function () {
 	                // If the user context is not found, special error is thrown.
 	                throw new protocol_js_1$d.NoSuchUserContextException(err.message);
 	            }
-	            this.#logger?.(log_js_1$b.LogType.debugError, err);
+	            this.#logger?.(log_js_1$c.LogType.debugError, err);
 	            throw new protocol_js_1$d.UnableToSetCookieException(err.toString());
 	        }
 	        return {
@@ -4463,7 +4660,7 @@ var mapperTab = (function () {
 	            }
 	        }
 	        if (unsupportedPartitionKeys.size > 0) {
-	            this.#logger?.(log_js_1$b.LogType.debugInfo, `Unsupported partition keys: ${JSON.stringify(Object.fromEntries(unsupportedPartitionKeys))}`);
+	            this.#logger?.(log_js_1$c.LogType.debugInfo, `Unsupported partition keys: ${JSON.stringify(Object.fromEntries(unsupportedPartitionKeys))}`);
 	        }
 	        // Set `userContext` to `default` if not provided, as it's required in Chromium.
 	        const userContext = descriptor.userContext ?? 'default';
@@ -4578,7 +4775,7 @@ var mapperTab = (function () {
 	CommandProcessor$1.CommandProcessor = void 0;
 	const protocol_js_1$c = protocol;
 	const EventEmitter_js_1$3 = EventEmitter$1;
-	const log_js_1$a = log$1;
+	const log_js_1$b = log$1;
 	const BidiNoOpParser_js_1 = BidiNoOpParser$1;
 	const BrowserProcessor_js_1 = BrowserProcessor$1;
 	const CdpProcessor_js_1 = CdpProcessor$1;
@@ -4610,7 +4807,7 @@ var mapperTab = (function () {
 	        this.#logger = logger;
 	        // keep-sorted start block=yes
 	        this.#browserProcessor = new BrowserProcessor_js_1.BrowserProcessor(browserCdpClient);
-	        this.#browsingContextProcessor = new BrowsingContextProcessor_js_1.BrowsingContextProcessor(browserCdpClient, browsingContextStorage);
+	        this.#browsingContextProcessor = new BrowsingContextProcessor_js_1.BrowsingContextProcessor(browserCdpClient, browsingContextStorage, eventManager);
 	        this.#cdpProcessor = new CdpProcessor_js_1.CdpProcessor(browsingContextStorage, realmStorage, cdpConnection, browserCdpClient);
 	        this.#inputProcessor = new InputProcessor_js_1.InputProcessor(browsingContextStorage, realmStorage);
 	        this.#networkProcessor = new NetworkProcessor_js_1.NetworkProcessor(browsingContextStorage, networkStorage);
@@ -4779,7 +4976,7 @@ var mapperTab = (function () {
 	            }
 	            else {
 	                const error = e;
-	                this.#logger?.(log_js_1$a.LogType.bidi, error);
+	                this.#logger?.(log_js_1$b.LogType.bidi, error);
 	                this.emit("response" /* CommandProcessorEvents.Response */, {
 	                    message: OutgoingMessage_js_1$1.OutgoingMessage.createResolved(new protocol_js_1$c.UnknownErrorException(error.message, error.stack).toErrorResponse(command.id), command.channel),
 	                    event: command.method,
@@ -4817,10 +5014,17 @@ var mapperTab = (function () {
 	class Deferred {
 	    #isFinished = false;
 	    #promise;
+	    #result;
 	    #resolve;
 	    #reject;
 	    get isFinished() {
 	        return this.#isFinished;
+	    }
+	    get result() {
+	        if (!this.#isFinished) {
+	            throw new Error('Deferred is not finished yet');
+	        }
+	        return this.#result;
 	    }
 	    constructor() {
 	        this.#promise = new Promise((resolve, reject) => {
@@ -4840,6 +5044,7 @@ var mapperTab = (function () {
 	        return this.#promise.catch(onRejected);
 	    }
 	    resolve(value) {
+	        this.#result = value;
 	        if (!this.#isFinished) {
 	            this.#isFinished = true;
 	            this.#resolve(value);
@@ -4891,7 +5096,7 @@ var mapperTab = (function () {
 	Object.defineProperty(Realm$1, "__esModule", { value: true });
 	Realm$1.Realm = void 0;
 	const protocol_js_1$b = protocol;
-	const log_js_1$9 = log$1;
+	const log_js_1$a = log$1;
 	const uuid_js_1$1 = uuid;
 	const ChannelProxy_js_1 = ChannelProxy$1;
 	class Realm {
@@ -4925,7 +5130,7 @@ var mapperTab = (function () {
 	            }
 	            else {
 	                // No need to await for the object to be released.
-	                void this.#releaseObject(objectId).catch((error) => this.#logger?.(log_js_1$9.LogType.debugError, error));
+	                void this.#releaseObject(objectId).catch((error) => this.#logger?.(log_js_1$a.LogType.debugError, error));
 	            }
 	        }
 	        return bidiValue;
@@ -5593,11 +5798,11 @@ var mapperTab = (function () {
 	const protocol_js_1$9 = protocol;
 	const assert_js_1$2 = assert$1;
 	const Deferred_js_1$2 = Deferred$1;
-	const log_js_1$8 = log$1;
+	const log_js_1$9 = log$1;
 	const unitConversions_js_1 = unitConversions;
 	const WindowRealm_js_1$1 = WindowRealm$1;
 	class BrowsingContextImpl {
-	    static LOGGER_PREFIX = `${log_js_1$8.LogType.debug}:browsingContext`;
+	    static LOGGER_PREFIX = `${log_js_1$9.LogType.debug}:browsingContext`;
 	    /** The ID of this browsing context. */
 	    #id;
 	    userContext;
@@ -5616,16 +5821,17 @@ var mapperTab = (function () {
 	    #navigation = {
 	        withinDocument: new Deferred_js_1$2.Deferred(),
 	    };
-	    #url = 'about:blank';
+	    #url;
 	    #eventManager;
 	    #realmStorage;
 	    #loaderId;
 	    #cdpTarget;
-	    #maybeDefaultRealm;
+	    // The deferred will be resolved when the default realm is created.
+	    #defaultRealmDeferred = new Deferred_js_1$2.Deferred();
 	    #logger;
 	    // Keeps track of the previously set viewport.
 	    #previousViewport = { width: 0, height: 0 };
-	    constructor(id, parentId, userContext, cdpTarget, eventManager, browsingContextStorage, realmStorage, logger) {
+	    constructor(id, parentId, userContext, cdpTarget, eventManager, browsingContextStorage, realmStorage, url, logger) {
 	        this.#cdpTarget = cdpTarget;
 	        this.#id = id;
 	        this.#parentId = parentId;
@@ -5634,9 +5840,10 @@ var mapperTab = (function () {
 	        this.#browsingContextStorage = browsingContextStorage;
 	        this.#realmStorage = realmStorage;
 	        this.#logger = logger;
+	        this.#url = url;
 	    }
-	    static create(id, parentId, userContext, cdpTarget, eventManager, browsingContextStorage, realmStorage, logger) {
-	        const context = new BrowsingContextImpl(id, parentId, userContext, cdpTarget, eventManager, browsingContextStorage, realmStorage, logger);
+	    static create(id, parentId, userContext, cdpTarget, eventManager, browsingContextStorage, realmStorage, url, logger) {
+	        const context = new BrowsingContextImpl(id, parentId, userContext, cdpTarget, eventManager, browsingContextStorage, realmStorage, url, logger);
 	        context.#initListeners();
 	        browsingContextStorage.addContext(context);
 	        if (!context.isTopLevelContext()) {
@@ -5727,10 +5934,6 @@ var mapperTab = (function () {
 	    #deleteAllChildren() {
 	        this.directChildren.map((child) => child.dispose());
 	    }
-	    get #defaultRealm() {
-	        (0, assert_js_1$2.assert)(this.#maybeDefaultRealm, `No default realm for browsing context ${this.#id}`);
-	        return this.#maybeDefaultRealm;
-	    }
 	    get cdpTarget() {
 	        return this.#cdpTarget;
 	    }
@@ -5752,7 +5955,8 @@ var mapperTab = (function () {
 	    }
 	    async getOrCreateSandbox(sandbox) {
 	        if (sandbox === undefined || sandbox === '') {
-	            return this.#defaultRealm;
+	            // Default realm is not guaranteed to be created at this point, so return a deferred.
+	            return await this.#defaultRealmDeferred;
 	        }
 	        let maybeSandboxes = this.#realmStorage.findRealms({
 	            browsingContextId: this.id,
@@ -5900,7 +6104,13 @@ var mapperTab = (function () {
 	                    sandbox = name;
 	                    // Sandbox should have the same origin as the context itself, but in CDP
 	                    // it has an empty one.
-	                    origin = this.#defaultRealm.origin;
+	                    if (!this.#defaultRealmDeferred.isFinished) {
+	                        this.#logger?.(log_js_1$9.LogType.debugError, 'Unexpectedly, isolated realm created before the default one');
+	                    }
+	                    origin = this.#defaultRealmDeferred.isFinished
+	                        ? this.#defaultRealmDeferred.result.origin
+	                        : // This fallback is not expected to be ever reached.
+	                            '';
 	                    break;
 	                case 'default':
 	                    origin = serializeOrigin(params.context.origin);
@@ -5910,7 +6120,7 @@ var mapperTab = (function () {
 	            }
 	            const realm = new WindowRealm_js_1$1.WindowRealm(this.id, this.#browsingContextStorage, this.#cdpTarget.cdpClient, this.#eventManager, id, this.#logger, origin, uniqueId, this.#realmStorage, sandbox);
 	            if (auxData.isDefault) {
-	                this.#maybeDefaultRealm = realm;
+	                this.#defaultRealmDeferred.resolve(realm);
 	                // Initialize ChannelProxy listeners for all the channels of all the
 	                // preload scripts related to this BrowsingContext.
 	                // TODO: extend for not default realms by the sandbox name.
@@ -5920,12 +6130,21 @@ var mapperTab = (function () {
 	            }
 	        });
 	        this.#cdpTarget.cdpClient.on('Runtime.executionContextDestroyed', (params) => {
+	            if (this.#defaultRealmDeferred.isFinished &&
+	                this.#defaultRealmDeferred.result.executionContextId ===
+	                    params.executionContextId) {
+	                this.#defaultRealmDeferred = new Deferred_js_1$2.Deferred();
+	            }
 	            this.#realmStorage.deleteRealms({
 	                cdpSessionId: this.#cdpTarget.cdpSessionId,
 	                executionContextId: params.executionContextId,
 	            });
 	        });
 	        this.#cdpTarget.cdpClient.on('Runtime.executionContextsCleared', () => {
+	            if (!this.#defaultRealmDeferred.isFinished) {
+	                this.#defaultRealmDeferred.reject(new protocol_js_1$9.UnknownErrorException('execution contexts cleared'));
+	            }
+	            this.#defaultRealmDeferred = new Deferred_js_1$2.Deferred();
 	            this.#realmStorage.deleteRealms({
 	                cdpSessionId: this.#cdpTarget.cdpSessionId,
 	            });
@@ -5950,8 +6169,9 @@ var mapperTab = (function () {
 	                    context: this.id,
 	                    type: params.type,
 	                    message: params.message,
-	                    // Don't set the value if empty string
-	                    defaultValue: params.defaultPrompt || undefined,
+	                    ...(params.type === 'prompt'
+	                        ? { defaultValue: params.defaultPrompt }
+	                        : {}),
 	                },
 	            }, this.id);
 	        });
@@ -6324,7 +6544,7 @@ var mapperTab = (function () {
 	    }
 	    async locateNodes(params) {
 	        // TODO: create a dedicated sandbox instead of `#defaultRealm`.
-	        return await this.#locateNodesByLocator(this.#defaultRealm, params.locator, params.startNodes ?? [], params.maxNodeCount, params.serializationOptions);
+	        return await this.#locateNodesByLocator(await this.#defaultRealmDeferred, params.locator, params.startNodes ?? [], params.maxNodeCount, params.serializationOptions);
 	    }
 	    async #getLocatorDelegate(realm, locator, maxNodeCount, startNodes) {
 	        switch (locator.type) {
@@ -6332,8 +6552,10 @@ var mapperTab = (function () {
 	                return {
 	                    functionDeclaration: String((cssSelector, maxNodeCount, ...startNodes) => {
 	                        const locateNodesUsingCss = (element) => {
-	                            if (!(element instanceof HTMLElement)) {
-	                                throw new Error('startNodes in css selector should be HTMLElement');
+	                            if (!(element instanceof HTMLElement ||
+	                                element instanceof Document ||
+	                                element instanceof DocumentFragment)) {
+	                                throw new Error('startNodes in css selector should be HTMLElement, Document or DocumentFragment');
 	                            }
 	                            return [...element.querySelectorAll(cssSelector)];
 	                        };
@@ -6399,8 +6621,21 @@ var mapperTab = (function () {
 	                        const searchText = ignoreCase
 	                            ? innerTextSelector.toUpperCase()
 	                            : innerTextSelector;
-	                        const locateNodesUsingInnerText = (element, currentMaxDepth) => {
+	                        const locateNodesUsingInnerText = (node, currentMaxDepth) => {
 	                            const returnedNodes = [];
+	                            if (node instanceof DocumentFragment ||
+	                                node instanceof Document) {
+	                                const children = [...node.children];
+	                                children.forEach((child) => 
+	                                // `currentMaxDepth` is not decremented intentionally according to
+	                                // https://github.com/w3c/webdriver-bidi/pull/713.
+	                                returnedNodes.push(...locateNodesUsingInnerText(child, currentMaxDepth)));
+	                                return returnedNodes;
+	                            }
+	                            if (!(node instanceof HTMLElement)) {
+	                                return [];
+	                            }
+	                            const element = node;
 	                            const nodeInnerText = ignoreCase
 	                                ? element.innerText?.toUpperCase()
 	                                : element.innerText;
@@ -6427,7 +6662,7 @@ var mapperTab = (function () {
 	                            else {
 	                                const childNodeMatches = 
 	                                // Don't search deeper if `maxDepth` is reached.
-	                                currentMaxDepth === 0
+	                                currentMaxDepth <= 0
 	                                    ? []
 	                                    : childNodes
 	                                        .map((child) => locateNodesUsingInnerText(child, currentMaxDepth - 1))
@@ -6445,9 +6680,8 @@ var mapperTab = (function () {
 	                            // TODO: stop search early if `maxNodeCount` is reached.
 	                            return returnedNodes;
 	                        };
-	                        // TODO: add maxDepth.
 	                        // TODO: stop search early if `maxNodeCount` is reached.
-	                        startNodes = startNodes.length > 0 ? startNodes : [document.body];
+	                        startNodes = startNodes.length > 0 ? startNodes : [document];
 	                        const returnedNodes = startNodes
 	                            .map((startNode) => 
 	                        // TODO: stop search early if `maxNodeCount` is reached.
@@ -6479,7 +6713,7 @@ var mapperTab = (function () {
 	                }
 	                // The next two commands cause a11y caches for the target to be
 	                // preserved. We probably do not need to disable them if the
-	                // client is using a11y features but we could by calling
+	                // client is using a11y features, but we could by calling
 	                // Accessibility.disable.
 	                await Promise.all([
 	                    this.#cdpTarget.cdpClient.sendCommand('Accessibility.enable'),
@@ -6579,8 +6813,8 @@ var mapperTab = (function () {
 	            }
 	            // Heuristic to detect if the `startNode` is not an `HTMLElement` in css selector.
 	            if (locatorResult.exceptionDetails.text ===
-	                'Error: startNodes in css selector should be HTMLElement') {
-	                throw new protocol_js_1$9.InvalidArgumentException(`startNodes in css selector should be HTMLElement`);
+	                'Error: startNodes in css selector should be HTMLElement, Document or DocumentFragment') {
+	                throw new protocol_js_1$9.InvalidArgumentException('startNodes in css selector should be HTMLElement, Document or DocumentFragment');
 	            }
 	            throw new protocol_js_1$9.UnknownErrorException(`Unexpected error in selector script: ${locatorResult.exceptionDetails.text}`);
 	        }
@@ -6955,7 +7189,7 @@ var mapperTab = (function () {
 	Object.defineProperty(LogManager$1, "__esModule", { value: true });
 	LogManager$1.LogManager = void 0;
 	const protocol_js_1$8 = protocol;
-	const log_js_1$7 = log$1;
+	const log_js_1$8 = log$1;
 	const logHelper_js_1 = logHelper;
 	/** Converts CDP StackTrace object to BiDi StackTrace object. */
 	function getBidiStackTrace(cdpStackTrace) {
@@ -7007,7 +7241,7 @@ var mapperTab = (function () {
 	            });
 	            if (realm === undefined) {
 	                // Ignore exceptions not attached to any realm.
-	                this.#logger?.(log_js_1$7.LogType.cdp, params);
+	                this.#logger?.(log_js_1$8.LogType.cdp, params);
 	                return;
 	            }
 	            const argsPromise = realm === undefined
@@ -7046,7 +7280,7 @@ var mapperTab = (function () {
 	            });
 	            if (realm === undefined) {
 	                // Ignore exceptions not attached to any realm.
-	                this.#logger?.(log_js_1$7.LogType.cdp, params);
+	                this.#logger?.(log_js_1$8.LogType.cdp, params);
 	                return;
 	            }
 	            for (const browsingContext of realm.associatedBrowsingContexts) {
@@ -7087,17 +7321,21 @@ var mapperTab = (function () {
 	CdpTarget$1.CdpTarget = void 0;
 	const chromium_bidi_js_1 = chromiumBidi;
 	const Deferred_js_1$1 = Deferred$1;
+	const log_js_1$7 = log$1;
+	const BrowsingContextImpl_js_1$1 = BrowsingContextImpl$1;
 	const LogManager_js_1 = LogManager$1;
 	class CdpTarget {
 	    #id;
 	    #cdpClient;
 	    #browserCdpClient;
+	    #realmStorage;
 	    #eventManager;
 	    #preloadScriptStorage;
 	    #browsingContextStorage;
 	    #networkStorage;
 	    #unblocked = new Deferred_js_1$1.Deferred();
 	    #acceptInsecureCerts;
+	    #logger;
 	    #networkDomainEnabled = false;
 	    #fetchDomainStages = {
 	        request: false,
@@ -7105,7 +7343,7 @@ var mapperTab = (function () {
 	        auth: false,
 	    };
 	    static create(targetId, cdpClient, browserCdpClient, realmStorage, eventManager, preloadScriptStorage, browsingContextStorage, networkStorage, acceptInsecureCerts, logger) {
-	        const cdpTarget = new CdpTarget(targetId, cdpClient, browserCdpClient, eventManager, preloadScriptStorage, browsingContextStorage, networkStorage, acceptInsecureCerts);
+	        const cdpTarget = new CdpTarget(targetId, cdpClient, browserCdpClient, eventManager, realmStorage, preloadScriptStorage, browsingContextStorage, networkStorage, acceptInsecureCerts, logger);
 	        LogManager_js_1.LogManager.create(cdpTarget, realmStorage, eventManager, logger);
 	        cdpTarget.#setEventListeners();
 	        // No need to await.
@@ -7113,15 +7351,17 @@ var mapperTab = (function () {
 	        void cdpTarget.#unblock();
 	        return cdpTarget;
 	    }
-	    constructor(targetId, cdpClient, browserCdpClient, eventManager, preloadScriptStorage, browsingContextStorage, networkStorage, acceptInsecureCerts) {
+	    constructor(targetId, cdpClient, browserCdpClient, eventManager, realmStorage, preloadScriptStorage, browsingContextStorage, networkStorage, acceptInsecureCerts, logger) {
 	        this.#id = targetId;
 	        this.#cdpClient = cdpClient;
 	        this.#browserCdpClient = browserCdpClient;
 	        this.#eventManager = eventManager;
+	        this.#realmStorage = realmStorage;
 	        this.#preloadScriptStorage = preloadScriptStorage;
 	        this.#networkStorage = networkStorage;
 	        this.#browsingContextStorage = browsingContextStorage;
 	        this.#acceptInsecureCerts = acceptInsecureCerts;
+	        this.#logger = logger;
 	    }
 	    /** Returns a deferred that resolves when the target is unblocked. */
 	    get unblocked() {
@@ -7147,8 +7387,19 @@ var mapperTab = (function () {
 	    async #unblock() {
 	        try {
 	            await Promise.all([
-	                this.#cdpClient.sendCommand('Runtime.enable'),
 	                this.#cdpClient.sendCommand('Page.enable'),
+	                // There can be some existing frames in the target, if reconnecting to an
+	                // existing browser instance, e.g. via Puppeteer. Need to restore the browsing
+	                // contexts for the frames to correctly handle further events, like
+	                // `Runtime.executionContextCreated`.
+	                // It's important to schedule this task together with enabling domains commands to
+	                // prepare the tree before the events (e.g. Runtime.executionContextCreated) start
+	                // coming.
+	                // https://github.com/GoogleChromeLabs/chromium-bidi/issues/2282
+	                this.#cdpClient
+	                    .sendCommand('Page.getFrameTree')
+	                    .then((frameTree) => this.#restoreFrameTreeState(frameTree.frameTree)),
+	                this.#cdpClient.sendCommand('Runtime.enable'),
 	                this.#cdpClient.sendCommand('Page.setLifecycleEventsEnabled', {
 	                    enabled: true,
 	                }),
@@ -7167,6 +7418,7 @@ var mapperTab = (function () {
 	            ]);
 	        }
 	        catch (error) {
+	            this.#logger?.(log_js_1$7.LogType.debugError, 'Failed to unblock target', error);
 	            // The target might have been closed before the initialization finished.
 	            if (!this.#cdpClient.isCloseError(error)) {
 	                this.#unblocked.resolve({
@@ -7180,6 +7432,17 @@ var mapperTab = (function () {
 	            kind: 'success',
 	            value: undefined,
 	        });
+	    }
+	    #restoreFrameTreeState(frameTree) {
+	        const frame = frameTree.frame;
+	        if (this.#browsingContextStorage.findContext(frame.id) === undefined &&
+	            frame.parentId !== undefined) {
+	            // Can restore only not yet known nested frames. The top-level frame is created
+	            // when the target is attached.
+	            const parentBrowsingContext = this.#browsingContextStorage.getContext(frame.parentId);
+	            BrowsingContextImpl_js_1$1.BrowsingContextImpl.create(frame.id, frame.parentId, parentBrowsingContext.userContext, parentBrowsingContext.cdpTarget, this.#eventManager, this.#browsingContextStorage, this.#realmStorage, frame.url, this.#logger);
+	        }
+	        frameTree.childFrames?.map((frameTree) => this.#restoreFrameTreeState(frameTree));
 	    }
 	    async toggleFetchIfNeeded() {
 	        const stages = this.#networkStorage.getInterceptionStages(this.topLevelId);
@@ -7339,7 +7602,10 @@ var mapperTab = (function () {
 	    #handleFrameAttachedEvent(params) {
 	        const parentBrowsingContext = this.#browsingContextStorage.findContext(params.parentFrameId);
 	        if (parentBrowsingContext !== undefined) {
-	            BrowsingContextImpl_js_1.BrowsingContextImpl.create(params.frameId, params.parentFrameId, parentBrowsingContext.userContext, parentBrowsingContext.cdpTarget, this.#eventManager, this.#browsingContextStorage, this.#realmStorage, this.#logger);
+	            BrowsingContextImpl_js_1.BrowsingContextImpl.create(params.frameId, params.parentFrameId, parentBrowsingContext.userContext, parentBrowsingContext.cdpTarget, this.#eventManager, this.#browsingContextStorage, this.#realmStorage, 
+	            // At this point, we don't know the URL of the frame yet, so it will be updated
+	            // later.
+	            'about:blank', this.#logger);
 	        }
 	    }
 	    #handleFrameDetachedEvent(params) {
@@ -7370,7 +7636,16 @@ var mapperTab = (function () {
 	                        ? targetInfo.browserContextId
 	                        : 'default';
 	                    // New context.
-	                    BrowsingContextImpl_js_1.BrowsingContextImpl.create(targetInfo.targetId, null, userContext, cdpTarget, this.#eventManager, this.#browsingContextStorage, this.#realmStorage, this.#logger);
+	                    BrowsingContextImpl_js_1.BrowsingContextImpl.create(targetInfo.targetId, null, userContext, cdpTarget, this.#eventManager, this.#browsingContextStorage, this.#realmStorage, 
+	                    // Hack: when a new target created, CDP emits targetInfoChanged with an empty
+	                    // url, and navigates it to about:blank later. When the event is emitted for
+	                    // an existing target (reconnect), the url is already known, and navigation
+	                    // events will not be emitted anymore. Replacing empty url with `about:blank`
+	                    // allows to handle both cases in the same way.
+	                    // "7.3.2.1 Creating browsing contexts".
+	                    // https://html.spec.whatwg.org/multipage/document-sequences.html#creating-browsing-contexts
+	                    // TODO: check who to deal with non-null creator and its `creatorOrigin`.
+	                    targetInfo.url === '' ? 'about:blank' : targetInfo.url, this.#logger);
 	                }
 	                return;
 	            }
@@ -7644,6 +7919,7 @@ var mapperTab = (function () {
 	            '';
 	        const url = this.#response.info?.url ??
 	            this.#response.paused?.request.url ??
+	            this.#request.overrides?.url ??
 	            this.#request.auth?.request.url ??
 	            this.#request.info?.request.url ??
 	            this.#request.paused?.request.url ??
@@ -7651,7 +7927,8 @@ var mapperTab = (function () {
 	        return `${url}${fragment}`;
 	    }
 	    get method() {
-	        return (this.#request.info?.request.method ??
+	        return (this.#request.overrides?.method ??
+	            this.#request.info?.request.method ??
 	            this.#request.paused?.request.method ??
 	            this.#request.auth?.request.method ??
 	            this.#response.paused?.request.method ??
@@ -7846,15 +8123,21 @@ var mapperTab = (function () {
 	        });
 	    }
 	    /** @see https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#method-continueRequest */
-	    async continueRequest({ url, method, headers, postData, } = {}) {
+	    async continueRequest(overrides = {}) {
 	        (0, assert_js_1.assert)(this.#fetchId, 'Network Interception not set-up.');
 	        await this.cdpClient.sendCommand('Fetch.continueRequest', {
 	            requestId: this.#fetchId,
-	            url,
-	            method,
-	            headers,
-	            postData,
+	            url: overrides.url,
+	            method: overrides.method,
+	            headers: overrides.headers,
+	            postData: overrides.postData,
 	        });
+	        // TODO: Store postData's size only
+	        this.#request.overrides = {
+	            url: overrides.url,
+	            method: overrides.method,
+	            headers: overrides.headers,
+	        };
 	        this.#interceptPhase = undefined;
 	    }
 	    /** @see https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#method-continueResponse */
@@ -7954,8 +8237,14 @@ var mapperTab = (function () {
 	        if (this.#response.info?.fromDiskCache) {
 	            this.#response.extraInfo = undefined;
 	        }
-	        // TODO: get headers from Fetch.requestPaused
-	        const headers = (0, NetworkUtils_js_1$1.bidiNetworkHeadersFromCdpNetworkHeaders)(this.#response.info?.headers);
+	        const headers = [
+	            ...(0, NetworkUtils_js_1$1.bidiNetworkHeadersFromCdpNetworkHeaders)(this.#response.info?.headers),
+	            ...(0, NetworkUtils_js_1$1.bidiNetworkHeadersFromCdpNetworkHeaders)(this.#response.extraInfo?.headers),
+	            // TODO: Verify how to dedupe these
+	            // ...bidiNetworkHeadersFromCdpNetworkHeadersEntries(
+	            //   this.#response.paused?.responseHeaders
+	            // ),
+	        ];
 	        // TODO: get headers from Fetch.requestPaused
 	        const authChallenges = this.#authChallenges(this.#response.info?.headers ?? {});
 	        return {
@@ -7996,7 +8285,18 @@ var mapperTab = (function () {
 	        const cookies = this.#request.extraInfo
 	            ? NetworkRequest.#getCookies(this.#request.extraInfo.associatedCookies)
 	            : [];
-	        const headers = (0, NetworkUtils_js_1$1.bidiNetworkHeadersFromCdpNetworkHeaders)(this.#request.info?.request.headers);
+	        let headers = [];
+	        if (this.#request.overrides?.headers) {
+	            headers = [
+	                ...(0, NetworkUtils_js_1$1.bidiNetworkHeadersFromCdpNetworkHeadersEntries)(this.#request.overrides?.headers),
+	            ];
+	        }
+	        else {
+	            headers = [
+	                ...(0, NetworkUtils_js_1$1.bidiNetworkHeadersFromCdpNetworkHeaders)(this.#request.info?.request.headers),
+	                ...(0, NetworkUtils_js_1$1.bidiNetworkHeadersFromCdpNetworkHeaders)(this.#request.extraInfo?.headers),
+	            ];
+	        }
 	        return {
 	            request: this.#id,
 	            url: this.url,
@@ -8525,6 +8825,66 @@ var mapperTab = (function () {
 	}
 	DefaultMap$1.DefaultMap = DefaultMap;
 
+	var DistinctValues = {};
+
+	/*
+	 * Copyright 2024 Google LLC.
+	 * Copyright (c) Microsoft Corporation.
+	 *
+	 * Licensed under the Apache License, Version 2.0 (the "License");
+	 * you may not use this file except in compliance with the License.
+	 * You may obtain a copy of the License at
+	 *
+	 *     http://www.apache.org/licenses/LICENSE-2.0
+	 *
+	 * Unless required by applicable law or agreed to in writing, software
+	 * distributed under the License is distributed on an "AS IS" BASIS,
+	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	 * See the License for the specific language governing permissions and
+	 * limitations under the License.
+	 */
+	Object.defineProperty(DistinctValues, "__esModule", { value: true });
+	DistinctValues.deterministicJSONStringify = DistinctValues.distinctValues = void 0;
+	/**
+	 * Returns an array of distinct values. Order is not guaranteed.
+	 * @param values - The values to filter. Should be JSON-serializable.
+	 * @return - An array of distinct values.
+	 */
+	function distinctValues(values) {
+	    const map = new Map();
+	    for (const value of values) {
+	        map.set(deterministicJSONStringify(value), value);
+	    }
+	    return Array.from(map.values());
+	}
+	DistinctValues.distinctValues = distinctValues;
+	/**
+	 * Returns a stringified version of the object with keys sorted. This is required to
+	 * ensure that the stringified version of an object is deterministic independent of the
+	 * order of keys.
+	 * @param obj
+	 * @return {string}
+	 */
+	function deterministicJSONStringify(obj) {
+	    return JSON.stringify(normalizeObject(obj));
+	}
+	DistinctValues.deterministicJSONStringify = deterministicJSONStringify;
+	function normalizeObject(obj) {
+	    if (obj === undefined ||
+	        obj === null ||
+	        Array.isArray(obj) ||
+	        typeof obj !== 'object') {
+	        return obj;
+	    }
+	    // Copy the original object key and values to a new object in sorted order.
+	    const newObj = {};
+	    for (const key of Object.keys(obj).sort()) {
+	        const value = obj[key];
+	        newObj[key] = normalizeObject(value); // Recursively sort nested objects
+	    }
+	    return newObj;
+	}
+
 	var IdWrapper$1 = {};
 
 	/**
@@ -8751,23 +9111,37 @@ var mapperTab = (function () {
 	        }
 	        return false;
 	    }
+	    /**
+	     * Subscribes to event in the given context and channel.
+	     * @param {EventNames} event
+	     * @param {BrowsingContext.BrowsingContext | null} contextId
+	     * @param {BidiPlusChannel} channel
+	     * @return {SubscriptionItem[]} List of
+	     * subscriptions. If the event is a whole module, it will return all the specific
+	     * events. If the contextId is null, it will return all the top-level contexts which were
+	     * not subscribed before the command.
+	     */
 	    subscribe(event, contextId, channel) {
 	        // All the subscriptions are handled on the top-level contexts.
 	        contextId = this.#browsingContextStorage.findTopLevelContextId(contextId);
 	        // Check if subscribed event is a whole module
 	        switch (event) {
 	            case protocol_js_1$2.ChromiumBidi.BiDiModule.BrowsingContext:
-	                Object.values(protocol_js_1$2.ChromiumBidi.BrowsingContext.EventNames).map((specificEvent) => this.subscribe(specificEvent, contextId, channel));
-	                return;
+	                return Object.values(protocol_js_1$2.ChromiumBidi.BrowsingContext.EventNames)
+	                    .map((specificEvent) => this.subscribe(specificEvent, contextId, channel))
+	                    .flat();
 	            case protocol_js_1$2.ChromiumBidi.BiDiModule.Log:
-	                Object.values(protocol_js_1$2.ChromiumBidi.Log.EventNames).map((specificEvent) => this.subscribe(specificEvent, contextId, channel));
-	                return;
+	                return Object.values(protocol_js_1$2.ChromiumBidi.Log.EventNames)
+	                    .map((specificEvent) => this.subscribe(specificEvent, contextId, channel))
+	                    .flat();
 	            case protocol_js_1$2.ChromiumBidi.BiDiModule.Network:
-	                Object.values(protocol_js_1$2.ChromiumBidi.Network.EventNames).map((specificEvent) => this.subscribe(specificEvent, contextId, channel));
-	                return;
+	                return Object.values(protocol_js_1$2.ChromiumBidi.Network.EventNames)
+	                    .map((specificEvent) => this.subscribe(specificEvent, contextId, channel))
+	                    .flat();
 	            case protocol_js_1$2.ChromiumBidi.BiDiModule.Script:
-	                Object.values(protocol_js_1$2.ChromiumBidi.Script.EventNames).map((specificEvent) => this.subscribe(specificEvent, contextId, channel));
-	                return;
+	                return Object.values(protocol_js_1$2.ChromiumBidi.Script.EventNames)
+	                    .map((specificEvent) => this.subscribe(specificEvent, contextId, channel))
+	                    .flat();
 	            // Intentionally left empty.
 	        }
 	        if (!this.#channelToContextToEventMap.has(channel)) {
@@ -8778,11 +9152,20 @@ var mapperTab = (function () {
 	            contextToEventMap.set(contextId, new Map());
 	        }
 	        const eventMap = contextToEventMap.get(contextId);
-	        // Do not re-subscribe to events to keep the priority.
-	        if (eventMap.has(event)) {
-	            return;
+	        const affectedContextIds = (contextId === null
+	            ? this.#browsingContextStorage.getTopLevelContexts().map((c) => c.id)
+	            : [contextId])
+	            // There can be contexts that are already subscribed to the event. Do not include
+	            // them to the output.
+	            .filter((contextId) => !this.isSubscribedTo(event, contextId));
+	        if (!eventMap.has(event)) {
+	            // Add subscription only if it's not already subscribed.
+	            eventMap.set(event, this.#subscriptionPriority++);
 	        }
-	        eventMap.set(event, this.#subscriptionPriority++);
+	        return affectedContextIds.map((contextId) => ({
+	            event,
+	            contextId,
+	        }));
 	    }
 	    /**
 	     * Unsubscribes atomically from all events in the given contexts and channel.
@@ -8857,6 +9240,7 @@ var mapperTab = (function () {
 	const protocol_js_1$1 = protocol;
 	const Buffer_js_1 = Buffer$2;
 	const DefaultMap_js_1 = DefaultMap$1;
+	const DistinctValues_js_1 = DistinctValues;
 	const EventEmitter_js_1$2 = EventEmitter$1;
 	const IdWrapper_js_1 = IdWrapper$1;
 	const OutgoingMessage_js_1 = OutgoingMessage$1;
@@ -8904,10 +9288,15 @@ var mapperTab = (function () {
 	    #lastMessageSent = new Map();
 	    #subscriptionManager;
 	    #browsingContextStorage;
+	    /**
+	     * Map of event name to hooks to be called when client is subscribed to the event.
+	     */
+	    #subscribeHooks;
 	    constructor(browsingContextStorage) {
 	        super();
 	        this.#browsingContextStorage = browsingContextStorage;
 	        this.#subscriptionManager = new SubscriptionManager_js_1.SubscriptionManager(browsingContextStorage);
+	        this.#subscribeHooks = new DefaultMap_js_1.DefaultMap(() => []);
 	    }
 	    get subscriptionManager() {
 	        return this.#subscriptionManager;
@@ -8917,6 +9306,9 @@ var mapperTab = (function () {
 	     */
 	    static #getMapKey(eventName, browsingContext, channel) {
 	        return JSON.stringify({ eventName, browsingContext, channel });
+	    }
+	    addSubscribeHook(event, hook) {
+	        this.#subscribeHooks.get(event).push(hook);
 	    }
 	    registerEvent(event, contextId) {
 	        this.registerPromiseEvent(Promise.resolve({
@@ -8948,9 +9340,13 @@ var mapperTab = (function () {
 	                this.#browsingContextStorage.getContext(contextId);
 	            }
 	        }
+	        // List of the subscription items that were actually added. Each contains a specific
+	        // event and context. No domain event (like "network") or global context subscription
+	        // (like null) are included.
+	        const addedSubscriptionItems = [];
 	        for (const eventName of eventNames) {
 	            for (const contextId of contextIds) {
-	                this.#subscriptionManager.subscribe(eventName, contextId, channel);
+	                addedSubscriptionItems.push(...this.#subscriptionManager.subscribe(eventName, contextId, channel));
 	                for (const eventWrapper of this.#getBufferedEvents(eventName, contextId, channel)) {
 	                    // The order of the events is important.
 	                    this.emit("event" /* EventManagerEvents.Event */, {
@@ -8961,6 +9357,13 @@ var mapperTab = (function () {
 	                }
 	            }
 	        }
+	        // Iterate over all new subscription items and call hooks if any. There can be
+	        // duplicates, e.g. when subscribing to the whole domain and some specific event in
+	        // the same time ("network", "network.responseCompleted"). `distinctValues` guarantees
+	        // that hooks are called only once per pair event + context.
+	        (0, DistinctValues_js_1.distinctValues)(addedSubscriptionItems).forEach(({ contextId, event }) => {
+	            this.#subscribeHooks.get(event).forEach((hook) => hook(contextId));
+	        });
 	        await this.toggleModulesIfNeeded();
 	    }
 	    async unsubscribe(eventNames, contextIds, channel) {
@@ -13428,10 +13831,15 @@ var mapperTab = (function () {
 		class ZodReadonly extends ZodType {
 		    _parse(input) {
 		        const result = this._def.innerType._parse(input);
-		        if ((0, parseUtil_1.isValid)(result)) {
-		            result.value = Object.freeze(result.value);
-		        }
-		        return result;
+		        const freeze = (data) => {
+		            if ((0, parseUtil_1.isValid)(data)) {
+		                data.value = Object.freeze(data.value);
+		            }
+		            return data;
+		        };
+		        return (0, parseUtil_1.isAsync)(result)
+		            ? result.then((data) => freeze(data))
+		            : freeze(result);
 		    }
 		    unwrap() {
 		        return this._def.innerType;

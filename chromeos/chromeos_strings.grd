@@ -2527,17 +2527,23 @@
         <message name="IDS_PERSONALIZATION_APP_THEME_AUTO_COLOR_MODE" desc="Label for auto color mode setting">
           Auto
         </message>
-        <message name="IDS_PERSONALIZATION_APP_THEME_GEOLOCATION_WARNING_TEXT_FOR_WALLPAPER" desc="In Personalization>Wallpaper, the warning text that tells users that system geolocation permission is needed for auto theme mode scheduling">
-          Current schedule is set to <ph name="SUNRISE">$1<ex>6am</ex></ph> - <ph name="SUNSET">$2<ex>6pm</ex></ph>. To automatically update the dark mode schedule, <ph name="BEGIN_LINK">&lt;a href="#"&gt;</ph>turn on location access<ph name="END_LINK">&lt;/a&gt;</ph>
-        </message>
         <message name="IDS_PERSONALIZATION_APP_THEME_GEOLOCATION_WARNING_TEXT_FOR_WEATHER" desc="In Personalization > Screen saver, the warning text that tells users that system geolocation permission is needed for displaying local weather info">
-          Weather is not displayed because it doesn't know your location. To display local weather, <ph name="BEGIN_LINK">&lt;a href="#"&gt;</ph>turn on Location access<ph name="END_LINK">&lt;/a&gt;</ph>
+          OFF - To display local weather <ph name="BEGIN_LINK">&lt;a href="#"&gt;</ph>turn on system location access<ph name="END_LINK">&lt;/a&gt;</ph>
+        </message>
+        <message name="IDS_PERSONALIZATION_APP_THEME_GEOLOCATION_DIALOG_BODY" desc="Description of the dialog that prompts the user to enable system geolocation access. This gives detailed explanation of the outcomes of enabling system geolocation access for system services.">
+          Current schedule is set to <ph name="SUNRISE">$1<ex>6am</ex></ph>-<ph name="SUNSET">$2<ex>6pm</ex></ph>. To automatically update the sunset and sunrise schedule, turn on system location access.
+        </message>
+        <message name="IDS_PERSONALIZATION_APP_THEME_GEOLOCATION_DIALOG_CONFIRM_BUTTON" desc="Label of the confirm button for the geolocation dialog, that enables geolocation for ChromeOS system services.">
+          Turn on system location access
+        </message>
+        <message name="IDS_PERSONALIZATION_APP_THEME_GEOLOCATION_DIALOG_CANCEL_BUTTON" desc="Label of the cancel button, that dismisses the geolocation dialog.">
+          Use without location
         </message>
         <message name="IDS_PERSONALIZATION_APP_GEOLOCATION_DIALOG_TITLE" desc="Title for the dialog, that enables users to grant the system geolocation permission for system services. This pop-up is used in few places (e.g. Automatic Time Zone) to let users conveniently enable geolocation and make the underlying feature fucntional, without navigating to the settings page.">
           Allow system services to use your location?
         </message>
         <message name="IDS_PERSONALIZATION_APP_GEOLOCATION_DIALOG_BODY" desc="Description of the dialog that prompts the user to enable system geolocation access. This gives detailed explanation of the outcomes of enabling system geolocation access for system services.">
-          This allows system services with the permission to use your location. Location may use sources like Wi-Fi, mobile networks, and sensors to help estimate your device's location. <ph name="LINK_BEGIN">&lt;a&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
+          This allows system services to use Location Accuracy to determine your location. Location Accuracy uses information about wireless signals, such as Wi-Fi access points, cellular network towers, and GPS, along with device sensor data, such as accelerometer and gyroscope, to estimate device location. You can turn off location in Settings &gt; Privacy and security &gt; Privacy controls &gt; Location access. <ph name="LINK_BEGIN">&lt;a&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
         </message>
         <message name="IDS_PERSONALIZATION_APP_GEOLOCATION_DIALOG_CONFIRM_BUTTON" desc="Label of the confirm button for the geolocation dialog, that enables geolocation for ChromeOS system services.">
           Allow
@@ -2743,6 +2749,9 @@
         </message>
         <message name="IDS_PERSONALIZATION_APP_TOOLTIP_AUTO_COLOR_MODE" desc="Tooltip for the button to enable auto color mode.">
           Automatically switch to dark theme at sunset
+        </message>
+        <message name="IDS_PERSONALIZATION_APP_ERROR_TOOLTIP_AUTO_COLOR_MODE" desc="Tooltip for the button to enable auto color mode.">
+          Time based changes may not be accurate. Turn on system location access in settings.
         </message>
         <message name="IDS_PERSONALIZATION_APP_ARIA_LABEL_GO_TO_ACCOUNT_SETTINGS" desc="Aria label for the link to account settings.">
           Go to account settings
@@ -3103,6 +3112,11 @@
           Choose a wallpaper
         </message>
 
+        <!-- Sanitize UI -->
+        <message name="IDS_OS_SANITIZE_APP_NAME" desc="Name of the Sanitize web app" translateable="false">
+          Sanitize
+        </message>
+
         <!-- Sea Pen UI -->
         <message name="IDS_SEA_PEN_LABEL" desc="Label for the Create with AI feature.">
           Create with AI
@@ -3171,6 +3185,9 @@
         </message>
         <message name="IDS_SEA_PEN_EXPERIMENT_LABEL" desc="Label for experiment item indicating the feature is experimental.">
           Experiment
+        </message>
+        <message name="IDS_SEA_PEN_UNAVAILABLE_LABEL" desc="Label for the tile tag indicating the feature is unavailable.">
+          Unavailable
         </message>
         <message name="IDS_SEA_PEN_ERROR_NO_INTERNET" desc="Error message displayed when there is no internet connection.">
           No internet. Connect to the internet and try again.
@@ -5680,6 +5697,9 @@
         <message name="IDS_FEEDBACK_TOOL_WIFI_DEBUG_LOGS_MESSAGE" translateable="false" desc="Message shown after user clicks on the Wifi debug logs hyperlink">
           Include proprietary debug data generated by the closed-source firmware of Wi-Fi chipsets. It may include information about the Wi-Fi chip (such as its MAC address), connected and surrounding Wi-Fi access points, and any other data going through the chipsets.&#10;&#10;This data can't be debugged by Google directly and is shared with the chipset vendors so that they can debug and fix any issues Googlers are experiencing. In case the issue needs to be shared with vendors, the data is kept in Buganizer until the bug is resolved.
         </message>
+        <message name="IDS_FEEDBACK_TOOL_WIFI_DEBUG_LOGS_TITLE" translateable="false" desc="Title on the dialog box for WiFi debug logs">
+            Sharing Wi-Fi Debug Logs
+        </message>
         <message name="IDS_FEEDBACK_TOOL_LINK_CROSS_DEVICE_DOGFOOD_FEEDBACK_INFO" translateable="false" desc="Checkbox for Google internal account to submit a Cross Device Feedback Report.">
           This is an issue between this Chromebook and another device. <ph name="BEGIN_LINK1">&lt;a id="linkCrossDeviceDogfoodFeedbackInfoLink"&gt;</ph>View more details<ph name="END_LINK1">&lt;/a&gt;</ph>.
         </message>
@@ -5785,6 +5805,7 @@
         <!-- End of Feedback Tool -->
 
         <!-- Shortcut Customization -->
+        <!-- TODO(b/340668387): Update strings for split modifier keyboard.-->
         <message name="IDS_SHORTCUT_CUSTOMIZATION_APP_TITLE" desc="Title of the app">
           Key Shortcuts
         </message>
@@ -5867,6 +5888,11 @@
             desc="The status message that displays when user press a key combination
             that includes a top row key but does not include the search/launcher key">
           Shortcut with top row keys need to include the <ph name="meta_key">$1<ex>search</ex></ph> key.
+        </message>
+        <message name="IDS_SHORTCUT_CUSTOMIZATION_BLOCK_RIGHT_ALT_KEY"
+            desc="The status message that displays when user press a key combination
+            that includes right alt key." translateable="false">
+          Press a new shortcut without right alt.
         </message>
         <message name="IDS_SHORTCUT_CUSTOMIZATION_SEACH_WITH_FUNCTION_KEY_NOT_ALLOWED_STATUS_MESSAGE"
             desc="The status message that displays when user press a key combination
@@ -6063,6 +6089,9 @@
         </message>
         <message name="IDS_SHORTCUT_CUSTOMIZATION_ICON_LABEL_BROWSER_SEARCH" desc="The text read aloud by the screen reader describing the keyboard icon 'browser search'.">
           browser search
+        </message>
+        <message name="IDS_SHORTCUT_CUSTOMIZATION_ICON_LABEL_ENABLE_SELECT_TO_SPEAK" desc="The text read aloud by the screen reader describing the keyboard icon 'enable select to speak'." is_accessibility_with_no_ui="true">
+          enable select to speak
         </message>
         <message name="IDS_SHORTCUT_CUSTOMIZATION_ICON_LABEL_ENABLE_OR_TOGGLE_DICTATION" desc="The text read aloud by the screen reader describing the keyboard icon 'toggle dictation'." is_accessibility_with_no_ui="true">
           enable or toggle dictation

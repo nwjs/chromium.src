@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">amarela pastel</translation>
 <translation id="1056898198331236512">Advertencia</translation>
 <translation id="1059913517121127803">Non se puido iniciar o escaneamento</translation>
+<translation id="1061864016440983342">Usar sen localización</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> de <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Detectouse un firewall</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Máis opcións de configuración</translation>
 <translation id="2082932131694554252">Tecla do teclado asignada</translation>
 <translation id="2085089206770112532">Reducir brillo da pantalla</translation>
+<translation id="2086091080968010660">Pode que os cambios baseados na hora non sexan precisos. Activa o acceso á localización do sistema na configuración.</translation>
 <translation id="2102231663024125441">Edición de texto</translation>
 <translation id="2105810540595158374">O dispositivo é un mando de xogos.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versión <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Editar os detalles do APN</translation>
 <translation id="2195732836444333448">Está ao límite da súa capacidade. Volve probar dentro dun anaco.</translation>
 <translation id="2201758491318984023">bicicleta</translation>
-<translation id="2203222757805818543">Agora mesmo o horario está definido de <ph name="SUNRISE" /> a <ph name="SUNSET" />. Para que se actualice automaticamente o horario do modo escuro, <ph name="BEGIN_LINK" />activa o acceso á localización<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">manancial de augas termais</translation>
 <translation id="2203642483788377106">cantil</translation>
 <translation id="2208388655216963643">impresionista</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Restaurar valores predeterminados</translation>
 <translation id="2286454467119466181">Simple</translation>
 <translation id="2287186687001756809">Non hai ningunha imaxe dispoñible. Para engadir fotos, vai a <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Agora mesmo o horario está definido da/s <ph name="SUNRISE" /> ata a/s <ph name="SUNSET" />. Para que se actualice automaticamente o horario do amencer e do solpor, activa o acceso á localización do sistema.</translation>
 <translation id="2305172810646967500">negra</translation>
 <translation id="2307344026739914387">Usar par de claves actual</translation>
 <translation id="2308243864813041101">Desconecta o cable USB do dispositivo (<ph name="DEVICE_NAME" />) para seguir co proceso de actualización</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">duna</translation>
 <translation id="2619761439309613843">Actualización diaria</translation>
 <translation id="2620436844016719705">Sistema</translation>
+<translation id="2637303424821734920">DESACTIVADO: Para mostrar o tempo local, <ph name="BEGIN_LINK" />activa o acceso á localización do sistema<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Imaxe de inicio de sesión</translation>
 <translation id="2640549051766135490">Seleccionouse o álbum <ph name="TITLE" /> (<ph name="DESC" />)</translation>
 <translation id="2645380101799517405">Controis</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Fondo</translation>
 <translation id="3027578600144895987">Pechar cámara</translation>
 <translation id="3031560714565892478">O dispositivo é unha cámara de vídeo.</translation>
+<translation id="3051968340259309715">Permite que os servizos do sistema utilicen a opción Precisión da localización para determinar a túa posición. Precisión da localización usa a información dos sinais sen fíos, (os puntos de acceso wifi, as torres das redes de telefonía móbil, o GPS…) e os datos dos sensores do dispositivo, como o acelerómetro e o xiroscopio, para calcular onde está o dispositivo. Podes desactivar a localización en Configuración &gt; Privacidade e seguranza &gt; Controis de privacidade &gt; Acceso á localización <ph name="LINK_BEGIN" />Máis información<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Extremo</translation>
 <translation id="3060579846059757016">Esquemas</translation>
+<translation id="3061850252076394168">activar Escoitar selección</translation>
 <translation id="3069085583900247081">Produciuse un erro durante a proba</translation>
 <translation id="3078740164268491126">táboa</translation>
 <translation id="3081652522083185657">clara</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Produciuse un erro ao resolver todos os hosts</translation>
 <translation id="4593212453765072419">Requírese autenticación proxy</translation>
 <translation id="4609350030397390689">Reducir brillo do teclado</translation>
-<translation id="4617553623719764431">Non se mostra o tempo porque o servizo non detecta a túa localización. <ph name="BEGIN_LINK" />Activa o acceso á localización<ph name="END_LINK" /> para poder ver a información meteorolóxica.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> de <ph name="TOTAL_PAGE_NUMBER" />. Para cancelar o traballo de impresión, preme Intro.</translation>
 <translation id="463791356324567266">Cancelando escaneamento…</translation>
 <translation id="4646949265910132906">Conexión wifi segura</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Executar</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Páxinas</translation>
+<translation id="4989542687859782284">Experimentos non dispoñibles</translation>
 <translation id="4999333166442584738">Ocultar informe</translation>
 <translation id="500920857929044050">Deter proba</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">brillo do teclado</translation>
 <translation id="6412715219990689313">Teclado integrado</translation>
 <translation id="6417265370957905582">Asistente de Google</translation>
+<translation id="6419454453018688975">Activar acceso á localización do sistema</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Se o fas, os servizos do sistema que teñan o permiso poderán usar a túa localización. Pódense empregar diversas fontes (a wifi, as redes de telefonía móbil, os sensores…) para axudar a determinar onde está o teu dispositivo. <ph name="LINK_BEGIN" />Máis información<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Feble (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Ir á configuración da conta</translation>
 <translation id="6462978824459367242">O botón para engadir APN agora está activado</translation>

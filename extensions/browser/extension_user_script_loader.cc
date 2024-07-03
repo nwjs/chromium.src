@@ -30,8 +30,6 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
-#include "extensions/browser/api/scripting/scripting_constants.h"
-#include "extensions/browser/api/scripting/scripting_utils.h"
 #include "extensions/browser/component_extension_resource_manager.h"
 #include "extensions/browser/content_verifier/content_verifier.h"
 #include "extensions/browser/extension_file_task_runner.h"
@@ -39,6 +37,8 @@
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/l10n_file_util.h"
+#include "extensions/browser/scripting_constants.h"
+#include "extensions/browser/scripting_utils.h"
 #include "extensions/browser/state_store.h"
 #include "extensions/browser/user_script_loader.h"
 #include "extensions/common/api/content_scripts.h"
@@ -74,6 +74,9 @@ enum class ReadScriptContentSource {
   // ResourceBundle.
   kResouceBundle,
 };
+
+// The key for storing a dynamic content script's id.
+inline constexpr char kId[] = "id";
 
 struct VerifyContentInfo {
   VerifyContentInfo(const scoped_refptr<ContentVerifier>& verifier,
@@ -356,7 +359,7 @@ void LoadUserScripts(
         dynamic_script_length += script_files_length;
         break;
       case UserScript::Source::kWebUIScript:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 
@@ -394,7 +397,7 @@ ContentScriptDictToSerializedUserScript(const base::Value::Dict& dict) {
     return std::nullopt;  // Bad entry.
   }
 
-  auto* id = dict.FindString(scripting::kId);
+  auto* id = dict.FindString(kId);
   if (!id || id->empty()) {
     return std::nullopt;  // Bad entry.
   }
@@ -851,7 +854,7 @@ void ExtensionUserScriptLoader::DynamicScriptsStorageHelper::SetDynamicScripts(
 
     base::Value::Dict value =
         script_serialization::SerializeUserScript(*script).ToValue();
-    value.Set(scripting::kId, script->id());
+    value.Set(kId, script->id());
 
     scripts_value.Append(std::move(value));
     persistent_patterns.AddPatterns(script->url_patterns());

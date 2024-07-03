@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "ash/birch/birch_data_provider.h"
+#include "ash/birch/birch_icon_cache.h"
 #include "ash/birch/birch_item.h"
 #include "ash/birch/birch_item_remover.h"
 #include "ash/birch/birch_ranker.h"
@@ -56,9 +57,16 @@ BirchModel::BirchModel()
       attachment_data_(prefs::kBirchUseCalendar, "Attachment"),
       file_suggest_data_(prefs::kBirchUseFileSuggest, "File"),
       recent_tab_data_(prefs::kBirchUseRecentTabs, "Tab"),
+      last_active_data_(prefs::kBirchUseLastActive, "LastActive"),
+      most_visited_data_(prefs::kBirchUseMostVisited, "MostVisited"),
+      self_share_data_(prefs::kBirchUseSelfShare, "SelfShare"),
       release_notes_data_(prefs::kBirchUseReleaseNotes, "ReleaseNotes"),
-      weather_data_(prefs::kBirchUseWeather, "Weather") {
-  if (features::IsBirchWeatherEnabled()) {
+      weather_data_(prefs::kBirchUseWeather, "Weather"),
+      icon_cache_(std::make_unique<BirchIconCache>()) {
+  if (features::IsBirchWeatherEnabled() &&
+      !features::IsBirchWeatherV2Enabled()) {
+    // If BirchWeatherV2 is enabled, the weather provider is owned by birch
+    // client.
     weather_provider_ = std::make_unique<BirchWeatherProvider>(this);
   }
   Shell::Get()->session_controller()->AddObserver(this);
@@ -83,8 +91,13 @@ void BirchModel::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kBirchUseCalendar, true);
   registry->RegisterBooleanPref(prefs::kBirchUseFileSuggest, true);
   registry->RegisterBooleanPref(prefs::kBirchUseRecentTabs, true);
+  registry->RegisterBooleanPref(prefs::kBirchUseLastActive, true);
+  registry->RegisterBooleanPref(prefs::kBirchUseMostVisited, true);
+  registry->RegisterBooleanPref(prefs::kBirchUseSelfShare, true);
   registry->RegisterBooleanPref(prefs::kBirchUseWeather, true);
   registry->RegisterBooleanPref(prefs::kBirchUseReleaseNotes, true);
+  // NOTE: If you add a pref here, also update birch_browsertest.cc and
+  // birch_model_unittest.cc which have code that disables all prefs.
 }
 
 template <typename T>
@@ -126,6 +139,21 @@ void BirchModel::SetFileSuggestItems(
 void BirchModel::SetRecentTabItems(
     const std::vector<BirchTabItem>& recent_tab_items) {
   SetItems(recent_tab_data_, recent_tab_items, /*record_latency=*/true);
+}
+
+void BirchModel::SetLastActiveItems(
+    const std::vector<BirchLastActiveItem>& items) {
+  SetItems(last_active_data_, items, /*record_latency=*/true);
+}
+
+void BirchModel::SetMostVisitedItems(
+    const std::vector<BirchMostVisitedItem>& items) {
+  SetItems(most_visited_data_, items, /*record_latency=*/true);
+}
+
+void BirchModel::SetSelfShareItems(
+    const std::vector<BirchSelfShareItem>& self_share_items) {
+  SetItems(self_share_data_, self_share_items, /*record_latency=*/true);
 }
 
 void BirchModel::SetWeatherItems(
@@ -191,6 +219,16 @@ void BirchModel::StartDataFetchIfNeeded(DataTypeInfo<T>& data_info,
   data_provider->RequestBirchDataFetch();
 }
 
+BirchDataProvider* BirchModel::GetWeatherProvider() {
+  if (!features::IsBirchWeatherEnabled()) {
+    return nullptr;
+  }
+  if (features::IsBirchWeatherV2Enabled()) {
+    return birch_client_ ? birch_client_->GetWeatherV2Provider() : nullptr;
+  }
+  return weather_provider_.get();
+}
+
 void BirchModel::RequestBirchDataFetch(bool is_post_login,
                                        base::OnceClosure callback) {
   if (!Shell::Get()->session_controller()->IsUserPrimary()) {
@@ -241,10 +279,16 @@ void BirchModel::RequestBirchDataFetch(bool is_post_login,
                            birch_client_->GetFileSuggestProvider());
     StartDataFetchIfNeeded(recent_tab_data_,
                            birch_client_->GetRecentTabsProvider());
+    StartDataFetchIfNeeded(last_active_data_,
+                           birch_client_->GetLastActiveProvider());
+    StartDataFetchIfNeeded(most_visited_data_,
+                           birch_client_->GetMostVisitedProvider());
+    StartDataFetchIfNeeded(self_share_data_,
+                           birch_client_->GetSelfShareProvider());
     StartDataFetchIfNeeded(release_notes_data_,
                            birch_client_->GetReleaseNotesProvider());
   }
-  StartDataFetchIfNeeded(weather_data_, weather_provider_.get());
+  StartDataFetchIfNeeded(weather_data_, GetWeatherProvider());
   MaybeRespondToDataFetchRequest();
 }
 
@@ -255,18 +299,80 @@ std::vector<std::unique_ptr<BirchItem>> BirchModel::GetAllItems() {
     return {};
   }
 
-  item_remover_->FilterRemovedTabs(&recent_tab_data_.items);
   item_remover_->FilterRemovedCalendarItems(&calendar_data_.items);
   item_remover_->FilterRemovedAttachmentItems(&attachment_data_.items);
   item_remover_->FilterRemovedFileItems(&file_suggest_data_.items);
+  item_remover_->FilterRemovedTabs(&recent_tab_data_.items);
+  item_remover_->FilterRemovedLastActiveItems(&last_active_data_.items);
+  item_remover_->FilterRemovedMostVisitedItems(&most_visited_data_.items);
+  item_remover_->FilterRemovedSelfShareItems(&self_share_data_.items);
 
   BirchRanker ranker(GetNow());
   ranker.RankCalendarItems(&calendar_data_.items);
   ranker.RankAttachmentItems(&attachment_data_.items);
   ranker.RankFileSuggestItems(&file_suggest_data_.items);
   ranker.RankRecentTabItems(&recent_tab_data_.items);
+  ranker.RankLastActiveItems(&last_active_data_.items);
+  ranker.RankMostVisitedItems(&most_visited_data_.items);
+  ranker.RankSelfShareItems(&self_share_data_.items);
   ranker.RankWeatherItems(&weather_data_.items);
   ranker.RankReleaseNotesItems(&release_notes_data_.items);
+
+  // Avoid showing a duplicate last-active tab with a recent tab by removing
+  // the item with the higher ranking.
+  std::unordered_map<std::string, BirchLastActiveItem> url_to_last_active_item;
+  for (auto& item : last_active_data_.items) {
+    url_to_last_active_item.emplace(item.url().spec(), item);
+  }
+  std::erase_if(recent_tab_data_.items, [&url_to_last_active_item](
+                                            const auto& recent_tab_item) {
+    if (auto iter = url_to_last_active_item.find(recent_tab_item.url().spec());
+        iter != url_to_last_active_item.end()) {
+      if (recent_tab_item.ranking() > iter->second.ranking()) {
+        return true;
+      }
+      url_to_last_active_item.erase(iter);
+    }
+    return false;
+  });
+
+  // Avoid showing a duplicate most-visited tab with a recent tab by removing
+  // the item with the higher ranking.
+  std::unordered_map<std::string, BirchMostVisitedItem>
+      url_to_most_visited_item;
+  for (auto& item : most_visited_data_.items) {
+    url_to_most_visited_item.emplace(item.url().spec(), item);
+  }
+  std::erase_if(recent_tab_data_.items, [&url_to_most_visited_item](
+                                            const auto& recent_tab_item) {
+    if (auto iter = url_to_most_visited_item.find(recent_tab_item.url().spec());
+        iter != url_to_most_visited_item.end()) {
+      if (recent_tab_item.ranking() > iter->second.ranking()) {
+        return true;
+      }
+      url_to_most_visited_item.erase(iter);
+    }
+    return false;
+  });
+
+  // Avoid showing a duplicate tab item by removing the item with the higher
+  // ranking.
+  std::unordered_map<std::string, BirchSelfShareItem> url_to_self_share_item;
+  for (auto& item : self_share_data_.items) {
+    url_to_self_share_item.emplace(item.url().spec(), item);
+  }
+  std::erase_if(recent_tab_data_.items, [&url_to_self_share_item](
+                                            const auto& recent_tab_item) {
+    if (auto iter = url_to_self_share_item.find(recent_tab_item.url().spec());
+        iter != url_to_self_share_item.end()) {
+      if (recent_tab_item.ranking() > iter->second.ranking()) {
+        return true;
+      }
+
+      url_to_self_share_item.erase(iter);
+    }
+    return false;
+  });
 
   // Avoid showing a duplicate file which is both an attachment and file
   // suggestion by erasing the item with the higher ranking.
@@ -301,6 +407,21 @@ std::vector<std::unique_ptr<BirchItem>> BirchModel::GetAllItems() {
   }
   for (auto& tab : recent_tab_data_.items) {
     all_items.push_back(std::make_unique<BirchTabItem>(tab));
+  }
+  if (ShouldShowLastActive()) {
+    for (auto& item : url_to_last_active_item) {
+      all_items.push_back(std::make_unique<BirchLastActiveItem>(item.second));
+    }
+    last_active_last_shown_ = GetNow();
+  }
+  if (ShouldShowMostVisited()) {
+    for (auto& item : url_to_most_visited_item) {
+      all_items.push_back(std::make_unique<BirchMostVisitedItem>(item.second));
+    }
+    most_visited_last_shown_ = GetNow();
+  }
+  for (auto& event : url_to_self_share_item) {
+    all_items.push_back(std::make_unique<BirchSelfShareItem>(event.second));
   }
   for (auto& file_suggestion : file_suggest_data_.items) {
     all_items.push_back(std::make_unique<BirchFileItem>(file_suggestion));
@@ -342,10 +463,11 @@ bool BirchModel::IsDataFresh() {
       !birch_client_ ||
       (calendar_data_.is_fresh && attachment_data_.is_fresh &&
        file_suggest_data_.is_fresh && recent_tab_data_.is_fresh &&
-       release_notes_data_.is_fresh);
+       last_active_data_.is_fresh && most_visited_data_.is_fresh &&
+       self_share_data_.is_fresh && release_notes_data_.is_fresh);
 
   // Use the same logic for weather.
-  bool is_weather_fresh = !weather_provider_ || weather_data_.is_fresh;
+  bool is_weather_fresh = !GetWeatherProvider() || weather_data_.is_fresh;
   return is_birch_client_fresh && is_weather_fresh;
 }
 
@@ -394,6 +516,10 @@ void BirchModel::OverrideClockForTest(base::Clock* clock) {
   clock_override_ = clock;
 }
 
+void BirchModel::SetDataFetchCallbackForTest(base::OnceClosure callback) {
+  data_fetch_callback_for_test_ = std::move(callback);
+}
+
 void BirchModel::HandleRequestTimeout(size_t request_id) {
   auto request = pending_requests_.find(request_id);
   if (request == pending_requests_.end()) {
@@ -432,6 +558,11 @@ void BirchModel::MaybeRespondToDataFetchRequest() {
   for (auto& callback : callbacks) {
     std::move(callback).Run();
   }
+
+  if (data_fetch_callback_for_test_) {
+    std::move(data_fetch_callback_for_test_).Run();
+    data_fetch_callback_for_test_.Reset();
+  }
 }
 
 base::Time BirchModel::GetNow() const {
@@ -446,6 +577,8 @@ void BirchModel::ClearAllItems() {
   attachment_data_.items.clear();
   file_suggest_data_.items.clear();
   recent_tab_data_.items.clear();
+  last_active_data_.items.clear();
+  most_visited_data_.items.clear();
   weather_data_.items.clear();
   release_notes_data_.items.clear();
 }
@@ -455,6 +588,8 @@ void BirchModel::MarkDataNotFresh() {
   attachment_data_.is_fresh = false;
   file_suggest_data_.is_fresh = false;
   recent_tab_data_.is_fresh = false;
+  last_active_data_.is_fresh = false;
+  most_visited_data_.is_fresh = false;
   weather_data_.is_fresh = false;
   release_notes_data_.is_fresh = false;
 }
@@ -479,6 +614,21 @@ void BirchModel::InitPrefChangeRegistrars() {
   recent_tab_pref_registrar_.Add(
       prefs::kBirchUseRecentTabs,
       base::BindRepeating(&BirchModel::OnRecentTabPrefChanged,
+                          base::Unretained(this)));
+  last_active_pref_registrar_.Init(prefs);
+  last_active_pref_registrar_.Add(
+      prefs::kBirchUseLastActive,
+      base::BindRepeating(&BirchModel::OnLastActivePrefChanged,
+                          base::Unretained(this)));
+  most_visited_pref_registrar_.Init(prefs);
+  most_visited_pref_registrar_.Add(
+      prefs::kBirchUseMostVisited,
+      base::BindRepeating(&BirchModel::OnMostVisitedPrefChanged,
+                          base::Unretained(this)));
+  self_share_pref_registrar_.Init(prefs);
+  self_share_pref_registrar_.Add(
+      prefs::kBirchUseSelfShare,
+      base::BindRepeating(&BirchModel::OnSelfSharePrefChanged,
                           base::Unretained(this)));
   weather_pref_registrar_.Init(prefs);
   weather_pref_registrar_.Add(
@@ -515,8 +665,29 @@ void BirchModel::OnRecentTabPrefChanged() {
   }
 }
 
+void BirchModel::OnLastActivePrefChanged() {
+  if (birch_client_) {
+    StartDataFetchIfNeeded(last_active_data_,
+                           birch_client_->GetLastActiveProvider());
+  }
+}
+
+void BirchModel::OnMostVisitedPrefChanged() {
+  if (birch_client_) {
+    StartDataFetchIfNeeded(most_visited_data_,
+                           birch_client_->GetMostVisitedProvider());
+  }
+}
+
+void BirchModel::OnSelfSharePrefChanged() {
+  if (birch_client_) {
+    StartDataFetchIfNeeded(self_share_data_,
+                           birch_client_->GetSelfShareProvider());
+  }
+}
+
 void BirchModel::OnWeatherPrefChanged() {
-  StartDataFetchIfNeeded(weather_data_, weather_provider_.get());
+  StartDataFetchIfNeeded(weather_data_, GetWeatherProvider());
 }
 
 void BirchModel::OnReleaseNotesPrefChanged() {
@@ -538,6 +709,12 @@ void BirchModel::RecordProviderHiddenHistograms() {
                             !prefs->GetBoolean(prefs::kBirchUseFileSuggest));
   base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.RecentTabs",
                             !prefs->GetBoolean(prefs::kBirchUseRecentTabs));
+  base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.LastActive",
+                            !prefs->GetBoolean(prefs::kBirchUseLastActive));
+  base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.MostVisited",
+                            !prefs->GetBoolean(prefs::kBirchUseMostVisited));
+  base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.SelfShare",
+                            !prefs->GetBoolean(prefs::kBirchUseSelfShare));
   base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.Weather",
                             !prefs->GetBoolean(prefs::kBirchUseWeather));
   base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.ReleaseNotes",
@@ -546,6 +723,22 @@ void BirchModel::RecordProviderHiddenHistograms() {
 
 bool BirchModel::IsItemRemoverInitialized() {
   return item_remover_ && item_remover_->Initialized();
+}
+
+bool BirchModel::ShouldShowLastActive() {
+  if (last_active_last_shown_.is_null()) {
+    return true;  // Never been shown.
+  }
+  // Re-show for up to 2 minutes.
+  return GetNow() - last_active_last_shown_ < base::Minutes(2);
+}
+
+bool BirchModel::ShouldShowMostVisited() {
+  if (most_visited_last_shown_.is_null()) {
+    return true;  // Never been shown.
+  }
+  // Re-show for up to 2 minutes.
+  return GetNow() - most_visited_last_shown_ < base::Minutes(2);
 }
 
 }  // namespace ash

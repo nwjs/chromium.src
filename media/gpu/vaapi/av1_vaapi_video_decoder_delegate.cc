@@ -6,6 +6,7 @@
 
 #include <string.h>
 #include <va/va.h>
+
 #include <algorithm>
 #include <vector>
 
@@ -14,8 +15,8 @@
 #include "base/memory/scoped_refptr.h"
 #include "build/chromeos_buildflags.h"
 #include "media/gpu/av1_picture.h"
-#include "media/gpu/decode_surface_handler.h"
 #include "media/gpu/vaapi/vaapi_common.h"
+#include "media/gpu/vaapi/vaapi_decode_surface_handler.h"
 #include "media/gpu/vaapi/vaapi_wrapper.h"
 #include "third_party/libgav1/src/src/obu_parser.h"
 #include "third_party/libgav1/src/src/utils/types.h"
@@ -209,8 +210,9 @@ void FillGlobalMotionInfo(
         va_warped_motion[i].wmtype = VAAV1TransformationAffine;
         break;
       default:
-        NOTREACHED() << "Invalid global motion transformation type, "
-                     << va_warped_motion[i].wmtype;
+        NOTREACHED_IN_MIGRATION()
+            << "Invalid global motion transformation type, "
+            << va_warped_motion[i].wmtype;
     }
     static_assert(ARRAY_SIZE(va_warped_motion[i].wmmat) == 8 &&
                       ARRAY_SIZE(gm.params) == 6,
@@ -421,8 +423,8 @@ void FillLoopRestorationInfo(VADecPictureParameterBufferAV1& va_pic_param,
       case libgav1::LoopRestorationType::kLoopRestorationTypeSgrProj:
         return 2;
       default:
-        NOTREACHED() << "Invalid restoration type"
-                     << base::strict_cast<int>(lr_type);
+        NOTREACHED_IN_MIGRATION()
+            << "Invalid restoration type" << base::strict_cast<int>(lr_type);
         return 0;
     }
   };
@@ -487,9 +489,9 @@ bool FillAV1PictureParameter(const AV1Picture& pic,
       va_pic_param.bit_depth_idx = 2;
       break;
     default:
-      NOTREACHED() << "Unknown bit depth: "
-                   << base::strict_cast<int>(
-                          sequence_header.color_config.bitdepth);
+      NOTREACHED_IN_MIGRATION()
+          << "Unknown bit depth: "
+          << base::strict_cast<int>(sequence_header.color_config.bitdepth);
   }
   switch (sequence_header.color_config.matrix_coefficients) {
     case libgav1::kMatrixCoefficientsIdentity:
@@ -543,9 +545,9 @@ bool FillAV1PictureParameter(const AV1Picture& pic,
                           sequence_header.color_config.color_range));
       break;
     default:
-      NOTREACHED() << "Unknown color range: "
-                   << static_cast<int>(
-                          sequence_header.color_config.color_range);
+      NOTREACHED_IN_MIGRATION()
+          << "Unknown color range: "
+          << static_cast<int>(sequence_header.color_config.color_range);
   }
 #undef COPY_SEQ_FILED2
 
@@ -653,8 +655,9 @@ bool FillAV1PictureParameter(const AV1Picture& pic,
           base::strict_cast<uint32_t>(frame_header.frame_type);
       break;
     default:
-      NOTREACHED() << "Unknown frame type: "
-                   << base::strict_cast<int>(frame_header.frame_type);
+      NOTREACHED_IN_MIGRATION()
+          << "Unknown frame type: "
+          << base::strict_cast<int>(frame_header.frame_type);
   }
   va_pic_info_fields.disable_cdf_update = !frame_header.enable_cdf_update;
   va_pic_info_fields.disable_frame_end_update_cdf =
@@ -723,7 +726,7 @@ bool FillAV1SliceParameters(
 }  // namespace
 
 AV1VaapiVideoDecoderDelegate::AV1VaapiVideoDecoderDelegate(
-    DecodeSurfaceHandler<VASurface>* const vaapi_dec,
+    VaapiDecodeSurfaceHandler* const vaapi_dec,
     scoped_refptr<VaapiWrapper> vaapi_wrapper,
     ProtectedSessionUpdateCB on_protected_session_update_cb,
     CdmContext* cdm_context,
@@ -769,7 +772,7 @@ scoped_refptr<AV1Picture> AV1VaapiVideoDecoderDelegate::CreateAV1Picture(
 bool AV1VaapiVideoDecoderDelegate::OutputPicture(const AV1Picture& pic) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   const auto* vaapi_pic = static_cast<const VaapiAV1Picture*>(&pic);
-  vaapi_dec_->SurfaceReady(vaapi_pic->display_va_surface(),
+  vaapi_dec_->SurfaceReady(vaapi_pic->display_va_surface()->id(),
                            vaapi_pic->bitstream_id(), vaapi_pic->visible_rect(),
                            vaapi_pic->get_colorspace());
   return true;

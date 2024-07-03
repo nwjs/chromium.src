@@ -25,6 +25,7 @@
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/eea_countries_ids.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_metrics_service_accessor.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_engines_pref_names.h"
@@ -33,6 +34,10 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/version_info/version_info.h"
+
+#if !BUILDFLAG(IS_FUCHSIA)
+#include "components/variations/service/variations_service.h"  // nogncheck
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/jni_android.h"
@@ -139,8 +144,10 @@ bool IsValidVersionFormat(const base::Version& version) {
 // Logs the outcome of a reprompt attempt for a specific key (either a specific
 // country or the wildcard).
 void LogSearchRepromptKeyHistograms(RepromptResult result, bool is_wildcard) {
-  // `RepromptResult::kInvalidDictionary` is recorded separately.
+  // `RepromptResult::kInvalidDictionary` and `RepromptResult::kNoReprompt` are
+  // recorded separately.
   CHECK_NE(result, RepromptResult::kInvalidDictionary);
+  CHECK_NE(result, RepromptResult::kNoReprompt);
 
   base::UmaHistogramEnumeration(kSearchEngineChoiceRepromptHistogram, result);
   if (is_wildcard) {
@@ -157,11 +164,37 @@ using NativeCallbackType = base::OnceCallback<void(int)>;
 }  // namespace
 
 SearchEngineChoiceService::SearchEngineChoiceService(PrefService& profile_prefs,
+                                                     PrefService* local_state,
                                                      int variations_country_id)
     : profile_prefs_(profile_prefs),
       variations_country_id_(variations_country_id) {
+  if (local_state) {
+    ProcessPendingChoiceScreenDisplayState(*local_state);
+  } else {
+    CHECK_IS_TEST();
+  }
   PreprocessPrefsForReprompt();
-  ProcessPendingChoiceScreenDisplayState();
+}
+
+SearchEngineChoiceService::SearchEngineChoiceService(
+    PrefService& profile_prefs,
+    PrefService* local_state,
+    variations::VariationsService* variations_service)
+    : SearchEngineChoiceService(profile_prefs,
+                                local_state,
+#if BUILDFLAG(IS_FUCHSIA)
+                                // We can't add a dependency from Fuchsia to
+                                // `//components/variations/service`.
+                                country_codes::kCountryIDUnknown)
+#else
+                                variations_service
+                                    ? country_codes::CountryStringToCountryID(
+                                          base::ToUpperASCII(
+                                              variations_service
+                                                  ->GetLatestCountry()))
+                                    : country_codes::kCountryIDUnknown)
+#endif
+{
 }
 
 SearchEngineChoiceService::~SearchEngineChoiceService() = default;
@@ -366,15 +399,6 @@ void SearchEngineChoiceService::MaybeRecordChoiceScreenDisplayState(
     return;
   }
 
-  if (display_state.list_is_modified_by_current_default) {
-    // This typically indicates that we have an extra search engine added to the
-    // usual ones. This should be very rare (see histogram data from
-    // `RecordIsDefaultProviderAddedToChoices()`) and might point to some corner
-    // case we might have not handled correctly. To avoid messing up the main
-    // metrics, we don't record positions here.
-    return;
-  }
-
   // TODO(b/337114717): This could crash if for some reason this is called
   // multiple times in a row for the same profile. This would clearly be a bug
   // that needs to be fixed, but this is not the most obvious way to detect
@@ -382,7 +406,7 @@ void SearchEngineChoiceService::MaybeRecordChoiceScreenDisplayState(
   CHECK_EQ(is_from_cached_state,
            profile_prefs_->HasPrefPath(
                prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState),
-           base::NotFatalUntil::M127);
+           base::NotFatalUntil::M128);
 
   if (!is_from_cached_state &&
       display_state.selected_engine_index.has_value()) {
@@ -432,10 +456,18 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
   }
 
   // Check parameters from `switches::kSearchEngineChoiceTriggerRepromptParams`.
-  std::optional<base::Value::Dict> reprompt_params = base::JSONReader::ReadDict(
-      switches::kSearchEngineChoiceTriggerRepromptParams.Get());
-  if (!reprompt_params) {
-    // No valid reprompt parameters.
+  const std::string reprompt_params =
+      switches::kSearchEngineChoiceTriggerRepromptParams.Get();
+  if (reprompt_params == switches::kSearchEngineChoiceNoRepromptString) {
+    base::UmaHistogramEnumeration(kSearchEngineChoiceRepromptHistogram,
+                                  RepromptResult::kNoReprompt);
+    return;
+  }
+
+  std::optional<base::Value::Dict> reprompt_params_json =
+      base::JSONReader::ReadDict(reprompt_params);
+  // Not a valid JSON.
+  if (!reprompt_params_json) {
     base::UmaHistogramEnumeration(kSearchEngineChoiceRepromptHistogram,
                                   RepromptResult::kInvalidDictionary);
     return;
@@ -467,7 +499,7 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
        {country_codes::CountryIDToCountryString(country_id), wildcard_string}) {
     bool is_wildcard = key == wildcard_string;
     const std::string* reprompt_version_string =
-        reprompt_params->FindString(key);
+        reprompt_params_json->FindString(key);
     if (!reprompt_version_string) {
       // No version string for this country. Fallback to the wildcard.
       LogSearchRepromptKeyHistograms(RepromptResult::kNoDictionaryKey,
@@ -506,9 +538,18 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
   }
 }
 
-void SearchEngineChoiceService::ProcessPendingChoiceScreenDisplayState() {
+void SearchEngineChoiceService::ProcessPendingChoiceScreenDisplayState(
+    PrefService& local_state) {
   if (!profile_prefs_->HasPrefPath(
           prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState)) {
+    return;
+  }
+
+  // The display state should not be cached when UMA is disabled.
+  if (!SearchEngineChoiceMetricsServiceAccessor::IsMetricsReportingEnabled(
+          &local_state)) {
+    profile_prefs_->ClearPref(
+        prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState);
     return;
   }
 

@@ -131,8 +131,16 @@ bt_private::ConnectResultType DeviceConnectErrorToConnectResult(
       return bt_private::ConnectResultType::kInvalidArgs;
     case device::BluetoothDevice::ERROR_NON_AUTH_TIMEOUT:
       return bt_private::ConnectResultType::kNonAuthTimeout;
+    case device::BluetoothDevice::ERROR_NO_MEMORY:
+      return bt_private::ConnectResultType::kNoMemory;
+    case device::BluetoothDevice::ERROR_JNI_ENVIRONMENT:
+      return bt_private::ConnectResultType::kJniEnvironment;
+    case device::BluetoothDevice::ERROR_JNI_THREAD_ATTACH:
+      return bt_private::ConnectResultType::kJniThreadAttach;
+    case device::BluetoothDevice::ERROR_WAKELOCK:
+      return bt_private::ConnectResultType::kWakelock;
     case device::BluetoothDevice::NUM_CONNECT_ERROR_CODES:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
   return bt_private::ConnectResultType::kNone;
@@ -402,7 +410,7 @@ void BluetoothPrivateSetPairingResponseFunction::DoWork(
         device->CancelPairing();
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 

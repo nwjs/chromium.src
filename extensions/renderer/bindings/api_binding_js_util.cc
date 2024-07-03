@@ -110,12 +110,12 @@ void APIBindingJSUtil::SendRequestHelper(
   v8::Local<v8::Function> custom_callback;
   if (!options.IsEmpty() && !options->IsUndefined() && !options->IsNull()) {
     if (!options->IsObject()) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
     }
     v8::Local<v8::Object> options_obj = options.As<v8::Object>();
     if (!options_obj->GetPrototype()->IsNull()) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
     }
     gin::Dictionary options_dict(isolate, options_obj);
@@ -171,7 +171,7 @@ void APIBindingJSUtil::CreateCustomEvent(gin::Arguments* arguments,
   std::string event_name;
   if (!v8_event_name->IsUndefined()) {
     if (!v8_event_name->IsString()) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
     }
     event_name = gin::V8ToString(isolate, v8_event_name);
@@ -318,7 +318,7 @@ void APIBindingJSUtil::ValidateType(gin::Arguments* arguments,
   if (!spec) {
     // We shouldn't be asked to validate unknown specs, but since this comes
     // from JS, assume nothing.
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -342,14 +342,14 @@ void APIBindingJSUtil::AddCustomSignature(
     return;
 
   if (!signature->IsArray()) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
   std::unique_ptr<base::Value> base_signature =
       content::V8ValueConverter::Create()->FromV8Value(signature, context);
   if (!base_signature->is_list()) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -370,12 +370,12 @@ void APIBindingJSUtil::ValidateCustomSignature(
   const APISignature* signature =
       type_refs_->GetCustomSignature(custom_signature_name);
   if (!signature) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 
   v8::LocalVector<v8::Value> vector_arguments(isolate);
   if (!gin::ConvertFromV8(isolate, arguments_to_validate, &vector_arguments)) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 

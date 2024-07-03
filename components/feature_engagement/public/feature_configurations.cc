@@ -53,7 +53,8 @@ std::optional<FeatureConfig> CreateNewUserGestureInProductHelpConfig(
     const base::Feature& feature,
     const char* action_event,
     const char* trigger_event,
-    const char* used_event) {
+    const char* used_event,
+    const char* dismiss_button_tap_event) {
   // Maximum storage days for iOS gesture IPHs in days. Note that they only
   // triggered for users who installed Chrome on iOS in the last specific number
   // of days, so this could be used as the maximum storage period of respective
@@ -88,6 +89,10 @@ std::optional<FeatureConfig> CreateNewUserGestureInProductHelpConfig(
   config->event_configs.insert(
       EventConfig(action_event, Comparator(GREATER_THAN_OR_EQUAL, 2),
                   days_between_occurrences, days_between_occurrences));
+  // The user hasn't explicitly dismissed the same IPH before.
+  config->event_configs.insert(EventConfig(dismiss_button_tap_event,
+                                           Comparator(EQUAL, 0),
+                                           kMaxStorageDays, kMaxStorageDays));
   return config;
 }
 #endif
@@ -371,6 +376,22 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->event_configs.insert(
         EventConfig("high_efficiency_prompt_in_trigger",
                     Comparator(LESS_THAN, 1), 360, 360));
+    return config;
+  }
+
+  if (kIPHPerformanceInterventionDialogFeature.name == feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    // Show intervention dialog at most once per day and no more than 5 times
+    // per week.
+    config->trigger = EventConfig("performance_intervention_dialog_trigger",
+                                  Comparator(EQUAL, 0), 1, 360);
+    config->event_configs.insert(
+        EventConfig("performance_intervention_dialog_trigger",
+                    Comparator(LESS_THAN, 5), 7, 360));
     return config;
   }
 
@@ -733,10 +754,9 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 #if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (kIPHiOSPasswordPromoDesktopFeature.name == feature->name) {
     // A config for allowing other IPH's to explicitly block the iOS password
-    // promo bubble on desktop if needed. By default it is non-blocking and
-    // non-blocked by other IPH due it being highly contextual, but this FET
-    // config and feature exist to allow some FET control over this promo if
-    // needed.
+    // promo bubble on desktop if needed. Blocked and blocking by default, so
+    // won't appear at the same time as other IPH, but without any session rate
+    // impact.
 
     std::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
@@ -752,9 +772,65 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                                   Comparator(ANY, 0), 0, 0);
     return config;
   }
+
+  if (kIPHiOSAddressPromoDesktopFeature.name == feature->name) {
+    // A config for allowing other IPH's to explicitly block the iOS address
+    // promo bubble on desktop if needed. Blocked and blocking by default, so
+    // won't appear at the same time as other IPH, but without any session rate
+    // impact.
+
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config->blocked_by.type = BlockedBy::Type::ALL;
+    config->blocking.type = Blocking::Type::ALL;
+    config->used =
+        EventConfig("ios_address_promo_bubble_on_desktop_interacted_with",
+                    Comparator(ANY, 0), 0, 0);
+    config->trigger = EventConfig("ios_address_promo_bubble_on_desktop_shown",
+                                  Comparator(ANY, 0), 0, 0);
+    return config;
+  }
+
+  if (kIPHiOSPaymentPromoDesktopFeature.name == feature->name) {
+    // A config for allowing other IPH's to explicitly block the iOS payment
+    // promo bubble on desktop if needed. Blocked and blocking by default, so
+    // won't appear at the same time as other IPH, but without any session rate
+    // impact.
+
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config->blocked_by.type = BlockedBy::Type::ALL;
+    config->blocking.type = Blocking::Type::ALL;
+    config->used =
+        EventConfig("ios_payment_promo_bubble_on_desktop_interacted_with",
+                    Comparator(ANY, 0), 0, 0);
+    config->trigger = EventConfig("ios_payment_promo_bubble_on_desktop_shown",
+                                  Comparator(ANY, 0), 0, 0);
+    return config;
+  }
 #endif  // !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #if BUILDFLAG(IS_ANDROID)
+
+  if (kIPHTabGroupSyncOnStripFeature.name == feature->name) {
+    // A config that allows the TabGroupSync IPH to be shown up to 3 times per
+    // year.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(LESS_THAN, 1);
+    config->trigger = EventConfig("tab_group_sync_on_strip_iph_triggered",
+                                  Comparator(LESS_THAN, 3), 360, 360);
+    config->used = EventConfig("tab_groups_surface_clicked",
+                               Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
 
   if (kIPHAppSpecificHistory.name == feature->name) {
     // A config that allows the AppSpecificHistory IPH to be shown once
@@ -1023,6 +1099,39 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
         EventConfig("shopping_list_menu_item_iph_triggered",
                     Comparator(LESS_THAN, 3), 360, 360));
     config->used = EventConfig("shopping_list_track_price_from_menu",
+                               Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+  if (kIPHTabGroupsSurfaceFeature.name == feature->name) {
+    // Allows an IPH for the tab groups surface through hub toolbar when:
+    // * Only once per week.
+    // * Up to 3 times per year.
+    // * And only as long as the user has never manually opened the tab groups
+    // surface from the hub toolbar.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(LESS_THAN, 1);
+    config->trigger =
+        EventConfig("tab_groups_surface_triggered", Comparator(EQUAL, 0), 7, 7);
+    config->event_configs.insert(EventConfig(
+        "tab_groups_surface_triggered", Comparator(LESS_THAN, 3), 360, 360));
+    config->used = EventConfig("tab_groups_surface_clicked",
+                               Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+  if (kIPHTabGroupsSurfaceOnHideFeature.name == feature->name) {
+    // Allows an IPH for the tab groups surface when hiding a tab group when:
+    // * Only once per year.
+    // * And only as long as the user has never manually opened the tab groups
+    // surface from the hub toolbar.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(LESS_THAN, 1);
+    config->trigger = EventConfig("tab_groups_surface_on_hide_triggered",
+                                  Comparator(EQUAL, 0), 360, 360);
+    config->used = EventConfig("tab_groups_surface_clicked",
                                Comparator(EQUAL, 0), 360, 360);
     return config;
   }
@@ -1967,7 +2076,9 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
         *feature, /*action_event=*/
         feature_engagement::events::kIOSMultiGestureRefreshUsed,
         /*trigger_event=*/"iph_pull_to_refresh_trigger", /*used_event=*/
-        feature_engagement::events::kIOSPullToRefreshUsed);
+        feature_engagement::events::kIOSPullToRefreshUsed,
+        /*dismiss_button_tap_event=*/
+        feature_engagement::events::kIOSPullToRefreshIPHDismissButtonTapped);
   }
 
   if (kIPHiOSReplaceSyncPromosWithSignInPromos.name == feature->name) {
@@ -1991,12 +2102,37 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
   }
 
   if (kIPHiOSTabGridSwipeRightForIncognito.name == feature->name) {
-    // The IPH of the tab grid swipe feature.
-    return CreateNewUserGestureInProductHelpConfig(
-        *feature, /*action_event=*/
-        feature_engagement::events::kIOSIncognitoPageControlTapped,
-        /*trigger_event=*/"swipe_left_for_incognito_trigger", /*used_event=*/
-        feature_engagement::events::kIOSSwipeRightForIncognitoUsed);
+    // Maximum storage days for iOS gesture IPHs in days. Note that they only
+    // triggered for users who installed Chrome on iOS in the last specific
+    // number of days, so this could be used as the maximum storage period of
+    // respective events.
+    const uint32_t kMaxStorageDays = 61;
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    // The user hasn't done the action suggested by the IPH.
+    config->used =
+        EventConfig(feature_engagement::events::kIOSSwipeRightForIncognitoUsed,
+                    Comparator(EQUAL, 0), kMaxStorageDays, kMaxStorageDays);
+    // The IPH shows at most once per week, twice in a lifetime.
+    config->trigger = EventConfig("swipe_left_for_incognito_trigger",
+                                  Comparator(EQUAL, 0), 7, 7);
+    config->event_configs.insert(EventConfig("swipe_left_for_incognito_trigger",
+                                             Comparator(LESS_THAN, 2),
+                                             kMaxStorageDays, kMaxStorageDays));
+    // The IPH only shows when user performs the action that should trigger the
+    // IPH at least twice since the last time the IPH shows, or since
+    // installation if it hasn't.
+    config->event_configs.insert(
+        EventConfig(feature_engagement::events::kIOSIncognitoPageControlTapped,
+                    Comparator(GREATER_THAN_OR_EQUAL, 2), 7, 7));
+    // The user hasn't explicitly dismissed the same IPH before.
+    config->event_configs.insert(
+        EventConfig(feature_engagement::events::
+                        kIOSSwipeRightForIncognitoIPHDismissButtonTapped,
+                    Comparator(EQUAL, 0), kMaxStorageDays, kMaxStorageDays));
+    return config;
   }
 
   if (kIPHiOSSwipeBackForwardFeature.name == feature->name) {
@@ -2005,7 +2141,9 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
         *feature, /*action_event=*/
         feature_engagement::events::kIOSBackForwardButtonTapped,
         /*trigger_event=*/"swipe_back_forward_trigger", /*used_event=*/
-        feature_engagement::events::kIOSSwipeBackForwardUsed);
+        feature_engagement::events::kIOSSwipeBackForwardUsed,
+        /*dismiss_button_tap_event=*/
+        feature_engagement::events::kIOSSwipeBackForwardIPHDismissButtonTapped);
   }
 
   if (kIPHiOSSwipeToolbarToChangeTabFeature.name == feature->name) {
@@ -2014,7 +2152,10 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
         *feature, /*action_event=*/
         feature_engagement::events::kIOSTabGridAdjacentTabTapped,
         /*trigger_event=*/"swipe_toolbar_to_change_tab_trigger", /*used_event=*/
-        feature_engagement::events::kIOSSwipeToolbarToChangeTabUsed);
+        feature_engagement::events::kIOSSwipeToolbarToChangeTabUsed,
+        /*dismiss_button_tap_event=*/
+        feature_engagement::events::
+            kIOSSwipeToolbarToChangeTabIPHDismissButtonTapped);
   }
 
   if (kIPHiOSOverflowMenuCustomizationFeature.name == feature->name) {
@@ -2076,6 +2217,18 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
   if (std::optional<FeatureConfig> ios_promo_feature_config =
           GetClientSideiOSPromoFeatureConfig(feature)) {
     return ios_promo_feature_config;
+  }
+
+  if (kIPHDiscoverFeedHeaderFeature.name == feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->trigger = EventConfig("discover_feed_header_menu_iph_triggered",
+                                  Comparator(EQUAL, 0), 365, 365);
+    config->used = EventConfig("discover_feed_header_menu_clicked",
+                               Comparator(EQUAL, 0), 365, 365);
+    return config;
   }
 #endif  // BUILDFLAG(IS_IOS)
 

@@ -65,7 +65,7 @@ reviewer.
 </histogram>
 
 <histogram name="Privacy.3pcd.Experiment3pcBlockStatusHistogram"
-    enum="Experiment3pcBlockStatus" expires_after="2024-07-01">
+    enum="Experiment3pcBlockStatus" expires_after="2024-11-03">
   <owner>trishalfonso@google.com</owner>
   <owner>src/chrome/browser/tpcd/OWNERS</owner>
   <summary>
@@ -171,7 +171,7 @@ reviewer.
 </histogram>
 
 <histogram name="Privacy.CookieControlsActivated.PageRefreshCount"
-    units="count" expires_after="2024-09-15">
+    units="count" expires_after="2024-11-17">
   <owner>olesiamarukhno@google.com</owner>
   <owner>sauski@google.com</owner>
   <owner>kmg@google.com</owner>
@@ -182,7 +182,7 @@ reviewer.
 </histogram>
 
 <histogram name="Privacy.CookieControlsActivated.SaaRequested"
-    enum="BooleanEnabled" expires_after="2024-09-15">
+    enum="BooleanEnabled" expires_after="2024-11-17">
   <owner>olesiamarukhno@google.com</owner>
   <owner>sauski@google.com</owner>
   <owner>kmg@google.com</owner>
@@ -193,7 +193,7 @@ reviewer.
 </histogram>
 
 <histogram name="Privacy.CookieControlsActivated.SiteDataAccessType"
-    enum="ThirdPartySiteDataAccessType" expires_after="2024-09-15">
+    enum="ThirdPartySiteDataAccessType" expires_after="2024-11-17">
   <owner>olesiamarukhno@google.com</owner>
   <owner>sauski@google.com</owner>
   <owner>kmg@google.com</owner>
@@ -205,7 +205,7 @@ reviewer.
 </histogram>
 
 <histogram name="Privacy.CookieControlsActivated.SiteEngagementScore"
-    units="units" expires_after="2024-09-15">
+    units="units" expires_after="2024-11-17">
   <owner>olesiamarukhno@google.com</owner>
   <owner>sauski@google.com</owner>
   <owner>kmg@google.com</owner>
@@ -367,7 +367,7 @@ reviewer.
 </histogram>
 
 <histogram name="Privacy.DIPS.DeletionLatency2" units="ms"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>wanderview@chromium.org</owner>
   <owner>src/chrome/browser/dips/OWNERS</owner>
   <summary>
@@ -492,6 +492,110 @@ reviewer.
   <summary>
     Recorded when we attempt to show a Privacy Guide NTP promotion as instructed
     by the server. True if the conditions to do so are met.
+  </summary>
+</histogram>
+
+<histogram
+    name="PrivacySandbox.ActivityTypeStorage.10MostRecentRecordsUserSegment"
+    enum="PrivacySandboxStorageUserSegmentByRecentActivity"
+    expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the user segment based on the 10 most recent records. Recorded at
+    most once on Clank startup.
+  </summary>
+</histogram>
+
+<histogram
+    name="PrivacySandbox.ActivityTypeStorage.20MostRecentRecordsUserSegment"
+    enum="PrivacySandboxStorageUserSegmentByRecentActivity"
+    expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the user segment based on the 20 most recent records. Recorded at
+    most once on Clank startup.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.ActivityTypeStorage.DaysSinceOldestRecord"
+    units="days" expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the days since the oldest record in the Activity Type Storage list.
+    Recorded once on Clank startup.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.ActivityTypeStorage.Percentage.AGSACCT"
+    units="%" expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the percentage of AGSACCT activity type launches. Recorded once on
+    Clank startup.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.ActivityTypeStorage.Percentage.BrApp" units="%"
+    expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the percentage of BrApp activity type launches. Recorded once on
+    Clank startup.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.ActivityTypeStorage.Percentage.NonAGSACCT"
+    units="%" expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the percentage of NonAGSACCT activity type launches. Recorded once
+    on Clank startup.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.ActivityTypeStorage.Percentage.TWA" units="%"
+    expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the percentage of TWA activity type launches. Recorded once on Clank
+    startup.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.ActivityTypeStorage.Percentage.WebApk"
+    units="%" expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the percentage of WebApk activity type launches. Recorded once on
+    Clank startup.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.ActivityTypeStorage.Percentage.WebApp"
+    units="%" expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the percentage of WebApp activity type launches. Recorded once on
+    Clank startup.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.ActivityTypeStorage.RecordsLength"
+    units="count" expires_after="2024-09-30">
+  <owner>jacobstanley@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the size of the activity type record log. Recorded once on Clank
+    startup.
   </summary>
 </histogram>
 
@@ -628,7 +732,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivacySandbox.AggregationService.ScheduledRequests.Status"
-    enum="AggregationServiceObserverReportStatus" expires_after="2024-09-22">
+    enum="AggregationServiceObserverReportStatus" expires_after="2024-11-24">
   <owner>alexmt@chromium.org</owner>
   <owner>linnan@chromium.org</owner>
   <summary>
@@ -796,7 +900,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivacySandbox.AggregationService.UnscheduledRequests.Status"
-    enum="AggregationServiceObserverReportStatus" expires_after="2024-09-22">
+    enum="AggregationServiceObserverReportStatus" expires_after="2024-11-24">
   <owner>alexmt@chromium.org</owner>
   <owner>linnan@chromium.org</owner>
   <summary>
@@ -818,7 +922,7 @@ reviewer.
 
 <histogram
     name="PrivacySandbox.Attestations.InitializationDuration.ComponentReadyFromApplicationStart"
-    units="ms" expires_after="2024-09-15">
+    units="ms" expires_after="2024-11-17">
   <owner>shivanisha@chromium.org</owner>
   <owner>xiaochenzh@chromium.org</owner>
   <summary>
@@ -830,7 +934,7 @@ reviewer.
 
 <histogram
     name="PrivacySandbox.Attestations.InitializationDuration.ComponentReadyFromApplicationStartWithInterruption"
-    units="ms" expires_after="2024-09-15">
+    units="ms" expires_after="2024-11-17">
   <owner>shivanisha@chromium.org</owner>
   <owner>xiaochenzh@chromium.org</owner>
   <summary>
@@ -845,7 +949,7 @@ reviewer.
 
 <histogram
     name="PrivacySandbox.Attestations.InitializationDuration.ComponentReadyFromBrowserWindowFirstPaint"
-    units="ms" expires_after="2024-09-15">
+    units="ms" expires_after="2024-11-17">
   <owner>shivanisha@chromium.org</owner>
   <owner>xiaochenzh@chromium.org</owner>
   <summary>
@@ -869,7 +973,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivacySandbox.Attestations.IsSiteAttested"
-    enum="PrivacySandboxApiAllowed" expires_after="2024-11-03">
+    enum="PrivacySandboxApiAllowed" expires_after="2024-11-17">
   <owner>shivanisha@chromium.org</owner>
   <owner>xiaochenzh@chromium.org</owner>
   <summary>
@@ -892,8 +996,28 @@ reviewer.
   </summary>
 </histogram>
 
+<histogram name="PrivacySandbox.Attestations.IsSiteAttestedStatus"
+    enum="PrivacySandboxApiAllowed" expires_after="2024-09-01">
+  <owner>shivanisha@chromium.org</owner>
+  <owner>xiaochenzh@chromium.org</owner>
+  <summary>
+    Same as PrivacySandbox.Attestations.IsSiteAttested. This histogram entry is
+    created because what the histogram buckets represent has changed. Its bucket
+    `AttestationsFileNotYetReady` used to represent the aggregation of the
+    following cases: 1. The component installer has already checked and found
+    the attestations file did not exist on disk. 2. The component installer has
+    not checked the attestations file yet. The file may or may not exist on
+    disk.
+
+    In this version, these two cases have been separated out. Case 1 is recorded
+    in `AttestationsFileNotPresent`, which is remaned from
+    `AttestationsFileNotYetReady`. Case 2 now goes into
+    `AttestationsFileNotYetChecked`.
+  </summary>
+</histogram>
+
 <histogram name="PrivacySandbox.Attestations.Parsing.SentinelVersion"
-    units="version" expires_after="2024-09-15">
+    units="version" expires_after="2024-11-17">
   <owner>shivanisha@chromium.org</owner>
   <owner>xiaochenzh@chromium.org</owner>
   <summary>
@@ -953,6 +1077,39 @@ reviewer.
 
     For a given client, the metric will not be recorded again so long as the set
     eligibility is available from the pref service local state.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.M1AdMeasurementSetReason"
+    enum="M1AdMeasurementSetReason" expires_after="2024-09-30">
+  <owner>chrstne@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records the reason that the Privacy Sandbox Ads Measurement API is modified.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.NoticeRequirement.IsVariationCountryEmpty"
+    enum="Boolean" expires_after="2024-09-30">
+  <owner>chrstne@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records whether or not the variation country is empty for profiles. This can
+    occur if the country itself is empty, or if the variation service is null.
+    This histogram will be used to determine if the variation country being
+    empty leads to an increased spike of Privacy Sandbox notice APIs being
+    disabled.
+  </summary>
+</histogram>
+
+<histogram name="PrivacySandbox.NoticeRequirement.IsVariationServiceReady"
+    enum="Boolean" expires_after="2024-09-30">
+  <owner>chrstne@google.com</owner>
+  <owner>koilos@google.com</owner>
+  <summary>
+    Records whether or not the variation service is ready for profiles. This
+    histogram will be used to determine if the variation service not being ready
+    leads to an increased spike of Privacy Sandbox notice APIs being disabled.
   </summary>
 </histogram>
 
@@ -1046,7 +1203,7 @@ reviewer.
 
 <histogram
     name="PrivacySandbox.PrivateAggregation.BudgetStorage.ShutdownBeforeFinishingInitialization"
-    enum="Boolean" expires_after="2024-07-21">
+    enum="Boolean" expires_after="2024-11-17">
   <owner>alexmt@chromium.org</owner>
   <owner>linnan@chromium.org</owner>
   <summary>
@@ -1175,18 +1332,6 @@ reviewer.
 </histogram>
 
 <histogram
-    name="PrivacySandbox.TrackingProtection.Offboarding.NoticeServiceEvent"
-    enum="TrackingProtectionMetricsNoticeEvent" expires_after="2024-09-30">
-  <owner>jacobstanley@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records different events, such as tab changes, navigation finishing, and
-    browser type being non normal, that occur in the notice service during
-    offboarding for 3PCD.
-  </summary>
-</histogram>
-
-<histogram
     name="PrivacySandbox.TrackingProtection.Onboarding.DidNoticeActionAckowledge"
     enum="Boolean" expires_after="2024-09-30">
   <owner>jacobstanley@google.com</owner>
@@ -1262,64 +1407,8 @@ reviewer.
     Records the current state of the Tracking Protection onboarding notice and
     its controller. This is a Clank-only metric and helps understanding whether
     the message was requested to be shown but wasn't due to e.g. navigation only
-    on tabs with non-secure connection state.
-  </summary>
-</histogram>
-
-<histogram
-    name="PrivacySandbox.TrackingProtection.Onboarding.NoticeFirstRequestedToOnboardedDuration"
-    units="ms" expires_after="2024-09-30">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Emitted once when a profile is onboarded. Records the value since the
-    onboarding Notice was first requested for the profile.
-  </summary>
-</histogram>
-
-<histogram
-    name="PrivacySandbox.TrackingProtection.Onboarding.NoticeLastRequestedToOnboardedDuration"
-    units="ms" expires_after="2024-09-30">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Emitted once when a profile is onboarded. Records the value since the
-    onboarding Notice was last requested for the profile.
-  </summary>
-</histogram>
-
-<histogram
-    name="PrivacySandbox.TrackingProtection.Onboarding.NoticeRequested.SinceFirstRequested"
-    units="ms" expires_after="2024-09-30">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Emitted when a notice is requested after being previously requested but
-    failing to show. Records the duration since the first time the notice was
-    requested.
-  </summary>
-</histogram>
-
-<histogram
-    name="PrivacySandbox.TrackingProtection.Onboarding.NoticeRequested.SinceLastRequested"
-    units="ms" expires_after="2024-09-30">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Emitted when a notice is requested after being previously requested but
-    failing to show. Records the duration since the last time the notice was
-    requested.
-  </summary>
-</histogram>
-
-<histogram
-    name="PrivacySandbox.TrackingProtection.Onboarding.NoticeRequestedForStatus"
-    enum="TrackingProtectionInternalOnboardingStatus"
-    expires_after="2024-09-30">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records the internal onboarding status everytime a notice is requested.
+    on tabs with non-secure connection state. This histogram is in the
+    deprecation process and will be removed soon.
   </summary>
 </histogram>
 
@@ -1365,30 +1454,6 @@ reviewer.
   <summary>
     Records the duration it takes while being eligible up till onboarding to
     3PCD. This occurs once per profile during the startup of onboarding.
-  </summary>
-</histogram>
-
-<histogram
-    name="PrivacySandbox.TrackingProtection.OnboardingStartup.SinceFirstNoticeRequest"
-    units="ms" expires_after="2024-09-30">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Emitted on startup. Records the value since the onboarding Notice was first
-    requested for the profile. This is only emitted if the profile still hasn't
-    onboarded (is still in the NoticeRequested state)
-  </summary>
-</histogram>
-
-<histogram
-    name="PrivacySandbox.TrackingProtection.OnboardingStartup.SinceLastNoticeRequest"
-    units="ms" expires_after="2024-09-30">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Emitted on startup. Records the value since the onboarding Notice was last
-    requested for the profile. This is only emitted if the profile still hasn't
-    onboarded (is still in the NoticeRequested state)
   </summary>
 </histogram>
 

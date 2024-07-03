@@ -171,8 +171,14 @@ class ContentWebState : public WebState,
       content::NavigationHandle* navigation_handle) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
+  void DidFinishLoad(content::RenderFrameHost* render_frame_host,
+                     const GURL& validated_url) override;
+  void DidFailLoad(content::RenderFrameHost* render_frame_host,
+                   const GURL& validated_url,
+                   int error_code) override;
   void LoadProgressChanged(double progress) override;
 
+  void OnVisibilityChanged(content::Visibility visibility) override;
   void TitleWasSet(content::NavigationEntry* entry) override;
 
   void DidUpdateFaviconURL(

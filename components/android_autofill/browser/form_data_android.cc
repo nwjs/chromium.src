@@ -28,7 +28,7 @@ FormDataAndroid::FormDataAndroid(const FormData& form, SessionId session_id)
       bridge_(AndroidAutofillBridgeFactory::GetInstance()
                   .CreateFormDataAndroidBridge()) {
   fields_.reserve(form_.fields.size());
-  for (FormFieldData& field : form_.fields) {
+  for (FormFieldData& field : form_.mutable_fields(/*pass_key=*/{})) {
     fields_.push_back(std::make_unique<FormFieldDataAndroid>(&field));
   }
 }
@@ -87,8 +87,8 @@ bool FormDataAndroid::SimilarFormAs(const FormData& form) const {
   // since these remain constant even if the page has dynamically modified its
   // fields to have different labels, form control types, etc.
   auto SimilarityTuple = [](const FormData& f) {
-    return std::tie(f.host_frame, f.renderer_id, f.name, f.id_attribute,
-                    f.name_attribute, f.url, f.action);
+    return std::tie(f.host_frame(), f.renderer_id(), f.name(), f.id_attribute(),
+                    f.name_attribute(), f.url(), f.action());
   };
   return SimilarityTuple(form_) == SimilarityTuple(form) &&
          SimilarFieldsAs(form);

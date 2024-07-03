@@ -208,7 +208,7 @@ std::unique_ptr<net::UploadDataStream> CreateUploadDataStream(
       case network::mojom::DataElementDataView::Tag::kChunkedDataPipe: {
         // This shouldn't happen, as the traits logic should ensure that if
         // there's a chunked pipe, there's one and only one element.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
       }
     }
@@ -1162,7 +1162,7 @@ void URLLoader::FollowRedirect(
     const net::HttpRequestHeaders& modified_cors_exempt_headers,
     const std::optional<GURL>& new_url) {
   if (!deferred_redirect_url_) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1431,6 +1431,9 @@ mojom::URLResponseHeadPtr URLLoader::BuildResponseHead() const {
   response->client_address_space =
       private_network_access_checker_.ClientAddressSpace();
 
+  response->load_with_storage_access =
+      url_request_->ShouldSetLoadWithStorageAccess();
+
   return response;
 }
 
@@ -1453,19 +1456,23 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
   if (memory_cache_)
     memory_cache_->OnRedirect(url_request_.get(), request_destination_);
 
-  const CrossOriginEmbedderPolicy kEmpty;
   // Enforce the Cross-Origin-Resource-Policy (CORP) header.
+  const CrossOriginEmbedderPolicy kEmptyCoep;
   const CrossOriginEmbedderPolicy& cross_origin_embedder_policy =
       factory_params_->client_security_state
           ? factory_params_->client_security_state->cross_origin_embedder_policy
-          : kEmpty;
-
+          : kEmptyCoep;
+  const DocumentIsolationPolicy kEmptyDip;
+  const DocumentIsolationPolicy& document_isolation_policy =
+      factory_params_->client_security_state
+          ? factory_params_->client_security_state->document_isolation_policy
+          : kEmptyDip;
   if (std::optional<mojom::BlockedByResponseReason> blocked_reason =
           CrossOriginResourcePolicy::IsBlocked(
               url_request_->url(), url_request_->original_url(),
               url_request_->initiator(), *response, request_mode_,
               request_destination_, cross_origin_embedder_policy,
-              coep_reporter_)) {
+              coep_reporter_, document_isolation_policy)) {
     CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE, false,
                             blocked_reason);
     // TODO(crbug.com/40054032):  Close the socket here.
@@ -1778,17 +1785,22 @@ void URLLoader::ContinueOnResponseStarted() {
   }
 
   // Enforce the Cross-Origin-Resource-Policy (CORP) header.
-  const CrossOriginEmbedderPolicy kEmpty;
+  const CrossOriginEmbedderPolicy kEmptyCoep;
   const CrossOriginEmbedderPolicy& cross_origin_embedder_policy =
       factory_params_->client_security_state
           ? factory_params_->client_security_state->cross_origin_embedder_policy
-          : kEmpty;
+          : kEmptyCoep;
+  const DocumentIsolationPolicy kEmptyDip;
+  const DocumentIsolationPolicy& document_isolation_policy =
+      factory_params_->client_security_state
+          ? factory_params_->client_security_state->document_isolation_policy
+          : kEmptyDip;
   if (std::optional<mojom::BlockedByResponseReason> blocked_reason =
           CrossOriginResourcePolicy::IsBlocked(
               url_request_->url(), url_request_->original_url(),
               url_request_->initiator(), *response_, request_mode_,
               request_destination_, cross_origin_embedder_policy,
-              coep_reporter_)) {
+              coep_reporter_, document_isolation_policy)) {
     CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE, false,
                             blocked_reason);
     // Close the socket associated with the request, to prevent leaking
@@ -2500,7 +2512,8 @@ void URLLoader::SetRawRequestHeadersAndNotify(
               url::Origin()),
           url_request_->site_for_cookies(), std::move(reported_cookies),
           devtools_request_id(), /*count=*/1, url_request_->ad_tagged(),
-          url_request_->cookie_setting_overrides()));
+          url_request_->cookie_setting_overrides(),
+          /*source_location=*/nullptr));
     }
   }
 }
@@ -2831,7 +2844,7 @@ void URLLoader::ReportFlaggedResponseCookies(bool call_cookie_observer) {
             url::Origin()),
         url_request_->site_for_cookies(), std::move(reported_cookies),
         devtools_request_id(), /*count=*/1, url_request_->ad_tagged(),
-        url_request_->cookie_setting_overrides()));
+        url_request_->cookie_setting_overrides(), /*source_location=*/nullptr));
     if (call_cookie_observer) {
       cookie_observer_->OnCookiesAccessed(std::move(cookie_access_details_));
     }

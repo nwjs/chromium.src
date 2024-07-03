@@ -514,7 +514,6 @@ crbug.com/1446091 [ win amd-0x7340 angle-d3d9 passthrough ] conformance/* [ Retr
 crbug.com/1159126 [ win amd-0x7340 angle-d3d9 passthrough ] conformance/uniforms/* [ RetryOnFailure ]
 crbug.com/1361088 [ win amd-0x7340 angle-d3d9 passthrough ] conformance/textures/webgl_canvas/tex-2d-rgb-rgb-unsigned_byte.html [ Skip ]
 crbug.com/1361088 [ win amd-0x7340 angle-d3d9 passthrough ] conformance/textures/webgl_canvas/tex-2d-rgba-rgba-unsigned_byte.html [ Skip ]
-crbug.com/1362937 [ win amd-0x7340 angle-d3d9 passthrough ] conformance/uniforms/uniform-values-per-program.html [ Failure ]
 crbug.com/1362937 [ win amd-0x7340 angle-d3d9 passthrough ] conformance/uniforms/uniform-default-values.html [ Failure ]
 
 ## win10 / angle-d3d11 / Passthrough command decoder failures ##
@@ -554,21 +553,14 @@ crbug.com/328100306 [ amd-0x67ef angle-metal sonoma ] conformance/glsl/bugs/samp
 # been made more robust.
 # crbug.com/735483 [ mac amd release ] conformance/rendering/texture-switch-performance.html [ Failure ]
 
-
-## Mac Intel ##
-
-
 ## Mac Retina NVidia failures / flakes ##
 
 crbug.com/996344 [ mac nvidia-0xfe9 ] conformance/glsl/bugs/vector-scalar-arithmetic-inside-loop.html [ Failure ]
 crbug.com/784817 [ mac nvidia-0xfe9 ] conformance/glsl/bugs/init-array-with-loop.html [ Failure ]
 
-## Mac / Passthrough command decoder / OpenGL / NVIDIA ##
+## Apple M2 ##
 
-
-## Mac / M1 / OpenGL ##
-
-
+crbug.com/343889872 [ mac apple-angle-metal-renderer:-apple-m2 ] conformance/glsl/misc/shader-with-two-initializer-types.html [ RetryOnFailure ]
 
 ####################
 # Linux failures   #

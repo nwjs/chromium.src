@@ -47,9 +47,6 @@ BASE_DECLARE_FEATURE(kSegmentationPlatformSearchUser);
 // Feature flag for device switcher segment.
 BASE_DECLARE_FEATURE(kSegmentationPlatformDeviceSwitcher);
 
-// Feature flag for enabling price tracking action feature.
-BASE_DECLARE_FEATURE(kContextualPageActionPriceTracking);
-
 // Feature flag for enabling reader mode action feature.
 BASE_DECLARE_FEATURE(kContextualPageActionReaderMode);
 
@@ -109,6 +106,9 @@ BASE_DECLARE_FEATURE(kSegmentationPlatformUmaFromSqlDb);
 
 // Feature flag for having separate models for the Start and NTP surface.
 BASE_DECLARE_FEATURE(kSegmentationPlatformIosModuleRankerSplitBySurface);
+
+// Feature flag for enabling the URL visit resumption ranker.
+BASE_DECLARE_FEATURE(kSegmentationPlatformURLVisitResumptionRanker);
 
 }  // namespace segmentation_platform::features
 

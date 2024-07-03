@@ -14,6 +14,8 @@
 #include "ui/base/models/image_model.h"
 #include "url/gurl.h"
 
+class PrefRegistrySimple;
+
 namespace ash {
 
 // These values are used in metrics and should not be reordered or deleted.
@@ -25,7 +27,10 @@ enum class BirchItemType {
   kTab = 4,           // Recent tab from other device.
   kWeather = 5,       // Weather conditions.
   kReleaseNotes = 6,  // Release notes from recent OS update.
-  kMaxValue = kReleaseNotes,
+  kSelfShare = 7,     // Tabs shared to self from ChromeSync API.
+  kMostVisited = 8,   // Most frequently visited URLs.
+  kLastActive = 9,    // Last active URL.
+  kMaxValue = kLastActive,
 };
 
 // The base item which is stored by the birch model.
@@ -38,6 +43,8 @@ class ASH_EXPORT BirchItem {
   BirchItem& operator=(const BirchItem&);
   virtual ~BirchItem();
   bool operator==(const BirchItem& rhs) const;
+
+  static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
   virtual BirchItemType GetType() const = 0;
 
@@ -120,6 +127,7 @@ class ASH_EXPORT BirchCalendarItem : public BirchItem {
 
   const base::Time& start_time() const { return start_time_; }
   const base::Time& end_time() const { return end_time_; }
+  bool all_day_event() const { return all_day_event_; }
   const GURL& calendar_url() const { return calendar_url_; }
   const GURL& conference_url() const { return conference_url_; }
   const std::string& event_id() const { return event_id_; }
@@ -139,6 +147,7 @@ class ASH_EXPORT BirchCalendarItem : public BirchItem {
 
   base::Time start_time_;
   base::Time end_time_;
+  bool all_day_event_;
   // Link to the event in the Google Calendar UI.
   GURL calendar_url_;
   // Video conferencing URL (e.g. Google Meet).
@@ -262,10 +271,109 @@ class ASH_EXPORT BirchTabItem : public BirchItem {
   DeviceFormFactor form_factor_;
 };
 
+// A birch item for the last active URL.
+class ASH_EXPORT BirchLastActiveItem : public BirchItem {
+ public:
+  BirchLastActiveItem(const std::u16string& title,
+                      const GURL& url,
+                      base::Time last_visit,
+                      ui::ImageModel icon);
+  BirchLastActiveItem(BirchLastActiveItem&&);
+  BirchLastActiveItem(const BirchLastActiveItem&);
+  BirchLastActiveItem& operator=(const BirchLastActiveItem&);
+  bool operator==(const BirchLastActiveItem& rhs) const;
+  ~BirchLastActiveItem() override;
+
+  // BirchItem:
+  BirchItemType GetType() const override;
+  std::string ToString() const override;
+  void PerformAction() override;
+  void PerformSecondaryAction() override;
+  void LoadIcon(LoadIconCallback callback) const override;
+
+  const GURL& url() const { return url_; }
+
+ private:
+  static std::u16string GetSubtitle(base::Time last_visit);
+
+  GURL url_;
+  ui::ImageModel icon_;
+};
+
+// A birch item for a most-frequently-visited URL.
+class ASH_EXPORT BirchMostVisitedItem : public BirchItem {
+ public:
+  BirchMostVisitedItem(const std::u16string& title,
+                       const GURL& url,
+                       ui::ImageModel icon);
+  BirchMostVisitedItem(BirchMostVisitedItem&&);
+  BirchMostVisitedItem(const BirchMostVisitedItem&);
+  BirchMostVisitedItem& operator=(const BirchMostVisitedItem&);
+  bool operator==(const BirchMostVisitedItem& rhs) const;
+  ~BirchMostVisitedItem() override;
+
+  // BirchItem:
+  BirchItemType GetType() const override;
+  std::string ToString() const override;
+  void PerformAction() override;
+  void PerformSecondaryAction() override;
+  void LoadIcon(LoadIconCallback callback) const override;
+
+  const GURL& url() const { return url_; }
+
+ private:
+  static std::u16string GetSubtitle();
+
+  GURL url_;
+  ui::ImageModel icon_;
+};
+
+// A birch item which contains tabs shared to self information.
+class ASH_EXPORT BirchSelfShareItem : public BirchItem {
+ public:
+  BirchSelfShareItem(const std::u16string& guid,
+                     const std::u16string& title,
+                     const GURL& url,
+                     const base::Time& shared_time,
+                     const std::u16string& device_name,
+                     const GURL& favicon_url,
+                     base::RepeatingClosure activation_callback);
+  BirchSelfShareItem(BirchSelfShareItem&&);
+  BirchSelfShareItem(const BirchSelfShareItem&);
+  BirchSelfShareItem& operator=(const BirchSelfShareItem&);
+  bool operator==(const BirchSelfShareItem& rhs) const;
+  ~BirchSelfShareItem() override;
+
+  // BirchItem:
+  BirchItemType GetType() const override;
+  std::string ToString() const override;
+  void PerformAction() override;
+  void PerformSecondaryAction() override;
+  void LoadIcon(LoadIconCallback callback) const override;
+
+  const std::u16string& guid() const { return guid_; }
+  const base::Time& shared_time() const { return shared_time_; }
+  const GURL& url() const { return url_; }
+  void set_favicon_url(const GURL& favicon_url) { favicon_url_ = favicon_url; }
+
+ private:
+  static std::u16string GetSubtitle(const std::u16string& device_name,
+                                    base::Time shared_time);
+
+  std::u16string guid_;
+  GURL url_;
+  base::Time shared_time_;
+  GURL favicon_url_;
+  // `activation_callback_` is triggered when the item is clicked by the user,
+  // calling `OnItemPressed()` in `BirchSelfShareProvider` to mark the
+  // corresponding `SendTabToSelfEntry` as opened.
+  base::RepeatingClosure activation_callback_;
+};
+
 class ASH_EXPORT BirchWeatherItem : public BirchItem {
  public:
   BirchWeatherItem(const std::u16string& weather_description,
-                   const std::u16string& temperature,
+                   float temp_f,
                    ui::ImageModel icon);
   BirchWeatherItem(BirchWeatherItem&&);
   BirchWeatherItem(const BirchWeatherItem&);
@@ -280,10 +388,12 @@ class ASH_EXPORT BirchWeatherItem : public BirchItem {
   void PerformSecondaryAction() override;
   void LoadIcon(LoadIconCallback callback) const override;
 
-  const std::u16string& temperature() const { return temperature_; }
+  float temp_f() const { return temp_f_; }
 
  private:
-  std::u16string temperature_;
+  static std::u16string GetSubtitle(float temp_f);
+
+  float temp_f_;
   ui::ImageModel icon_;
 };
 

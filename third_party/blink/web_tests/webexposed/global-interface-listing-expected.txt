@@ -3,6 +3,23 @@ This test documents all interface attributes and methods on the global window ob
 On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE".
 
 [INTERFACES]
+interface AI
+    attribute @@toStringTag
+    method canCreateGenericSession
+    method canCreateTextSession
+    method constructor
+    method createGenericSession
+    method createTextSession
+    method defaultGenericSessionOptions
+    method defaultTextSessionOptions
+interface AITextSession
+    attribute @@toStringTag
+    method constructor
+    method destroy
+    method execute
+    method executeStreaming
+    method prompt
+    method promptStreaming
 interface AbortController
     attribute @@toStringTag
     getter signal
@@ -252,7 +269,6 @@ interface Attr : Node
     setter value
 interface AttributePart : NodePart
     attribute @@toStringTag
-    getter automatic
     getter localName
     method constructor
 interface Audio
@@ -287,6 +303,7 @@ interface AudioContext : BaseAudioContext
     getter baseLatency
     getter onsinkchange
     getter outputLatency
+    getter playoutStats
     getter sinkId
     method close
     method constructor
@@ -397,6 +414,17 @@ interface AudioParamMap
     method has
     method keys
     method values
+interface AudioPlayoutStats
+    attribute @@toStringTag
+    getter averageLatency
+    getter fallbackFramesDuration
+    getter fallbackFramesEvents
+    getter maximumLatency
+    getter minimumLatency
+    getter totalFramesDuration
+    method constructor
+    method resetLatency
+    method toJSON
 interface AudioProcessingEvent : Event
     attribute @@toStringTag
     getter inputBuffer
@@ -1276,7 +1304,6 @@ interface CanvasRenderingContext2D
     method arcTo
     method beginLayer
     method beginPath
-    method beginWebGPUAccess
     method bezierCurveTo
     method clearRect
     method clip
@@ -1296,7 +1323,6 @@ interface CanvasRenderingContext2D
     method drawMesh
     method ellipse
     method endLayer
-    method endWebGPUAccess
     method fill
     method fillRect
     method fillText
@@ -1327,6 +1353,8 @@ interface CanvasRenderingContext2D
     method stroke
     method strokeRect
     method strokeText
+    method transferBackFromGPUTexture
+    method transferToGPUTexture
     method transform
     method translate
     setter direction
@@ -2095,6 +2123,8 @@ interface Document : Node
     getter onresume
     getter onscroll
     getter onscrollend
+    getter onscrollsnapchange
+    getter onscrollsnapchanging
     getter onsearch
     getter onsecuritypolicyviolation
     getter onseeked
@@ -2103,8 +2133,6 @@ interface Document : Node
     getter onselectionchange
     getter onselectstart
     getter onslotchange
-    getter onsnapchanged
-    getter onsnapchanging
     getter onstalled
     getter onsubmit
     getter onsuspend
@@ -2319,6 +2347,8 @@ interface Document : Node
     setter onresume
     setter onscroll
     setter onscrollend
+    setter onscrollsnapchange
+    setter onscrollsnapchanging
     setter onsearch
     setter onsecuritypolicyviolation
     setter onseeked
@@ -2327,8 +2357,6 @@ interface Document : Node
     setter onselectionchange
     setter onselectstart
     setter onslotchange
-    setter onsnapchanged
-    setter onsnapchanging
     setter onstalled
     setter onsubmit
     setter onsuspend
@@ -3077,6 +3105,7 @@ interface GPU
 interface GPUAdapter
     attribute @@toStringTag
     getter features
+    getter info
     getter isCompatibilityMode
     getter isFallbackAdapter
     getter limits
@@ -3915,6 +3944,8 @@ interface HTMLElement : Element
     getter onresize
     getter onscroll
     getter onscrollend
+    getter onscrollsnapchange
+    getter onscrollsnapchanging
     getter onsecuritypolicyviolation
     getter onseeked
     getter onseeking
@@ -3922,8 +3953,6 @@ interface HTMLElement : Element
     getter onselectionchange
     getter onselectstart
     getter onslotchange
-    getter onsnapchanged
-    getter onsnapchanging
     getter onstalled
     getter onsubmit
     getter onsuspend
@@ -4052,6 +4081,8 @@ interface HTMLElement : Element
     setter onresize
     setter onscroll
     setter onscrollend
+    setter onscrollsnapchange
+    setter onscrollsnapchanging
     setter onsecuritypolicyviolation
     setter onseeked
     setter onseeking
@@ -4059,8 +4090,6 @@ interface HTMLElement : Element
     setter onselectionchange
     setter onselectstart
     setter onslotchange
-    setter onsnapchanged
-    setter onsnapchanging
     setter onstalled
     setter onsubmit
     setter onsuspend
@@ -4848,12 +4877,16 @@ interface HTMLParamElement : HTMLElement
     setter valueType
 interface HTMLPermissionElement : HTMLElement
     attribute @@toStringTag
+    getter invalidReason
+    getter isValid
     getter ondismiss
     getter onresolve
+    getter onvalidationstatuschange
     getter type
     method constructor
     setter ondismiss
     setter onresolve
+    setter onvalidationstatuschange
     setter type
 interface HTMLPictureElement : HTMLElement
     attribute @@toStringTag
@@ -6039,6 +6072,8 @@ interface MathMLElement : Element
     getter onresize
     getter onscroll
     getter onscrollend
+    getter onscrollsnapchange
+    getter onscrollsnapchanging
     getter onsecuritypolicyviolation
     getter onseeked
     getter onseeking
@@ -6046,8 +6081,6 @@ interface MathMLElement : Element
     getter onselectionchange
     getter onselectstart
     getter onslotchange
-    getter onsnapchanged
-    getter onsnapchanging
     getter onstalled
     getter onsubmit
     getter onsuspend
@@ -6152,6 +6185,8 @@ interface MathMLElement : Element
     setter onresize
     setter onscroll
     setter onscrollend
+    setter onscrollsnapchange
+    setter onscrollsnapchanging
     setter onsecuritypolicyviolation
     setter onseeked
     setter onseeking
@@ -6159,8 +6194,6 @@ interface MathMLElement : Element
     setter onselectionchange
     setter onselectstart
     setter onslotchange
-    setter onsnapchanged
-    setter onsnapchanging
     setter onstalled
     setter onsubmit
     setter onsuspend
@@ -6511,17 +6544,6 @@ interface MimeTypeArray
     method constructor
     method item
     method namedItem
-interface ModelGenericSession
-    attribute @@toStringTag
-    method constructor
-    method execute
-    method executeStreaming
-interface ModelManager
-    attribute @@toStringTag
-    method canCreateGenericSession
-    method constructor
-    method createGenericSession
-    method defaultGenericSessionOptions
 interface Mojo
     static method bindInterface
     static method createDataPipe
@@ -7081,7 +7103,6 @@ interface OffscreenCanvasRenderingContext2D
     method arcTo
     method beginLayer
     method beginPath
-    method beginWebGPUAccess
     method bezierCurveTo
     method clearRect
     method clip
@@ -7100,7 +7121,6 @@ interface OffscreenCanvasRenderingContext2D
     method drawMesh
     method ellipse
     method endLayer
-    method endWebGPUAccess
     method fill
     method fillRect
     method fillText
@@ -7129,6 +7149,8 @@ interface OffscreenCanvasRenderingContext2D
     method stroke
     method strokeRect
     method strokeText
+    method transferBackFromGPUTexture
+    method transferToGPUTexture
     method transform
     method translate
     setter direction
@@ -7901,6 +7923,7 @@ interface RTCPeerConnection : EventTarget
     getter pendingLocalDescription
     getter pendingRemoteDescription
     getter remoteDescription
+    getter rtpTransport
     getter sctp
     getter signalingState
     method addIceCandidate
@@ -7995,6 +8018,9 @@ interface RTCRtpTransceiver
     method setHeaderExtensionsToNegotiate
     method stop
     setter direction
+interface RTCRtpTransport
+    attribute @@toStringTag
+    method constructor
 interface RTCSctpTransport : EventTarget
     attribute @@toStringTag
     getter maxChannels
@@ -8442,6 +8468,8 @@ interface SVGElement : Element
     getter onresize
     getter onscroll
     getter onscrollend
+    getter onscrollsnapchange
+    getter onscrollsnapchanging
     getter onsecuritypolicyviolation
     getter onseeked
     getter onseeking
@@ -8449,8 +8477,6 @@ interface SVGElement : Element
     getter onselectionchange
     getter onselectstart
     getter onslotchange
-    getter onsnapchanged
-    getter onsnapchanging
     getter onstalled
     getter onsubmit
     getter onsuspend
@@ -8557,6 +8583,8 @@ interface SVGElement : Element
     setter onresize
     setter onscroll
     setter onscrollend
+    setter onscrollsnapchange
+    setter onscrollsnapchanging
     setter onsecuritypolicyviolation
     setter onseeked
     setter onseeking
@@ -8564,8 +8592,6 @@ interface SVGElement : Element
     setter onselectionchange
     setter onselectstart
     setter onslotchange
-    setter onsnapchanged
-    setter onsnapchanging
     setter onstalled
     setter onsubmit
     setter onsuspend
@@ -9969,7 +9995,6 @@ interface TextMetrics
     getter actualBoundingBoxDescent
     getter actualBoundingBoxLeft
     getter actualBoundingBoxRight
-    getter advances
     getter alphabeticBaseline
     getter emHeightAscent
     getter emHeightDescent
@@ -9979,6 +10004,7 @@ interface TextMetrics
     getter ideographicBaseline
     getter width
     method constructor
+    method getSelectionRects
 interface TextTrack : EventTarget
     attribute @@toStringTag
     getter activeCues
@@ -12588,6 +12614,7 @@ interface webkitRTCPeerConnection : EventTarget
     getter pendingLocalDescription
     getter pendingRemoteDescription
     getter remoteDescription
+    getter rtpTransport
     getter sctp
     getter signalingState
     method addIceCandidate
@@ -12860,6 +12887,7 @@ namespace console
     attribute propertyNamesInGlobal
     attribute testRunner
     attribute textInputController
+    getter ai
     getter caches
     getter clientInformation
     getter closed
@@ -12987,6 +13015,8 @@ namespace console
     getter onresize
     getter onscroll
     getter onscrollend
+    getter onscrollsnapchange
+    getter onscrollsnapchanging
     getter onsearch
     getter onsecuritypolicyviolation
     getter onseeked
@@ -12995,8 +13025,6 @@ namespace console
     getter onselectionchange
     getter onselectstart
     getter onslotchange
-    getter onsnapchanged
-    getter onsnapchanging
     getter onstalled
     getter onstorage
     getter onsubmit
@@ -13112,6 +13140,7 @@ namespace console
     method webkitRequestAnimationFrame
     method webkitRequestFileSystem
     method webkitResolveLocalFileSystemURL
+    setter ai
     setter clientInformation
     setter devicePixelRatio
     setter event
@@ -13221,6 +13250,8 @@ namespace console
     setter onresize
     setter onscroll
     setter onscrollend
+    setter onscrollsnapchange
+    setter onscrollsnapchanging
     setter onsearch
     setter onsecuritypolicyviolation
     setter onseeked
@@ -13229,8 +13260,6 @@ namespace console
     setter onselectionchange
     setter onselectstart
     setter onslotchange
-    setter onsnapchanged
-    setter onsnapchanging
     setter onstalled
     setter onstorage
     setter onsubmit

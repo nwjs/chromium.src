@@ -48,6 +48,7 @@ std::optional<std::pair<unsigned, int>> DetermineCounterTypeAndValue(
     case kPseudoIdBefore:
     case kPseudoIdAfter:
     case kPseudoIdMarker:
+    case kPseudoIdScrollMarkerGroup:
       break;
     default:
       return std::nullopt;  // Counters are forbidden from all other pseudo
@@ -287,6 +288,9 @@ Vector<int> CountersAttachmentContext::GetCounterValues(
 
 // Push the counter on stack or create stack if there is none. Also set the
 // value in the table.
+// Also, per https://drafts.csswg.org/css-lists/#instantiating-counters:
+// If innermost counter’s originating element is `owner` or a previous sibling
+// of `owner`, remove innermost counter from counters.
 void CountersAttachmentContext::CreateCounter(const AtomicString& identifier,
                                               const Element& owner,
                                               int value) {
@@ -299,6 +303,12 @@ void CountersAttachmentContext::CreateCounter(const AtomicString& identifier,
     return;
   }
   CounterStack& counter_stack = *counter_stack_it->value;
+  // Remove innermost counter with same or previous sibling originating element.
+  while (!counter_stack.empty() && counter_stack.back() &&
+         LayoutTreeBuilderTraversal::ParentElement(*counter_stack.back()) ==
+             LayoutTreeBuilderTraversal::ParentElement(owner)) {
+    counter_stack.pop_back();
+  }
   counter_stack.push_back(&owner);
   SetCounterValue(identifier, owner, value);
 }

@@ -348,7 +348,7 @@ void ComponentLoader::Remove(const ExtensionId& id) {
 std::string ComponentLoader::GetExtensionID(
 					    int manifest_resource_id,
 					    const base::FilePath& root_directory) {
-  absl::optional<base::Value::Dict> manifest =
+  std::optional<base::Value::Dict> manifest =
     ParseManifest(ui::ResourceBundle::GetSharedInstance().GetRawDataResource(
 									     manifest_resource_id));
   if (!manifest)
@@ -540,7 +540,7 @@ void ComponentLoader::AddDefaultComponentExtensions(
   else
     manifest_contents =
       std::string(ui::ResourceBundle::GetSharedInstance().GetRawDataResource(IDR_NWJS_DEFAPP_MANIFEST));
-  absl::optional<base::Value::Dict> manifest
+  std::optional<base::Value::Dict> manifest
     = ParseManifest(manifest_contents);
   if (manifest) {
     if (!url.empty())

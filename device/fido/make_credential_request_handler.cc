@@ -230,7 +230,7 @@ base::flat_set<FidoTransportProtocol> GetTransportsAllowedByRP(
       };
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return base::flat_set<FidoTransportProtocol>();
 }
 
@@ -383,6 +383,7 @@ UserVerificationRequirement AtLeastUVPreferred(UserVerificationRequirement uv) {
 
 MakeCredentialRequestHandler::MakeCredentialRequestHandler(
     FidoDiscoveryFactory* fido_discovery_factory,
+    std::vector<std::unique_ptr<FidoDiscoveryBase>> additional_discoveries,
     const base::flat_set<FidoTransportProtocol>& supported_transports,
     CtapMakeCredentialRequest request,
     const MakeCredentialOptions& options,
@@ -425,7 +426,7 @@ MakeCredentialRequestHandler::MakeCredentialRequestHandler(
 #endif
 
   InitDiscoveries(
-      fido_discovery_factory,
+      fido_discovery_factory, std::move(additional_discoveries),
       base::STLSetIntersection<base::flat_set<FidoTransportProtocol>>(
           supported_transports, allowed_transports),
       request.authenticator_attachment !=
@@ -565,7 +566,7 @@ void MakeCredentialRequestHandler::DispatchRequestAfterAppIdExclude(
       return;
     case PINUVDisposition::kUnsatisfiable:
       // |IsCandidateAuthenticatorPostTouch| should have handled this case.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 
@@ -892,7 +893,7 @@ void MakeCredentialRequestHandler::HandleExcludedAuthenticator(
   CancelActiveAuthenticators(authenticator->GetId());
   std::move(completion_callback_)
       .Run(MakeCredentialStatus::kUserConsentButCredentialExcluded,
-           std::nullopt, nullptr);
+           std::nullopt, authenticator);
 }
 
 void MakeCredentialRequestHandler::HandleInapplicableAuthenticator(
@@ -903,7 +904,7 @@ void MakeCredentialRequestHandler::HandleInapplicableAuthenticator(
 
   state_ = State::kFinished;
   CancelActiveAuthenticators(authenticator->GetId());
-  std::move(completion_callback_).Run(status, std::nullopt, nullptr);
+  std::move(completion_callback_).Run(status, std::nullopt, authenticator);
 }
 
 void MakeCredentialRequestHandler::OnSampleCollected(

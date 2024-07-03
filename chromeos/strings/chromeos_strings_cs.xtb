@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastelově žlutá</translation>
 <translation id="1056898198331236512">Upozornění</translation>
 <translation id="1059913517121127803">Skenování se nepodařilo zahájit</translation>
+<translation id="1061864016440983342">Používat bez polohy</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> z <ph name="COUNT" />, <ph name="NAME" /></translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Byl zjištěn Firewall</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Další nastavení</translation>
 <translation id="2082932131694554252">Přiřazená klávesa</translation>
 <translation id="2085089206770112532">Snížit jas displeje</translation>
+<translation id="2086091080968010660">Změny závislé na čase nemusí být přesné. V Nastavení zapněte přístup k poloze.</translation>
 <translation id="2102231663024125441">Úprava textu</translation>
 <translation id="2105810540595158374">Zařízení je herní ovladač.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, verze <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Úprava podrobností o APN</translation>
 <translation id="2195732836444333448">Momentálně je kapacita plně obsazena. Zkuste to později.</translation>
 <translation id="2201758491318984023">jízdní kolo</translation>
-<translation id="2203222757805818543">Aktuální plán je nastaven na <ph name="SUNRISE" /> – <ph name="SUNSET" />. Pokud plán tmavého režimu chcete automaticky aktualizovat, <ph name="BEGIN_LINK" />zapněte přístup k poloze<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">termální pramen</translation>
 <translation id="2203642483788377106">útes</translation>
 <translation id="2208388655216963643">impresionismus</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Obnovit výchozí nastavení</translation>
 <translation id="2286454467119466181">Jednoduché</translation>
 <translation id="2287186687001756809">Žádné snímky. Fotky můžete přidat na adrese <ph name="LINK" />.</translation>
+<translation id="2294577623958216786">Aktuální plán je nastaven na <ph name="SUNRISE" />–<ph name="SUNSET" />. Pokud chcete plán západu a východu slunce automaticky aktualizovat, zapněte systémový přístup k poloze.</translation>
 <translation id="2305172810646967500">černá</translation>
 <translation id="2307344026739914387">Použít aktuální dvojici klíčů</translation>
 <translation id="2308243864813041101">Pokud chcete v procesu aktualizace pokračovat, odpojte od zařízení <ph name="DEVICE_NAME" /> kabel USB</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">písečná duna</translation>
 <translation id="2619761439309613843">Denní obnovení</translation>
 <translation id="2620436844016719705">Systém</translation>
+<translation id="2637303424821734920">VYPNUTO – Pokud chcete zobrazovat místní počasí, <ph name="BEGIN_LINK" />zapněte v systému přístup k poloze<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Přihlašovací obrázek</translation>
 <translation id="2640549051766135490">Je vybráno album <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Ovládání</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Pozadí</translation>
 <translation id="3027578600144895987">Zavřete fotoaparát</translation>
 <translation id="3031560714565892478">Zařízení je videokamera.</translation>
+<translation id="3051968340259309715">Systémové služby budou moct k určení vaší polohy používat funkci Přesnost určování polohy. Funkce Přesnost určování polohy využívá k odhadu polohy informace o bezdrátových signálech, jako jsou přístupové body Wi-Fi, vysílače mobilní sítě a GPS, spolu s údaji ze senzorů zařízení, jako je akcelerometr a gyroskop. Přístup k poloze můžete vypnout v Nastavení &gt; Ochrana soukromí a zabezpečení &gt; Nastavení ochrany soukromí &gt; Přístup k poloze. <ph name="LINK_BEGIN" />Další informace<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Koncový bod</translation>
 <translation id="3060579846059757016">Osnova</translation>
+<translation id="3061850252076394168">zapnout poslech vybraného textu</translation>
 <translation id="3069085583900247081">Test se nezdařil</translation>
 <translation id="3078740164268491126">tabulka</translation>
 <translation id="3081652522083185657">světlé</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Všechny hostitele se nepodařilo vyřešit</translation>
 <translation id="4593212453765072419">Vyžadováno ověření proxy serveru</translation>
 <translation id="4609350030397390689">Snížit jas</translation>
-<translation id="4617553623719764431">Počasí se nezobrazuje, protože nezná vaši polohu. Pokud chcete zobrazit místní počasí, <ph name="BEGIN_LINK" />zapněte přístup k poloze<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> z <ph name="TOTAL_PAGE_NUMBER" />. Tiskovou úlohu zrušíte stisknutím klávesy Enter.</translation>
 <translation id="463791356324567266">Rušení skenování…</translation>
 <translation id="4646949265910132906">Zabezpečené připojení k Wi-Fi</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Spustit</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Stránky</translation>
+<translation id="4989542687859782284">Nedostupné</translation>
 <translation id="4999333166442584738">Skrýt přehled</translation>
 <translation id="500920857929044050">Zastavit test</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">jas klávesnice</translation>
 <translation id="6412715219990689313">Vestavěná klávesnice</translation>
 <translation id="6417265370957905582">Asistent Google</translation>
+<translation id="6419454453018688975">Zapnout systémový přístup k poloze</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Systémové služby s potřebným oprávněním budou moci používat vaši polohu. Poloha zařízení se určuje pomocí zdrojů, jako jsou sítě Wi-Fi, mobilní sítě a senzory. <ph name="LINK_BEGIN" />Další informace<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Slabý (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Přejít na nastavení účtu</translation>
 <translation id="6462978824459367242">Tlačítko k přidání APN je nyní aktivní</translation>

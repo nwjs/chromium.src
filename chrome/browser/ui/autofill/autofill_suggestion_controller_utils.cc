@@ -12,6 +12,7 @@
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/autofill/core/browser/ui/suggestion_type.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -34,11 +35,13 @@ bool IsAcceptableSuggestionType(SuggestionType id) {
 bool IsFooterSuggestionType(SuggestionType type) {
   switch (type) {
     case SuggestionType::kAllSavedPasswordsEntry:
-    case SuggestionType::kAutofillOptions:
+    case SuggestionType::kManageAddress:
+    case SuggestionType::kManageCreditCard:
+    case SuggestionType::kManageIban:
+    case SuggestionType::kManagePlusAddress:
     case SuggestionType::kClearForm:
     case SuggestionType::kDeleteAddressProfile:
     case SuggestionType::kEditAddressProfile:
-    case SuggestionType::kFillEverythingFromAddressProfile:
     case SuggestionType::kPasswordAccountStorageEmpty:
     case SuggestionType::kPasswordAccountStorageOptIn:
     case SuggestionType::kPasswordAccountStorageOptInAndGenerate:
@@ -48,6 +51,10 @@ bool IsFooterSuggestionType(SuggestionType type) {
     case SuggestionType::kShowAccountCards:
     case SuggestionType::kViewPasswordDetails:
       return true;
+    case SuggestionType::kFillEverythingFromAddressProfile:
+      return features::
+          kAutofillGranularFillingAvailableWithFillEverythingAtTheBottomParam
+              .Get();
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAddressEntry:
     case SuggestionType::kAddressFieldByFieldFilling:
@@ -98,6 +105,11 @@ bool IsFooterItem(const std::vector<Suggestion>& suggestions,
   return type == SuggestionType::kSeparator
              ? IsFooterItem(suggestions, line_number + 1)
              : IsFooterSuggestionType(type);
+}
+
+bool IsStandaloneSuggestionType(SuggestionType type) {
+  return !IsFooterSuggestionType(type) ||
+         (type == SuggestionType::kScanCreditCard);
 }
 
 content::RenderFrameHost* GetRenderFrameHost(

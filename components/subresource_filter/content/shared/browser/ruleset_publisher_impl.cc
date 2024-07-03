@@ -4,14 +4,16 @@
 
 #include "components/subresource_filter/content/shared/browser/ruleset_publisher_impl.h"
 
+#include <string>
 #include <utility>
 
-#include "base/check_op.h"
+#include "base/check.h"
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/not_fatal_until.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
@@ -34,7 +36,8 @@ RulesetPublisherImpl::RulesetPublisherImpl(
           std::move(blocking_task_runner))) {
   best_effort_task_runner_ =
       content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT});
-  DCHECK(best_effort_task_runner_->BelongsToCurrentThread());
+  CHECK(best_effort_task_runner_->BelongsToCurrentThread(),
+        base::NotFatalUntil::M129);
 }
 
 RulesetPublisherImpl::~RulesetPublisherImpl() = default;
@@ -54,8 +57,8 @@ void RulesetPublisherImpl::TryOpenAndSetRulesetFile(
 
 void RulesetPublisherImpl::PublishNewRulesetVersion(
     RulesetFilePtr ruleset_data) {
-  DCHECK(ruleset_data);
-  DCHECK(ruleset_data->IsValid());
+  CHECK(ruleset_data, base::NotFatalUntil::M129);
+  CHECK(ruleset_data->IsValid(), base::NotFatalUntil::M129);
   ruleset_data_.reset();
 
   // If Ad Tagging is running, then every request does a lookup and it's
@@ -87,7 +90,7 @@ VerifiedRulesetDealer::Handle* RulesetPublisherImpl::GetRulesetDealer() {
 
 void RulesetPublisherImpl::IndexAndStoreAndPublishRulesetIfNeeded(
     const UnindexedRulesetInfo& unindexed_ruleset_info) {
-  DCHECK(ruleset_service_);
+  CHECK(ruleset_service_, base::NotFatalUntil::M129);
   ruleset_service_->IndexAndStoreAndPublishRulesetIfNeeded(
       unindexed_ruleset_info);
 }
@@ -102,15 +105,16 @@ void RulesetPublisherImpl::OnRenderProcessHostCreated(
 void RulesetPublisherImpl::SendRulesetToRenderProcess(
     base::File* file,
     content::RenderProcessHost* rph) {
-  DCHECK(rph);
-  DCHECK(file);
-  DCHECK(file->IsValid());
+  CHECK(rph, base::NotFatalUntil::M129);
+  CHECK(file, base::NotFatalUntil::M129);
+  CHECK(file->IsValid(), base::NotFatalUntil::M129);
   if (!rph->GetChannel())
     return;
   mojo::AssociatedRemote<mojom::SubresourceFilterRulesetObserver>
       subresource_filter;
   rph->GetChannel()->GetRemoteAssociatedInterface(&subresource_filter);
-  subresource_filter->SetRulesetForProcess(file->Duplicate());
+  subresource_filter->SetRulesetForProcess(
+      std::string(ruleset_service_->config().filter_tag), file->Duplicate());
 }
 
 }  // namespace subresource_filter

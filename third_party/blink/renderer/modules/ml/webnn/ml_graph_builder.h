@@ -5,15 +5,14 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_ML_WEBNN_ML_GRAPH_BUILDER_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_ML_WEBNN_ML_GRAPH_BUILDER_H_
 
-#include <optional>
-
 #include "base/types/expected.h"
-#include "components/ml/webnn/graph_validation_utils.h"
+#include "services/webnn/public/mojom/webnn_context_provider.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_operand_data_type.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer_view_helpers.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer_view.h"
+#include "third_party/blink/renderer/modules/ml/webnn/ml_graph.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_operator.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
@@ -382,18 +381,13 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                                const MLNamedOperands& outputs,
                                ExceptionState& exception_state);
 
-  // The test cases can override the graph building behavior by implementing
-  // this class and setting its instance by SetBackendForTesting().
-  class BackendForTesting {
-   public:
-    virtual void BuildGraphImpl(MLContext* context,
-                                const MLNamedOperands& named_outputs,
-                                ScriptPromiseResolver<MLGraph>* resolver) = 0;
-  };
-
-  static void SetBackendForTesting(BackendForTesting* backend_for_testing);
-
  private:
+  void DidCreateWebNNGraph(ScriptPromiseResolver<blink::MLGraph>* resolver,
+                           std::pair<HashMap<String, MLGraph::ResourceInfo>,
+                                     HashMap<String, MLGraph::ResourceInfo>>
+                               input_and_output_resources,
+                           webnn::mojom::blink::CreateGraphResultPtr result);
+
   // Performs platform-agnostic and operand-agnostic validation checks which
   // must be run for each built operand. Returns an error message which may be
   // used to throw a TypeError if `input` is not valid to use with this builder.

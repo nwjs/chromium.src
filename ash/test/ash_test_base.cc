@@ -276,19 +276,40 @@ std::unique_ptr<views::Widget> AshTestBase::CreateTestWidget(
     int container_id,
     const gfx::Rect& bounds,
     bool show) {
-  return TestWidgetBuilder()
-      .SetDelegate(delegate)
+  return CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                          delegate, container_id, bounds, show);
+}
+
+std::unique_ptr<views::Widget> AshTestBase::CreateTestWidget(
+    views::Widget::InitParams::Ownership ownership,
+    views::WidgetDelegate* delegate,
+    int container_id,
+    const gfx::Rect& bounds,
+    bool show) {
+  TestWidgetBuilder builder;
+  builder.SetDelegate(delegate)
       .SetBounds(bounds)
       .SetParent(Shell::GetPrimaryRootWindow()->GetChildById(container_id))
-      .SetShow(show)
-      .BuildOwnsNativeWidget();
+      .SetShow(show);
+  if (ownership == views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET) {
+    return builder.BuildOwnsNativeWidget();
+  } else {
+    DCHECK_EQ(ownership, views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+    return builder.BuildClientOwnsWidget();
+  }
 }
 
 // static
-std::unique_ptr<views::Widget> AshTestBase::CreateFramelessTestWidget() {
-  return TestWidgetBuilder()
-      .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
-      .BuildOwnsNativeWidget();
+std::unique_ptr<views::Widget> AshTestBase::CreateFramelessTestWidget(
+    views::Widget::InitParams::Ownership ownership) {
+  TestWidgetBuilder builder;
+  builder.SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  if (ownership == views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET) {
+    return builder.BuildOwnsNativeWidget();
+  } else {
+    DCHECK_EQ(ownership, views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+    return builder.BuildClientOwnsWidget();
+  }
 }
 
 std::unique_ptr<aura::Window> AshTestBase::CreateAppWindow(
@@ -446,8 +467,7 @@ void AshTestBase::SimulateGuestLogin() {
 }
 
 void AshTestBase::SimulateKioskMode(user_manager::UserType user_type) {
-  DCHECK(user_type == user_manager::UserType::kArcKioskApp ||
-         user_type == user_manager::UserType::kKioskApp ||
+  DCHECK(user_type == user_manager::UserType::kKioskApp ||
          user_type == user_manager::UserType::kWebKioskApp);
 
   GetSessionControllerClient()->SetIsRunningInAppMode(true);
@@ -492,7 +512,7 @@ void AshTestBase::BlockUserSession(UserSessionBlockReason block_reason) {
       SetUserAddingScreenRunning(true);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 }

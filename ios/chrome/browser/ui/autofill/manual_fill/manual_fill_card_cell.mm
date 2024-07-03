@@ -7,15 +7,18 @@
 #import "base/metrics/user_metrics.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
+#import "build/branding_buildflags.h"
 #import "components/autofill/core/browser/data_model/credit_card.h"
 #import "components/autofill/core/browser/payments/autofill_payments_feature_availability.h"
 #import "components/autofill/core/browser/payments/payments_service_url.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
+#import "components/grit/components_scaled_resources.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/card_list_delegate.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_cell_utils.h"
@@ -49,6 +52,11 @@ using base::SysNSStringToUTF8;
 // The UIActions that should be available from the cell's overflow menu button.
 @property(nonatomic, strong) NSArray<UIAction*>* menuActions;
 
+// The part of the cell's accessibility label that is used to indicate the index
+// at which the payment method represented by this item is positioned in the
+// list of payment methods to show.
+@property(nonatomic, strong) NSString* cellIndexAccessibilityLabel;
+
 @end
 
 @implementation ManualFillCardItem
@@ -57,13 +65,15 @@ using base::SysNSStringToUTF8;
                    contentInjector:
                        (id<ManualFillContentInjector>)contentInjector
                 navigationDelegate:(id<CardListDelegate>)navigationDelegate
-                       menuActions:(NSArray<UIAction*>*)menuActions {
+                       menuActions:(NSArray<UIAction*>*)menuActions
+       cellIndexAccessibilityLabel:(NSString*)cellIndexAccessibilityLabel {
   self = [super initWithType:kItemTypeEnumZero];
   if (self) {
     _contentInjector = contentInjector;
     _navigationDelegate = navigationDelegate;
     _card = card;
     _menuActions = menuActions;
+    _cellIndexAccessibilityLabel = cellIndexAccessibilityLabel;
     self.cellClass = [ManualFillCardCell class];
   }
   return self;
@@ -73,12 +83,66 @@ using base::SysNSStringToUTF8;
            withStyler:(ChromeTableViewStyler*)styler {
   [super configureCell:cell withStyler:styler];
   [cell setUpWithCreditCard:self.card
-            contentInjector:self.contentInjector
-         navigationDelegate:self.navigationDelegate
-                menuActions:self.menuActions];
+                  contentInjector:self.contentInjector
+               navigationDelegate:self.navigationDelegate
+                      menuActions:self.menuActions
+      cellIndexAccessibilityLabel:self.cellIndexAccessibilityLabel];
 }
 
 @end
+
+namespace {
+
+// Width of the card icon.
+constexpr CGFloat kCardIconWidth = 40;
+
+// Width of the GPay icon.
+constexpr CGFloat kGPayIconWidth = 37;
+
+// Returns the last four digits of the card number to be used in an
+// accessibility label. The digits need to be split so that VoiceOver will read
+// them individually.
+NSString* CardNumberLastFourDigits(NSString* obfuscated_number) {
+  NSUInteger length = obfuscated_number.length;
+  if (length >= 4) {
+    NSString* lastFourDigits =
+        [obfuscated_number substringFromIndex:length - 4];
+    NSMutableArray* digits = [[NSMutableArray alloc] init];
+    for (NSUInteger i = 0; i < lastFourDigits.length; i++) {
+      [digits addObject:[lastFourDigits substringWithRange:NSMakeRange(i, 1)]];
+    }
+    return [digits componentsJoinedByString:@" "];
+    ;
+  }
+
+  return @"";
+}
+
+// Helper method to decide whether or not the GPay icon should be shown in the
+// cell.
+bool ShouldShowGPayIcon(autofill::CreditCard::RecordType card_record_type) {
+  switch (card_record_type) {
+    case autofill::CreditCard::RecordType::kLocalCard:
+      return false;
+    case autofill::CreditCard::RecordType::kMaskedServerCard:
+    case autofill::CreditCard::RecordType::kFullServerCard:
+    case autofill::CreditCard::RecordType::kVirtualCard:
+      return IsKeyboardAccessoryUpgradeEnabled();
+  }
+}
+
+// Returns the offset to apply when setting the top anchor constraint of the
+// GPay icon as there's some empty space above and under the icon on official
+// builds.
+CGFloat GPayIconTopAnchorOffset() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  return -15;
+#else
+  return 0;
+#endif
+}
+
+}  // namespace
 
 @interface ManualFillCardCell () <UITextViewDelegate>
 
@@ -145,6 +209,9 @@ using base::SysNSStringToUTF8;
 // Button to autofill the current form with the card's data.
 @property(nonatomic, strong) UIButton* autofillFormButton;
 
+// Icon to indicate that the card is a server card.
+@property(nonatomic, strong) UIImageView* gPayIcon;
+
 @end
 
 @implementation ManualFillCardCell
@@ -186,9 +253,10 @@ using base::SysNSStringToUTF8;
 }
 
 - (void)setUpWithCreditCard:(ManualFillCreditCard*)card
-            contentInjector:(id<ManualFillContentInjector>)contentInjector
-         navigationDelegate:(id<CardListDelegate>)navigationDelegate
-                menuActions:(NSArray<UIAction*>*)menuActions {
+                contentInjector:(id<ManualFillContentInjector>)contentInjector
+             navigationDelegate:(id<CardListDelegate>)navigationDelegate
+                    menuActions:(NSArray<UIAction*>*)menuActions
+    cellIndexAccessibilityLabel:(NSString*)cellIndexAccessibilityLabel {
   if (!self.dynamicConstraints) {
     self.dynamicConstraints = [[NSMutableArray alloc] init];
   }
@@ -203,6 +271,12 @@ using base::SysNSStringToUTF8;
 
   [self populateViewsWithCardData:card menuActions:menuActions];
   [self verticallyArrangeViews:card];
+
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    self.accessibilityLabel =
+        [NSString stringWithFormat:@"%@, %@", cellIndexAccessibilityLabel,
+                                   self.cardLabel.attributedText.string];
+  }
 }
 
 #pragma mark - Private
@@ -216,10 +290,7 @@ using base::SysNSStringToUTF8;
 
   // Create the UIViews, add them to the contentView.
   self.cardLabel = CreateLabel();
-  self.cardIcon = [[UIImageView alloc] init];
-  self.cardIcon.translatesAutoresizingMaskIntoConstraints = NO;
-  [self.cardIcon setContentHuggingPriority:UILayoutPriorityDefaultHigh
-                                   forAxis:UILayoutConstraintAxisHorizontal];
+  self.cardIcon = [self createCardIcon];
   self.overflowMenuButton = CreateOverflowMenuButton();
   self.headerView =
       CreateHeaderView(self.cardIcon, self.cardLabel, self.overflowMenuButton);
@@ -299,15 +370,17 @@ using base::SysNSStringToUTF8;
 
   // If Virtual Cards are enabled, position the labeled chips, else position the
   // regular buttons.
+  self.gPayIcon = [self createGPayIcon];
+  [self.contentView addSubview:self.gPayIcon];
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillEnableVirtualCards)) {
-      AppendHorizontalConstraintsForViews(
-          staticConstraints, @[ self.virtualCardInstructionTextView ],
-          self.layoutGuide);
+    AppendHorizontalConstraintsForViews(
+        staticConstraints, @[ self.virtualCardInstructionTextView ],
+        self.layoutGuide);
     AppendHorizontalConstraintsForViews(
         staticConstraints, @[ self.cardNumberLabeledChip ], self.layoutGuide,
         kChipsHorizontalMargin,
-        AppendConstraintsHorizontalEqualOrSmallerThanGuide);
+        AppendConstraintsHorizontalEqualOrSmallerThanGuide, self.gPayIcon);
     AppendHorizontalConstraintsForViews(
         staticConstraints, @[ self.expirationDateLabeledChip ],
         self.layoutGuide, kChipsHorizontalMargin,
@@ -316,13 +389,18 @@ using base::SysNSStringToUTF8;
         staticConstraints, @[ self.cardholderLabeledChip ], self.layoutGuide,
         kChipsHorizontalMargin,
         AppendConstraintsHorizontalEqualOrSmallerThanGuide);
+    [staticConstraints
+        addObject:[self.gPayIcon.topAnchor
+                      constraintEqualToAnchor:self.cardNumberLabeledChip
+                                                  .topAnchor
+                                     constant:GPayIconTopAnchorOffset()]];
   } else {
     // TODO(crbug.com/330329960): Deprecate button use once
     // kAutofillEnableVirtualCards is enabled.
     AppendHorizontalConstraintsForViews(
         staticConstraints, @[ self.cardNumberButton ], self.layoutGuide,
         kChipsHorizontalMargin,
-        AppendConstraintsHorizontalEqualOrSmallerThanGuide);
+        AppendConstraintsHorizontalEqualOrSmallerThanGuide, self.gPayIcon);
     AppendHorizontalConstraintsForViews(
         staticConstraints,
         @[
@@ -336,6 +414,10 @@ using base::SysNSStringToUTF8;
         staticConstraints, @[ self.cardholderButton ], self.layoutGuide,
         kChipsHorizontalMargin,
         AppendConstraintsHorizontalEqualOrSmallerThanGuide);
+    [staticConstraints
+        addObject:[self.gPayIcon.topAnchor
+                      constraintEqualToAnchor:self.cardNumberButton.topAnchor
+                                     constant:GPayIconTopAnchorOffset()]];
   }
 
   if (IsKeyboardAccessoryUpgradeEnabled()) {
@@ -353,7 +435,7 @@ using base::SysNSStringToUTF8;
 // Adds the data from the ManualFillCreditCard to the corresponding UIViews.
 - (void)populateViewsWithCardData:(ManualFillCreditCard*)card
                       menuActions:(NSArray<UIAction*>*)menuActions {
-  self.cardIcon.image = NativeImage(card.issuerNetworkIconID);
+  self.cardIcon.image = card.icon;
 
   if (menuActions && menuActions.count) {
     self.overflowMenuButton.menu = [UIMenu menuWithChildren:menuActions];
@@ -361,6 +443,11 @@ using base::SysNSStringToUTF8;
   } else {
     self.overflowMenuButton.hidden = YES;
   }
+
+  self.gPayIcon.hidden = !ShouldShowGPayIcon(card.recordType);
+  self.gPayIcon.accessibilityIdentifier = [NSString
+      stringWithFormat:@"%@ %@", manual_fill::kPaymentManualFillGPayLogoID,
+                       card.networkAndLastFourDigits];
 
   // If Virtual Cards are enabled set text for labeled chips, else set text for
   // buttons.
@@ -394,6 +481,26 @@ using base::SysNSStringToUTF8;
             l10n_util::GetNSString(
                 IDS_AUTOFILL_VIRTUAL_CARD_MANUAL_FALLBACK_BUBBLE_NAME_ON_CARD_LABEL_IOS)
         buttonTitles:@[ card.cardHolder ]];
+
+    if (IsKeyboardAccessoryUpgradeEnabled()) {
+      self.cardNumberLabeledChip.singleButton.accessibilityLabel =
+          l10n_util::GetNSStringF(
+              IDS_IOS_MANUAL_FALLBACK_CARD_NUMBER_CHIP_ACCESSIBILITY_LABEL,
+              base::SysNSStringToUTF16(
+                  CardNumberLastFourDigits(card.obfuscatedNumber)));
+      self.expirationDateLabeledChip.expirationMonthButton.accessibilityLabel =
+          l10n_util::GetNSStringF(
+              IDS_IOS_MANUAL_FALLBACK_EXPIRATION_MONTH_CHIP_ACCESSIBILITY_LABEL,
+              base::SysNSStringToUTF16(card.expirationMonth));
+      self.expirationDateLabeledChip.expirationYearButton.accessibilityLabel =
+          l10n_util::GetNSStringF(
+              IDS_IOS_MANUAL_FALLBACK_EXPIRATION_YEAR_CHIP_ACCESSIBILITY_LABEL,
+              base::SysNSStringToUTF16(card.expirationYear));
+      self.cardholderLabeledChip.singleButton.accessibilityLabel =
+          l10n_util::GetNSStringF(
+              IDS_IOS_MANUAL_FALLBACK_CARDHOLDER_CHIP_ACCESSIBILITY_LABEL,
+              base::SysNSStringToUTF16(card.cardHolder));
+    }
   } else {
     // TODO(crbug.com/330329960): Deprecate button use once
     // kAutofillEnableVirtualCards is enabled.
@@ -415,6 +522,22 @@ using base::SysNSStringToUTF8;
                                forState:UIControlStateNormal];
     [self.cardholderButton setTitle:card.cardHolder
                            forState:UIControlStateNormal];
+
+    if (IsKeyboardAccessoryUpgradeEnabled()) {
+      self.cardNumberButton.accessibilityLabel = l10n_util::GetNSStringF(
+          IDS_IOS_MANUAL_FALLBACK_CARD_NUMBER_CHIP_ACCESSIBILITY_LABEL,
+          base::SysNSStringToUTF16(
+              CardNumberLastFourDigits(card.obfuscatedNumber)));
+      self.expirationMonthButton.accessibilityLabel = l10n_util::GetNSStringF(
+          IDS_IOS_MANUAL_FALLBACK_EXPIRATION_MONTH_CHIP_ACCESSIBILITY_LABEL,
+          base::SysNSStringToUTF16(card.expirationMonth));
+      self.expirationYearButton.accessibilityLabel = l10n_util::GetNSStringF(
+          IDS_IOS_MANUAL_FALLBACK_EXPIRATION_YEAR_CHIP_ACCESSIBILITY_LABEL,
+          base::SysNSStringToUTF16(card.expirationYear));
+      self.cardholderButton.accessibilityLabel = l10n_util::GetNSStringF(
+          IDS_IOS_MANUAL_FALLBACK_CARDHOLDER_CHIP_ACCESSIBILITY_LABEL,
+          base::SysNSStringToUTF16(card.cardHolder));
+    }
   }
 }
 
@@ -587,8 +710,8 @@ using base::SysNSStringToUTF8;
   }
 }
 
-// Called the "Autofill Form" button is tapped. Fills the current form with the
-// card's data.
+// Called when the "Autofill Form" button is tapped. Fills the current form with
+// the card's data.
 - (void)onAutofillFormButtonTapped {
   autofill::SuggestionType popupItemId =
       autofill::VirtualCardFeatureEnabled() &&
@@ -712,6 +835,22 @@ using base::SysNSStringToUTF8;
   return expirationSeparatorLabel;
 }
 
+// Creates and configures the card icon image view.
+- (UIImageView*)createCardIcon {
+  UIImageView* cardIcon = [[UIImageView alloc] init];
+  cardIcon.translatesAutoresizingMaskIntoConstraints = NO;
+  [cardIcon setContentHuggingPriority:UILayoutPriorityDefaultHigh
+                              forAxis:UILayoutConstraintAxisHorizontal];
+
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    cardIcon.contentMode = UIViewContentModeScaleAspectFill;
+    [cardIcon.widthAnchor constraintEqualToConstant:kCardIconWidth].active =
+        YES;
+  }
+
+  return cardIcon;
+}
+
 // Adds or hides ChipButton depending on the 'test' boolean.
 - (void)addChipButton:(UIView*)chipButton
           toChipGroup:(NSMutableArray<UIView*>*)chipGroup
@@ -737,6 +876,28 @@ using base::SysNSStringToUTF8;
         withTitle:[textView.text substringWithRange:characterRange]];
   }
   return NO;
+}
+
+// Creates and configures the GPay icon image view.
+- (UIImageView*)createGPayIcon {
+  UIImage* icon;
+  // `kGooglePaySymbol` only exists in official builds.
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  icon = MakeSymbolMulticolor(
+      CustomSymbolWithPointSize(kGooglePaySymbol, kGPayIconWidth));
+#else
+  icon = NativeImage(IDR_AUTOFILL_GOOGLE_PAY);
+#endif
+
+  UIImageView* imageView = [[UIImageView alloc] initWithImage:icon];
+  imageView.translatesAutoresizingMaskIntoConstraints = NO;
+  imageView.contentMode = UIViewContentModeScaleAspectFit;
+
+  [NSLayoutConstraint
+      activateConstraints:@[ [imageView.widthAnchor
+                              constraintEqualToConstant:kGPayIconWidth] ]];
+
+  return imageView;
 }
 
 @end

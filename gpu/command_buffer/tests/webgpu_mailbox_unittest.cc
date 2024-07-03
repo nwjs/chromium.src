@@ -86,7 +86,7 @@ uint32_t BytesPerTexel(viz::SharedImageFormat format) {
     return 8;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return 0;
 }
 
@@ -268,7 +268,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId + 1, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, 0u,
                        ComputeNumEntries(sizeof(mailbox.name)),
                        reinterpret_cast<const GLuint*>(&mailbox.name));
@@ -282,7 +282,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration + 1,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, 0u,
                        ComputeNumEntries(sizeof(mailbox.name)),
                        reinterpret_cast<const GLuint*>(&mailbox.name));
@@ -296,7 +296,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id + 1, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, 0u,
                        ComputeNumEntries(sizeof(mailbox.name)),
                        reinterpret_cast<const GLuint*>(&mailbox.name));
@@ -310,6 +310,21 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
+                       WGPUTextureUsage_Force32, 0u,
+                       webgpu::WEBGPU_MAILBOX_NONE, 0u,
+                       ComputeNumEntries(sizeof(mailbox.name)),
+                       reinterpret_cast<const GLuint*>(&mailbox.name));
+          EXPECT_EQ(
+              error::kInvalidArguments,
+              ExecuteImmediateCmd(decoder, cmd.cmd, sizeof(mailbox.name)));
+        }
+
+        // Error case: invalid internal texture usage.
+        {
+          AssociateMailboxCmdStorage cmd;
+          cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
+                       reservation.id, reservation.generation,
+                       WGPUTextureUsage_TextureBinding,
                        WGPUTextureUsage_Force32, webgpu::WEBGPU_MAILBOX_NONE,
                        0u, ComputeNumEntries(sizeof(mailbox.name)),
                        reinterpret_cast<const GLuint*>(&mailbox.name));
@@ -337,7 +352,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           packed_data.push_back(
               static_cast<uint32_t>(WGPUTextureFormat_BGRA8Unorm));
         } else {
-          NOTREACHED();
+          NOTREACHED_IN_MIGRATION();
         }
 
         // Error case: packed data empty.
@@ -345,7 +360,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, 0u, 0u, packed_data.data());
           EXPECT_EQ(error::kOutOfBounds,
                     ExecuteImmediateCmd(decoder, cmd.cmd, 0u));
@@ -356,7 +371,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, view_format_count,
                        ComputeNumEntries(sizeof(mailbox.name)) - 1u,
                        packed_data.data());
@@ -370,7 +385,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, view_format_count,
                        packed_data.size() + adjustment, packed_data.data());
           EXPECT_EQ(error::kOutOfBounds,
@@ -383,7 +398,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE,
                        view_format_count + adjustment, packed_data.size(),
                        packed_data.data());
@@ -400,7 +415,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, view_format_count,
                        packed_data.size(), packed_data.data());
           EXPECT_EQ(error::kNoError,
@@ -413,7 +428,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, 0u,
                        ComputeNumEntries(sizeof(mailbox.name)),
                        reinterpret_cast<const GLuint*>(&mailbox.name));
@@ -459,7 +474,7 @@ TEST_P(WebGPUMailboxTest, AssociateMailboxCmdBadMailboxMakesErrorTexture) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, 0u,
                        ComputeNumEntries(sizeof(bad_mailbox.name)),
                        reinterpret_cast<const GLuint*>(&bad_mailbox.name));
@@ -499,7 +514,7 @@ TEST_P(WebGPUMailboxTest, DissociateMailboxCmd) {
           AssociateMailboxCmdStorage cmd;
           cmd.cmd.Init(reservation.deviceId, reservation.deviceGeneration,
                        reservation.id, reservation.generation,
-                       WGPUTextureUsage_TextureBinding,
+                       WGPUTextureUsage_TextureBinding, 0u,
                        webgpu::WEBGPU_MAILBOX_NONE, 0u,
                        ComputeNumEntries(sizeof(mailbox.name)),
                        reinterpret_cast<const GLuint*>(&mailbox.name));
@@ -619,14 +634,14 @@ TEST_P(WebGPUMailboxTest, WriteToMailboxThenReadFromIt) {
     } else if (GetParam().format == viz::SinglePlaneFormat::kBGRA_8888) {
       EXPECT_EQ(0xFF0000FFu, *static_cast<const uint32_t*>(data));
     } else {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
     }
   }
 }
 
-// Test that an uninitialized shared image is lazily cleared by Dawn when it is
-// read.
-TEST_P(WebGPUMailboxTest, ReadUninitializedSharedImage) {
+// Test that passing WEBGPU_MAILBOX_DISCARD when associating a mailbox fails if
+// the SharedImage associated with the mailbox doesn't have WEBGPU_WRITE access.
+TEST_P(WebGPUMailboxTest, PassDiscardWhenAssociatingReadOnlyMailbox) {
   // Create the shared image.
   SharedImageInterface* sii = GetSharedImageInterface();
   scoped_refptr<gpu::ClientSharedImage> shared_image =
@@ -639,8 +654,8 @@ TEST_P(WebGPUMailboxTest, ReadUninitializedSharedImage) {
   SyncToken mailbox_produced_token = sii->GenVerifiedSyncToken();
   webgpu()->WaitSyncTokenCHROMIUM(mailbox_produced_token.GetConstData());
 
-  // Set the texture contents to non-zero so we can test a lazy clear occurs.
-  InitializeTextureColor(device_, shared_image->mailbox(), {1.0, 0, 0, 1.0});
+  // Set callback to expect a validation error.
+  device_.SetUncapturedErrorCallback(ToMockUncapturedErrorCallback, nullptr);
 
   // Register the shared image as a Dawn texture in the wire.
   gpu::webgpu::ReservedTexture reservation =
@@ -674,28 +689,14 @@ TEST_P(WebGPUMailboxTest, ReadUninitializedSharedImage) {
 
   wgpu::CommandEncoder encoder = device_.CreateCommandEncoder();
   encoder.CopyTextureToBuffer(&copy_src, &copy_dst, &copy_size);
-  wgpu::CommandBuffer commands = encoder.Finish();
 
-  wgpu::Queue queue = device_.GetQueue();
-  queue.Submit(1, &commands);
-
-  webgpu()->DissociateMailbox(reservation.id, reservation.generation);
-
-  // Map the buffer and assert the pixel is the correct value.
-  readback_buffer.MapAsync(wgpu::MapMode::Read, 0, buffer_desc.size,
-                           ToMockBufferMapCallback, nullptr);
-  EXPECT_CALL(*mock_buffer_map_callback,
-              Call(WGPUBufferMapAsyncStatus_Success, nullptr))
+  EXPECT_CALL(*mock_device_error_callback,
+              Call(WGPUErrorType_Validation, testing::_, testing::_))
       .Times(1);
 
-  WaitForCompletion(device_);
+  encoder.Finish();
 
-  const uint8_t* data = static_cast<const uint8_t*>(
-      readback_buffer.GetConstMappedRange(0, buffer_desc.size));
-  // Contents should be black because the texture was lazily cleared.
-  for (uint32_t i = 0; i < buffer_desc.size; ++i) {
-    EXPECT_EQ(data[i], uint8_t(0));
-  }
+  WaitForCompletion(device_);
 }
 
 // Test that an uninitialized writable shared image is lazily cleared by Dawn

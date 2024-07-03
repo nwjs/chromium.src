@@ -4,6 +4,11 @@
 
 #include "pdf/pdf_view_web_plugin.h"
 
+#if defined(UNSAFE_BUFFERS_BUILD)
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -268,11 +273,11 @@ bool IsSaveDataSizeValid(size_t size) {
 }
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
-std::unique_ptr<InkModule> MaybeCreateInkModule() {
+std::unique_ptr<InkModule> MaybeCreateInkModule(InkModule::Client& client) {
   if (!base::FeatureList::IsEnabled(features::kPdfInk2)) {
     return nullptr;
   }
-  return std::make_unique<InkModule>();
+  return std::make_unique<InkModule>(client);
 }
 #endif
 
@@ -299,7 +304,7 @@ PdfViewWebPlugin::PdfViewWebPlugin(
     : client_(std::move(client)),
       pdf_host_(std::move(pdf_host)),
 #if BUILDFLAG(ENABLE_PDF_INK2)
-      ink_module_(MaybeCreateInkModule()),
+      ink_module_(MaybeCreateInkModule(*this)),
 #endif
       initial_params_(params) {
   DCHECK(pdf_host_);
@@ -1497,7 +1502,7 @@ void PdfViewWebPlugin::HandleSaveMessage(const base::Value::Dict& message) {
       pdf_host_->SetPluginCanSave(true);
       SaveToBuffer(token);
 #else
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
 #endif  // BUILDFLAG(ENABLE_INK)
       break;
     case SaveRequestType::kOriginal:
@@ -1693,7 +1698,7 @@ void PdfViewWebPlugin::SaveToBuffer(const std::string& token) {
         data_to_save = base::Value(std::move(data));
     }
 #else
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
 #endif  // BUILDFLAG(ENABLE_INK)
   }
 
@@ -1943,7 +1948,7 @@ void PdfViewWebPlugin::UpdateScaledValues() {
 
 void PdfViewWebPlugin::UpdateScale(float scale) {
   if (scale <= 0.0f) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1969,6 +1974,29 @@ SkBitmap PdfViewWebPlugin::GetImageForOcr(int32_t page_index,
                                           int32_t page_object_index) {
   return engine_->GetImageForOcr(page_index, page_object_index);
 }
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+void PdfViewWebPlugin::InkStrokeFinished() {
+  base::Value::Dict message;
+  message.Set("type", "finishInkStroke");
+  client_->PostMessage(std::move(message));
+}
+
+int PdfViewWebPlugin::VisiblePageIndexFromPoint(const gfx::PointF& point) {
+  gfx::Point rounded_point = gfx::ToRoundedPoint(point);
+  for (int i = 0; i < engine_->GetNumberOfPages(); ++i) {
+    if (!engine_->IsPageVisible(i)) {
+      continue;
+    }
+    auto rect = engine_->GetPageContentsRect(i);
+    if (!rect.Contains(rounded_point)) {
+      continue;
+    }
+    return i;
+  }
+  return -1;
+}
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
 void PdfViewWebPlugin::HandleAccessibilityAction(
     const AccessibilityActionData& action_data) {
@@ -2468,7 +2496,9 @@ void PdfViewWebPlugin::LoadAccessibility() {
       GetAccessibilityDocInfo());
 
   // Record whether the PDF is tagged when opened by an accessibility user.
-  metrics_handler_->RecordAccessibilityIsDocTagged(engine_->IsPDFDocTagged());
+  if (metrics_handler_) {
+    metrics_handler_->RecordAccessibilityIsDocTagged(engine_->IsPDFDocTagged());
+  }
 
   // If the document contents isn't accessible, don't send anything more.
   if (!(engine_->HasPermission(DocumentPermission::kCopy) ||

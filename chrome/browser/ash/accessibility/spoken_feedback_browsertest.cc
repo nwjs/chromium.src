@@ -86,6 +86,7 @@
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/events/types/event_type.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
@@ -392,6 +393,36 @@ IN_PROC_BROWSER_TEST_F(LoggedInSpokenFeedbackTest, LearnModeEscapeWithGesture) {
   sm_.Replay();
 }
 
+IN_PROC_BROWSER_TEST_F(LoggedInSpokenFeedbackTest,
+                       LearnModePressEscapeTwiceToExit) {
+  EnableChromeVox();
+  sm_.Call([this]() { ExecuteCommandHandlerCommand("showLearnModePage"); });
+  sm_.ExpectSpeechPattern(
+      "Press a qwerty key, refreshable braille key, or touch gesture to learn "
+      "*");
+
+  sm_.Call([this]() { SendKeyPress(ui::VKEY_ESCAPE); });
+  sm_.ExpectSpeech("Escape");
+  sm_.ExpectSpeech("Press escape again to exit Learn Mode");
+
+  // Pressing a different key means the next escape key will not exit learn
+  // mode, it has to be pressed twice in a row.
+  sm_.Call([this]() { SendKeyPress(ui::VKEY_K); });
+  sm_.ExpectSpeech("K");
+
+  // Press escape again, it warns about exiting again.
+  sm_.Call([this]() { SendKeyPress(ui::VKEY_ESCAPE); });
+  sm_.ExpectSpeech("Escape");
+  sm_.ExpectSpeech("Press escape again to exit Learn Mode");
+
+  // Press it a second time in a row, should actually exit.
+  sm_.Call([this]() { SendKeyPress(ui::VKEY_ESCAPE); });
+  sm_.ExpectSpeech("Escape");
+  sm_.ExpectSpeech("Stopping Learn Mode");
+
+  sm_.Replay();
+}
+
 IN_PROC_BROWSER_TEST_F(LoggedInSpokenFeedbackTest, OpenLogPage) {
   // Enabling earcon logging should not crash ChromeVox at startup
   // (see b/318531241).
@@ -604,6 +635,24 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, FocusShelf) {
 
   sm_.Call([this]() { SendKeyPress(ui::VKEY_TAB); });
   sm_.ExpectSpeechPattern("Button");
+  sm_.Replay();
+}
+
+IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, SelectChromeVoxMenuItem) {
+  EnableChromeVox();
+
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_OEM_PERIOD); });
+  sm_.ExpectSpeech("ChromeVox Panel");
+  sm_.ExpectSpeech("Search");
+  sm_.Call([this]() {
+    SendKeyPress(ui::VKEY_RIGHT);
+    SendKeyPress(ui::VKEY_RIGHT);
+  });
+  sm_.ExpectSpeech("Speech");
+  sm_.ExpectSpeech("Announce Current Battery Status");
+  sm_.Call([this]() { SendKeyPress(ui::VKEY_RETURN); });
+  sm_.ExpectSpeechPattern("Battery at* percent*");
+
   sm_.Replay();
 }
 
@@ -982,7 +1031,6 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, NavigateChromeVoxMenu) {
   sm_.Call([this]() {
     SendKeyPress(ui::VKEY_DOWN);
     SendKeyPress(ui::VKEY_DOWN);
-    SendKeyPress(ui::VKEY_DOWN);
   });
   sm_.ExpectSpeech("Open ChromeVox Tutorial");
   sm_.Call([this]() { SendKeyPress(ui::VKEY_SPACE); });
@@ -1005,10 +1053,6 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, OpenStatusTray) {
 
 IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, OpenSettingsFromPanel) {
   EnableChromeVox();
-
-  AutomationTestUtils test_utils(extension_misc::kChromeVoxExtensionId);
-  sm_.Call([&test_utils]() { test_utils.SetUpTestSupport(); });
-
   base::RunLoop waiter;
   AccessibilityManager::Get()->SetOpenSettingsSubpageObserverForTest(
       base::BindLambdaForTesting([&waiter]() { waiter.Quit(); }));
@@ -1023,14 +1067,9 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, OpenSettingsFromPanel) {
   sm_.ExpectSpeech("ChromeVox Menus collapse");
   sm_.Call([this]() { SendKeyPress(ui::VKEY_TAB); });
   sm_.ExpectSpeech("ChromeVox Options");
-
-  // TODO(b/316916793): We cannot click this button with ChromeVox directly, so
-  // using test utils for now.
-  sm_.Call(
-      [&test_utils]() { test_utils.DoDefault("ChromeVox Options", "button"); });
-
+  // Activate the settings button.
+  sm_.Call([this]() { SendKeyPress(ui::VKEY_SPACE); });
   sm_.Replay();
-
   // We should have tried to open the settings subpage.
   waiter.Run();
 }
@@ -1470,7 +1509,9 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest,
   // Build a simple window with a button and position it at the right edge of
   // the screen.
   views::Widget* widget = new views::Widget;
-  views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
+  views::Widget::InitParams params(
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW);
 
   // Assert the right edge fits the below window.
   ASSERT_GE(root_window->bounds().width(), 1280);
@@ -1481,8 +1522,8 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest,
   widget->Init(std::move(params));
 
   views::View* view = new views::View();
-  view->SetAccessibleRole(ax::mojom::Role::kButton);
-  view->SetAccessibleName(u"hello");
+  view->GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
+  view->GetViewAccessibility().SetName(u"hello");
   view->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
   widget->GetRootView()->AddChildView(view);
 
@@ -1550,7 +1591,9 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, TouchExploreSecondaryDisplay) {
   // Build a simple window with a button and position it at the right edge of
   // the screen.
   views::Widget* widget = new views::Widget;
-  views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
+  views::Widget::InitParams params(
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW);
   params.parent = root_window;
 
   // This is the right edge of the screen.
@@ -1558,8 +1601,8 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, TouchExploreSecondaryDisplay) {
   widget->Init(std::move(params));
 
   views::View* view = new views::View();
-  view->SetAccessibleRole(ax::mojom::Role::kButton);
-  view->SetAccessibleName(u"hello");
+  view->GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
+  view->GetViewAccessibility().SetName(u"hello");
   view->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
   widget->GetRootView()->AddChildView(view);
 

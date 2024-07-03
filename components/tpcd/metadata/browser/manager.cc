@@ -60,15 +60,6 @@ Manager::Manager(Parser* parser,
 
   rand_generator_ = std::make_unique<RandGenerator>();
 
-  if (base::FeatureList::IsEnabled(
-          content_settings::features::kHostIndexedMetadataGrants)) {
-    base::AutoLock lock(grants_lock_);
-    grants_ = content_settings::HostIndexedContentSettings();
-  } else {
-    base::AutoLock lock(grants_lock_);
-    grants_ = ContentSettingsForOneType();
-  }
-
   parser_->AddObserver(this);
   if (!parser_->GetMetadata().empty()) {
     OnMetadataReady();
@@ -96,20 +87,14 @@ bool Manager::IsAllowed(const GURL& url,
 }
 
 void Manager::SetGrants(const ContentSettingsForOneType& grants) {
-  if (base::FeatureList::IsEnabled(
-          content_settings::features::kHostIndexedMetadataGrants)) {
-    auto indices = content_settings::HostIndexedContentSettings::Create(grants);
-    if (indices.empty()) {
-      base::AutoLock lock(grants_lock_);
-      grants_ = content_settings::HostIndexedContentSettings();
-    } else {
-      CHECK_EQ(indices.size(), 1u);
-      base::AutoLock lock(grants_lock_);
-      grants_ = std::move(indices.front());
-    }
-  } else {
+  auto indices = content_settings::HostIndexedContentSettings::Create(grants);
+  if (indices.empty()) {
     base::AutoLock lock(grants_lock_);
-    grants_ = grants;
+    grants_ = content_settings::HostIndexedContentSettings();
+  } else {
+    CHECK_EQ(indices.size(), 1u);
+    base::AutoLock lock(grants_lock_);
+    grants_ = std::move(indices.front());
   }
 
   if (grants_sync_callback_) {
@@ -120,8 +105,7 @@ void Manager::SetGrants(const ContentSettingsForOneType& grants) {
 ContentSettingsForOneType Manager::BuildGrantsWithPredicate(
     base::FunctionRef<bool(const MetadataEntry&)> predicate) {
   base::flat_set<std::string> remove_keys;
-  if (base::FeatureList::IsEnabled(
-          net::features::kTpcdMetadataStagedRollback) &&
+  if (base::FeatureList::IsEnabled(net::features::kTpcdMetadataStageControl) &&
       local_state_) {
     const base::Value::Dict& dict = local_state_->GetDict(prefs::kCohorts);
     for (const auto itr : dict) {
@@ -154,10 +138,9 @@ ContentSettingsForOneType Manager::BuildGrantsWithPredicate(
 
     std::optional<content_settings::mojom::TpcdMetadataCohort> cohort;
 
-    if (!Parser::IsDtrpEligible(
-            Parser::ToRuleSource(metadata_entry.source())) ||
+    if (!metadata_entry.has_dtrp() ||
         !base::FeatureList::IsEnabled(
-            net::features::kTpcdMetadataStagedRollback)) {
+            net::features::kTpcdMetadataStageControl)) {
       cohort = content_settings::mojom::TpcdMetadataCohort::DEFAULT;
     }
 
@@ -212,8 +195,7 @@ ContentSettingsForOneType Manager::BuildGrantsWithPredicate(
                         /*incognito=*/false, std::move(rule_metadata));
   }
 
-  if (base::FeatureList::IsEnabled(
-          net::features::kTpcdMetadataStagedRollback) &&
+  if (base::FeatureList::IsEnabled(net::features::kTpcdMetadataStageControl) &&
       local_state_) {
     ScopedDictPrefUpdate update(local_state_, prefs::kCohorts);
     for (const auto& key : remove_keys) {
@@ -238,26 +220,17 @@ ContentSettingsForOneType Manager::GetGrants() const {
     return ContentSettingsForOneType();
   }
 
-  if (base::FeatureList::IsEnabled(
-          content_settings::features::kHostIndexedMetadataGrants)) {
     base::AutoLock lock(grants_lock_);
-    return GetContentSettingForOneType(
-        absl::get<content_settings::HostIndexedContentSettings>(grants_));
-  }
-
-  base::AutoLock lock(grants_lock_);
-  return absl::get<ContentSettingsForOneType>(grants_);
+    return GetContentSettingForOneType(grants_);
 }
 
 void Manager::ResetCohorts() {
-  if (!base::FeatureList::IsEnabled(
-          net::features::kTpcdMetadataStagedRollback)) {
+  if (!base::FeatureList::IsEnabled(net::features::kTpcdMetadataStageControl)) {
     return;
   }
 
   auto reset_cohort = [&](const MetadataEntry& metadata_entry) -> bool {
-    return Parser::IsDtrpEligible(
-        Parser::ToRuleSource(metadata_entry.source()));
+    return metadata_entry.has_dtrp();
   };
   SetGrants(BuildGrantsWithPredicate(reset_cohort));
 }

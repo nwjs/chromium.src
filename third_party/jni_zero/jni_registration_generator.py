@@ -82,7 +82,7 @@ def _Flatten(jni_objs_by_path, paths):
   return itertools.chain(*(jni_objs_by_path[p] for p in paths))
 
 
-def _Generate(options, native_sources, java_sources):
+def _Generate(options, native_sources, java_sources, priority_java_sources):
   """Generates files required to perform JNI registration.
 
   Generates a srcjar containing a single class, GEN_JNI, that contains all
@@ -97,20 +97,30 @@ def _Generate(options, native_sources, java_sources):
         dependency tree. The source of truth.
     java_sources: A list of .jni.pickle or .java file paths. Used to assert
         against native_sources.
+    priority_java_sources: A list of .jni.pickle or .java file paths. Used to
+        put these listed java files first in multiplexing.
   """
-  # The native-based sources are the "source of truth" - the Java based ones
-  # will be used later to generate stubs and make assertions.
-  jni_objs_by_path = _LoadJniObjs(set(native_sources + java_sources), options)
+  native_sources_set = set(native_sources)
+  java_sources_set = set(java_sources)
+
+  jni_objs_by_path = _LoadJniObjs(native_sources_set | java_sources_set,
+                                  options)
   _FilterJniObjs(jni_objs_by_path, options)
 
   dicts = []
-  for jni_obj in _Flatten(jni_objs_by_path, native_sources):
+  for jni_obj in _Flatten(jni_objs_by_path,
+                          native_sources_set & java_sources_set):
     dicts.append(DictionaryGenerator(jni_obj, options).Generate())
-  # Sort to make output deterministic.
-  dicts.sort(key=lambda d: d['FULL_CLASS_NAME'])
 
-  stubs = _GenerateStubsAndAssert(options, jni_objs_by_path, native_sources,
-                                  java_sources)
+  priority_java_sources = set(
+      priority_java_sources) if priority_java_sources else {}
+  # Sort to make output deterministic, and to put priority_java_sources at the
+  # top.
+  dicts.sort(key=lambda d: (d['FILE_PATH'] not in priority_java_sources, d[
+      'FULL_CLASS_NAME']))
+
+  stubs = _GenerateStubsAndAssert(options, jni_objs_by_path, native_sources_set,
+                                  java_sources_set)
   combined_dict = {}
   for key in MERGEABLE_KEYS:
     combined_dict[key] = ''.join(d.get(key, '') for d in dicts)
@@ -188,10 +198,8 @@ def _Generate(options, native_sources, java_sources):
                                          stub_methods=stub_methods_string))
 
 
-def _GenerateStubsAndAssert(options, jni_objs_by_path, native_sources,
-                            java_sources):
-  native_sources_set = set(native_sources)
-  java_sources_set = set(java_sources)
+def _GenerateStubsAndAssert(options, jni_objs_by_path, native_sources_set,
+                            java_sources_set):
   native_only = native_sources_set - java_sources_set
   java_only = java_sources_set - native_sources_set
 
@@ -915,8 +923,14 @@ def main(parser, args):
     parser.error('--require-mocks requires --enable-proxy-mocks.')
   if not args.header_path and args.manual_jni_registration:
     parser.error('--manual-jni-registration requires --header-path.')
+  if not args.header_path and args.enable_jni_multiplexing:
+    parser.error('--enable-jni-multiplexing requires --header-path.')
   if args.remove_uncalled_methods and not args.native_sources_file:
     parser.error('--remove-uncalled-methods requires --native-sources-file.')
+  if args.priority_java_sources_file and not args.enable_jni_multiplexing:
+    parser.error('--priority-java-sources is only for multiplexing.')
+  if args.enable_jni_multiplexing and not args.use_proxy_hash:
+    parser.error('--enable-jni-multiplexing requires --use_proxy_hash.')
 
   java_sources = _ParseSourceList(args.java_sources_file)
   if args.native_sources_file:
@@ -929,8 +943,12 @@ def main(parser, args):
       # Just treating it like we have perfect alignment between native and java
       # when only looking at java.
       native_sources = java_sources
+  if args.priority_java_sources_file:
+    priority_java_sources = _ParseSourceList(args.priority_java_sources_file)
+  else:
+    priority_java_sources = None
 
-  _Generate(args, native_sources, java_sources=java_sources)
+  _Generate(args, native_sources, java_sources, priority_java_sources)
 
   if args.depfile:
     # GN does not declare a dep on the sources files to avoid circular

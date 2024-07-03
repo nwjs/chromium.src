@@ -125,15 +125,11 @@ class FixedInvalidationPictureLayerTilingClient
     return base_client_->GetPaintWorkletRecords();
   }
 
-  bool ScrollInteractionInProgress() const override {
-    return base_client_->ScrollInteractionInProgress();
-  }
-
-  bool CurrentScrollCheckerboardsDueToNoRecording() const override {
-    return base_client_->CurrentScrollCheckerboardsDueToNoRecording();
-  }
-
   void OnTilesAdded() override { return base_client_->OnTilesAdded(); }
+
+  ScrollOffsetMap GetRasterInducingScrollOffsets() const override {
+    return ScrollOffsetMap();
+  }
 
  private:
   raw_ptr<PictureLayerTilingClient> base_client_;

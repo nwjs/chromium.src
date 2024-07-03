@@ -298,6 +298,8 @@ class WebApp {
     ExternalManagementConfig(
         const ExternalManagementConfig& external_management_config);
     ExternalManagementConfig& operator=(
+        const ExternalManagementConfig& external_management_config);
+    ExternalManagementConfig& operator=(
         ExternalManagementConfig&& external_management_config);
 
     base::Value::Dict AsDebugValue() const;
@@ -454,6 +456,10 @@ class WebApp {
   void SetDescription(const std::string& description);
   void SetStartUrl(const GURL& start_url);
   void SetLaunchQueryParams(std::optional<std::string> launch_query_params);
+  // Sets the scope after clearing the query and fragment from the scope url, as
+  // per spec. This call will check-fail if the scope is not valid.
+  // TODO(crbug.com/339718933): Remove allowing an empty scope after shortcut
+  // apps are removed.
   void SetScope(const GURL& scope);
   void SetThemeColor(std::optional<SkColor> theme_color);
   void SetDarkModeThemeColor(std::optional<SkColor> theme_color);

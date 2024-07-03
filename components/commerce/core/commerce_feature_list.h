@@ -91,11 +91,11 @@ BASE_DECLARE_FEATURE(kPriceTrackingIconColors);
 
 BASE_DECLARE_FEATURE(kProductSpecifications);
 BASE_DECLARE_FEATURE(kProductSpecificationsRegionLaunched);
-BASE_DECLARE_FEATURE(kProductSpecificationsSync);
 
 BASE_DECLARE_FEATURE(kShoppingIconColorVariant);
 BASE_DECLARE_FEATURE(kShoppingList);
 BASE_DECLARE_FEATURE(kShoppingListRegionLaunched);
+BASE_DECLARE_FEATURE(kPriceTrackingSubscriptionServiceLocaleKey);
 BASE_DECLARE_FEATURE(kShoppingPageTypes);
 BASE_DECLARE_FEATURE(kShoppingPageTypesRegionLaunched);
 BASE_DECLARE_FEATURE(kShoppingPDPMetrics);
@@ -104,6 +104,7 @@ BASE_DECLARE_FEATURE(kTrackByDefaultOnMobile);
 
 #if BUILDFLAG(IS_IOS)
 BASE_DECLARE_FEATURE(kPriceInsightsIos);
+BASE_DECLARE_FEATURE(kPriceInsightsHighPriceIos);
 #endif
 
 // Feature flag for Discounts on navigation.

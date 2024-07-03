@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">amarelo-pastel</translation>
 <translation id="1056898198331236512">Aviso</translation>
 <translation id="1059913517121127803">Não foi possível iniciar a digitalização</translation>
+<translation id="1061864016440983342">Usar sem localização</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> de <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Firewall detectado</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Mais definições</translation>
 <translation id="2082932131694554252">Tecla do teclado atribuída</translation>
 <translation id="2085089206770112532">Diminuir o brilho da tela</translation>
+<translation id="2086091080968010660">As mudanças baseadas em tempo podem não ser precisas. Ative o acesso ao local nas configurações.</translation>
 <translation id="2102231663024125441">Edição de texto</translation>
 <translation id="2105810540595158374">Este dispositivo é um controle de jogo.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versão <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Editar detalhes do APN</translation>
 <translation id="2195732836444333448">No momento, o limite foi atingido. Tente de novo mais tarde.</translation>
 <translation id="2201758491318984023">Bicicleta</translation>
-<translation id="2203222757805818543">A programação atual está definida de <ph name="SUNRISE" /> a <ph name="SUNSET" />. Para atualizar automaticamente a programação do modo escuro, <ph name="BEGIN_LINK" />ative o acesso à localização<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">Água termal</translation>
 <translation id="2203642483788377106">penhasco</translation>
 <translation id="2208388655216963643">impressionista</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Restaurar padrões</translation>
 <translation id="2286454467119466181">Simples</translation>
 <translation id="2287186687001756809">Nenhuma imagem disponível. Para adicionar fotos, acesse <ph name="LINK" /></translation>
+<translation id="2294577623958216786">A programação atual está definida de <ph name="SUNRISE" /> a <ph name="SUNSET" />. Para atualizar automaticamente as programações de anoitecer e amanhecer, ative o acesso à localização do sistema.</translation>
 <translation id="2305172810646967500">preto</translation>
 <translation id="2307344026739914387">Usar par de chaves atual</translation>
 <translation id="2308243864813041101">Desconecte o cabo USB do <ph name="DEVICE_NAME" /> para continuar o processo de atualização</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">duna</translation>
 <translation id="2619761439309613843">Atualização diária</translation>
 <translation id="2620436844016719705">Sistema</translation>
+<translation id="2637303424821734920">DESATIVADO: para conferir o clima local, <ph name="BEGIN_LINK" />ative o acesso à localização do sistema<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Imagem de login</translation>
 <translation id="2640549051766135490">Álbum <ph name="TITLE" /> <ph name="DESC" /> selecionado</translation>
 <translation id="2645380101799517405">Controles</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Plano de fundo</translation>
 <translation id="3027578600144895987">Fechar a câmera</translation>
 <translation id="3031560714565892478">Este dispositivo é uma câmera de vídeo.</translation>
+<translation id="3051968340259309715">Isso permite que os serviços do sistema utilizem a "Precisão de local" para determinar sua localização. A "Precisão de local" usa informações sobre sinais sem fio, como pontos de acesso Wi-Fi, torres de rede celular e GPS, além de dados do sensor do dispositivo, como acelerômetro e giroscópio, para estimar a localização do dispositivo. É possível desativar a localização em "Configurações &gt; Privacidade e segurança &gt; Controles de privacidade &gt; Acesso ao local". <ph name="LINK_BEGIN" />Saiba mais<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Endpoint</translation>
 <translation id="3060579846059757016">Circunscritos</translation>
+<translation id="3061850252076394168">ativar "Selecionar para ouvir"</translation>
 <translation id="3069085583900247081">Falha no teste</translation>
 <translation id="3078740164268491126">tabela</translation>
 <translation id="3081652522083185657">claro</translation>
@@ -481,7 +486,7 @@
 <translation id="3749289110408117711">Nome do arquivo</translation>
 <translation id="3771294271822695279">Arquivos de vídeo</translation>
 <translation id="3780740315729837296">Atribuir uma tecla do teclado</translation>
-<translation id="3784455785234192852">Bloquear</translation>
+<translation id="3784455785234192852">Bloqueio</translation>
 <translation id="3785643128701396311">pixel art</translation>
 <translation id="3790109258688020991">pontilhista</translation>
 <translation id="380097101658023925">controles de RGB</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Falha na resolução de todos os hosts</translation>
 <translation id="4593212453765072419">Autenticação de proxy necessária</translation>
 <translation id="4609350030397390689">Diminuir o brilho do teclado</translation>
-<translation id="4617553623719764431">O clima não aparece porque não tem acesso à sua localização. Para conferir o clima local, <ph name="BEGIN_LINK" />conceda acesso à localização<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> de <ph name="TOTAL_PAGE_NUMBER" />. Pressione "Enter" para cancelar o trabalho de impressão.</translation>
 <translation id="463791356324567266">Cancelando a digitalização…</translation>
 <translation id="4646949265910132906">Conexão Wi-Fi segura</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Executar</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Páginas</translation>
+<translation id="4989542687859782284">Indisponível</translation>
 <translation id="4999333166442584738">Ocultar relatório</translation>
 <translation id="500920857929044050">Interromper teste</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">brilho do teclado</translation>
 <translation id="6412715219990689313">Teclado integrado</translation>
 <translation id="6417265370957905582">Google Assistente</translation>
+<translation id="6419454453018688975">Ative o acesso à localização do sistema</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Isso autoriza que os serviços do sistema com permissão usem sua localização. A localização pode usar fontes como Wi-Fi, redes móveis e sensores para ajudar a estimar o local do dispositivo. <ph name="LINK_BEGIN" />Saiba mais<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Fraco (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Acessar as configurações da conta</translation>
 <translation id="6462978824459367242">O botão "Adicionar APN" está ativado</translation>
@@ -1254,7 +1259,7 @@
 <translation id="802154636333426148">Falha no download</translation>
 <translation id="8031884997696620457">HSPAPlus</translation>
 <translation id="80398733265834479">Ativar o modo de cor automático</translation>
-<translation id="8041089156583427627">Enviar comentários</translation>
+<translation id="8041089156583427627">Enviar feedback</translation>
 <translation id="8045012663542226664">Desativar o microfone</translation>
 <translation id="8054112564438735763">bege</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_SUBJECTS" /> de cor <ph name="CHARACTERS_COLOR" /> em um plano de fundo <ph name="CHARACTERS_BACKGROUND" /></translation>

@@ -261,6 +261,7 @@ bool HEVCDecoderConfigurationRecord::ParseInternal(BufferReader* reader,
         const H265SPS* sps = parser.GetSPS(sps_id);
         DCHECK(sps);
         color_space = sps->GetColorSpace();
+        chroma_sampling = sps->GetChromaSampling();
         break;
       }
       case H265NALU::PREFIX_SEI_NUT: {
@@ -329,6 +330,10 @@ VideoColorSpace HEVCDecoderConfigurationRecord::GetColorSpace() {
   return color_space;
 }
 
+VideoChromaSampling HEVCDecoderConfigurationRecord::GetChromaSampling() {
+  return chroma_sampling;
+}
+
 gfx::HDRMetadata HEVCDecoderConfigurationRecord::GetHDRMetadata() {
   return hdr_metadata;
 }
@@ -358,7 +363,8 @@ bool HEVC::InsertParamSetsAnnexB(
 
   if (nalu.nal_unit_type == H265NALU::AUD_NUT) {
     // Move insert point to just after the AUD.
-    config_insert_point += (nalu.data + nalu.size) - start;
+    config_insert_point +=
+        (nalu.data + base::checked_cast<size_t>(nalu.size)) - start;
   }
 
   // Clear |parser| and |start| since they aren't needed anymore and
@@ -609,7 +615,8 @@ BitstreamConverter::AnalysisResult HEVC::AnalyzeAnnexB(
         break;
 
       default:
-        NOTREACHED() << "Unsupported NALU type " << nalu.nal_unit_type;
+        NOTREACHED_IN_MIGRATION()
+            << "Unsupported NALU type " << nalu.nal_unit_type;
     }
   }
 

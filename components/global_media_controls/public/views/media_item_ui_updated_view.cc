@@ -4,8 +4,8 @@
 
 #include "components/global_media_controls/public/views/media_item_ui_updated_view.h"
 
+#include "components/global_media_controls/media_view_utils.h"
 #include "components/global_media_controls/public/media_item_ui_observer.h"
-#include "components/global_media_controls/public/views/media_progress_view.h"
 #include "components/media_message_center/media_notification_item.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
@@ -25,6 +25,8 @@ namespace global_media_controls {
 using media_session::mojom::MediaSessionAction;
 
 namespace {
+
+constexpr int kFixedWidth = 400;
 
 constexpr gfx::Insets kBackgroundInsets = gfx::Insets::VH(16, 16);
 constexpr gfx::Insets kInfoColumnInsets = gfx::Insets::TLBR(4, 0, 0, 0);
@@ -46,22 +48,15 @@ constexpr int kMediaActionButtonIconSize = 20;
 
 constexpr float kFocusRingHaloInset = -3.0f;
 
-constexpr gfx::Size kBackgroundSize = gfx::Size(400, 150);
 constexpr gfx::Size kArtworkSize = gfx::Size(80, 80);
 constexpr gfx::Size kPlayPauseButtonSize = gfx::Size(48, 48);
 constexpr gfx::Size kMediaActionButtonSize = gfx::Size(24, 24);
 
-constexpr base::TimeDelta kSeekTime = base::Seconds(10);
-
-// If the image does not fit the square view, scale the image to fill the view
-// even if part of the image is cropped.
-gfx::Size ScaleImageSizeToFitView(const gfx::Size& image_size,
-                                  const gfx::Size& view_size) {
-  const float scale =
-      std::max(view_size.width() / static_cast<float>(image_size.width()),
-               view_size.height() / static_cast<float>(image_size.height()));
-  return gfx::ScaleToFlooredSize(image_size, scale);
-}
+// Buttons with the following media actions should be hidden when the user is
+// dragging the progress view.
+const MediaSessionAction kHiddenMediaActionsWhileDragging[] = {
+    MediaSessionAction::kPreviousTrack, MediaSessionAction::kNextTrack,
+    MediaSessionAction::kSeekForward, MediaSessionAction::kSeekBackward};
 
 }  // namespace
 
@@ -69,11 +64,11 @@ MediaItemUIUpdatedView::MediaItemUIUpdatedView(
     const std::string& id,
     base::WeakPtr<media_message_center::MediaNotificationItem> item,
     media_message_center::MediaColorTheme media_color_theme,
-    std::unique_ptr<MediaItemUIDeviceSelector> device_selector_view)
+    std::unique_ptr<MediaItemUIDeviceSelector> device_selector_view,
+    std::unique_ptr<MediaItemUIFooter> footer_view)
     : id_(id), item_(std::move(item)), media_color_theme_(media_color_theme) {
   CHECK(item_);
 
-  SetPreferredSize(kBackgroundSize);
   SetBackground(views::CreateThemedRoundedRectBackground(
       media_color_theme_.background_color_id, kBackgroundCornerRadius));
   SetLayoutManager(std::make_unique<views::BoxLayout>(
@@ -131,16 +126,11 @@ MediaItemUIUpdatedView::MediaItemUIUpdatedView(
       kSourceRowButtonContainerSeparator);
 
   // Create the start casting button.
-  if (device_selector_view) {
-    start_casting_button_ = CreateMediaActionButton(
-        source_row_button_container, kEmptyMediaActionButtonId,
-        vector_icons::kCastIcon,
-        IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_SHOW_DEVICE_LIST);
-    start_casting_button_->SetCallback(
-        base::BindRepeating(&MediaItemUIUpdatedView::StartCastingButtonPressed,
-                            base::Unretained(this)));
-    start_casting_button_->SetVisible(false);
-  }
+  start_casting_button_ = CreateMediaActionButton(
+      source_row_button_container, kEmptyMediaActionButtonId,
+      vector_icons::kCastIcon,
+      IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_SHOW_DEVICE_LIST);
+  start_casting_button_->SetVisible(false);
 
   // Create the picture-in-picture button.
   picture_in_picture_button_ = CreateMediaActionButton(
@@ -183,9 +173,16 @@ MediaItemUIUpdatedView::MediaItemUIUpdatedView(
       media_color_theme_.play_button_container_color_id,
       kPlayPauseButtonSize.height() / 2));
 
-  // |progress_row| holds some media action buttons and the progress view.
+  // |progress_row| holds some media action buttons, the progress view and the
+  // progress timestamp views.
   auto* progress_row = AddChildView(std::make_unique<views::BoxLayoutView>());
   progress_row->SetBetweenChildSpacing(kProgressRowSeparator);
+
+  // Create the current timestamp label before the progress view.
+  current_timestamp_label_ =
+      progress_row->AddChildView(std::make_unique<views::Label>(
+          std::u16string(), views::style::CONTEXT_LABEL,
+          views::style::STYLE_CAPTION_MEDIUM));
 
   // Create the previous track button.
   CreateMediaActionButton(
@@ -208,11 +205,17 @@ MediaItemUIUpdatedView::MediaItemUIUpdatedView(
           media_color_theme_.paused_progress_foreground_color_id,
           media_color_theme_.paused_progress_background_color_id,
           media_color_theme_.focus_ring_color_id,
-          base::BindRepeating(&MediaItemUIUpdatedView::OnProgressDragging,
-                              base::Unretained(this)),
+          base::BindRepeating(
+              &MediaItemUIUpdatedView::OnProgressDragStateChange,
+              base::Unretained(this)),
+          base::BindRepeating(
+              &MediaItemUIUpdatedView::OnPlaybackStateChangeForProgressDrag,
+              base::Unretained(this)),
           base::BindRepeating(&MediaItemUIUpdatedView::SeekTo,
                               base::Unretained(this)),
-          /*on_update_progress_callback=*/base::DoNothing()));
+          base::BindRepeating(
+              &MediaItemUIUpdatedView::OnProgressViewUpdateProgress,
+              base::Unretained(this))));
   progress_row->SetFlexForView(progress_view_, 1);
 
   // Create the forward 10 button.
@@ -227,11 +230,22 @@ MediaItemUIUpdatedView::MediaItemUIUpdatedView(
       vector_icons::kSkipNextIcon,
       IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_NEXT_TRACK);
 
+  // Create the duration timestamp label after the progress view.
+  duration_timestamp_label_ =
+      progress_row->AddChildView(std::make_unique<views::Label>(
+          std::u16string(), views::style::CONTEXT_LABEL,
+          views::style::STYLE_CAPTION_MEDIUM));
+
   // Add the device selector view below the |progress_row| if there is one.
-  if (device_selector_view) {
-    device_selector_view_ = AddChildView(std::move(device_selector_view));
-    device_selector_view_->SetMediaItemUIUpdatedView(this);
-  }
+  UpdateDeviceSelectorView(std::move(device_selector_view));
+
+  // Add the cast device footer view below the |progress_row| if there is one.
+  // It will only show up when this media item is being casted to another
+  // device.
+  UpdateFooterView(std::move(footer_view));
+
+  // Set the timestamp labels to be hidden initially.
+  UpdateTimestampLabelsVisibility();
 
   item_->SetView(this);
 }
@@ -247,6 +261,12 @@ MediaItemUIUpdatedView::~MediaItemUIUpdatedView() {
 
 ///////////////////////////////////////////////////////////////////////////////
 // views::View implementations:
+
+gfx::Size MediaItemUIUpdatedView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  auto size = GetLayoutManager()->GetPreferredSize(this);
+  return gfx::Size(kFixedWidth, size.height());
+}
 
 void MediaItemUIUpdatedView::AddedToWidget() {
   // Ink drop on the start casting button requires color provider to be ready,
@@ -267,6 +287,15 @@ bool MediaItemUIUpdatedView::OnKeyPressed(const ui::KeyEvent& event) {
   // As soon as the media view gets the focus, it should be able to handle key
   // events that can change the progress.
   return progress_view_->OnKeyPressed(event);
+}
+
+bool MediaItemUIUpdatedView::OnMousePressed(const ui::MouseEvent& event) {
+  // Activate the original source page if it exists when any part of the media
+  // background view is pressed.
+  for (auto& observer : observers_) {
+    observer.OnMediaItemUIClicked(id_, /*activate_original_media=*/true);
+  }
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -314,7 +343,7 @@ void MediaItemUIUpdatedView::UpdateWithMediaSessionInfo(
   if (in_picture_in_picture_) {
     picture_in_picture_button_->Update(
         static_cast<int>(MediaSessionAction::kExitPictureInPicture),
-        vector_icons::kPictureInPictureAltIcon,
+        vector_icons::kPipExitIcon,
         IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_EXIT_PIP,
         media_color_theme_.secondary_foreground_color_id);
   } else {
@@ -351,6 +380,7 @@ void MediaItemUIUpdatedView::UpdateWithMediaPosition(
     const media_session::MediaPosition& position) {
   position_ = position;
   progress_view_->UpdateProgress(position);
+  duration_timestamp_label_->SetText(GetFormattedDuration(position.duration()));
 }
 
 void MediaItemUIUpdatedView::UpdateWithMediaArtwork(
@@ -381,11 +411,9 @@ void MediaItemUIUpdatedView::UpdateDeviceSelectorVisibility(bool visible) {
 
 void MediaItemUIUpdatedView::UpdateDeviceSelectorAvailability(
     bool has_devices) {
-  CHECK(start_casting_button_);
-  // Do not show the start casting button if this media item is being casted to
-  // another device and has a footer view of stop casting button.
-  // TODO(yrw): Add "&& !footer_view_" when it is ready.
-  bool visible = has_devices;
+  // Do not show the start casting button for a casting media item. Only show it
+  // if there are available devices in the selector view.
+  bool visible = has_devices && !footer_view_;
   if (visible != start_casting_button_->GetVisible()) {
     start_casting_button_->SetVisible(visible);
   }
@@ -393,6 +421,39 @@ void MediaItemUIUpdatedView::UpdateDeviceSelectorAvailability(
 
 ///////////////////////////////////////////////////////////////////////////////
 // MediaItemUIUpdatedView implementations:
+
+void MediaItemUIUpdatedView::UpdateDeviceSelectorView(
+    std::unique_ptr<MediaItemUIDeviceSelector> device_selector_view) {
+  // Remove the existing device selector view.
+  if (device_selector_view_) {
+    RemoveChildViewT(device_selector_view_);
+    device_selector_view_ = nullptr;
+    start_casting_button_->SetCallback(views::Button::PressedCallback());
+  }
+  // Add the new device selector view.
+  if (device_selector_view) {
+    device_selector_view_ = AddChildView(std::move(device_selector_view));
+    device_selector_view_->SetMediaItemUIUpdatedView(this);
+    start_casting_button_->SetCallback(
+        base::BindRepeating(&MediaItemUIUpdatedView::StartCastingButtonPressed,
+                            base::Unretained(this)));
+  }
+}
+
+void MediaItemUIUpdatedView::UpdateFooterView(
+    std::unique_ptr<MediaItemUIFooter> footer_view) {
+  // Remove the existing footer view.
+  if (footer_view_) {
+    RemoveChildViewT(footer_view_);
+    footer_view_ = nullptr;
+  }
+  // Add the new footer view.
+  if (footer_view) {
+    footer_view_ = AddChildView(std::move(footer_view));
+  }
+  // Footer view changes can change the picture-in-picture button's visibility.
+  UpdateMediaActionButtonsVisibility();
+}
 
 MediaActionButton* MediaItemUIUpdatedView::CreateMediaActionButton(
     views::View* parent,
@@ -443,6 +504,15 @@ void MediaItemUIUpdatedView::UpdateMediaActionButtonsVisibility() {
   for (views::Button* button : media_action_buttons_) {
     bool should_show = base::Contains(
         media_actions_, static_cast<MediaSessionAction>(button->GetID()));
+    // Do not show the picture-in-picture button for a casting media item.
+    if (button == picture_in_picture_button_ && footer_view_) {
+      should_show = false;
+    }
+    if (drag_state_ == DragState::kDragStarted &&
+        base::Contains(kHiddenMediaActionsWhileDragging,
+                       static_cast<MediaSessionAction>(button->GetID()))) {
+      should_show = false;
+    }
     if (should_show != button->GetVisible()) {
       button->SetVisible(should_show);
       should_invalidate_layout = true;
@@ -454,14 +524,33 @@ void MediaItemUIUpdatedView::UpdateMediaActionButtonsVisibility() {
   }
 }
 
-void MediaItemUIUpdatedView::OnProgressDragging(bool pause) {
+void MediaItemUIUpdatedView::UpdateTimestampLabelsVisibility() {
+  current_timestamp_label_->SetVisible(drag_state_ == DragState::kDragStarted);
+  duration_timestamp_label_->SetVisible(drag_state_ == DragState::kDragStarted);
+}
+
+void MediaItemUIUpdatedView::OnProgressDragStateChange(DragState drag_state) {
+  drag_state_ = drag_state;
+  UpdateMediaActionButtonsVisibility();
+  UpdateTimestampLabelsVisibility();
+}
+
+void MediaItemUIUpdatedView::OnPlaybackStateChangeForProgressDrag(
+    PlaybackStateChangeForDragging change) {
   const auto action =
-      (pause ? MediaSessionAction::kPause : MediaSessionAction::kPlay);
+      (change == PlaybackStateChangeForDragging::kPauseForDraggingStarted
+           ? MediaSessionAction::kPause
+           : MediaSessionAction::kPlay);
   item_->OnMediaSessionActionButtonPressed(action);
 }
 
 void MediaItemUIUpdatedView::SeekTo(double seek_progress) {
   item_->SeekTo(seek_progress * position_.duration());
+}
+
+void MediaItemUIUpdatedView::OnProgressViewUpdateProgress(
+    base::TimeDelta current_timestamp) {
+  current_timestamp_label_->SetText(GetFormattedDuration(current_timestamp));
 }
 
 void MediaItemUIUpdatedView::StartCastingButtonPressed() {
@@ -474,7 +563,6 @@ void MediaItemUIUpdatedView::StartCastingButtonPressed() {
 }
 
 void MediaItemUIUpdatedView::UpdateCastingState() {
-  CHECK(start_casting_button_);
   CHECK(device_selector_view_);
 
   if (start_casting_button_->GetVisible()) {
@@ -523,6 +611,14 @@ views::Label* MediaItemUIUpdatedView::GetArtistLabelForTesting() {
   return artist_label_;
 }
 
+views::Label* MediaItemUIUpdatedView::GetCurrentTimestampLabelForTesting() {
+  return current_timestamp_label_;
+}
+
+views::Label* MediaItemUIUpdatedView::GetDurationTimestampLabelForTesting() {
+  return duration_timestamp_label_;
+}
+
 MediaActionButton* MediaItemUIUpdatedView::GetMediaActionButtonForTesting(
     MediaSessionAction action) {
   const auto i = base::ranges::find(
@@ -541,6 +637,10 @@ MediaActionButton* MediaItemUIUpdatedView::GetStartCastingButtonForTesting() {
 MediaItemUIDeviceSelector*
 MediaItemUIUpdatedView::GetDeviceSelectorForTesting() {
   return device_selector_view_;
+}
+
+MediaItemUIFooter* MediaItemUIUpdatedView::GetFooterForTesting() {
+  return footer_view_;
 }
 
 BEGIN_METADATA(MediaItemUIUpdatedView)

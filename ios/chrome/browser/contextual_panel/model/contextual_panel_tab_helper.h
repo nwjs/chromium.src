@@ -16,6 +16,7 @@ enum class ContextualPanelItemType;
 class ContextualPanelModel;
 struct ContextualPanelItemConfiguration;
 class ContextualPanelTabHelperObserver;
+@protocol ContextualSheetCommands;
 
 // Tab helper controlling the Contextual Panel feature for a given tab.
 class ContextualPanelTabHelper
@@ -30,8 +31,8 @@ class ContextualPanelTabHelper
   // Adds and removes observers for contextual panel actions. The order in
   // which notifications are sent to observers is undefined. Clients must be
   // sure to remove the observer before they go away.
-  void AddObserver(ContextualPanelTabHelperObserver* observer);
-  void RemoveObserver(ContextualPanelTabHelperObserver* observer);
+  virtual void AddObserver(ContextualPanelTabHelperObserver* observer);
+  virtual void RemoveObserver(ContextualPanelTabHelperObserver* observer);
 
   // Whether there exists at least one finalized Contextual Panel model config
   // currently available in the cached list of sorted configs. This will be
@@ -47,9 +48,14 @@ class ContextualPanelTabHelper
   // configs.
   base::WeakPtr<ContextualPanelItemConfiguration> GetFirstCachedConfig();
 
-  // Getter and setter for is_contextual_panel_currently_opened_.
+  // Set the contextual sheet handler, used to display the contextual sheet UI.
+  void SetContextualSheetHandler(id<ContextualSheetCommands> handler);
+
+  // Getter for is_contextual_panel_currently_opened_.
   bool IsContextualPanelCurrentlyOpened();
-  void SetContextualPanelCurrentlyOpened(bool opened);
+
+  void OpenContextualPanel();
+  void CloseContextualPanel();
 
   // Getter and setter for large_entrypoint_shown_for_curent_page_navigation_.
   bool WasLargeEntrypointShown();
@@ -64,6 +70,12 @@ class ContextualPanelTabHelper
   void PageLoaded(
       web::WebState* web_state,
       web::PageLoadCompletionStatus load_completion_status) override;
+
+ protected:
+  // Protected to allow test overriding.
+  ContextualPanelTabHelper(
+      web::WebState* web_state,
+      std::map<ContextualPanelItemType, raw_ptr<ContextualPanelModel>> models);
 
  private:
   friend class web::WebStateUserData<ContextualPanelTabHelper>;
@@ -85,10 +97,6 @@ class ContextualPanelTabHelper
         std::unique_ptr<ContextualPanelItemConfiguration>&& configuration);
     ~ModelResponse();
   };
-
-  ContextualPanelTabHelper(
-      web::WebState* web_state,
-      std::map<ContextualPanelItemType, raw_ptr<ContextualPanelModel>> models);
 
   // Callback for when the given model has finished fetching its data.
   void ModelCallbackReceived(
@@ -125,6 +133,9 @@ class ContextualPanelTabHelper
   // panel model responses, simply a cached list of their configs.
   std::vector<base::WeakPtr<ContextualPanelItemConfiguration>>
       sorted_weak_configurations_;
+
+  // Command handler for contextual sheet commands.
+  __weak id<ContextualSheetCommands> contextual_sheet_handler_ = nil;
 
   // List of observers to be notified when the Contextual Panel gets new data.
   base::ObserverList<ContextualPanelTabHelperObserver, true> observers_;

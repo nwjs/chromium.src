@@ -205,7 +205,7 @@ std::string YandexSearchPathFromDeviceFormFactor() {
     case ui::DEVICE_FORM_FACTOR_AUTOMOTIVE:
       return "search/pad/";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return std::string();
 }
 
@@ -348,7 +348,7 @@ std::string TemplateURLRef::GetURL() const {
     case INDEXED:
       return owner_->alternate_urls()[index_in_owner_];
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return std::string();
   }
 }
@@ -368,7 +368,7 @@ std::string TemplateURLRef::GetPostParamsString() const {
     case IMAGE_TRANSLATE:
       return owner_->image_url_post_params();
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return std::string();
   }
 }
@@ -472,6 +472,13 @@ std::string TemplateURLRef::ReplaceSearchTerms(
     // engine.
     query_params.push_back("chrome_dse_attribution=1");
   }
+#if !BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(switches::kSearchEngineChoiceAttribution) &&
+      base::FeatureList::IsEnabled(switches::kSearchEngineChoiceTrigger) &&
+      search_terms_data.search_engine_chosen_in_choice_screen()) {
+    query_params.push_back("chrome_dse_attribution=1");
+  }
+#endif
 
   if (query_params.empty())
     return url;
@@ -791,7 +798,13 @@ bool TemplateURLRef::ParseParameter(size_t start,
   } else if (parameter == "google:prefetchQuery") {
     replacements->push_back(Replacement(GOOGLE_PREFETCH_QUERY, start));
   } else if (parameter == "google:prefetchSource") {
-    replacements->push_back(Replacement(GOOGLE_PREFETCH_SOURCE, start));
+    if (base::FeatureList::IsEnabled(switches::kPrefetchParameterFix)) {
+      // Do nothing here as assistedQueryStats attentively takes over this
+      // component. See crbug.com/345275145 for details.
+      // Do not delete this branch.
+    } else {
+      replacements->push_back(Replacement(GOOGLE_PREFETCH_SOURCE, start));
+    }
   } else if (parameter == "google:RLZ") {
     replacements->push_back(Replacement(GOOGLE_RLZ, start));
   } else if (parameter == "google:searchClient") {
@@ -1117,6 +1130,21 @@ std::string TemplateURLRef::HandleReplacements(
 
       case GOOGLE_ASSISTED_QUERY_STATS: {
         DCHECK(!replacement.is_post_param);
+
+        // TODO(crbug.com/345275145): Use GOOGLE_ASSISTED_QUERY_STATS which is
+        // on both the server and local configuration to attach the prefetch
+        // param. If this approach works well, remove the prefetchSource
+        // component.
+        bool should_attach_prefetch_param =
+            base::FeatureList::IsEnabled(switches::kPrefetchParameterFix) &&
+            !search_terms_args.prefetch_param.empty();
+        if (should_attach_prefetch_param) {
+          // Ensure the prefetch param is attached even if gs_lcrp is not
+          // needed.
+          HandleReplacement("pf", search_terms_args.prefetch_param, replacement,
+                            &url);
+        }
+
         const size_t searchbox_stats_size =
             search_terms_args.searchbox_stats.ByteSizeLong();
         if (searchbox_stats_size > 0) {
@@ -1250,13 +1278,8 @@ std::string TemplateURLRef::HandleReplacements(
       }
 
       case GOOGLE_PREFETCH_SOURCE: {
+        CHECK(!base::FeatureList::IsEnabled(switches::kPrefetchParameterFix));
         if (!search_terms_args.prefetch_param.empty()) {
-          // Currently, Chrome only support "cs" for prefetches, but if new
-          // prefetch sources (outside of suggestions) are added, a new prefetch
-          // source value is needed. These should denote the source of the
-          // prefetch to allow the search server to treat the requests based on
-          // source. "cs" represents Chrome Suggestions as the source. Adding a
-          // new source should be supported by the Search engine.
           HandleReplacement("pf", search_terms_args.prefetch_param, replacement,
                             &url);
         }
@@ -1333,7 +1356,7 @@ std::string TemplateURLRef::HandleReplacements(
             HandleReplacement(std::string(), "chrome-ios-ntp", replacement,
                               &url);
 #else
-            NOTREACHED();
+            NOTREACHED_IN_MIGRATION();
 #endif
             break;
           case RequestSource::CONTEXTUAL_SEARCHBOX:
@@ -1517,7 +1540,7 @@ std::string TemplateURLRef::HandleReplacements(
       }
 
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -1909,7 +1932,7 @@ void TemplateURL::EncodeSearchTerms(
       return;
     }
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 GURL TemplateURL::GenerateSearchURL(const SearchTermsData& search_terms_data,

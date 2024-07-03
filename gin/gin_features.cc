@@ -18,6 +18,11 @@ BASE_FEATURE(kV8CompactWithStack,
              "V8CompactWithStack",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Decommit (rather than discard) pooled pages.
+BASE_FEATURE(kV8DecommitPooledPages,
+             "DecommitPooledPages",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables optimization of JavaScript in V8.
 BASE_FEATURE(kV8OptimizeJavascript,
              "V8OptimizeJavascript",
@@ -60,11 +65,6 @@ BASE_FEATURE(kV8LazyFeedbackAllocation,
 // Enables per-context marking worklists in V8 GC.
 BASE_FEATURE(kV8PerContextMarkingWorklist,
              "V8PerContextMarkingWorklist",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables profile guided tiering heuristics in V8 GC.
-BASE_FEATURE(kV8ProfileGuidedOptimization,
-             "V8ProfileGuidedOptimization",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables flushing of the instruction cache for the embedded blob.
@@ -159,9 +159,22 @@ BASE_FEATURE(kV8TurboFastApiCalls,
 // Enables faster DOM methods for megamorphic ICs
 BASE_FEATURE(kV8MegaDomIC, "V8MegaDomIC", base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Faster object cloning
+BASE_FEATURE(kV8SideStepTransitions,
+             "V8SideStepTransitions",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Avoids background threads for GC if isolate is in background.
 BASE_FEATURE(kV8SingleThreadedGCInBackground,
              "V8SingleThreadedGCInBackground",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kV8SingleThreadedGCInBackgroundParallelPause,
+             "V8SingleThreadedGCInBackgroundParallelPause",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kV8SingleThreadedGCInBackgroundNoIncrementalMarking,
+             "V8SingleThreadedGCInBackgroundNoIncrementalMarking",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Use V8 efficiency mode for tiering decisions.
@@ -278,16 +291,10 @@ BASE_FEATURE(kJavaScriptRegExpDuplicateNamedGroups,
 
 // WebAssembly features.
 
-// Enable support for the WebAssembly tail-call proposal:
-// https://github.com/WebAssembly/tail-call.
-BASE_FEATURE(kWebAssemblyTailCall,
-             "WebAssemblyTailCall",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable WebAssembly inlining (not user visible).
 BASE_FEATURE(kWebAssemblyInlining,
              "WebAssemblyInlining",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable WebAssembly code flushing.
 BASE_FEATURE(kWebAssemblyLiftoffCodeFlushing,
@@ -314,8 +321,8 @@ BASE_FEATURE(kWebAssemblyTurboshaftInstructionSelection,
              "WebAssemblyTurboshaftInstructionSelection",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Feature for more aggressive code caching (https://crbug.com/v8/14411) and
-// three parameters to control caching behavior.
+// Feature for more aggressive code caching (https://crbug.com/v8/14411,
+// https://crbug.com/40945417) and three parameters to control caching behavior.
 BASE_FEATURE(kWebAssemblyMoreAggressiveCodeCaching,
              "WebAssemblyMoreAggressiveCodeCaching",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -324,10 +331,10 @@ const base::FeatureParam<int> kWebAssemblyMoreAggressiveCodeCachingThreshold{
     1'000};
 const base::FeatureParam<int> kWebAssemblyMoreAggressiveCodeCachingTimeoutMs{
     &kWebAssemblyMoreAggressiveCodeCaching, "WebAssemblyCodeCachingTimeoutMs",
-    5000};
+    2000};
 const base::FeatureParam<int>
     kWebAssemblyMoreAggressiveCodeCachingHardThreshold{
         &kWebAssemblyMoreAggressiveCodeCaching,
-        "WebAssemblyCodeCachingHardThreshold", 100'000};
+        "WebAssemblyCodeCachingHardThreshold", 1'000'000};
 
 }  // namespace features

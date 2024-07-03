@@ -19,6 +19,8 @@
 #include "chromeos/ash/components/test/ash_test_suite.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/events/ash/event_rewriter_ash.h"
+#include "ui/events/devices/device_data_manager_test_api.h"
 
 namespace ash {
 
@@ -64,6 +66,10 @@ class FakeAcceleratorFetcherObserver
     return accelerators_updated_called_count_;
   }
 
+  void set_accelerators_updated_called_count(int count) {
+    accelerators_updated_called_count_ = count;
+  }
+
   std::vector<mojom::StandardAcceleratorPropertiesPtr> accelerators_;
   int accelerators_updated_called_count_ = 0;
   mojo::Receiver<common::mojom::AcceleratorFetcherObserver> receiver{this};
@@ -87,6 +93,7 @@ class AcceleratorFetcherTest : public AshTestBase {
     observer_ = std::make_unique<FakeAcceleratorFetcherObserver>();
     accelerator_fetcher_->ObserveAcceleratorChanges(
         actionIds, observer_->receiver.BindNewPipeAndPassRemote());
+    accelerator_fetcher_->FlushMojoForTesting();
   }
 
   void TearDown() override {
@@ -103,17 +110,57 @@ class AcceleratorFetcherTest : public AshTestBase {
 };
 
 TEST_F(AcceleratorFetcherTest, ObserveAcceleratorChanges) {
+  observer_->set_accelerators_updated_called_count(0);
   const auto& expected_accelerators =
       accelerator_lookup_->GetAvailableAcceleratorsForAction(
           AcceleratorAction::kSwitchToNextIme);
 
   accelerator_fetcher_->OnAcceleratorsUpdated();
   accelerator_fetcher_->FlushMojoForTesting();
-
-  EXPECT_EQ(observer_->accelerators_updated_called_count(), 1);
+  EXPECT_EQ(observer_->accelerators_updated_called_count(),
+            static_cast<int>(expected_accelerators.size()));
   EXPECT_EQ(observer_->accelerators_.size(), expected_accelerators.size());
   EXPECT_TRUE(
       CompareAccelerators(expected_accelerators, observer_->accelerators_));
+}
+
+TEST_F(AcceleratorFetcherTest, HasLauncherKey) {
+  base::test::TestFuture<bool> future;
+  ui::DeviceDataManagerTestApi().SetKeyboardDevices(
+      std::vector<ui::KeyboardDevice>{
+          {0, ui::INPUT_DEVICE_UNKNOWN, "unkown keyboard"}});
+
+  ui::KeyboardDevice keyboard_internal(1, ui::INPUT_DEVICE_INTERNAL,
+                                       "internal keyboard");
+  ui::KeyboardDevice keyboard_unknown(2, ui::INPUT_DEVICE_UNKNOWN,
+                                      "unkown keyboard");
+
+  // Setup an internal keyboard with top row layout without a launcher button.
+  ui::DeviceDataManagerTestApi().SetKeyboardDevices({keyboard_internal});
+  ui::KeyboardCapability* keyboard_capability =
+      Shell::Get()->keyboard_capability();
+  ui::KeyboardCapability::KeyboardInfo keyboard_info;
+  keyboard_info.device_type =
+      ui::KeyboardCapability::DeviceType::kDeviceInternalKeyboard;
+  keyboard_info.top_row_layout =
+      ui::KeyboardCapability::KeyboardTopRowLayout::kKbdTopRowLayout1;
+  keyboard_capability->DisableKeyboardInfoTrimmingForTesting();
+  keyboard_capability->SetKeyboardInfoForTesting(keyboard_internal,
+                                                 std::move(keyboard_info));
+  accelerator_fetcher_->HasLauncherKey(future.GetCallback());
+  EXPECT_FALSE(future.Get());
+  future.Clear();
+
+  // Setup an internal keyboard and an external keyboard. There should be at
+  // least one keyboard with launch button.
+  ui::DeviceDataManagerTestApi().SetKeyboardDevices(
+      {keyboard_internal, keyboard_unknown});
+  keyboard_info.device_type =
+      ui::KeyboardCapability::DeviceType::kDeviceUnknown;
+  keyboard_capability->SetKeyboardInfoForTesting(keyboard_internal,
+                                                 std::move(keyboard_info));
+  accelerator_fetcher_->HasLauncherKey(future.GetCallback());
+  EXPECT_TRUE(future.Get());
 }
 
 }  // namespace ash

@@ -183,6 +183,7 @@ static_library("test_support") {
   deps = [
     ":proto_test_support",
     "//build:chromeos_buildflags",
+    "//third_party/fuzztest:init_helper",
     "//third_party/google_benchmark",
     "//third_party/icu:icuuc",
     "//third_party/libxml:libxml_utils",
@@ -654,11 +655,12 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/test/transit/ConditionalState.java",
       "android/javatests/src/org/chromium/base/test/transit/ElementInState.java",
       "android/javatests/src/org/chromium/base/test/transit/Elements.java",
+      "android/javatests/src/org/chromium/base/test/transit/EntryPointSentinelStation.java",
       "android/javatests/src/org/chromium/base/test/transit/Facility.java",
       "android/javatests/src/org/chromium/base/test/transit/FacilityCheckIn.java",
       "android/javatests/src/org/chromium/base/test/transit/FacilityCheckOut.java",
+      "android/javatests/src/org/chromium/base/test/transit/FacilitySwap.java",
       "android/javatests/src/org/chromium/base/test/transit/InstrumentationThreadCondition.java",
-      "android/javatests/src/org/chromium/base/test/transit/ItemOnScreenFacility.java",
       "android/javatests/src/org/chromium/base/test/transit/LogicalElement.java",
       "android/javatests/src/org/chromium/base/test/transit/PublicTransitConfig.java",
       "android/javatests/src/org/chromium/base/test/transit/ScrollableFacility.java",
@@ -675,4 +677,13 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/test/transit/ViewElementInState.java",
     ]
   }
+}
+
+source_set("fuzztest_support") {
+  testonly = true
+  sources = [ "fuzztest_support.h" ]
+  deps = [
+    "//base",
+    "//third_party/fuzztest:fuzztest_internal",
+  ]
 }

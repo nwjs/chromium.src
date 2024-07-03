@@ -21,8 +21,9 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {afterNextRender, beforeNextRender} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {getSeaPenTemplates, SeaPenOption, SeaPenTemplate} from './constants.js';
+import {isSeaPenUseExptTemplateEnabled} from './load_time_booleans.js';
 import {SeaPenQuery, SeaPenThumbnail, SeaPenUserVisibleQuery} from './sea_pen.mojom-webui.js';
-import {searchSeaPenThumbnails} from './sea_pen_controller.js';
+import {getSeaPenThumbnails} from './sea_pen_controller.js';
 import {SeaPenTemplateChip, SeaPenTemplateId, SeaPenTemplateOption} from './sea_pen_generated.mojom-webui.js';
 import {getSeaPenProvider} from './sea_pen_interface_provider.js';
 import {logGenerateSeaPenWallpaper} from './sea_pen_metrics_logger.js';
@@ -129,6 +130,13 @@ export class SeaPenTemplateQueryElement extends WithSeaPenStore {
           return 'sea-pen:photo-spark';
         },
       },
+
+      seaPenUseExptTemplateEnabled_: {
+        type: Boolean,
+        value() {
+          return isSeaPenUseExptTemplateEnabled();
+        },
+      },
     };
   }
 
@@ -148,6 +156,7 @@ export class SeaPenTemplateQueryElement extends WithSeaPenStore {
   private isSelectingOptions: boolean;
   private containerOriginalHeight_: number;
   private resizeObserver_: ResizeObserver;
+  private seaPenUseExptTemplateEnabled_: boolean;
 
   static get observers() {
     return [
@@ -364,7 +373,7 @@ export class SeaPenTemplateQueryElement extends WithSeaPenStore {
 
   private onClickSearchButton_(event: Event) {
     this.clearSelectedChipState_();
-    searchSeaPenThumbnails(
+    getSeaPenThumbnails(
         this.getTemplateRequest_(), getSeaPenProvider(), this.getStore());
     logGenerateSeaPenWallpaper(this.getSeaPenTemplateId_());
 

@@ -154,7 +154,7 @@ class PLATFORM_EXPORT CanvasResource
   // Returns the sync token to indicate when all writes to the current resource
   // are finished on the GPU thread.
   virtual const gpu::SyncToken GetSyncToken() {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return gpu::SyncToken();
   }
 
@@ -205,7 +205,7 @@ class PLATFORM_EXPORT CanvasResource
   }
   // Returns the texture target for the resource.
   virtual GLenum TextureTarget() const {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return 0;
   }
 
@@ -237,11 +237,10 @@ class PLATFORM_EXPORT CanvasResource
   gpu::gles2::GLES2Interface* ContextGL() const;
   gpu::raster::RasterInterface* RasterInterface() const;
   gpu::webgpu::WebGPUInterface* WebGPUInterface() const;
-  gfx::BufferFormat GetBufferFormat() const;
   gfx::ColorSpace GetColorSpace() const;
   virtual base::WeakPtr<WebGraphicsContext3DProviderWrapper>
   ContextProviderWrapper() const {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
 
@@ -259,7 +258,7 @@ class PLATFORM_EXPORT CanvasResource
   // NOTE: Will be called only if SupportsAcceleratedCompositing() is false.
   virtual bool PrepareUnacceleratedTransferableResource(
       viz::TransferableResource* out_resource) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return false;
   }
   const SkColorInfo& GetSkColorInfo() const { return info_; }
@@ -364,7 +363,7 @@ class PLATFORM_EXPORT CanvasResourceRasterSharedImage final
 
   bool OriginClean() const final { return is_origin_clean_; }
   void SetOriginClean(bool value) final { is_origin_clean_ = value; }
-  void TakeSkImage(sk_sp<SkImage> image) final { NOTREACHED(); }
+  void TakeSkImage(sk_sp<SkImage> image) final { NOTREACHED_IN_MIGRATION(); }
   void NotifyResourceLost() final;
   bool NeedsReadLockFences() const final {
     // If the resource is not accelerated, it will be written to on the CPU. We

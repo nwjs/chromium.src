@@ -15,6 +15,7 @@
 #include "build/chromeos_buildflags.h"
 #include "partition_alloc/partition_alloc_base/time/time.h"
 #include "partition_alloc/partition_alloc_buildflags.h"
+#include "partition_alloc/partition_alloc_constants.h"
 #include "partition_alloc/partition_root.h"
 #include "partition_alloc/shim/allocator_shim_dispatch_to_noop_on_free.h"
 #include "partition_alloc/thread_cache.h"
@@ -94,21 +95,24 @@ BASE_FEATURE(kPartitionAllocLargeThreadCacheSize,
              "PartitionAllocLargeThreadCacheSize",
              FEATURE_ENABLED_BY_DEFAULT);
 
-MIRACLE_PARAMETER_FOR_INT(
-    GetPartitionAllocLargeThreadCacheSizeValue,
-    kPartitionAllocLargeThreadCacheSize,
-    "PartitionAllocLargeThreadCacheSizeValue",
-    ::partition_alloc::ThreadCacheLimits::kLargeSizeThreshold)
+MIRACLE_PARAMETER_FOR_INT(GetPartitionAllocLargeThreadCacheSizeValue,
+                          kPartitionAllocLargeThreadCacheSize,
+                          "PartitionAllocLargeThreadCacheSizeValue",
+                          ::partition_alloc::kThreadCacheLargeSizeThreshold)
 
 MIRACLE_PARAMETER_FOR_INT(
     GetPartitionAllocLargeThreadCacheSizeValueForLowRAMAndroid,
     kPartitionAllocLargeThreadCacheSize,
     "PartitionAllocLargeThreadCacheSizeValueForLowRAMAndroid",
-    ::partition_alloc::ThreadCacheLimits::kDefaultSizeThreshold)
+    ::partition_alloc::kThreadCacheDefaultSizeThreshold)
 
 BASE_FEATURE(kPartitionAllocLargeEmptySlotSpanRing,
              "PartitionAllocLargeEmptySlotSpanRing",
+#if BUILDFLAG(IS_MAC)
+             FEATURE_ENABLED_BY_DEFAULT);
+#else
              FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kPartitionAllocSchedulerLoopQuarantine,
              "PartitionAllocSchedulerLoopQuarantine",
@@ -486,6 +490,14 @@ void MakeFreeNoOp(WhenFreeBecomesNoOp callsite) {
 
 BASE_FEATURE(kPartitionAllocAdjustSizeWhenInForeground,
              "PartitionAllocAdjustSizeWhenInForeground",
+#if BUILDFLAG(IS_MAC)
+             FEATURE_ENABLED_BY_DEFAULT);
+#else
+             FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+BASE_FEATURE(kPartitionAllocUseSmallSingleSlotSpans,
+             "PartitionAllocUseSmallSingleSlotSpans",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

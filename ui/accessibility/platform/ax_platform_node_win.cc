@@ -1037,6 +1037,10 @@ AXPlatformNodeWin::UIARoleProperties AXPlatformNodeWin::GetUIARoleProperties() {
       return {UIALocalizationStrategy::kDeferToControlType,
               UIA_DataGridControlTypeId, L"grid"};
 
+    case ax::mojom::Role::kGridCell:
+      return {UIALocalizationStrategy::kDeferToControlType,
+              UIA_DataItemControlTypeId, L"gridcell"};
+
     case ax::mojom::Role::kGroup:
       return {UIALocalizationStrategy::kDeferToControlType,
               UIA_GroupControlTypeId, L"group"};
@@ -1332,8 +1336,10 @@ AXPlatformNodeWin::UIARoleProperties AXPlatformNodeWin::GetUIARoleProperties() {
               UIA_StatusBarControlTypeId, L"status"};
 
     case ax::mojom::Role::kSplitter:
-      return {UIALocalizationStrategy::kDeferToControlType,
-              UIA_SeparatorControlTypeId, L"separator"};
+      return {
+          UIALocalizationStrategy::kDeferToControlType,
+          IsFocusable() ? UIA_ThumbControlTypeId : UIA_SeparatorControlTypeId,
+          L"separator"};
 
     case ax::mojom::Role::kSubscript:
     case ax::mojom::Role::kSuperscript:
@@ -1858,6 +1864,7 @@ IFACEMETHODIMP AXPlatformNodeWin::get_accValue(VARIANT var_id, BSTR* value) {
 
   // Special case for indeterminate progressbar.
   if (GetRole() == ax::mojom::Role::kProgressIndicator &&
+      !HasStringAttribute(ax::mojom::StringAttribute::kValue) &&
       !HasFloatAttribute(ax::mojom::FloatAttribute::kValueForRange)) {
     // The MIXED state is also exposed for an indeterminate value.
     // However, without some value here, NVDA/JAWS 2022 will ignore the
@@ -5043,7 +5050,7 @@ IFACEMETHODIMP AXPlatformNodeWin::Navigate(
       break;
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 
@@ -5476,8 +5483,9 @@ HRESULT AXPlatformNodeWin::GetPropertyValueImpl(PROPERTYID property_id,
       if (SupportsOrientation(GetRole())) {
         if (HasState(ax::mojom::State::kHorizontal) &&
             HasState(ax::mojom::State::kVertical)) {
-          NOTREACHED() << "An accessibility object cannot have a horizontal "
-                          "and a vertical orientation at the same time.";
+          NOTREACHED_IN_MIGRATION()
+              << "An accessibility object cannot have a horizontal "
+                 "and a vertical orientation at the same time.";
         }
         if (HasState(ax::mojom::State::kHorizontal)) {
           result->vt = VT_I4;
@@ -6568,6 +6576,9 @@ int AXPlatformNodeWin::MSAARole() {
     case ax::mojom::Role::kGrid:
       return ROLE_SYSTEM_TABLE;
 
+    case ax::mojom::Role::kGridCell:
+      return ROLE_SYSTEM_CELL;
+
     case ax::mojom::Role::kGroup:
       return ROLE_SYSTEM_GROUPING;
 
@@ -7225,7 +7236,7 @@ std::wstring AXPlatformNodeWin::ComputeUIAProperties() {
         properties.emplace_back(L"pressed=mixed");
       } else if (GetRole() == ax::mojom::Role::kSwitch) {
         // This is disallowed both by the ARIA standard and by Blink.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
       } else {
         properties.emplace_back(L"checked=mixed");
       }
@@ -7247,7 +7258,7 @@ std::wstring AXPlatformNodeWin::ComputeUIAProperties() {
 
   // aria-dropeffect is deprecated in WAI-ARIA 1.1.
   if (HasIntAttribute(ax::mojom::IntAttribute::kDropeffectDeprecated)) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
   StateToUIAAriaProperty(properties, ax::mojom::State::kExpanded, "expanded");
 
@@ -7523,6 +7534,7 @@ bool AXPlatformNodeWin::IsUIAControl() const {
       case ax::mojom::Role::kFigure:
       case ax::mojom::Role::kFooter:
       case ax::mojom::Role::kFooterAsNonLandmark:
+      case ax::mojom::Role::kGridCell:
       case ax::mojom::Role::kHeader:
       case ax::mojom::Role::kHeaderAsNonLandmark:
       case ax::mojom::Role::kListBoxOption:
@@ -7869,8 +7881,10 @@ int AXPlatformNodeWin::MSAAState() const {
 
   // Special case for indeterminate progressbar.
   if (GetRole() == ax::mojom::Role::kProgressIndicator &&
-      !HasFloatAttribute(ax::mojom::FloatAttribute::kValueForRange))
+      !HasStringAttribute(ax::mojom::StringAttribute::kValue) &&
+      !HasFloatAttribute(ax::mojom::FloatAttribute::kValueForRange)) {
     msaa_state |= STATE_SYSTEM_MIXED;
+  }
 
   return msaa_state;
 }
@@ -8252,21 +8266,7 @@ AXPlatformNodeWin::GetPatternProviderFactoryMethod(PATTERNID pattern_id) {
       break;
 
     case UIA_InvokePatternId:
-      // According to the Accessibility Insights rules [1] and UIA
-      // documentation [2][3], the Invoke control pattern should not be
-      // supported on the following control types because another control
-      // pattern will always be available to support the same invocable
-      // behavior:
-      //   - UIA_AppBarControlTypeId
-      //   - UIA_TabItemControlTypeId
-      //
-      // [1]:https://github.com/microsoft/axe-windows/blob/main/src/Rules/Library/ControlShouldNotSupportInvokePattern.cs
-      // [2]:https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/implementing-the-ui-automation-invoke-control-pattern
-      // [3]:https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-supporttabitemcontroltype#required-control-patterns
-      //
-      // TODO(accessibility): Add the condition for the UIA_AppBarControlTypeId
-      // if we ever start exposing this control type in Chromium.
-      if (GetData().IsInvocable() && GetRole() != ax::mojom::Role::kTab) {
+      if (IsInvokeSupported()) {
         return &PatternProvider<IInvokeProvider>;
       }
       break;
@@ -8344,19 +8344,7 @@ AXPlatformNodeWin::GetPatternProviderFactoryMethod(PATTERNID pattern_id) {
       break;
 
     case UIA_TogglePatternId:
-      // According to the CoreAAM spec [1], TogglePattern should be exposed for
-      // all aria-checkable roles. However, the UIA documentation [2] specifies
-      // the RadioButton control does not implement IToggleProvider. Also, the
-      // UIA documentation [3] and Accessibility Insights [4] seem to indicate
-      // that the Toggle control pattern should not be exposed when the
-      // ExpandCollapse control pattern  is already exposed for a button.
-      //
-      // [1]:https://w3c.github.io/core-aam/#mapping_state-property_table
-      // [2]:https://docs.microsoft.com/en-us/dotnet/framework/ui-automation/implementing-the-ui-automation-toggle-control-pattern
-      // [3]:https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-supportbuttoncontroltype#required-control-patterns
-      // [4]:https://github.com/microsoft/axe-windows/blob/main/src/Rules/Library/ButtonInvokeAndExpandeCollapsePatterns.cs
-      if ((IsPlatformCheckable() || SupportsToggle(GetRole())) &&
-          !IsRadio(GetRole()) && !GetData().SupportsExpandCollapse()) {
+      if (IsToggleSupported()) {
         return &PatternProvider<IToggleProvider>;
       }
       break;
@@ -8406,7 +8394,7 @@ AXPlatformNodeWin* AXPlatformNodeWin::GetLowestAccessibleElementForUIA() {
     node = node->GetParentPlatformNodeWin();
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 
@@ -8602,6 +8590,125 @@ void AXPlatformNodeWin::SanitizeStringAttributeForIA2(const std::string& input,
   base::ReplaceChars(*output, ",", "\\,", output);
   base::ReplaceChars(*output, "=", "\\=", output);
   base::ReplaceChars(*output, ";", "\\;", output);
+}
+
+bool AXPlatformNodeWin::IsSelectionItemSupported() const {
+  switch (GetRole()) {
+    // An ARIA 1.1+ role of "row" inside an ARIA 1.1 role of "table", should not
+    // be selectable. ARIA "table" is not interactable, ARIA "grid" is.
+    case ax::mojom::Role::kColumnHeader:
+    case ax::mojom::Role::kRow:
+    case ax::mojom::Role::kRowHeader: {
+      // An ARIA grid subwidget is only selectable if explicitly marked as
+      // selected (or not) with the aria-selected property.
+      if (!HasBoolAttribute(ax::mojom::BoolAttribute::kSelected)) {
+        return false;
+      }
+
+      AXPlatformNodeBase* table = GetTable();
+      if (!table) {
+        return false;
+      }
+
+      return table->GetRole() == ax::mojom::Role::kGrid ||
+             table->GetRole() == ax::mojom::Role::kTreeGrid;
+    }
+    // https://www.w3.org/TR/core-aam-1.1/#mapping_state-property_table
+    // SelectionItem.IsSelected is exposed when aria-checked is True or False,
+    // for 'radio' and 'menuitemradio' roles.
+    case ax::mojom::Role::kRadioButton:
+    case ax::mojom::Role::kMenuItemRadio: {
+      if (GetData().GetCheckedState() == ax::mojom::CheckedState::kTrue ||
+          GetData().GetCheckedState() == ax::mojom::CheckedState::kFalse) {
+        return true;
+      }
+      return false;
+    }
+    // https://www.w3.org/TR/wai-aria-1.1/#aria-selected
+    // SelectionItem.IsSelected is exposed when aria-select is True or False.
+    case ax::mojom::Role::kListBoxOption:
+    case ax::mojom::Role::kListItem:
+    case ax::mojom::Role::kMenuListOption:
+    case ax::mojom::Role::kTreeItem:
+      return HasBoolAttribute(ax::mojom::BoolAttribute::kSelected);
+    case ax::mojom::Role::kGridCell:
+    case ax::mojom::Role::kTab:
+      // According to the UIA documentation, this role should always support the
+      // SelectionItem control pattern:
+      // https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-supporttabitemcontroltype#required-control-patterns.
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool AXPlatformNodeWin::IsToggleSupported() const {
+  ax::mojom::Role role = GetRole();
+
+  // As per the spec [1], RadioButton control does not implement
+  // IToggleProvider, as it is not capable of cycling through its valid states.
+  //
+  // [1]:https://docs.microsoft.com/en-us/dotnet/framework/ui-automation/implementing-the-ui-automation-toggle-control-pattern
+  if (IsRadio(role)) {
+    return false;
+  }
+
+  // The documentation[2] and test case[3] seem to indicate that the Toggle
+  // control pattern should not be exposed when the ExpandCollapse control
+  // pattern is already exposed for a button. Please note that this last
+  // requirement only applies to buttons, not all elements; it's possible for an
+  // other role (e.g., treeitem) to support both the Toggle and the
+  // ExpandCollapse control patterns.
+  //
+  // [2]:https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-supportbuttoncontroltype#required-control-patterns
+  // [3]:https://github.com/microsoft/axe-windows/blob/main/src/Rules/Library/ButtonInvokeAndExpandeCollapsePatterns.cs
+  if (GetData().SupportsExpandCollapse() && IsButton(role)) {
+    return false;
+  }
+
+  // According to the CoreAAM spec [4], TogglePattern should be exposed for
+  // all aria-checkable roles.
+  //
+  // [4]:https://w3c.github.io/core-aam/#mapping_state-property_table
+  return IsPlatformCheckable() || SupportsToggle(role);
+}
+
+bool AXPlatformNodeWin::IsInvokeSupported() const {
+  ax::mojom::Role role = GetRole();
+
+  // As per the documentation [1], tab item should never support
+  // IInvokeProvider.
+  //
+  // [1]:https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-supporttabitemcontroltype#required-control-patterns
+  if (role == ax::mojom::Role::kTab) {
+    return false;
+  }
+
+  // According to this Accessibility Insights test [2], the UIA Invoke and
+  // Toggle patterns should never be used together for buttons.
+  //
+  // Note: It's not specified which pattern should be exposed when both could
+  // technically be supported. However, priority is given to Toggle Pattern
+  // here, as its the more specialized one.
+  //
+  // [2]:https://github.com/microsoft/axe-windows/blob/main/src/Rules/Library/ButtonInvokeAndTogglePatterns.cs
+  if (IsToggleSupported() && IsButton(role)) {
+    return false;
+  }
+
+  // According to the Accessibility Insights rules [3] and UIA documentation
+  // [4], the Invoke control pattern should not be supported on the following
+  // control types because another control pattern will always be available to
+  // support the same invocable behavior:
+  //   - UIA_AppBarControlTypeId
+  //   - UIA_TabItemControlTypeId
+  //
+  // [3]:https://github.com/microsoft/axe-windows/blob/main/src/Rules/Library/ControlShouldNotSupportInvokePattern.cs
+  // [4]:https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/implementing-the-ui-automation-invoke-control-pattern
+  //
+  // TODO(accessibility): Add the condition for the UIA_AppBarControlTypeId if
+  // we ever start exposing this control type in Chromium.
+  return GetData().IsInvocable();
 }
 
 }  // namespace ui

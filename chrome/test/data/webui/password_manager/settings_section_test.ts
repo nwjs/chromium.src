@@ -11,7 +11,8 @@ import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {TestOpenWindowProxy} from 'chrome://webui-test/test_open_window_proxy.js';
-import {isVisible} from 'chrome://webui-test/test_util.js';
+// import {isVisible} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
 
 import {TestPasswordManagerProxy} from './test_password_manager_proxy.js';
 import {TestSyncBrowserProxy} from './test_sync_browser_proxy.js';
@@ -277,16 +278,46 @@ suite('SettingsSectionTest', function() {
     assertFalse(!!settings.shadowRoot!.querySelector('#addShortcutBanner'));
   });
 
-  test('import hidden when policy disabled', async function() {
+  test(
+      'import visible when policy disabled and controlled by extension',
+      async function() {
+        const settings = document.createElement('settings-section');
+        settings.prefs = makePasswordManagerPrefs();
+        settings.prefs.credentials_enable_service.value = false;
+        settings.prefs.credentials_enable_service.enforcement =
+            chrome.settingsPrivate.Enforcement.ENFORCED;
+        settings.prefs.credentials_enable_service.controlledBy =
+            chrome.settingsPrivate.ControlledBy.EXTENSION;
+        document.body.appendChild(settings);
+        await flushTasks();
+
+        assertTrue(!!settings.shadowRoot!.querySelector('passwords-importer'));
+      });
+
+  test(
+      'import hidden when policy disabled and not controlled by extension',
+      async function() {
+        const settings = document.createElement('settings-section');
+        settings.prefs = makePasswordManagerPrefs();
+        settings.prefs.credentials_enable_service.value = false;
+        settings.prefs.credentials_enable_service.enforcement =
+            chrome.settingsPrivate.Enforcement.ENFORCED;
+        settings.prefs.credentials_enable_service.controlledBy =
+            chrome.settingsPrivate.ControlledBy.DEVICE_POLICY;
+        document.body.appendChild(settings);
+        await flushTasks();
+
+        assertFalse(!!settings.shadowRoot!.querySelector('passwords-importer'));
+      });
+
+  test('import visible when policy enabled', async function() {
     const settings = document.createElement('settings-section');
     settings.prefs = makePasswordManagerPrefs();
-    settings.prefs.credentials_enable_service.value = false;
-    settings.prefs.credentials_enable_service.enforcement =
-        chrome.settingsPrivate.Enforcement.ENFORCED;
+    settings.prefs.credentials_enable_service.value = true;
     document.body.appendChild(settings);
     await flushTasks();
 
-    assertFalse(!!settings.shadowRoot!.querySelector('passwords-importer'));
+    assertTrue(!!settings.shadowRoot!.querySelector('passwords-importer'));
   });
 
   test('Password exporter element', async function() {
@@ -437,23 +468,6 @@ suite('SettingsSectionTest', function() {
     await passkeysProxy.whenCalled('passkeysManagePasskeys');
   });
   // </if>
-
-  test('iCloudKeychainToggleNotShown', async function() {
-    // The control for iCloud Keychain should appear only on macOS.
-    const settings = document.createElement('settings-section');
-    document.body.appendChild(settings);
-    flush();
-    const element = settings.shadowRoot!.querySelector<HTMLElement>(
-        '#createPasskeysInICloudKeychainRow');
-
-    // <if expr="not is_macosx">
-    assertFalse(!!element);
-    // </if>
-
-    // <if expr="is_macosx">
-    assertTrue(!!element);
-    // </if>
-  });
 
   test('blockedSites section hidden when no blocked sites', async function() {
     passwordManager.data.blockedSites = [];
@@ -720,7 +734,7 @@ suite('SettingsSectionTest', function() {
         section.$.toast.textContent!.trim());
   });
 
-  test('Disconnect Cloud Authenticator is available', async function() {
+  test('Disconnect Cloud Authenticator', async function() {
     passwordManager.data.isConnectedToCloudAuthenticator = true;
     passwordManager.data.disconnectCloudAuthenticatorSuccessful = true;
 
@@ -731,7 +745,6 @@ suite('SettingsSectionTest', function() {
     const disconnectCloudAuthenticatorRow =
         section.shadowRoot!.querySelector<HTMLElement>(
             '#disconnectCloudAuthenticatorRow');
-
     assertTrue(!!disconnectCloudAuthenticatorRow);
 
     const disconnectButton =
@@ -739,6 +752,17 @@ suite('SettingsSectionTest', function() {
             '#disconnectCloudAuthenticatorButton');
     assertTrue(!!disconnectButton);
     disconnectButton.click();
+
+    await eventToPromise('cr-dialog-open', section);
+    const dialog = section.shadowRoot!.querySelector<HTMLElement>(
+        '#disconnectCloudAuthenticatorDialog');
+    assertTrue(!!dialog);
+
+    const confirmButton =
+        dialog?.shadowRoot!.querySelector<HTMLElement>('#confirmButton');
+    assertTrue(!!confirmButton);
+
+    confirmButton.click();
     await passwordManager.whenCalled('disconnectCloudAuthenticator');
 
     assertTrue(section.$.toast.open);

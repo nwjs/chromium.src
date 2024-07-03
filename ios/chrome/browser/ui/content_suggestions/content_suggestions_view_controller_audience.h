@@ -16,7 +16,7 @@ enum class SafetyCheckItemType;
 - (void)viewWillDisappear;
 
 // Notifies the audience to present the Set Up List Show More Menu.
-- (void)showSetUpListShowMoreMenu;
+- (void)showSetUpListSeeMoreMenu;
 
 // Notifies the audience that the module of `type` should be never shown
 // anymore.
@@ -35,6 +35,9 @@ enum class SafetyCheckItemType;
 
 // Notifies the audience to show the list of parcels.
 - (void)showMagicStackParcelList;
+
+// Notifies the audience to show the recent tabs panel.
+- (void)showMagicStackRecentTabs;
 
 // Called when a Safety Check item is selected by the user.
 - (void)didSelectSafetyCheckItem:(SafetyCheckItemType)type;

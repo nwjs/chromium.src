@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/renderer/pepper/pepper_plugin_instance_impl.h"
 
 #include <utility>
@@ -350,7 +355,7 @@ void PrintPDFOutput(PP_Resource print_output,
 
   BufferAutoMapper mapper(enter.object());
   if (!mapper.data() || !mapper.size()) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -485,7 +490,7 @@ void PepperPluginInstanceImpl::GamepadImpl::Sample(
     PP_Instance instance,
     PP_GamepadsSampleData* data) {
   // This gamepad singleton resource method should not be called
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 PepperPluginInstanceImpl::PepperPluginInstanceImpl(
@@ -1113,7 +1118,7 @@ void PepperPluginInstanceImpl::HandleMessage(ScopedPPVar message) {
   if (!dispatcher || (message.get().type == PP_VARTYPE_OBJECT)) {
     // The dispatcher should always be valid, and MessageChannel should never
     // send an 'object' var over PPP_Messaging.
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
   dispatcher->Send(new PpapiMsg_PPPMessaging_HandleMessage(
@@ -1133,7 +1138,7 @@ bool PepperPluginInstanceImpl::HandleBlockingMessage(ScopedPPVar message,
   if (!dispatcher || (message.get().type == PP_VARTYPE_OBJECT)) {
     // The dispatcher should always be valid, and MessageChannel should never
     // send an 'object' var over PPP_Messaging.
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return false;
   }
   ppapi::proxy::ReceiveSerializedVarReturnValue msg_reply;
@@ -1604,7 +1609,7 @@ int PepperPluginInstanceImpl::PrintBegin(const WebPrintParams& print_params) {
   if (!GetPreferredPrintOutputFormat(&format, print_params)) {
     // PrintBegin should not have been called since SupportsPrintInterface
     // would have returned false;
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return 0;
   }
 
@@ -1848,7 +1853,7 @@ void PepperPluginInstanceImpl::SimulateInputEvent(
   WebWidget* widget =
       container()->GetDocument().GetFrame()->LocalRoot()->FrameWidget();
   if (!widget) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -2143,7 +2148,7 @@ ppapi::Resource* PepperPluginInstanceImpl::GetSingletonResource(
     }
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 

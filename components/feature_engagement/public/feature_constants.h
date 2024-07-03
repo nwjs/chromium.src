@@ -52,6 +52,7 @@ BASE_DECLARE_FEATURE(kIPHPasswordsManagementBubbleDuringSigninFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordsWebAppProfileSwitchFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordManagerShortcutFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordSharingFeature);
+BASE_DECLARE_FEATURE(kIPHPerformanceInterventionDialogFeature);
 BASE_DECLARE_FEATURE(kIPHPowerBookmarksSidePanelFeature);
 BASE_DECLARE_FEATURE(kIPHPriceInsightsPageActionIconLabelFeature);
 BASE_DECLARE_FEATURE(kIPHPriceTrackingEmailConsentFeature);
@@ -68,6 +69,8 @@ BASE_DECLARE_FEATURE(kIPHSidePanelLensOverlayPinnableFollowupFeature);
 BASE_DECLARE_FEATURE(kIPHSideSearchAutoTriggeringFeature);
 BASE_DECLARE_FEATURE(kIPHSideSearchPageActionLabelFeature);
 BASE_DECLARE_FEATURE(kIPHSignoutWebInterceptFeature);
+BASE_DECLARE_FEATURE(kIPHTabGroupsSaveV2IntroFeature);
+BASE_DECLARE_FEATURE(kIPHTabGroupsSaveV2CloseGroupFeature);
 BASE_DECLARE_FEATURE(kIPHTabOrganizationSuccessFeature);
 BASE_DECLARE_FEATURE(kIPHTabSearchFeature);
 BASE_DECLARE_FEATURE(kIPHTrackingProtectionOffboardingFeature);
@@ -151,8 +154,11 @@ BASE_DECLARE_FEATURE(kIPHShoppingListMenuItemFeature);
 BASE_DECLARE_FEATURE(kIPHShoppingListSaveFlowFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsQuicklyComparePagesFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsTapToSeeAnotherTabFeature);
+BASE_DECLARE_FEATURE(kIPHTabGroupSyncOnStripFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsYourTabsAreTogetherFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsDragAndDropFeature);
+BASE_DECLARE_FEATURE(kIPHTabGroupsSurfaceFeature);
+BASE_DECLARE_FEATURE(kIPHTabGroupsSurfaceOnHideFeature);
 BASE_DECLARE_FEATURE(kIPHTabSwitcherButtonFeature);
 BASE_DECLARE_FEATURE(kIPHTranslateMenuButtonFeature);
 BASE_DECLARE_FEATURE(kIPHVideoTutorialNTPChromeIntroFeature);
@@ -224,6 +230,7 @@ BASE_DECLARE_FEATURE(kIPHiOSPromoGenericDefaultBrowserFeature);
 BASE_DECLARE_FEATURE(kIPHiOSOverflowMenuCustomizationFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPageInfoRevampFeature);
 BASE_DECLARE_FEATURE(kIPHiOSInlineEnhancedSafeBrowsingPromoFeature);
+BASE_DECLARE_FEATURE(kIPHiOSSavedTabGroupClosed);
 
 // A feature flag to enable and parametrize the sliding window of time for a
 // user's eligibility to be shown a default browser promo. This is not an FET
@@ -307,6 +314,8 @@ BASE_DECLARE_FEATURE(kIPHDesktopPWAsLinkCapturingLaunch);
 
 #if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 BASE_DECLARE_FEATURE(kIPHiOSPasswordPromoDesktopFeature);
+BASE_DECLARE_FEATURE(kIPHiOSAddressPromoDesktopFeature);
+BASE_DECLARE_FEATURE(kIPHiOSPaymentPromoDesktopFeature);
 #endif  // !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 }  // namespace feature_engagement

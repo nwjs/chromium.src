@@ -23,7 +23,6 @@
 #include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/v4_update_protocol_manager.h"
 #include "components/safe_browsing/core/common/proto/webui.pb.h"
-#include "services/network/public/mojom/fetch_api.mojom.h"
 #include "url/gurl.h"
 
 namespace safe_browsing {
@@ -64,8 +63,6 @@ class V4LocalDatabaseManager : public SafeBrowsingDatabaseManager {
   //
 
   void CancelCheck(Client* client) override;
-  bool CanCheckRequestDestination(
-      network::mojom::RequestDestination request_destination) const override;
   bool CanCheckUrl(const GURL& url) const override;
   bool CheckBrowseUrl(
       const GURL& url,
@@ -82,9 +79,9 @@ class V4LocalDatabaseManager : public SafeBrowsingDatabaseManager {
   bool CheckExtensionIDs(const std::set<FullHashStr>& extension_ids,
                          Client* client) override;
   bool CheckResourceUrl(const GURL& url, Client* client) override;
-  void CheckUrlForHighConfidenceAllowlist(
+  std::optional<HighConfidenceAllowlistCheckLoggingDetails>
+  CheckUrlForHighConfidenceAllowlist(
       const GURL& url,
-      const std::string& metric_variation,
       base::OnceCallback<void(bool)> callback) override;
   bool CheckUrlForSubresourceFilter(const GURL& url, Client* client) override;
   void MatchDownloadAllowlistUrl(
@@ -239,10 +236,13 @@ class V4LocalDatabaseManager : public SafeBrowsingDatabaseManager {
   typedef std::unordered_set<raw_ptr<PendingCheck, CtnExperimental>>
       PendingChecks;
 
-  // Called when all the stores managed by the database have been read from
-  // disk after startup and the database is ready for checking resource
-  // reputation.
+  // Called when all the stores managed by the database have been read
+  // from disk after startup and the database is ready for checking
+  // resource reputation. `start_time` represents when we started
+  // initializing the database. It is provided when this is bound as a
+  // callback, so we can measure end-to-end initialization time.
   void DatabaseReadyForChecks(
+      base::Time start_time,
       std::unique_ptr<V4Database, base::OnTaskRunnerDeleter> v4_database);
 
   // Called when all the stores managed by the database have been verified for

@@ -96,9 +96,6 @@ END_METADATA
 
 }  // namespace
 
-// Padding between child views.
-static constexpr int kChildXPadding = 8;
-
 // MenuItemView ---------------------------------------------------------------
 
 MenuItemView::MenuItemView(MenuDelegate* delegate)
@@ -756,7 +753,7 @@ void MenuItemView::Layout(PassKey) {
         continue;
       int width = child->GetPreferredSize({}).width();
       child->SetBounds(child_end - width, 0, width, height());
-      child_end -= width + kChildXPadding;
+      child_end -= width + kChildHorizontalPadding;
     }
 
     // Position the icons.
@@ -1190,7 +1187,7 @@ MenuItemView::Colors MenuItemView::CalculateColors(
 }
 
 std::u16string MenuItemView::CalculateAccessibleName() const {
-  std::u16string item_text = View::GetAccessibleName();
+  std::u16string item_text = View::GetViewAccessibility().GetCachedName();
   if (!item_text.empty())
     return item_text;
 
@@ -1231,7 +1228,7 @@ gfx::Size MenuItemView::GetChildPreferredSize() const {
         child == submenu_arrow_image_view_ || child == vertical_separator_)
       return width;
     if (width)
-      width += kChildXPadding;
+      width += kChildHorizontalPadding;
     return width + child->GetPreferredSize({}).width();
   };
   const int width =
@@ -1443,10 +1440,7 @@ void MenuItemView::UpdateSelectionBasedState(bool paint_as_selected) {
   const Colors colors = CalculateColors(paint_as_selected);
   if (submenu_arrow_image_view_) {
     submenu_arrow_image_view_->SetImage(ui::ImageModel::FromVectorIcon(
-        features::IsChromeRefresh2023()
-            ? vector_icons::kSubmenuArrowChromeRefreshIcon
-            : vector_icons::kSubmenuArrowIcon,
-        colors.icon_color));
+        vector_icons::kSubmenuArrowChromeRefreshIcon, colors.icon_color));
   }
   MenuDelegate* delegate = GetDelegate();
   if (type_ == Type::kCheckbox && delegate &&

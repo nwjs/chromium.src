@@ -19,7 +19,7 @@ stable::mojom::VideoFramePtr MediaVideoFrameToMojoVideoFrame(
   CHECK(!media_frame->metadata().end_of_stream);
   CHECK_EQ(media_frame->storage_type(),
            media::VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
-  CHECK(media_frame->HasGpuMemoryBuffer());
+  CHECK(media_frame->HasMappableGpuBuffer());
 
   stable::mojom::VideoFramePtr mojo_frame = stable::mojom::VideoFrame::New();
   CHECK(mojo_frame);
@@ -328,7 +328,7 @@ void StableVideoDecoderService::OnWaiting(WaitingReason reason) {
 void StableVideoDecoderService::RequestOverlayInfo(
     bool restart_for_transitions) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void StableVideoDecoderService::AddLogRecord(const MediaLogRecord& event) {

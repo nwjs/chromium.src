@@ -41,6 +41,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/clipboard/clipboard_metrics.h"
+#include "ui/base/clipboard/clipboard_monitor.h"
 #include "ui/base/clipboard/clipboard_util.h"
 #include "ui/base/clipboard/clipboard_util_win.h"
 #include "ui/base/clipboard/custom_data_helper.h"
@@ -85,7 +86,7 @@ class ScopedClipboard {
     const int kMaxAttemptsToOpenClipboard = 5;
 
     if (opened_) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
     }
 
@@ -127,7 +128,7 @@ class ScopedClipboard {
       ::CloseClipboard();
       opened_ = false;
     } else {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
     }
   }
 
@@ -304,11 +305,17 @@ bool ClipboardWin::IsFormatAvailable(
 
 void ClipboardWin::Clear(ClipboardBuffer buffer) {
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
-  ScopedClipboard clipboard;
-  if (!clipboard.Acquire(GetClipboardWindow()))
-    return;
+  {
+    ScopedClipboard clipboard;
+    if (!clipboard.Acquire(GetClipboardWindow())) {
+      return;
+    }
 
-  ::EmptyClipboard();
+    ::EmptyClipboard();
+  }
+  // This call must happen after `clipboard`'s destructor so that observers are
+  // notified after the seqno has changed.
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataChanged();
 }
 
 std::vector<std::u16string> ClipboardWin::GetStandardFormats(
@@ -373,7 +380,7 @@ void ClipboardWin::ReadText(ClipboardBuffer buffer,
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
   RecordRead(ClipboardFormatMetric::kText);
   if (!result) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -402,7 +409,7 @@ void ClipboardWin::ReadAsciiText(ClipboardBuffer buffer,
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
   RecordRead(ClipboardFormatMetric::kText);
   if (!result) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -667,7 +674,7 @@ void ClipboardWin::ReadData(const ClipboardFormatType& format,
                             std::string* result) const {
   RecordRead(ClipboardFormatMetric::kData);
   if (!result) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -690,32 +697,39 @@ void ClipboardWin::WritePortableAndPlatformRepresentations(
     std::vector<Clipboard::PlatformRepresentation> platform_representations,
     std::unique_ptr<DataTransferEndpoint> data_src,
     uint32_t privacy_types) {
-  ScopedClipboard clipboard;
-  if (!clipboard.Acquire(GetClipboardWindow()))
-    return;
-  ::EmptyClipboard();
-
-  DispatchPlatformRepresentations(std::move(platform_representations));
-  for (const auto& object : objects)
-    DispatchPortableRepresentation(object.second);
-
-  if (data_src && data_src->IsUrlType()) {
-    HGLOBAL glob = CreateGlobalData(data_src->GetURL()->spec());
-    WriteToClipboard(ClipboardFormatType::InternalSourceUrlType(), glob);
-  }
-  // Write privacy data if there is any.
-  // On Windows, there is no special format to conceal passwords, but
-  // don't save it in the history or cloud clipboard for privacy reasons.
-  if (privacy_types & Clipboard::PrivacyTypes::kNoDisplay) {
-    WriteConfidentialDataForPassword();
-  } else {
-    if (privacy_types & Clipboard::PrivacyTypes::kNoLocalClipboardHistory) {
-      WriteClipboardHistory();
+  {
+    ScopedClipboard clipboard;
+    if (!clipboard.Acquire(GetClipboardWindow())) {
+      return;
     }
-    if (privacy_types & Clipboard::PrivacyTypes::kNoCloudClipboard) {
-      WriteUploadCloudClipboard();
+    ::EmptyClipboard();
+
+    DispatchPlatformRepresentations(std::move(platform_representations));
+    for (const auto& object : objects) {
+      DispatchPortableRepresentation(object.second);
+    }
+
+    if (data_src && data_src->IsUrlType()) {
+      HGLOBAL glob = CreateGlobalData(data_src->GetURL()->spec());
+      WriteToClipboard(ClipboardFormatType::InternalSourceUrlType(), glob);
+    }
+    // Write privacy data if there is any.
+    // On Windows, there is no special format to conceal passwords, but
+    // don't save it in the history or cloud clipboard for privacy reasons.
+    if (privacy_types & Clipboard::PrivacyTypes::kNoDisplay) {
+      WriteConfidentialDataForPassword();
+    } else {
+      if (privacy_types & Clipboard::PrivacyTypes::kNoLocalClipboardHistory) {
+        WriteClipboardHistory();
+      }
+      if (privacy_types & Clipboard::PrivacyTypes::kNoCloudClipboard) {
+        WriteUploadCloudClipboard();
+      }
     }
   }
+  // This call must happen after `clipboard`'s destructor so that observers are
+  // notified after the seqno has changed.
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataChanged();
 }
 
 void ClipboardWin::WriteText(std::string_view text) {
@@ -919,7 +933,7 @@ SkBitmap ClipboardWin::ReadBitmapInternal(ClipboardBuffer buffer) const {
     case 24:
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   const void* bitmap_bits = reinterpret_cast<const char*>(bitmap) +
                             bitmap->bmiHeader.biSize +

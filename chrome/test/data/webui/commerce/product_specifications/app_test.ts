@@ -6,13 +6,14 @@ import 'chrome://compare/app.js';
 
 import type {ProductSpecificationsElement} from 'chrome://compare/app.js';
 import {Router} from 'chrome://compare/router.js';
-import type {ProductInfo, ProductSpecifications, ProductSpecificationsProduct, ProductSpecificationsSet} from 'chrome://compare/shopping_service.mojom-webui.js';
+import type {ProductInfo, ProductSpecifications, ProductSpecificationsProduct, ProductSpecificationsSet, ProductSpecificationsValue} from 'chrome://compare/shopping_service.mojom-webui.js';
 import {BrowserProxyImpl} from 'chrome://resources/cr_components/commerce/browser_proxy.js';
 import {PageCallbackRouter} from 'chrome://resources/cr_components/commerce/shopping_service.mojom-webui.js';
 import {stringToMojoUrl} from 'chrome://resources/js/mojo_type_util.js';
-import {assertArrayEquals, assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertArrayEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
+import {isVisible} from 'chrome://webui-test/test_util.js';
 
 import {$$, assertNotStyle, assertStyle} from './test_support.js';
 
@@ -37,6 +38,7 @@ function createSpecsProduct(overrides?: Partial<ProductSpecificationsProduct>):
       {
         productClusterId: BigInt(0),
         title: '',
+        productUrl: {url: ''},
         imageUrl: {url: ''},
         productDimensionValues: new Map<bigint, string[]>(),
         summary: '',
@@ -250,9 +252,29 @@ suite('AppTest', () => {
 
   test('populates specs table', async () => {
     const rowTitle = 'foo';
-    const dimensionValues = ['bar', 'baz'];
-    const dimensionValuesMap = new Map<bigint, string[]>(
-        [[BigInt(2), dimensionValues], [BigInt(0), []]]);
+    const dimensionValues = {
+      summary: [{text: 'summary', url: {url: ''}}],
+      specificationDescriptions: [
+        {
+          label: '',
+          altText: '',
+          options: [
+            {
+              descriptions: [
+                {text: 'bar', url: {url: ''}},
+                {
+                  text: 'baz',
+                  url: {url: ''},
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const emptyValue = {summary: [], specificationDescriptions: []};
+    const dimensionValuesMap = new Map<bigint, ProductSpecificationsValue>(
+        [[BigInt(2), dimensionValues], [BigInt(0), emptyValue]]);
     const specsProduct1 = createSpecsProduct({
       productClusterId: BigInt(123),
       title: 'qux',
@@ -261,11 +283,13 @@ suite('AppTest', () => {
     const info1 = createInfo({
       clusterId: BigInt(123),
       title: 'qux',
+      productUrl: {url: 'https://example.com/'},
       imageUrl: {url: 'qux.com/image'},
     });
     const info2 = createInfo({
       clusterId: BigInt(231),
       title: 'foobar',
+      productUrl: {url: 'https://example2.com/'},
       imageUrl: {url: 'foobar.com/image'},
     });
 
@@ -278,6 +302,7 @@ suite('AppTest', () => {
       infos: [info1, info2, createInfo({clusterId: BigInt(0)})],
     });
     createAppElementWithPromiseValues(promiseValues);
+    appElement.resetMinLoadingAnimationMsForTesting();
     await flushTasks();
 
     const columns = appElement.$.summaryTable.columns;
@@ -287,14 +312,14 @@ suite('AppTest', () => {
           {
             selectedItem: {
               title: specsProduct1.title,
-              url: 'https://example.com',
+              url: 'https://example.com/',
               imageUrl: info1.imageUrl.url,
             },
           },
           {
             selectedItem: {
               title: '',
-              url: 'https://example.com',
+              url: 'https://example2.com/',
               imageUrl: info2.imageUrl.url,
             },
           },
@@ -305,7 +330,103 @@ suite('AppTest', () => {
     const rows = appElement.$.summaryTable.rows;
     assertEquals(1, rows.length);
     assertArrayEquals(
-        [{title: rowTitle, values: [dimensionValues.join(',')]}], rows);
+        [{title: rowTitle, descriptions: ['bar, baz'], summaries: ['summary']}],
+        rows);
+  });
+
+  test('populates specs table, no summary', async () => {
+    const rowTitle = 'foo';
+    const dimensionValues = {
+      summary: [],
+      specificationDescriptions: [
+        {
+          label: '',
+          altText: '',
+          options: [
+            {
+              descriptions: [
+                {
+                  text: 'bar',
+                  url: {url: ''},
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const dimensionValuesMap = new Map<bigint, ProductSpecificationsValue>(
+        [[BigInt(2), dimensionValues]]);
+    const specsProduct1 = createSpecsProduct({
+      productClusterId: BigInt(123),
+      title: 'qux',
+      productDimensionValues: dimensionValuesMap,
+    });
+    const info1 = createInfo({
+      clusterId: BigInt(123),
+      title: 'qux',
+      productUrl: {url: 'https://example.com/'},
+      imageUrl: {url: 'qux.com/image'},
+    });
+
+    const promiseValues = createAppPromiseValues({
+      urlsParam: ['https://example.com/'],
+      specs: createSpecs({
+        productDimensionMap: new Map<bigint, string>([[BigInt(2), rowTitle]]),
+        products: [specsProduct1],
+      }),
+      infos: [info1],
+    });
+    createAppElementWithPromiseValues(promiseValues);
+    appElement.resetMinLoadingAnimationMsForTesting();
+    await flushTasks();
+
+    const columns = appElement.$.summaryTable.columns;
+    assertEquals(1, columns.length);
+    assertArrayEquals(
+        [
+          {
+            selectedItem: {
+              title: specsProduct1.title,
+              url: 'https://example.com/',
+              imageUrl: info1.imageUrl.url,
+            },
+          },
+        ],
+        columns);
+
+    const rows = appElement.$.summaryTable.rows;
+    assertEquals(1, rows.length);
+    assertArrayEquals(
+        [{title: rowTitle, descriptions: ['bar'], summaries: ['']}], rows);
+  });
+
+  test('shows full table loading state', async () => {
+    const minLoadingAnimationMs = 10;
+    const promiseValues = createAppPromiseValues({
+      urlsParam: ['https://example.com/'],
+    });
+    createAppElementWithPromiseValues(promiseValues);
+    appElement.resetMinLoadingAnimationMsForTesting(minLoadingAnimationMs);
+    await flushTasks();
+
+    assertTrue(isVisible(appElement.$.loading));
+    assertFalse(isVisible(appElement.$.summaryTable));
+
+    // Wait for the loading animation to finish.
+    await new Promise(res => setTimeout(res, minLoadingAnimationMs));
+
+    assertFalse(isVisible(appElement.$.loading));
+  });
+
+  test('disables menu button while loading', async () => {
+    const promiseValues = createAppPromiseValues({
+      urlsParam: ['https://example.com/'],
+    });
+    createAppElementWithPromiseValues(promiseValues);
+    await flushTasks();
+
+    assertTrue(appElement.$.header.$.menuButton.disabled);
   });
 
   test('updates on selection change', async () => {
@@ -322,7 +443,7 @@ suite('AppTest', () => {
     const table =
         appElement.shadowRoot!.querySelector('product-specifications-table');
     assertTrue(!!table);
-    const newUrl = 'https://example3.com';
+    const newUrl = 'https://example3.com/';
     table.dispatchEvent(new CustomEvent('url-change', {
       detail: {
         url: newUrl,
@@ -335,6 +456,79 @@ suite('AppTest', () => {
     assertArrayEquals(
         [{url: newUrl}],
         shoppingServiceApi.getArgs('getProductSpecificationsForUrls')[1]);
+  });
+
+  test('updates on removal', async () => {
+    const urlsParam = ['https://example.com/'];
+    const promiseValues = createAppPromiseValues({urlsParam: urlsParam});
+    await createAppElementWithPromiseValues(promiseValues);
+
+    assertEquals(
+        1, shoppingServiceApi.getCallCount('getProductSpecificationsForUrls'));
+    assertEquals(1, shoppingServiceApi.getCallCount('getProductInfoForUrl'));
+    assertArrayEquals(
+        urlsParam.map(url => ({url})),
+        shoppingServiceApi.getArgs('getProductSpecificationsForUrls')[0]);
+
+    const table =
+        appElement.shadowRoot!.querySelector('product-specifications-table');
+    assertTrue(!!table);
+    table.dispatchEvent(new CustomEvent('url-remove', {
+      detail: {
+        index: 0,
+      },
+    }));
+
+    // Should not get called on an empty url list
+    assertEquals(
+        1, shoppingServiceApi.getCallCount('getProductSpecificationsForUrls'));
+    assertEquals(1, shoppingServiceApi.getCallCount('getProductInfoForUrl'));
+    assertEquals(0, table.columns.length);
+  });
+
+  test('deletes product specification set', async () => {
+    const urlsParam = ['https://example.com/'];
+    const promiseValues = createAppPromiseValues(
+        {urlsParam: urlsParam, specsSet: createSpecsSet()});
+    await createAppElementWithPromiseValues(promiseValues);
+
+    const uuid =
+        shoppingServiceApi.getArgs('addProductSpecificationsSet')[0][2];
+    const header =
+        appElement.shadowRoot!.querySelector('product-specifications-header');
+    assertTrue(!!header);
+    header.dispatchEvent(new CustomEvent('delete-click'));
+
+    assertEquals(
+        1, shoppingServiceApi.getCallCount('deleteProductSpecificationsSet'));
+    assertEquals(
+        uuid, shoppingServiceApi.getArgs('deleteProductSpecificationsSet')[1]);
+  });
+
+  test('renames product specification set', async () => {
+    const urlsParam = ['https://example.com/'];
+    const promiseValues = createAppPromiseValues(
+        {urlsParam: urlsParam, specsSet: createSpecsSet()});
+    await createAppElementWithPromiseValues(promiseValues);
+
+    const uuid =
+        shoppingServiceApi.getArgs('addProductSpecificationsSet')[0][2];
+    const header =
+        appElement.shadowRoot!.querySelector('product-specifications-header');
+    assertTrue(!!header);
+    const newName = 'new name';
+    header.dispatchEvent(
+        new CustomEvent('name-change', {detail: {name: newName}}));
+
+    assertEquals(
+        1,
+        shoppingServiceApi.getCallCount('setNameForProductSpecificationsSet'));
+    assertEquals(
+        uuid,
+        shoppingServiceApi.getArgs('setNameForProductSpecificationsSet')[1]);
+    assertEquals(
+        newName,
+        shoppingServiceApi.getArgs('setNameForProductSpecificationsSet')[0][1]);
   });
 
   suite('Header', () => {
@@ -395,7 +589,7 @@ suite('AppTest', () => {
     });
 
     test('hides empty state after product selection', async () => {
-      const url = 'https://example.com';
+      const url = 'https://example.com/';
       const openTabs = [{
         title: 'title',
         url: stringToMojoUrl(url),
@@ -406,9 +600,13 @@ suite('AppTest', () => {
           'getUrlInfosForRecentlyViewedTabs', Promise.resolve({urlInfos: []}));
       const promiseValues = createAppPromiseValues({
         urlsParam: [],
-        infos: [createInfo({clusterId: BigInt(123)})],
+        infos: [createInfo({
+          clusterId: BigInt(123),
+          productUrl: {url: 'https://example.com/'},
+        })],
       });
       createAppElementWithPromiseValues(promiseValues);
+      appElement.resetMinLoadingAnimationMsForTesting();
 
       assertEquals(0, appElement.$.summaryTable.columns.length);
 

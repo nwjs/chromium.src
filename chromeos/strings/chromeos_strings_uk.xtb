@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">пастельно-жовтий</translation>
 <translation id="1056898198331236512">Застереження</translation>
 <translation id="1059913517121127803">Не вдається почати сканування</translation>
+<translation id="1061864016440983342">Використовувати без геоданих</translation>
 <translation id="1062823486781306604"><ph name="NAME" /> (<ph name="INDEX" /> з <ph name="COUNT" />).</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">виявлено брандмауер</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Інші налаштування</translation>
 <translation id="2082932131694554252">Призначена клавіша</translation>
 <translation id="2085089206770112532">Зменшити яскравість екрана</translation>
+<translation id="2086091080968010660">Зміни на основі часу можуть бути неточними. Увімкніть доступ до геоданих системи в налаштуваннях.</translation>
 <translation id="2102231663024125441">Редагування тексту</translation>
 <translation id="2105810540595158374">Це ігровий контролер.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, версія <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Змінити відомості про APN</translation>
 <translation id="2195732836444333448">Бракує ресурсів. Спробуйте пізніше.</translation>
 <translation id="2201758491318984023">Велосипед</translation>
-<translation id="2203222757805818543">Поточний розклад: <ph name="SUNRISE" /> – <ph name="SUNSET" />. Щоб автоматично оновлювати розклад для темного режиму, <ph name="BEGIN_LINK" />увімкніть доступ до геоданих<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">термальне джерело</translation>
 <translation id="2203642483788377106">скеля</translation>
 <translation id="2208388655216963643">імпресіонізм</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Відновити налаштування за умовчанням</translation>
 <translation id="2286454467119466181">Простий</translation>
 <translation id="2287186687001756809">Немає зображень. Щоб додати фото, перейдіть на сторінку <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Поточний розклад: з <ph name="SUNRISE" /> до <ph name="SUNSET" />. Щоб автоматично оновлювати розклад сходу й заходу сонця, увімкніть доступ до геоданих системи.</translation>
 <translation id="2305172810646967500">чорний</translation>
 <translation id="2307344026739914387">Використовувати поточну пару ключів</translation>
 <translation id="2308243864813041101">Щоб продовжити оновлення, від’єднайте кабель USB від пристрою <ph name="DEVICE_NAME" /></translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">піщана дюна</translation>
 <translation id="2619761439309613843">Щоденне оновлення</translation>
 <translation id="2620436844016719705">Система</translation>
+<translation id="2637303424821734920">ВИМКНЕНО. Щоб бачити інформацію про погоду у своїй місцевості, <ph name="BEGIN_LINK" />увімкніть доступ до геоданих системи<ph name="END_LINK" />.</translation>
 <translation id="2638662041295312666">Зображення облікового запису</translation>
 <translation id="2640549051766135490">Вибрано альбом "<ph name="TITLE" />" з описом "<ph name="DESC" />"</translation>
 <translation id="2645380101799517405">Елементи керування</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Фон</translation>
 <translation id="3027578600144895987">Закрити камеру</translation>
 <translation id="3031560714565892478">Це відеокамера.</translation>
+<translation id="3051968340259309715">Системні сервіси зможуть використовувати точну геолокацію, щоб визначати ваше місцезнаходження. Для визначення місцеположення пристрою використовується інформації про такі бездротові сигнали, як точки доступу Wi-Fi, вежі мобільних мереж і GPS, а також дані датчиків пристрою (наприклад, акселерометра й гіроскопа). Доступ до геоданих можна вимкнути в розділі "Налаштування" &gt; "Конфіденційність і безпека" &gt; "Налаштування конфіденційності" &gt; "Доступ до геоданих". <ph name="LINK_BEGIN" />Докладніше<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> мА</translation>
 <translation id="3056720590588772262">Кінцева точка</translation>
 <translation id="3060579846059757016">Тези</translation>
+<translation id="3061850252076394168">увімкнути функцію "Читання з екрана"</translation>
 <translation id="3069085583900247081">Перевірку не пройдено</translation>
 <translation id="3078740164268491126">таблиця</translation>
 <translation id="3081652522083185657">світлій</translation>
@@ -537,7 +542,7 @@
 <translation id="4091002263446255071">Романтичне</translation>
 <translation id="4093865285251893588">Зображення профілю</translation>
 <translation id="409427325554347132">Зберегти дані перевірки</translation>
-<translation id="409469431304488632">Експериментальна функція</translation>
+<translation id="409469431304488632">Експеримент</translation>
 <translation id="4095829376260267438">WPA2/WPA3</translation>
 <translation id="4110686435123617899">Вибрати альбом "<ph name="TITLE" />" з описом "<ph name="DESC" />"</translation>
 <translation id="4111761024568264522">Сенсорна панель USB</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Не вдалося розпізнати всі хости</translation>
 <translation id="4593212453765072419">Потрібна автентифікація проксі-сервера</translation>
 <translation id="4609350030397390689">Зменшити яскравість клавіатури</translation>
-<translation id="4617553623719764431">Погода не відображається, оскільки системі не вдалося визначити ваше місцезнаходження. Щоб переглянути інформацію про місцеву погоду, <ph name="BEGIN_LINK" />надайте доступ до геоданих<ph name="END_LINK" />.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> з <ph name="TOTAL_PAGE_NUMBER" />. Натисніть Enter, щоб скасувати завдання друку.</translation>
 <translation id="463791356324567266">Сканування скасовується…</translation>
 <translation id="4646949265910132906">Надійне з'єднання Wi-Fi</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Виконати</translation>
 <translation id="4987769320337599931">Брандмауер</translation>
 <translation id="4988526792673242964">Сторінки</translation>
+<translation id="4989542687859782284">Недоступні</translation>
 <translation id="4999333166442584738">Сховати звіт</translation>
 <translation id="500920857929044050">Зупинити перевірку</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">яскравість клавіатури</translation>
 <translation id="6412715219990689313">Вбудована клавіатура</translation>
 <translation id="6417265370957905582">Google Асистент</translation>
+<translation id="6419454453018688975">Надайте доступ до геоданих системи</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Завдяки цьому системні сервіси матимуть доступ до відомостей про ваше місцезнаходження. Для визначення геоданих вашого пристрою можуть слугувати дані Wi-Fi, мобільної мережі й датчиків. <ph name="LINK_BEGIN" />Докладніше<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Слабкий сигнал (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Перейти до налаштувань облікового запису</translation>
 <translation id="6462978824459367242">Кнопку "Додати APN" увімкнено</translation>

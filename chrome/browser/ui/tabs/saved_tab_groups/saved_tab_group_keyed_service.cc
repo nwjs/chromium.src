@@ -16,6 +16,7 @@
 #include "base/notreached.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/uuid.h"
 #include "chrome/browser/bookmarks/url_and_id.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/model_type_store_service_factory.h"
@@ -25,6 +26,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_model_listener.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_pref_names.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -34,6 +36,7 @@
 #include "components/saved_tab_groups/saved_tab_group_sync_bridge.h"
 #include "components/saved_tab_groups/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/stats.h"
+#include "components/saved_tab_groups/types.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/report_unrecoverable_error.h"
 #include "components/sync/model/client_tag_based_model_type_processor.h"
@@ -61,8 +64,12 @@ CreateChangeProcessor() {
 
 SavedTabGroupKeyedService::SavedTabGroupKeyedService(Profile* profile)
     : profile_(profile),
-      listener_(model(), profile),
-      bridge_(model(), GetStoreFactory(), CreateChangeProcessor()) {
+      listener_(this, profile),
+      bridge_(model(),
+              GetStoreFactory(),
+              CreateChangeProcessor(),
+              profile->GetPrefs(),
+              std::map<base::Uuid, LocalTabGroupID>()) {
   model()->AddObserver(this);
 
   metrics_timer_.Start(
@@ -99,30 +106,50 @@ SavedTabGroupKeyedService::GetSavedTabGroupControllerDelegate() {
   return bridge_.change_processor()->GetControllerDelegate();
 }
 
-void SavedTabGroupKeyedService::StoreLocalToSavedId(
+void SavedTabGroupKeyedService::ConnectRestoredGroupToSaveId(
     const base::Uuid& saved_guid,
     const tab_groups::TabGroupId local_group_id) {
-  // Avoid linking SavedTabGroups that are already open.
-  const SavedTabGroup* const group = model()->Get(saved_guid);
-  if (group && group->local_group_id().has_value()) {
-    return;
-  }
-
-  // If there is no saved group with guid `saved_guid`, the group must
-  // have been unsaved since this session closed.
-  if (model()->is_loaded() && !group) {
-    return;
-  }
-
-  // The model could already be loaded when restoring groups from a previously
-  // crashed session / window. This means we will have to manually trigger the
-  // local to saved group linking.
   if (model()->is_loaded()) {
+    const SavedTabGroup* const group = model()->Get(saved_guid);
+    // If there is no saved group with guid `saved_guid`, the group must
+    // have been unsaved since this session closed.
+    if (!group) {
+      return;
+    }
+
+    // Avoid linking SavedTabGroups that are already open.
+    if (group->local_group_id().has_value()) {
+      return;
+    }
+
     ConnectLocalTabGroup(local_group_id, saved_guid);
   } else {
-    saved_guid_to_local_group_id_mapping_.emplace_back(saved_guid,
-                                                       local_group_id);
+    restored_groups_to_connect_on_load_.emplace_back(saved_guid,
+                                                     local_group_id);
   }
+}
+
+void SavedTabGroupKeyedService::SaveRestoredGroup(
+    const tab_groups::TabGroupId& local_group_id) {
+  if (model()->is_loaded()) {
+    CHECK(!model()->Contains(local_group_id))
+        << "This group is somehow saved already when it shouldn't be.";
+    SaveGroup(local_group_id);
+  } else {
+    restored_groups_to_save_on_load_.emplace_back(local_group_id);
+  }
+}
+
+void SavedTabGroupKeyedService::UpdateAttributions(
+    const LocalTabGroupID& group_id,
+    const std::optional<LocalTabID>& tab_id) {
+  model_.UpdateLastUpdaterCacheGuidForGroup(bridge_.GetLocalCacheGuid(),
+                                            group_id, tab_id);
+}
+
+std::optional<std::string> SavedTabGroupKeyedService::GetLocalCacheGuid()
+    const {
+  return bridge_.GetLocalCacheGuid();
 }
 
 std::optional<tab_groups::TabGroupId>
@@ -221,9 +248,11 @@ base::Uuid SavedTabGroupKeyedService::SaveGroup(
   TabGroup* tab_group = tab_strip_model->group_model()->GetTabGroup(group_id);
   CHECK(tab_group);
 
-  SavedTabGroup saved_tab_group(tab_group->visual_data()->title(),
-                                tab_group->visual_data()->color(), {},
-                                std::nullopt, std::nullopt, tab_group->id());
+  SavedTabGroup saved_tab_group(
+      tab_group->visual_data()->title(), tab_group->visual_data()->color(), {},
+      std::nullopt, std::nullopt, tab_group->id(), bridge_.GetLocalCacheGuid(),
+      /*last_updater_cache_guid=*/std::nullopt,
+      /*created_before_syncing_tab_groups=*/!bridge_.IsSyncing());
   if (is_pinned) {
     saved_tab_group.SetPinned(true);
   }
@@ -337,13 +366,13 @@ void SavedTabGroupKeyedService::SavedTabGroupModelLoaded() {
   // TODO(b/333742126): Remove migration code in M135.
   PrefService* pref_service = profile()->GetPrefs();
   if (tab_groups::IsTabGroupsSaveUIUpdateEnabled() &&
-      !SavedTabGroupUtils::IsTabGroupSavesUIUpdateMigrated(pref_service)) {
+      !saved_tab_groups::prefs::IsTabGroupSavesUIUpdateMigrated(pref_service)) {
     model_.MigrateTabGroupSavesUIUpdate();
-    SavedTabGroupUtils::SetTabGroupSavesUIUpdateMigrated(pref_service);
+    saved_tab_groups::prefs::SetTabGroupSavesUIUpdateMigrated(pref_service);
   }
 
   for (const auto& [saved_guid, local_group_id] :
-       saved_guid_to_local_group_id_mapping_) {
+       restored_groups_to_connect_on_load_) {
     if (model()->is_loaded() && !model()->Contains(saved_guid)) {
       continue;
     }
@@ -351,14 +380,13 @@ void SavedTabGroupKeyedService::SavedTabGroupModelLoaded() {
     ConnectLocalTabGroup(local_group_id, saved_guid);
   }
 
-  // Clear `saved_guid_to_local_group_id_mapping_` to save space when finished.
-  //
-  // TODO(dljames): Investigate using a single use callback to connect local and
-  // saved groups together. There are crashes that occur when restarting the
-  // browser before the browser process completely shuts down. The callback will
-  // also remove the need of `saved_guid_to_local_group_id_mapping_`.
-  saved_guid_to_local_group_id_mapping_.clear();
-  CHECK(saved_guid_to_local_group_id_mapping_.empty());
+  for (const auto& local_group_id : restored_groups_to_save_on_load_) {
+    SaveGroup(local_group_id);
+  }
+
+  // Clear restored groups to connect and save now that we have processed them.
+  restored_groups_to_connect_on_load_.clear();
+  restored_groups_to_save_on_load_.clear();
 }
 
 void SavedTabGroupKeyedService::SavedTabGroupRemovedFromSync(

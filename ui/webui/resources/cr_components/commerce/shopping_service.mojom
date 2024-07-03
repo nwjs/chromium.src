@@ -25,9 +25,7 @@ struct ProductInfo {
   // Direct link to the product image.
   url.mojom.Url image_url;
 
-  // Direct link to the product page. Right now this is
-  // only used to fetch site favicon in case image_url
-  // is not available.
+  // Direct link to the product page.
   url.mojom.Url product_url;
 
   // Price as shown in the page. This should include
@@ -91,6 +89,38 @@ struct PriceInsightsInfo {
   string currency_code;
 };
 
+struct ProductSpecificationsDescriptionText {
+  // The actual text for the description.
+  string text;
+
+  // A context URL for the description if available.
+  url.mojom.Url url;
+};
+
+struct ProductSpecificationsOption {
+  // The descriptions for this particular option of a product.
+  array<ProductSpecificationsDescriptionText> descriptions;
+};
+
+struct ProductSpecificationsDescription {
+  // The possible options for a feature of a product.
+  array<ProductSpecificationsOption> options;
+
+  // The label for the contained description texts.
+  string label;
+
+  // Alternative text with additional context for this description.
+  string alt_text;
+};
+
+struct ProductSpecificationsValue {
+  // One or more descriptions about the feature being described by this value.
+  array<ProductSpecificationsDescription> specification_descriptions;
+
+  // Summaries describing the collective list of descriptions.
+  array<ProductSpecificationsDescriptionText> summary;
+};
+
 struct ProductSpecificationsProduct {
   // The GPC ID for this product.
   uint64 product_cluster_id;
@@ -102,10 +132,10 @@ struct ProductSpecificationsProduct {
   url.mojom.Url image_url;
 
   // A map of dimension IDs to the string value as it relates to this product.
-  map<uint64, array<string>> product_dimension_values;
+  map<uint64, ProductSpecificationsValue> product_dimension_values;
 
-  // A brief summary of the product.
-  string summary;
+  // A list of summaries about the product.
+  array<ProductSpecificationsDescriptionText> summary;
 };
 
 // This struct represents information acquired from the product specifications
@@ -201,8 +231,11 @@ interface ShoppingServiceHandler {
   // Sets the price tracking status of the current URL.
   SetPriceTrackingStatusForCurrentUrl(bool track);
 
-  // Open url in a new tab.
+  // Opens url in a new tab.
   OpenUrlInNewTab(url.mojom.Url url);
+
+  // Opens |url| in an existing or new tab.
+  SwitchToOrOpenTab(url.mojom.Url url);
 
   // Returns the name of the parent bookmark folder of the current URL. This
   // will only be called when the current page is bookmarked.
@@ -228,6 +261,16 @@ interface ShoppingServiceHandler {
 
   // Deletes a product specifications set given its UUID.
   DeleteProductSpecificationsSet(mojo_base.mojom.Uuid uuid);
+
+  // Set the name for a product specifications set associated with the provided
+  // Uuid. If no set with the provided Uuid exists, nullopt is returned.
+  SetNameForProductSpecificationsSet(mojo_base.mojom.Uuid uuid, string name)
+      => (ProductSpecificationsSet? updated_set);
+
+  // Set the URLs for a product specifications set associated with the provided
+  // Uuid. If no set with the provided Uuid exists, nullopt is returned.
+  SetUrlsForProductSpecificationsSet(mojo_base.mojom.Uuid uuid,
+      array<url.mojom.Url> urls) => (ProductSpecificationsSet? updated_set);
 };
 
 // WebUI-side handler for requests from the browser.

@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/debug/stack_trace.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/notreached.h"
@@ -38,6 +39,7 @@
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_node.h"
+#include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/ax_serializable_tree.h"
@@ -59,6 +61,10 @@ using read_anything::mojom::ReadAnythingThemePtr;
 namespace {
 
 constexpr char kUndeterminedLocale[] = "und";
+
+// The number of seconds to wait before distilling after a user has stopped
+// entering text into a richly editable text field.
+const double kPostInputDistillSeconds = 1.5;
 
 // The following methods convert v8::Value types to an AXTreeUpdate. This is not
 // a complete conversion (thus way gin::Converter<ui::AXTreeUpdate> is not used
@@ -378,7 +384,13 @@ ReadAnythingAppController* ReadAnythingAppController::Install(
 
 ReadAnythingAppController::ReadAnythingAppController(
     content::RenderFrame* render_frame)
-    : frame_token_(render_frame->GetWebFrame()->GetLocalFrameToken()) {
+    : content::RenderFrameObserver(render_frame),
+      post_user_entry_draw_timer_(
+          FROM_HERE,
+          base::Seconds(kPostInputDistillSeconds),
+          base::BindRepeating(&ReadAnythingAppController::Draw,
+                              base::Unretained(this),
+                              /* recompute_display_nodes= */ true)) {
   renderer_load_triggered_time_ms_ = base::TimeTicks::Now();
   distiller_ = std::make_unique<AXTreeDistiller>(
       base::BindRepeating(&ReadAnythingAppController::OnAXTreeDistilled,
@@ -393,15 +405,52 @@ ReadAnythingAppController::ReadAnythingAppController(
 ReadAnythingAppController::~ReadAnythingAppController() {
   RecordNumSelections();
   LogSpeechEventCounts();
+  // Stop the timer for base::unretained.
+  post_user_entry_draw_timer_.Stop();
+}
+
+void ReadAnythingAppController::OnDestruct() {
+  delete this;
+}
+
+void ReadAnythingAppController::OnNodeDataChanged(
+    ui::AXTree* tree,
+    const ui::AXNodeData& old_node_data,
+    const ui::AXNodeData& new_node_data) {
+  if (tree->GetAXTreeID() == model_.active_tree_id() &&
+      old_node_data.GetHtmlAttribute("aria-expanded") !=
+          new_node_data.GetHtmlAttribute("aria-expanded")) {
+    model_.set_last_expanded_node_id(new_node_data.id);
+  }
+}
+
+void ReadAnythingAppController::OnNodeWillBeDeleted(ui::AXTree* tree,
+                                                    ui::AXNode* node) {
+  ui::AXNodeID node_id = node->id();
+  if (model_.display_node_ids().contains(node_id)) {
+    displayed_nodes_pending_deletion_.insert(node_id);
+  }
+}
+
+void ReadAnythingAppController::OnNodeDeleted(ui::AXTree* tree,
+                                              ui::AXNodeID node_id) {
+  if (displayed_nodes_pending_deletion_.contains(node_id)) {
+    displayed_nodes_pending_deletion_.erase(node_id);
+    if (displayed_nodes_pending_deletion_.empty()) {
+      Draw(false);
+    }
+  }
 }
 
 void ReadAnythingAppController::AccessibilityEventReceived(
     const ui::AXTreeID& tree_id,
     const std::vector<ui::AXTreeUpdate>& updates,
     const std::vector<ui::AXEvent>& events) {
-  // This updates the model, which may require us to start distillation based on
-  // the `requires_distillation()` state below.
-  //
+  // We will need to observe the tree which is added only after the model
+  // processes an accessibility event. So check to see if the tree exists or not
+  // yet.
+  bool had_tree = model_.ContainsTree(tree_id);
+
   // Remove the const-ness of the data here so that subsequent methods can move
   // the data.
   model_.AccessibilityEventReceived(
@@ -413,11 +462,23 @@ void ReadAnythingAppController::AccessibilityEventReceived(
     return;
   }
 
+  // If the tree was added, start observing.
+  if (!had_tree && model_.ContainsTree(tree_id)) {
+    // Observe the tree.
+    ui::AXSerializableTree* tree = model_.GetTreeFromId(tree_id);
+    tree->AddObserver(this);
+  }
+
   if (model_.requires_distillation()) {
     Distill();
     if (model_.is_empty() && IsGoogleDocs() && model_.page_finished_loading()) {
       ExecuteJavaScript("chrome.readingMode.showEmpty();");
     }
+  }
+
+  if (model_.redraw_required()) {
+    model_.reset_redraw_required();
+    Draw(/* recompute_display_nodes= */ true);
   }
 
   if (model_.image_to_update_node_id() != ui::kInvalidAXNodeID) {
@@ -431,16 +492,19 @@ void ReadAnythingAppController::AccessibilityEventReceived(
   if (model_.requires_post_process_selection()) {
     PostProcessSelection();
   }
+
+  // If the user typed something, this value will be true and it will reset the
+  // timer to distill.
+  if (model_.reset_draw_timer()) {
+    post_user_entry_draw_timer_.Reset();
+    model_.set_reset_draw_timer(false);
+  }
 }
 
 void ReadAnythingAppController::ExecuteJavaScript(const std::string& script) {
-  content::RenderFrame* render_frame = GetRenderFrame();
-  if (!render_frame) {
-    return;
-  }
   // TODO(b/1266555): Use v8::Function rather than javascript. If possible,
   // replace this function call with firing an event.
-  render_frame->ExecuteJavaScript(base::ASCIIToUTF16(script));
+  render_frame()->ExecuteJavaScript(base::ASCIIToUTF16(script));
 }
 
 void ReadAnythingAppController::OnActiveAXTreeIDChanged(
@@ -451,6 +515,10 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
     return;
   }
   RecordNumSelections();
+
+  // Cancel any running draw timers.
+  post_user_entry_draw_timer_.Stop();
+
   model_.set_active_tree_id(tree_id);
   model_.set_ukm_source_id(ukm_source_id);
   model_.set_is_pdf(is_pdf);
@@ -473,14 +541,20 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
 }
 
 void ReadAnythingAppController::RecordNumSelections() {
-  ukm::builders::Accessibility_ReadAnything_EmptyState(
-      model_.ukm_source_id())
+  ukm::builders::Accessibility_ReadAnything_EmptyState(model_.ukm_source_id())
       .SetTotalNumSelections(model_.num_selections())
       .Record(ukm_recorder_.get());
   model_.set_num_selections(0);
 }
 
+void ReadAnythingAppController::OnRestartReadAloud() {
+  model_.ResetReadAloudState();
+}
+
 void ReadAnythingAppController::OnAXTreeDestroyed(const ui::AXTreeID& tree_id) {
+  // Cancel any running draw timers.
+  post_user_entry_draw_timer_.Stop();
+
   model_.OnAXTreeDestroyed(tree_id);
 }
 
@@ -551,17 +625,13 @@ void ReadAnythingAppController::OnAXTreeDistilled(
       !model_.ContainsTree(tree_id) || tree_id == ui::AXTreeIDUnknown()) {
     return;
   }
-  if (!model_.content_node_ids().empty()) {
-    // If there are content_node_ids, this means the AXTree was successfully
-    // distilled.
-    model_.ComputeDisplayNodeIdsForDistilledTree();
-  }
 
   // Draw the selection in the side panel (if one exists in the main panel).
   if (!PostProcessSelection()) {
     // If a draw did not occur, make sure to draw. This will happen if there is
     // no main content selection when the tree is distilled.
-    Draw();
+    bool should_recompute_display_nodes = !model_.content_node_ids().empty();
+    Draw(should_recompute_display_nodes);
   }
 
   if (model_.is_empty()) {
@@ -605,12 +675,14 @@ void ReadAnythingAppController::OnAXTreeDistilled(
 
 bool ReadAnythingAppController::PostProcessSelection() {
   bool did_draw = false;
+  // Note post `model_.PostProcessSelection` returns true if a draw is required.
   if (model_.PostProcessSelection()) {
     did_draw = true;
     // TODO(b/40927698): When Read Aloud is playing and content is selected
     // in the main panel, don't re-draw with the updated selection until
     // Read Aloud is paused.
-    Draw();
+    bool should_recompute_display_nodes = !model_.content_node_ids().empty();
+    Draw(should_recompute_display_nodes);
   }
   // Skip drawing the selection in the side panel if the selection originally
   // came from there.
@@ -621,7 +693,10 @@ bool ReadAnythingAppController::PostProcessSelection() {
   return did_draw;
 }
 
-void ReadAnythingAppController::Draw() {
+void ReadAnythingAppController::Draw(bool recompute_display_nodes) {
+  if (recompute_display_nodes) {
+    model_.ComputeDisplayNodeIdsForDistilledTree();
+  }
   // This call should check that the active tree isn't in an undistilled state
   // -- that is, it is awaiting distillation or never requested distillation.
   ExecuteJavaScript("chrome.readingMode.updateContent();");
@@ -636,6 +711,8 @@ void ReadAnythingAppController::DrawSelection() {
 void ReadAnythingAppController::OnThemeChanged(ReadAnythingThemePtr new_theme) {
   bool needs_redraw_for_links =
       model_.links_enabled() != new_theme->links_enabled;
+  bool needs_redraw_for_images =
+      model_.images_enabled() != new_theme->images_enabled;
   model_.OnThemeChanged(std::move(new_theme));
   ExecuteJavaScript("chrome.readingMode.updateTheme();");
 
@@ -643,6 +720,11 @@ void ReadAnythingAppController::OnThemeChanged(ReadAnythingThemePtr new_theme) {
   if (needs_redraw_for_links &&
       model_.active_tree_id() != ui::AXTreeIDUnknown()) {
     ExecuteJavaScript("chrome.readingMode.updateLinks();");
+  }
+
+  if (needs_redraw_for_images &&
+      model_.active_tree_id() != ui::AXTreeIDUnknown()) {
+    ExecuteJavaScript("chrome.readingMode.updateImages();");
   }
 }
 
@@ -652,16 +734,17 @@ void ReadAnythingAppController::OnSettingsRestoredFromPrefs(
     const std::string& font,
     double font_size,
     bool links_enabled,
+    bool images_enabled,
     read_anything::mojom::Colors color,
     double speech_rate,
     base::Value::Dict voices,
     base::Value::List languages_enabled_in_pref,
     read_anything::mojom::HighlightGranularity granularity) {
   bool needs_redraw_for_links = model_.links_enabled() != links_enabled;
-  model_.OnSettingsRestoredFromPrefs(
-      line_spacing, letter_spacing, font, font_size, links_enabled, color,
-      speech_rate, &voices,
-      &languages_enabled_in_pref, granularity);
+  model_.OnSettingsRestoredFromPrefs(line_spacing, letter_spacing, font,
+                                     font_size, links_enabled, images_enabled,
+                                     color, speech_rate, &voices,
+                                     &languages_enabled_in_pref, granularity);
   ExecuteJavaScript("chrome.readingMode.restoreSettingsFromPrefs();");
   // Only redraw if there is an active tree.
   if (needs_redraw_for_links &&
@@ -671,7 +754,7 @@ void ReadAnythingAppController::OnSettingsRestoredFromPrefs(
 }
 
 void ReadAnythingAppController::ScreenAIServiceReady() {
-  distiller_->ScreenAIServiceReady(GetRenderFrame());
+  distiller_->ScreenAIServiceReady(render_frame());
 }
 
 gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
@@ -688,6 +771,10 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetProperty("fontName", &ReadAnythingAppController::FontName)
       .SetProperty("fontSize", &ReadAnythingAppController::FontSize)
       .SetProperty("linksEnabled", &ReadAnythingAppController::LinksEnabled)
+      .SetProperty("imagesEnabled", &ReadAnythingAppController::ImagesEnabled)
+
+      .SetProperty("imagesFeatureEnabled",
+                   &ReadAnythingAppController::ImagesFeatureEnabled)
       .SetProperty("foregroundColor",
                    &ReadAnythingAppController::ForegroundColor)
       .SetProperty("letterSpacing", &ReadAnythingAppController::LetterSpacing)
@@ -752,6 +839,8 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetMethod("onFontSizeReset", &ReadAnythingAppController::OnFontSizeReset)
       .SetMethod("onLinksEnabledToggled",
                  &ReadAnythingAppController::OnLinksEnabledToggled)
+      .SetMethod("onImagesEnabledToggled",
+                 &ReadAnythingAppController::OnImagesEnabledToggled)
       .SetMethod("onScroll", &ReadAnythingAppController::OnScroll)
       .SetMethod("onLinkClicked", &ReadAnythingAppController::OnLinkClicked)
       .SetMethod("onStandardLineSpacing",
@@ -832,6 +921,8 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
                  &ReadAnythingAppController::SendGetVoicePackInfoRequest)
       .SetMethod("sendInstallVoicePackRequest",
                  &ReadAnythingAppController::SendInstallVoicePackRequest)
+      .SetMethod("onRestartReadAloud",
+                 &ReadAnythingAppController::OnRestartReadAloud)
       .SetMethod("getNodeIdForCurrentSegmentIndex",
                  &ReadAnythingAppController::GetNodeIdForCurrentSegmentIndex)
       .SetMethod("getNextWordHighlightLength",
@@ -874,6 +965,14 @@ float ReadAnythingAppController::FontSize() const {
 
 bool ReadAnythingAppController::LinksEnabled() const {
   return model_.links_enabled();
+}
+
+bool ReadAnythingAppController::ImagesEnabled() const {
+  return model_.images_enabled();
+}
+
+bool ReadAnythingAppController::ImagesFeatureEnabled() const {
+  return features::IsReadAnythingImagesViaAlgorithmEnabled();
 }
 
 SkColor ReadAnythingAppController::ForegroundColor() const {
@@ -1206,7 +1305,7 @@ bool ReadAnythingAppController::IsLanguagePackDownloadingEnabled() const {
 }
 
 bool ReadAnythingAppController::IsAutomaticWordHighlightingEnabled() const {
-   return features::IsReadAnythingReadAloudAutomaticWordHighlightingEnabled();
+  return features::IsReadAnythingReadAloudAutomaticWordHighlightingEnabled();
 }
 
 bool ReadAnythingAppController::IsGoogleDocs() const {
@@ -1282,11 +1381,7 @@ void ReadAnythingAppController::OnConnected() {
   page_handler_factory_->CreateUntrustedPageHandler(
       receiver_.BindNewPipeAndPassRemote(),
       page_handler_.BindNewPipeAndPassReceiver());
-  content::RenderFrame* render_frame = GetRenderFrame();
-  if (!render_frame) {
-    return;
-  }
-  render_frame->GetBrowserInterfaceBroker()->GetInterface(
+  render_frame()->GetBrowserInterfaceBroker()->GetInterface(
       std::move(page_handler_factory_receiver));
 }
 
@@ -1312,6 +1407,11 @@ void ReadAnythingAppController::OnFontSizeReset() {
 void ReadAnythingAppController::OnLinksEnabledToggled() {
   model_.ToggleLinksEnabled();
   page_handler_->OnLinksEnabledChanged(model_.links_enabled());
+}
+
+void ReadAnythingAppController::OnImagesEnabledToggled() {
+  model_.ToggleImagesEnabled();
+  page_handler_->OnImagesEnabledChanged(model_.images_enabled());
 }
 
 void ReadAnythingAppController::OnScroll(bool on_selection) const {
@@ -1527,6 +1627,7 @@ int ReadAnythingAppController::GetCurrentTextEndIndex(ui::AXNodeID node_id) {
 void ReadAnythingAppController::SetThemeForTesting(const std::string& font_name,
                                                    float font_size,
                                                    bool links_enabled,
+                                                   bool images_enabled,
                                                    SkColor foreground_color,
                                                    SkColor background_color,
                                                    int line_spacing,
@@ -1536,8 +1637,8 @@ void ReadAnythingAppController::SetThemeForTesting(const std::string& font_name,
   auto letter_spacing_enum =
       static_cast<read_anything::mojom::LetterSpacing>(letter_spacing);
   OnThemeChanged(ReadAnythingTheme::New(
-      font_name, font_size, links_enabled, foreground_color, background_color,
-      line_spacing_enum, letter_spacing_enum));
+      font_name, font_size, links_enabled, images_enabled, foreground_color,
+      background_color, line_spacing_enum, letter_spacing_enum));
 }
 
 void ReadAnythingAppController::SetLanguageForTesting(
@@ -1575,12 +1676,8 @@ void ReadAnythingAppController::SetDefaultLanguageCode(
 void ReadAnythingAppController::SetContentForTesting(
     v8::Local<v8::Value> v8_snapshot_lite,
     std::vector<ui::AXNodeID> content_node_ids) {
-  content::RenderFrame* render_frame = GetRenderFrame();
-  if (!render_frame) {
-    return;
-  }
   v8::Isolate* isolate =
-      render_frame->GetWebFrame()->GetAgentGroupScheduler()->Isolate();
+      render_frame()->GetWebFrame()->GetAgentGroupScheduler()->Isolate();
   ui::AXTreeUpdate snapshot =
       GetSnapshotFromV8SnapshotLite(isolate, v8_snapshot_lite);
   ui::AXEvent selection_event;
@@ -1594,14 +1691,6 @@ void ReadAnythingAppController::SetContentForTesting(
   // Trigger a selection event (for testing selections).
   AccessibilityEventReceived(snapshot.tree_data.tree_id, {snapshot},
                              {selection_event});
-}
-
-content::RenderFrame* ReadAnythingAppController::GetRenderFrame() {
-  auto* web_frame = blink::WebLocalFrame::FromFrameToken(frame_token_);
-  if (!web_frame) {
-    return nullptr;
-  }
-  return content::RenderFrame::FromWebFrame(web_frame);
 }
 
 void ReadAnythingAppController::ShouldShowUI() {
@@ -1663,17 +1752,20 @@ int ReadAnythingAppController::GetNextWordHighlightLength(int index) {
   return model_.GetNextWordHighlightLength(index);
 }
 
-void ReadAnythingAppController::LogUmaHistogramTimes(int64_t time,
-                                                     std::string metric) {
+void ReadAnythingAppController::LogUmaHistogramTimes(
+    int64_t time,
+    const std::string& metric) {
   base::UmaHistogramTimes(metric, base::Milliseconds(time));
 }
 
-void ReadAnythingAppController::LogUmaHistogramLongTimes(int64_t time,
-                                                         std::string metric) {
+void ReadAnythingAppController::LogUmaHistogramLongTimes(
+    int64_t time,
+    const std::string& metric) {
   base::UmaHistogramLongTimes(metric, base::Milliseconds(time));
 }
 
-void ReadAnythingAppController::IncrementMetricCount(std::string metric) {
+void ReadAnythingAppController::IncrementMetricCount(
+    const std::string& metric) {
   model_.IncrementMetric(metric);
 }
 
@@ -1681,7 +1773,8 @@ void ReadAnythingAppController::LogSpeechEventCounts() {
   model_.LogSpeechEventCounts();
 }
 
-void ReadAnythingAppController::LogSpeechErrorEvent(std::string error_code) {
+void ReadAnythingAppController::LogSpeechErrorEvent(
+    const std::string& error_code) {
   std::optional<ReadAnythingSpeechError> error;
   if (error_code == "text-too-long") {
     error = ReadAnythingSpeechError::kTextTooLong;

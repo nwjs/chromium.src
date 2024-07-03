@@ -41,19 +41,26 @@ class CampaignsManagerClientImpl : public growth::CampaignsManagerClient,
   bool IsCloudGamingDevice() const override;
   bool IsFeatureAwareDevice() const override;
   const std::string& GetApplicationLocale() const override;
+  const std::string& GetUserLocale() const override;
+
+  // Returns the permanent country code stored for this client. See
+  // chrome://translate-internal. Country code is in the format of lowercase ISO
+  // 3166-1 alpha-2. Example: `us`, `br`, `in`.
+  const std::string GetCountryCode() const override;
   const base::Version& GetDemoModeAppVersion() const override;
   growth::ActionMap GetCampaignsActions() override;
-  void RegisterSyntheticFieldTrial(const std::optional<int> study_id,
-                                   const int campaign_id) const override;
+  void RegisterSyntheticFieldTrial(
+      const std::string& trial_name,
+      const std::string& group_name) const override;
   void ClearConfig(const std::map<std::string, std::string>& params) override;
-  void NotifyEvent(const std::string& event_name) override;
+  void RecordEvent(const std::string& event_name) override;
   bool WouldTriggerHelpUI(
       const std::map<std::string, std::string>& params) override;
   signin::IdentityManager* GetIdentityManager() const override;
 
   // UiActionPerformer::Observer:
   void OnReadyToLogImpression(int campaign_id) override;
-  void OnDismissed(int campaign_id) override;
+  void OnDismissed(int campaign_id, bool should_mark_dismissed) override;
   void OnButtonPressed(int campaign_id,
                        CampaignButtonId button_id,
                        bool should_mark_dismissed) override;

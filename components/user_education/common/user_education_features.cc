@@ -4,6 +4,7 @@
 
 #include "components/user_education/common/user_education_features.h"
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
@@ -26,6 +27,10 @@ inline constexpr char kSessionStartGracePeriodParamName[] =
     "session_start_grace_period";
 inline constexpr base::TimeDelta kDefaultSessionStartGracePeriod =
     base::Minutes(10);
+
+inline constexpr char kNewProfileGracePeriodParamName[] =
+    "new_profile_grace_period";
+inline constexpr base::TimeDelta kDefaultNewProfileGracePeriod = base::Days(7);
 
 inline constexpr char kLowPriorityCooldownParamName[] = "low_priority_cooldown";
 inline constexpr base::TimeDelta kDefaultLowPriorityCooldown = base::Days(8);
@@ -52,6 +57,9 @@ inline constexpr int kDefaultNewBadgeFeatureUsedCount = 2;
 inline constexpr char kNewBadgeDisplayWindow[] = "new_badge_display_window";
 inline constexpr base::TimeDelta kDefaultNewBadgeDisplayWindow = base::Days(60);
 
+inline constexpr char kDisableRateLimitingCommandLine[] =
+    "disable-user-education-rate-limiting";
+
 }  // namespace
 
 BASE_FEATURE(kUserEducationExperienceVersion2,
@@ -64,6 +72,11 @@ BASE_FEATURE(kNewBadgeTestFeature,
 
 bool IsUserEducationV2() {
   return base::FeatureList::IsEnabled(kUserEducationExperienceVersion2);
+}
+
+bool IsRateLimitingDisabled() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      kDisableRateLimitingCommandLine);
 }
 
 base::TimeDelta GetMinimumValidSessionLength() {
@@ -79,15 +92,30 @@ base::TimeDelta GetIdleTimeBetweenSessions() {
 }
 
 base::TimeDelta GetSessionStartGracePeriod() {
+  if (IsRateLimitingDisabled()) {
+    return base::TimeDelta();
+  }
   return base::GetFieldTrialParamByFeatureAsTimeDelta(
       kUserEducationExperienceVersion2, kSessionStartGracePeriodParamName,
       kDefaultSessionStartGracePeriod);
 }
 
 base::TimeDelta GetLowPriorityCooldown() {
+  if (IsRateLimitingDisabled()) {
+    return base::TimeDelta();
+  }
   return base::GetFieldTrialParamByFeatureAsTimeDelta(
       kUserEducationExperienceVersion2, kLowPriorityCooldownParamName,
       kDefaultLowPriorityCooldown);
+}
+
+base::TimeDelta GetNewProfileGracePeriod() {
+  if (IsRateLimitingDisabled()) {
+    return base::TimeDelta();
+  }
+  return base::GetFieldTrialParamByFeatureAsTimeDelta(
+      kUserEducationExperienceVersion2, kNewProfileGracePeriodParamName,
+      kDefaultNewProfileGracePeriod);
 }
 
 base::TimeDelta GetSnoozeDuration() {

@@ -5,6 +5,7 @@
 package org.chromium.android_webview.test;
 
 import androidx.annotation.CallSuper;
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
@@ -23,14 +24,23 @@ import java.util.List;
  * single-process mode on L-N and multi-process (AKA sandboxed renderer) mode on O+, this test
  * runner defaults to duplicating each test in both modes.
  *
- * <p>
- * Tests can instead be run in either single or multi-process only with {@link OnlyRunIn}. This can
- * be done if the test case needs this for correctness or to save infrastructure resources for tests
- * which exercise code which cannot depend on single vs. multi process.
+ * <p>Tests can instead be run in single and/or multi process modes with {@link OnlyRunIn}:
+ *
+ * <ul>
+ *   <li>SINGLE_PROCESS | MULTI_PROCESS: Run test only in single or multi process mode. This should
+ *       only be used if the test case needs this for correctness.
+ *   <li>EITHER_PROCESS: Run test in either single or multi process mode. This can be used to save
+ *       infrastructure resources if the code being tested does not depend on the renderer process
+ *       so the test will not benefit from duplication
+ *   <li>SINGLE_AND_MULTI_PROCESS: Run test in both single and multi process modes.
+ * </ul>
  */
 public class AwJUnit4ClassRunner extends BaseJUnit4ClassRunner {
     // This should match the definition in Android test runner scripts: bit.ly/3ynoREM
     private static final String MULTIPROCESS_TEST_NAME_SUFFIX = "__multiprocess_mode";
+
+    private static final String ONLY_RUN_MULTI_PROCESS_MODE_FLAG =
+            "AwJUnit4ClassRunner.MultiProcessOnly";
 
     private final TestHook mWebViewMultiProcessHook =
             (targetContext, testMethod) -> {
@@ -77,19 +87,29 @@ public class AwJUnit4ClassRunner extends BaseJUnit4ClassRunner {
 
     @Override
     protected List<FrameworkMethod> getChildren() {
+        boolean runSingleProcess =
+                !"true"
+                        .equals(
+                                InstrumentationRegistry.getArguments()
+                                        .getString(ONLY_RUN_MULTI_PROCESS_MODE_FLAG));
         List<FrameworkMethod> result = new ArrayList<>();
         for (FrameworkMethod method : computeTestMethods()) {
             switch (processModeForMethod(method)) {
                 case SINGLE_PROCESS:
-                    result.add(method);
+                    if (runSingleProcess) {
+                        result.add(method);
+                    }
                     break;
                 case MULTI_PROCESS:
+                case EITHER_PROCESS:
                     result.add(new WebViewMultiProcessFrameworkMethod(method));
                     break;
                 case SINGLE_AND_MULTI_PROCESS:
                 default:
                     result.add(new WebViewMultiProcessFrameworkMethod(method));
-                    result.add(method);
+                    if (runSingleProcess) {
+                        result.add(method);
+                    }
                     break;
             }
         }

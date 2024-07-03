@@ -6,12 +6,15 @@
 
 #include <algorithm>
 
+#include "base/containers/span.h"
 #include "base/notimplemented.h"
 #include "base/numerics/checked_math.h"
 #include "base/ranges/algorithm.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
+#include "base/types/pass_key.h"
 #include "components/ml/webnn/features.mojom-blink.h"
+#include "services/webnn/public/mojom/webnn_context_provider.mojom-blink.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom-blink.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -40,20 +43,21 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_split_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_transpose_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_triangular_options.h"
-#include "third_party/blink/renderer/core/dom/dom_exception.h"
-#include "third_party/blink/renderer/modules/ml/buildflags.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer_view.h"
 #include "third_party/blink/renderer/modules/ml/ml_context.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_activation.h"
+#include "third_party/blink/renderer/modules/ml/webnn/ml_error.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_graph.h"
-#include "third_party/blink/renderer/modules/ml/webnn/ml_graph_mojo.h"
+#include "third_party/blink/renderer/modules/ml/webnn/ml_graph_type_converter.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_graph_utils.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_operand.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_operator.h"
+#include "third_party/blink/renderer/platform/bindings/exception_code.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-
-#if BUILDFLAG(BUILD_WEBNN_WITH_XNNPACK)
-#include "third_party/blink/renderer/modules/ml/webnn/ml_graph_xnnpack.h"
-#endif
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_deque.h"
+#include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
 
@@ -64,8 +68,6 @@ namespace {
     exception_state.ThrowTypeError(error);                 \
     return return_value;                                   \
   });
-
-MLGraphBuilder::BackendForTesting* g_backend_for_testing = nullptr;
 
 blink::V8MLOperandDataType::Enum ComponentOperandTypeToBlink(
     webnn::Operand::DataType data_type) {
@@ -113,7 +115,7 @@ webnn::Operand::DataType BlinkOperandTypeToComponent(
   NOTREACHED_NORETURN();
 }
 
-webnn::Operand ConvertToComponentOperand(const blink::MLOperand* ml_operand) {
+webnn::Operand BlinkOperandToComponent(const blink::MLOperand* ml_operand) {
   return webnn::Operand(BlinkOperandTypeToComponent(ml_operand->DataType()),
                         ml_operand->Dimensions());
 }
@@ -213,10 +215,10 @@ webnn::BatchNormalizationAttributes ConvertToBatchNormalizationAttributes(
   CHECK(options);
   webnn::BatchNormalizationAttributes attributes;
   if (options->hasScale()) {
-    attributes.scale = ConvertToComponentOperand(options->scale());
+    attributes.scale = BlinkOperandToComponent(options->scale());
   }
   if (options->hasBias()) {
-    attributes.bias = ConvertToComponentOperand(options->bias());
+    attributes.bias = BlinkOperandToComponent(options->bias());
   }
   attributes.axis = options->axis();
   return attributes;
@@ -259,7 +261,7 @@ base::expected<Conv2dAttributesType, String> ConvertToConv2dAttributesBase(
   attributes.input_layout =
       BlinkInputOperandLayoutToComponent(options->inputLayout().AsEnum());
   if (options->hasBias()) {
-    attributes.bias_operand = ConvertToComponentOperand(options->bias());
+    attributes.bias_operand = BlinkOperandToComponent(options->bias());
   }
 
   return std::move(attributes);
@@ -374,7 +376,7 @@ webnn::GemmAttributes ConvertToGemmAttributes(
   CHECK(options);
   webnn::GemmAttributes attributes;
   if (options->hasC()) {
-    attributes.c_operand = ConvertToComponentOperand(options->c());
+    attributes.c_operand = BlinkOperandToComponent(options->c());
   }
   attributes.alpha = options->alpha();
   attributes.beta = options->beta();
@@ -389,15 +391,15 @@ webnn::GruAttributes ConvertToGruAttributes(MLGraphBuilder* builder,
   webnn::GruAttributes attributes;
 
   if (options->hasBias()) {
-    attributes.bias = ConvertToComponentOperand(options->bias());
+    attributes.bias = BlinkOperandToComponent(options->bias());
   }
   if (options->hasRecurrentBias()) {
     attributes.recurrent_bias =
-        ConvertToComponentOperand(options->recurrentBias());
+        BlinkOperandToComponent(options->recurrentBias());
   }
   if (options->hasInitialHiddenState()) {
     attributes.initial_hidden_state =
-        ConvertToComponentOperand(options->initialHiddenState());
+        BlinkOperandToComponent(options->initialHiddenState());
   }
   attributes.return_sequence = options->returnSequence();
   attributes.direction =
@@ -423,11 +425,11 @@ webnn::GruCellAttributes ConvertToGruCellAttributes(
   webnn::GruCellAttributes attributes;
 
   if (options->hasBias()) {
-    attributes.bias = ConvertToComponentOperand(options->bias());
+    attributes.bias = BlinkOperandToComponent(options->bias());
   }
   if (options->hasRecurrentBias()) {
     attributes.recurrent_bias =
-        ConvertToComponentOperand(options->recurrentBias());
+        BlinkOperandToComponent(options->recurrentBias());
   }
   // If the activations are not specified, create a default activation sequence
   // [sigmoid, tanh] as defined in the spec.
@@ -448,10 +450,10 @@ webnn::InstanceNormalizationAttributes ConvertToInstanceNormalizationAttributes(
   CHECK(options);
   webnn::InstanceNormalizationAttributes attributes;
   if (options->hasScale()) {
-    attributes.scale = ConvertToComponentOperand(options->scale());
+    attributes.scale = BlinkOperandToComponent(options->scale());
   }
   if (options->hasBias()) {
-    attributes.bias = ConvertToComponentOperand(options->bias());
+    attributes.bias = BlinkOperandToComponent(options->bias());
   }
   attributes.layout =
       BlinkInputOperandLayoutToComponent(options->layout().AsEnum());
@@ -463,10 +465,10 @@ webnn::LayerNormalizationAttributes ConvertToLayerNormalizationAttributes(
   CHECK(options);
   webnn::LayerNormalizationAttributes attributes;
   if (options->hasScale()) {
-    attributes.scale = ConvertToComponentOperand(options->scale());
+    attributes.scale = BlinkOperandToComponent(options->scale());
   }
   if (options->hasBias()) {
-    attributes.bias = ConvertToComponentOperand(options->bias());
+    attributes.bias = BlinkOperandToComponent(options->bias());
   }
   return attributes;
 }
@@ -477,23 +479,23 @@ webnn::LstmAttributes ConvertToLstmAttributes(
   webnn::LstmAttributes attributes;
 
   if (options->hasBias()) {
-    attributes.bias = ConvertToComponentOperand(options->bias());
+    attributes.bias = BlinkOperandToComponent(options->bias());
   }
   if (options->hasRecurrentBias()) {
     attributes.recurrent_bias =
-        ConvertToComponentOperand(options->recurrentBias());
+        BlinkOperandToComponent(options->recurrentBias());
   }
   if (options->hasPeepholeWeight()) {
     attributes.peephole_weight =
-        ConvertToComponentOperand(options->peepholeWeight());
+        BlinkOperandToComponent(options->peepholeWeight());
   }
   if (options->hasInitialHiddenState()) {
     attributes.initial_hidden_state =
-        ConvertToComponentOperand(options->initialHiddenState());
+        BlinkOperandToComponent(options->initialHiddenState());
   }
   if (options->hasInitialCellState()) {
     attributes.initial_cell_state =
-        ConvertToComponentOperand(options->initialCellState());
+        BlinkOperandToComponent(options->initialCellState());
   }
   attributes.activation_count = options->activations().size();
   attributes.return_sequence = options->returnSequence();
@@ -509,15 +511,15 @@ webnn::LstmCellAttributes ConvertToLstmCellAttributes(
   webnn::LstmCellAttributes attributes;
 
   if (options->hasBias()) {
-    attributes.bias = ConvertToComponentOperand(options->bias());
+    attributes.bias = BlinkOperandToComponent(options->bias());
   }
   if (options->hasRecurrentBias()) {
     attributes.recurrent_bias =
-        ConvertToComponentOperand(options->recurrentBias());
+        BlinkOperandToComponent(options->recurrentBias());
   }
   if (options->hasPeepholeWeight()) {
     attributes.peephole_weight =
-        ConvertToComponentOperand(options->peepholeWeight());
+        BlinkOperandToComponent(options->peepholeWeight());
   }
   attributes.activation_count = options->activations().size();
 
@@ -581,10 +583,9 @@ MLOperand* BuildArgMinMax(MLGraphBuilder* builder,
   const auto input_rank = input->Dimensions().size();
   const auto axes = options->getAxesOr(CreateAllAxes(input_rank));
   const auto validated_output = webnn::ValidateArgMinMaxAndInferOutput(
-      ConvertToComponentOperand(input), axes, options->keepDimensions());
+      BlinkOperandToComponent(input), axes, options->keepDimensions());
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
+    exception_state.ThrowTypeError(
         WTF::String::FromUTF8(validated_output.error()));
     return nullptr;
   }
@@ -596,8 +597,7 @@ MLOperand* BuildArgMinMax(MLGraphBuilder* builder,
       builder, ComponentOperandTypeToBlink(validated_output->data_type),
       Vector<uint32_t>(validated_output->dimensions), arg_min_max);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   arg_min_max->Connect({input}, {output.value()});
@@ -612,17 +612,13 @@ MLOperand* BuildElementWiseBinary(
     const MLOperand* b,
     ExceptionState& exception_state) {
   if (a->DataType() != b->DataType()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        "The input operand data types don't match.");
+    exception_state.ThrowTypeError("The input operand data types don't match.");
     return nullptr;
   }
   std::optional<Vector<uint32_t>> dims_output =
       BroadcastShapes(a->Dimensions(), b->Dimensions());
   if (!dims_output) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        "The input shapes are not broadcastable.");
+    exception_state.ThrowTypeError("The input shapes are not broadcastable.");
     return nullptr;
   }
 
@@ -638,8 +634,7 @@ MLOperand* BuildElementWiseBinary(
   auto output = MLOperand::ValidateAndCreateOutput(builder, data_type,
                                                    dims_output.value(), binary);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   binary->Connect({a, b}, {output.value()});
@@ -713,7 +708,7 @@ MLOperand* BuildReduce(MLGraphBuilder* builder,
   const auto input_rank = input->Dimensions().size();
   const auto axes = options->getAxesOr(CreateAllAxes(input_rank));
   auto validated_output = webnn::ValidateReduceAndInferOutput(
-      MojoReduceKindToComponent(kind), ConvertToComponentOperand(input), axes,
+      MojoReduceKindToComponent(kind), BlinkOperandToComponent(input), axes,
       options->keepDimensions());
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
@@ -749,7 +744,7 @@ MLOperand* BuildPool2d(MLGraphBuilder* builder,
   }
 
   auto validated_output = webnn::ValidatePool2dAndInferOutput(
-      ConvertToComponentOperand(input), std::move(pool2d_attributes.value()));
+      BlinkOperandToComponent(input), std::move(pool2d_attributes.value()));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
@@ -768,6 +763,209 @@ MLOperand* BuildPool2d(MLGraphBuilder* builder,
   }
   pool2d->Connect({input}, {output.value()});
   return output.value();
+}
+
+// Determines the input and output resources required for this computational
+// graph by traversing the graph from `named_outputs` to its inputs.
+// This may fail if the graph is not valid.
+base::expected<std::pair<HashMap<String, MLGraph::ResourceInfo>,
+                         HashMap<String, MLGraph::ResourceInfo>>,
+               String>
+DetermineGraphResourcesFromOutputs(const MLNamedOperands& named_outputs) {
+  // The outputs should not be empty.
+  if (named_outputs.empty()) {
+    return base::unexpected("At least one output needs to be provided.");
+  }
+
+  // The queue and visited set of operators that help implement the
+  // breadth-first graph traversal:
+  // https://en.wikipedia.org/wiki/Breadth-first_search
+  HeapDeque<Member<const MLOperator>> operators_queue;
+  HeapHashSet<Member<const MLOperator>> visited_operators;
+
+  HashMap<String, MLGraph::ResourceInfo> input_resources_info;
+  HashMap<String, MLGraph::ResourceInfo> output_resources_info;
+
+  // Validate the named outputs, setup corresponding output resource info and
+  // initialize the queue and visited set with their dependent operators.
+  for (const auto& output : named_outputs) {
+    const auto& name = output.first;
+    const auto& operand = output.second;
+    // Validate whether it is an output operand.
+    if (operand->Kind() != webnn::mojom::blink::Operand::Kind::kOutput) {
+      return base::unexpected(String::Format(
+          "The operand with name \"%s\" is not an output operand.",
+          name.Utf8().c_str()));
+    }
+    // Setup resource info for this output operand.
+    output_resources_info.insert(
+        name, MLGraph::ResourceInfo({.data_type = operand->DataType(),
+                                     .byte_length = operand->ByteLength()}));
+    // Mark its dependent operator is visited.
+    visited_operators.insert(operand->Operator());
+    // Enqueue its dependent operator.
+    operators_queue.push_back(operand->Operator());
+  }
+
+  // An input MLOperand may be used by more than one MLOperators. This set
+  // ensures an input MLOperand won't be validated multiple times.
+  HeapHashSet<Member<const MLOperand>> visited_input_operands;
+  while (operators_queue.size() > 0) {
+    // If the queue is not empty, dequeue an operator from the queue.
+    const auto current_operator = operators_queue.TakeFirst();
+    // Enumerate the current operator's input operands.
+    for (const auto& operand : current_operator->Inputs()) {
+      switch (operand->Kind()) {
+        case webnn::mojom::blink::Operand::Kind::kOutput:
+          DCHECK(operand->Operator());
+          // If the operand is an output operand and its dependent operator is
+          // not visited, mark the dependent operator is visited and enqueue
+          // it.
+          if (!visited_operators.Contains(operand->Operator())) {
+            visited_operators.insert(operand->Operator());
+            operators_queue.push_back(operand->Operator());
+          }
+          break;
+        case webnn::mojom::blink::Operand::Kind::kInput:
+          // If the operand has been validated, it doesn't need to be verified
+          // multiple times.
+          if (visited_input_operands.Contains(operand)) {
+            continue;
+          }
+          visited_input_operands.insert(operand);
+          // If the operand is an input operand, validate whether its name is
+          // unique.
+          if (input_resources_info.Contains(operand->Name())) {
+            return base::unexpected(
+                String::Format("The input name \"%s\" is duplicated.",
+                               operand->Name().Utf8().c_str()));
+          }
+          // Setup resource info for this input operand.
+          input_resources_info.insert(
+              operand->Name(),
+              MLGraph::ResourceInfo({.data_type = operand->DataType(),
+                                     .byte_length = operand->ByteLength()}));
+          break;
+        case webnn::mojom::blink::Operand::Kind::kConstant:
+          // If the operand has been validated, it doesn't need to be verified
+          // multiple times.
+          if (visited_input_operands.Contains(operand)) {
+            continue;
+          }
+          visited_input_operands.insert(operand);
+          // If the operand is a constant operand, validate its ArrayBufferView
+          // is not detached, because the backends may access its content in
+          // `CreateAndBuild()`. A constant operand may carry a detached
+          // ArrayBufferView if the JS code first calls
+          // `MLGraphBuilder.constant()` to build a constant operand with a
+          // valid ArrayBufferView, then detaches the ArrayBufferView and calls
+          // `MLGraphBuilder.build()` to build the graph with this constant
+          // operand.
+          CHECK(operand->ArrayBufferView());
+          if (operand->ArrayBufferView()->IsDetached()) {
+            return base::unexpected(
+                "The array buffer view of the constant operand is detached.");
+          }
+          break;
+      }
+    }
+  }
+  return std::make_pair(std::move(input_resources_info),
+                        std::move(output_resources_info));
+}
+
+base::expected<webnn::mojom::blink::GraphInfoPtr, String> BuildWebNNGraphInfo(
+    const MLNamedOperands& named_outputs,
+    const webnn::mojom::blink::ContextProperties& context_properties) {
+  // The `GraphInfo` represents an entire information of WebNN graph.
+  auto graph_info = webnn::mojom::blink::GraphInfo::New();
+
+  HeapHashMap<Member<const MLOperand>, uint64_t> operand_to_id_map;
+  for (const auto& [name, operand] : named_outputs) {
+    // Create `mojo::Operand` for output operands of graph with the name.
+    auto output_operand =
+        mojo::ConvertTo<webnn::mojom::blink::OperandPtr>(operand.Get());
+    output_operand->name = name;
+    uint64_t operand_id = NextOperandId(*graph_info);
+    graph_info->id_to_operand_map.insert(operand_id, std::move(output_operand));
+    graph_info->output_operands.push_back(operand_id);
+    operand_to_id_map.insert(operand, operand_id);
+  }
+
+  HeapVector<Member<const MLOperator>>* topologically_sorted_operators =
+      GetOperatorsInTopologicalOrder(named_outputs);
+  // Visit the operators in topological order. For each operator,
+  // 1, Create `mojo::Operand` for its input and output operands if needed.
+  // 2, Create `mojo::Operator` with the id of input and output operands.
+  for (const auto& current_operator : *topologically_sorted_operators) {
+    for (const auto& operand : current_operator->Inputs()) {
+      if (operand_to_id_map.Contains(operand.Get())) {
+        // The `mojo::Operand` is already converted with the MLOperand, skip it.
+        continue;
+      }
+      switch (operand->Kind()) {
+        case webnn::mojom::blink::Operand::Kind::kInput: {
+          // Create `mojo::Operand` for the input MLOperand.
+          uint64_t operand_id = NextOperandId(*graph_info);
+          graph_info->id_to_operand_map.insert(
+              operand_id,
+              mojo::ConvertTo<webnn::mojom::blink::OperandPtr>(operand.Get()));
+          //  Build the array of input operands for this graph with the id.
+          graph_info->input_operands.push_back(operand_id);
+          operand_to_id_map.insert(operand, operand_id);
+          break;
+        }
+        case webnn::mojom::blink::Operand::Kind::kConstant: {
+          // Convert `mojo::Operand` for constant operand.
+          uint64_t operand_id = NextOperandId(*graph_info);
+          graph_info->id_to_operand_map.insert(
+              operand_id,
+              mojo::ConvertTo<webnn::mojom::blink::OperandPtr>(operand.Get()));
+          //  Build the map of constant operands for this graph with the id.
+          const auto* array_buffer_view = operand->ArrayBufferView();
+          CHECK(array_buffer_view);
+          CHECK(!array_buffer_view->IsDetached());
+          graph_info->constant_id_to_buffer_map.insert(
+              operand_id, base::make_span(static_cast<const uint8_t*>(
+                                              array_buffer_view->BaseAddress()),
+                                          array_buffer_view->byteLength()));
+          operand_to_id_map.insert(operand, operand_id);
+          break;
+        }
+        case webnn::mojom::blink::Operand::Kind::kOutput:
+          // Because the operators are visited in topological order, if this
+          // operand is an intermediate operand, it should already be defined as
+          // an output operand of the dependent operator.
+          NOTREACHED_NORETURN();
+      }
+    }
+
+    for (const auto& operand : current_operator->Outputs()) {
+      if (operand_to_id_map.Contains(operand.Get())) {
+        // The `mojo::Operand` is already converted with the MLOperand, skip it.
+        continue;
+      }
+      // Because the graph's output operands are already converted before, this
+      // operand should be an intermediate operand that connects with two
+      // operators. Create `mojo::Operand` for this operand.
+      uint64_t operand_id = NextOperandId(*graph_info);
+      graph_info->id_to_operand_map.insert(
+          operand_id,
+          mojo::ConvertTo<webnn::mojom::blink::OperandPtr>(operand.Get()));
+      operand_to_id_map.insert(operand, operand_id);
+    }
+
+    // Create `mojo::Operation` with the id of the input and output operands.
+    std::optional<String> error =
+        SerializeMojoOperation(operand_to_id_map, context_properties,
+                               current_operator.Get(), graph_info.get());
+    if (error.has_value()) {
+      // Return here if the operator is not implemented.
+      return base::unexpected(*error);
+    }
+  }
+
+  return graph_info;
 }
 
 }  // namespace
@@ -848,19 +1046,12 @@ MLOperand* MLGraphBuilder::batchNormalization(
   }
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
 
-  if (options->hasActivation()) {
-    THROW_AND_RETURN_TYPE_IF_ERROR(ValidateActivation(options->activation()),
-                                   nullptr);
-  }
-
   const auto validated_output = webnn::ValidateBatchNormalizationAndInferOutput(
-      ConvertToComponentOperand(input), ConvertToComponentOperand(mean),
-      ConvertToComponentOperand(variance),
+      BlinkOperandToComponent(input), BlinkOperandToComponent(mean),
+      BlinkOperandToComponent(variance),
       ConvertToBatchNormalizationAttributes(options));
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        WTF::String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
 
@@ -873,8 +1064,7 @@ MLOperand* MLGraphBuilder::batchNormalization(
       this, ComponentOperandTypeToBlink(validated_output->data_type),
       Vector<uint32_t>(validated_output->dimensions), batch_normalization);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   batch_normalization->Connect(std::move(inputs), {output.value()});
@@ -892,7 +1082,7 @@ MLOperand* MLGraphBuilder::concat(const HeapVector<Member<MLOperand>>& inputs,
   input_component_operands.reserve(inputs.size());
   base::ranges::transform(
       inputs, std::back_inserter(input_component_operands),
-      [](const auto& input) { return ConvertToComponentOperand(input); });
+      [](const auto& input) { return BlinkOperandToComponent(input); });
 
   auto validated_output =
       webnn::ValidateConcatAndInferOutput(input_component_operands, axis);
@@ -950,11 +1140,6 @@ MLOperand* MLGraphBuilder::conv2d(const MLOperand* input,
   }
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
 
-  if (options->hasActivation()) {
-    THROW_AND_RETURN_TYPE_IF_ERROR(ValidateActivation(options->activation()),
-                                   nullptr);
-  }
-
   auto conv2d_attributes = ConvertToConv2dAttributes(options);
   if (!conv2d_attributes.has_value()) {
     exception_state.ThrowTypeError(conv2d_attributes.error());
@@ -962,7 +1147,7 @@ MLOperand* MLGraphBuilder::conv2d(const MLOperand* input,
   }
 
   auto validated_output = webnn::ValidateConv2dAndInferOutput(
-      ConvertToComponentOperand(input), ConvertToComponentOperand(filter),
+      BlinkOperandToComponent(input), BlinkOperandToComponent(filter),
       std::move(conv2d_attributes.value()));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
@@ -995,11 +1180,6 @@ MLOperand* MLGraphBuilder::convTranspose2d(
   }
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
 
-  if (options->hasActivation()) {
-    THROW_AND_RETURN_TYPE_IF_ERROR(ValidateActivation(options->activation()),
-                                   nullptr);
-  }
-
   auto convTranspose2d_attributes = ConvertToConvTranspose2dAttributes(options);
   if (!convTranspose2d_attributes.has_value()) {
     exception_state.ThrowTypeError(convTranspose2d_attributes.error());
@@ -1007,7 +1187,7 @@ MLOperand* MLGraphBuilder::convTranspose2d(
   }
 
   auto validated_output = webnn::ValidateConvTranspose2dAndInferOutput(
-      ConvertToComponentOperand(input), ConvertToComponentOperand(filter),
+      BlinkOperandToComponent(input), BlinkOperandToComponent(filter),
       std::move(convTranspose2d_attributes.value()));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
@@ -1197,7 +1377,7 @@ MLOperand* MLGraphBuilder::gather(const MLOperand* input,
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
 
   auto validated_output = webnn::ValidateGatherAndInferOutput(
-      ConvertToComponentOperand(input), ConvertToComponentOperand(indices),
+      BlinkOperandToComponent(input), BlinkOperandToComponent(indices),
       options->axis());
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
@@ -1249,7 +1429,7 @@ MLOperand* MLGraphBuilder::gemm(const MLOperand* a,
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
 
   auto validated_output = webnn::ValidateGemmAndInferOutput(
-      ConvertToComponentOperand(a), ConvertToComponentOperand(b),
+      BlinkOperandToComponent(a), BlinkOperandToComponent(b),
       ConvertToGemmAttributes(options));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
@@ -1297,8 +1477,8 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::gru(
   }
 
   auto validated_outputs = webnn::ValidateGruAndInferOutput(
-      ConvertToComponentOperand(input), ConvertToComponentOperand(weight),
-      ConvertToComponentOperand(recurrent_weight), steps, hidden_size,
+      BlinkOperandToComponent(input), BlinkOperandToComponent(weight),
+      BlinkOperandToComponent(recurrent_weight), steps, hidden_size,
       ConvertToGruAttributes(this, options));
   if (!validated_outputs.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_outputs.error()));
@@ -1346,9 +1526,9 @@ MLOperand* MLGraphBuilder::gruCell(const MLOperand* input,
   }
 
   auto validated_output = webnn::ValidateGruCellAndInferOutput(
-      ConvertToComponentOperand(input), ConvertToComponentOperand(weight),
-      ConvertToComponentOperand(recurrent_weight),
-      ConvertToComponentOperand(hidden_state), hidden_size,
+      BlinkOperandToComponent(input), BlinkOperandToComponent(weight),
+      BlinkOperandToComponent(recurrent_weight),
+      BlinkOperandToComponent(hidden_state), hidden_size,
       ConvertToGruCellAttributes(this, options));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
@@ -1434,7 +1614,7 @@ MLOperand* MLGraphBuilder::instanceNormalization(
 
   const auto validated_output =
       webnn::ValidateInstanceNormalizationAndInferOutput(
-          ConvertToComponentOperand(input),
+          BlinkOperandToComponent(input),
           ConvertToInstanceNormalizationAttributes(options));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
@@ -1479,7 +1659,7 @@ MLOperand* MLGraphBuilder::layerNormalization(
       CreateLayerNormalizationDefaultAxes(input->Dimensions().size()));
 
   const auto validated_output = webnn::ValidateLayerNormalizationAndInferOutput(
-      ConvertToComponentOperand(input), axes,
+      BlinkOperandToComponent(input), axes,
       ConvertToLayerNormalizationAttributes(options));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
@@ -1597,8 +1777,8 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::lstm(
   }
 
   auto validated_outputs = webnn::ValidateLstmAndInferOutput(
-      ConvertToComponentOperand(input), ConvertToComponentOperand(weight),
-      ConvertToComponentOperand(recurrent_weight), steps, hidden_size,
+      BlinkOperandToComponent(input), BlinkOperandToComponent(weight),
+      BlinkOperandToComponent(recurrent_weight), steps, hidden_size,
       ConvertToLstmAttributes(options));
   if (!validated_outputs.has_value()) {
     exception_state.ThrowDOMException(
@@ -1667,10 +1847,10 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::lstmCell(
   }
 
   auto validated_outputs = webnn::ValidateLstmCellAndInferOutput(
-      ConvertToComponentOperand(input), ConvertToComponentOperand(weight),
-      ConvertToComponentOperand(recurrent_weight),
-      ConvertToComponentOperand(hidden_state),
-      ConvertToComponentOperand(cell_state), hidden_size,
+      BlinkOperandToComponent(input), BlinkOperandToComponent(weight),
+      BlinkOperandToComponent(recurrent_weight),
+      BlinkOperandToComponent(hidden_state),
+      BlinkOperandToComponent(cell_state), hidden_size,
       ConvertToLstmCellAttributes(options));
   if (!validated_outputs.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_outputs.error()));
@@ -1705,7 +1885,7 @@ MLOperand* MLGraphBuilder::matmul(const MLOperand* a,
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
 
   auto validated_output = webnn::ValidateMatmulAndInferOutput(
-      ConvertToComponentOperand(a), ConvertToComponentOperand(b));
+      BlinkOperandToComponent(a), BlinkOperandToComponent(b));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(
         WTF::String::FromUTF8(validated_output.error()));
@@ -1734,7 +1914,7 @@ MLOperand* MLGraphBuilder::pad(const MLOperand* input,
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInput(input), nullptr);
 
   auto validated_output = webnn::ValidatePadAndInferOutput(
-      ConvertToComponentOperand(input), beginning_padding, ending_padding);
+      BlinkOperandToComponent(input), beginning_padding, ending_padding);
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
@@ -1811,7 +1991,7 @@ MLOperand* MLGraphBuilder::prelu(const MLOperand* input,
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
 
   auto validated_output = webnn::ValidatePreluAndInferOutput(
-      ConvertToComponentOperand(input), ConvertToComponentOperand(slope));
+      BlinkOperandToComponent(input), BlinkOperandToComponent(slope));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
@@ -1916,7 +2096,7 @@ MLOperand* MLGraphBuilder::resample2d(const MLOperand* input,
   }
 
   auto validated_output = webnn::ValidateResample2dAndInferOutput(
-      ConvertToComponentOperand(input), scales_or_sizes,
+      BlinkOperandToComponent(input), scales_or_sizes,
       options->getAxesOr({2, 3}));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
@@ -1967,7 +2147,7 @@ MLOperand* MLGraphBuilder::slice(const MLOperand* input,
   attributes.sizes.assign(sizes.begin(), sizes.end());
   attributes.starts.assign(starts.begin(), starts.end());
   auto validated_output = webnn::ValidateSliceAndInferOutput(
-      ConvertToComponentOperand(input), attributes);
+      BlinkOperandToComponent(input), attributes);
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
@@ -1990,7 +2170,7 @@ MLOperand* MLGraphBuilder::softmax(const MLOperand* input,
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInput(input), nullptr);
 
   auto validated_output =
-      webnn::ValidateSoftmaxAndInferOutput(ConvertToComponentOperand(input));
+      webnn::ValidateSoftmaxAndInferOutput(BlinkOperandToComponent(input));
   if (!validated_output.has_value()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kDataError,
@@ -2071,10 +2251,10 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::split(
                                  HeapVector<Member<const MLOperand>>());
 
   auto validated_outputs = webnn::ValidateSplitAndInferOutput(
-      ConvertToComponentOperand(input), {
-                                            .splits = splits,
-                                            .axis = options->axis(),
-                                        });
+      BlinkOperandToComponent(input), {
+                                          .splits = splits,
+                                          .axis = options->axis(),
+                                      });
   if (!validated_outputs.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_outputs.error()));
     return {};
@@ -2096,9 +2276,6 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::split(
   return outputs;
 }
 
-// There are some backends don't support "split into sizes" variant, e.g.
-// XNNPACK, and there is an ongoing discussion in WG:
-// https://github.com/webmachinelearning/webnn/issues/392
 HeapVector<Member<const MLOperand>> MLGraphBuilder::split(
     const MLOperand* input,
     const Vector<uint32_t>& splits,
@@ -2108,10 +2285,10 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::split(
                                  HeapVector<Member<const MLOperand>>());
 
   auto validated_outputs = webnn::ValidateSplitAndInferOutput(
-      ConvertToComponentOperand(input), {
-                                            .splits = splits,
-                                            .axis = options->axis(),
-                                        });
+      BlinkOperandToComponent(input), {
+                                          .splits = splits,
+                                          .axis = options->axis(),
+                                      });
   if (!validated_outputs.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_outputs.error()));
     return {};
@@ -2169,7 +2346,7 @@ MLOperand* MLGraphBuilder::transpose(const MLOperand* input,
   const Vector<uint32_t> permutation =
       options->getPermutationOr(CreateDefaultPermutation(input_rank));
   auto validated_output = webnn::ValidateTransposeAndInferOutput(
-      ConvertToComponentOperand(input), permutation);
+      BlinkOperandToComponent(input), permutation);
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
@@ -2198,7 +2375,7 @@ MLOperand* MLGraphBuilder::triangular(const MLOperand* input,
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInput(input), nullptr);
 
   const base::expected<webnn::Operand, std::string> validated_output =
-      webnn::ValidateTriangularAndInferOutput(ConvertToComponentOperand(input));
+      webnn::ValidateTriangularAndInferOutput(BlinkOperandToComponent(input));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
@@ -2228,9 +2405,8 @@ MLOperand* MLGraphBuilder::where(const MLOperand* condition,
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
 
   const auto validated_output = webnn::ValidateWhereAndInferOutput(
-      ConvertToComponentOperand(condition),
-      ConvertToComponentOperand(true_value),
-      ConvertToComponentOperand(false_value));
+      BlinkOperandToComponent(condition), BlinkOperandToComponent(true_value),
+      BlinkOperandToComponent(false_value));
   if (!validated_output.has_value()) {
     exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
@@ -2264,30 +2440,35 @@ ScriptPromise<MLGraph> MLGraphBuilder::build(
   if (!script_state->ContextIsValid()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Invalid script state");
-    return ScriptPromise<MLGraph>();
+    return EmptyPromise();
   }
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<MLGraph>>(
       script_state, exception_state.GetContext());
   auto promise = resolver->Promise();
 
-  if (g_backend_for_testing) {
-    g_backend_for_testing->BuildGraphImpl(ml_context_, named_outputs, resolver);
+  auto graph_resources_info = DetermineGraphResourcesFromOutputs(named_outputs);
+  if (!graph_resources_info.has_value()) {
+    resolver->RejectWithTypeError(graph_resources_info.error());
     return promise;
   }
-
-#if BUILDFLAG(BUILD_WEBNN_WITH_XNNPACK)
-  if (ml_context_->GetDeviceType() == V8MLDeviceType::Enum::kCpu) {
-    MLGraphXnnpack::ValidateAndBuild(std::move(scoped_trace), ml_context_,
-                                     named_outputs, resolver);
-    return promise;
-  }
-#endif
 
   if (base::FeatureList::IsEnabled(
           webnn::mojom::features::kWebMachineLearningNeuralNetwork)) {
-    MLGraphMojo::ValidateAndBuild(std::move(scoped_trace), ml_context_,
-                                  named_outputs, resolver);
+    auto graph_info =
+        BuildWebNNGraphInfo(named_outputs, ml_context_->GetProperties());
+    if (!graph_info.has_value()) {
+      resolver->RejectWithDOMException(
+          DOMExceptionCode::kNotSupportedError,
+          "Failed to build graph: " + graph_info.error());
+      return promise;
+    }
+
+    ml_context_->CreateWebNNGraph(
+        *std::move(graph_info),
+        WTF::BindOnce(&MLGraphBuilder::DidCreateWebNNGraph,
+                      WrapPersistent(this), WrapPersistent(resolver),
+                      *std::move(graph_resources_info)));
     return promise;
   }
 
@@ -2296,10 +2477,33 @@ ScriptPromise<MLGraph> MLGraphBuilder::build(
   return promise;
 }
 
-// static
-void MLGraphBuilder::SetBackendForTesting(
-    MLGraphBuilder::BackendForTesting* backend_for_testing) {
-  g_backend_for_testing = backend_for_testing;
+void MLGraphBuilder::DidCreateWebNNGraph(
+    ScriptPromiseResolver<blink::MLGraph>* resolver,
+    std::pair<HashMap<String, MLGraph::ResourceInfo>,
+              HashMap<String, MLGraph::ResourceInfo>>
+        input_and_output_resources,
+    webnn::mojom::blink::CreateGraphResultPtr result) {
+  ScriptState* script_state = resolver->GetScriptState();
+  if (!script_state) {
+    return;
+  }
+
+  if (result->is_error()) {
+    const auto& create_graph_error = result->get_error();
+    resolver->RejectWithDOMException(
+        WebNNErrorCodeToDOMExceptionCode(create_graph_error->code),
+        create_graph_error->message);
+    return;
+  }
+
+  auto* graph = MakeGarbageCollected<MLGraph>(
+      resolver->GetExecutionContext(), ml_context_,
+      std::move(result->get_graph_remote()),
+      std::move(input_and_output_resources.first),
+      std::move(input_and_output_resources.second),
+      base::PassKey<MLGraphBuilder>());
+
+  resolver->Resolve(graph);
 }
 
 // As specified in https://www.w3.org/TR/webnn/#mlgraphbuilder-validate-operand.

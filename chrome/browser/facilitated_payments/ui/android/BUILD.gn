@@ -15,6 +15,7 @@ static_library("android") {
   deps = [
     ":jni_headers",
     "//base:base",
+    "//chrome/browser/autofill",
     "//content/public/browser:browser",
     "//ui/android:android",
   ]
@@ -32,6 +33,7 @@ source_set("unit_tests") {
     "//chrome/test:test_support",
     "//content/public/browser:browser",
     "//testing/gtest",
+    "//ui/android:android",
   ]
 }
 
@@ -43,5 +45,8 @@ group("jni_headers") {
 android_library("public_java") {
   sources = [ "java/src/org/chromium/chrome/browser/facilitated_payments/FacilitatedPaymentsPaymentMethodsComponent.java" ]
 
-  deps = [ "//components/browser_ui/bottomsheet/android:java" ]
+  deps = [
+    "//components/autofill/android:payments_autofill_java",
+    "//components/browser_ui/bottomsheet/android:java",
+  ]
 }

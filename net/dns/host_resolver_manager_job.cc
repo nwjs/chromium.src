@@ -300,6 +300,15 @@ void HostResolverManager::Job::CancelServiceEndpointRequest(
   }
 }
 
+void HostResolverManager::Job::ChangeServiceEndpointRequestPriority(
+    ServiceEndpointRequestImpl* request,
+    RequestPriority priority) {
+  priority_tracker_.Remove(request->priority());
+  request->set_priority(priority);
+  priority_tracker_.Add(request->priority());
+  UpdatePriority();
+}
+
 void HostResolverManager::Job::Abort() {
   CompleteRequestsWithError(ERR_NETWORK_CHANGED, /*task_type=*/std::nullopt);
 }
@@ -460,7 +469,7 @@ void HostResolverManager::Job::RunNextTask() {
     case TaskType::HOSTS:
       // These task types should have been handled synchronously in
       // ResolveLocally() prior to Job creation.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 }
@@ -535,7 +544,7 @@ void HostResolverManager::Job::ReduceByOneJobSlot() {
     }
     --num_occupied_job_slots_;
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 }
 

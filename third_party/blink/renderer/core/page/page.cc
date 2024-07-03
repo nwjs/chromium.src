@@ -906,6 +906,12 @@ void Page::SettingsChanged(ChangeType change_type) {
       // We need to update even for remote main frames since this setting
       // could be changed via InternalSettings.
       TextAutosizer::UpdatePageInfoInAllFrames(MainFrame());
+      // The new text-size-adjust implementation requires the text autosizing
+      // setting but applies the adjustment in style rather than via the text
+      // autosizer, so we need to invalidate style.
+      if (RuntimeEnabledFeatures::TextSizeAdjustImprovementsEnabled()) {
+        InitialStyleChanged();
+      }
       break;
     case ChangeType::kFontFamily:
       for (Frame* frame = MainFrame(); frame;
@@ -1283,16 +1289,6 @@ PageScheduler* Page::GetPageScheduler() const {
 
 bool Page::IsOrdinary() const {
   return is_ordinary_;
-}
-
-void Page::ReportIntervention(const String& text) {
-  if (LocalFrame* local_frame = DeprecatedLocalMainFrame()) {
-    auto* message = MakeGarbageCollected<ConsoleMessage>(
-        mojom::ConsoleMessageSource::kOther,
-        mojom::ConsoleMessageLevel::kWarning, text,
-        std::make_unique<SourceLocation>(String(), String(), 0, 0, nullptr));
-    local_frame->GetDocument()->AddConsoleMessage(message);
-  }
 }
 
 bool Page::RequestBeginMainFrameNotExpected(bool new_state) {

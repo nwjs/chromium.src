@@ -53,7 +53,7 @@ void MediaDrmBridgeFactory::Create(
     auto error_message =
         cdm_config.key_system +
         " may require use_video_overlay_for_embedded_encrypted_video";
-    NOTREACHED() << error_message;
+    NOTREACHED_IN_MIGRATION() << error_message;
     std::move(cdm_created_cb).Run(nullptr, error_message);
     return;
   }
@@ -100,7 +100,7 @@ void MediaDrmBridgeFactory::CreateMediaDrmBridge(const std::string& origin_id) {
   const bool requires_media_crypto = true;
 
   media_drm_bridge_ = MediaDrmBridge::CreateInternal(
-      scheme_uuid_, origin_id, security_level_, requires_media_crypto,
+      scheme_uuid_, origin_id, security_level_, "User", requires_media_crypto,
       std::move(storage_), create_fetcher_cb_, session_message_cb_,
       session_closed_cb_, session_keys_change_cb_,
       session_expiration_update_cb_);

@@ -213,7 +213,7 @@ void EsParserH264::Flush() {
   // TODO(crbug.com/40204179): Consider plumbing parse failure for this push
   // failure case, instead of what used to OOM but now instead would fail this
   // CHECK.
-  CHECK(es_queue_->Push(aud, sizeof(aud)));
+  CHECK(es_queue_->Push(base::make_span(aud, sizeof(aud))));
 
   ParseFromEsQueue();
   es_adapter_.Flush();
@@ -449,7 +449,7 @@ bool EsParserH264::EmitFrame(int64_t access_unit_pos,
       case EncryptionScheme::kUnencrypted:
         // As |base_decrypt_config| is specified, the stream is encrypted,
         // so this shouldn't happen.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
       case EncryptionScheme::kCenc:
         stream_parser_buffer->set_decrypt_config(

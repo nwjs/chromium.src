@@ -9,20 +9,17 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include <optional>
 #include "base/win/windows_types.h"
 
 namespace sandbox {
 
 // Prefix for path used by NT calls.
 const wchar_t kNTPrefix[] = L"\\??\\";
-const size_t kNTPrefixLen = std::size(kNTPrefix) - 1;
-
-const wchar_t kNTDevicePrefix[] = L"\\Device\\";
-const size_t kNTDevicePrefixLen = std::size(kNTDevicePrefix) - 1;
 
 // List of handles mapped to their kernel object type name.
 using ProcessHandleMap = std::map<std::wstring, std::vector<HANDLE>>;
@@ -52,24 +49,6 @@ class SingletonBase {
   }
 };
 
-// Convert a short path (C:\path~1 or \\??\\c:\path~1) to the long version of
-// the path. If the path is not a valid filesystem path, the function returns
-// false and argument is not modified.
-// - If passing in a short native device path (\Device\HarddiskVolumeX\path~1),
-//   a drive letter string (c:\) must also be provided.
-bool ConvertToLongPath(std::wstring* path,
-                       const std::wstring* drive_letter = nullptr);
-
-// Returns ERROR_SUCCESS if the path contains a reparse point,
-// ERROR_NOT_A_REPARSE_POINT if there's no reparse point in this path, or an
-// error code when the function fails.
-// This function is not smart. It looks for each element in the path and
-// returns true if any of them is a reparse point.
-DWORD IsReparsePoint(const std::wstring& full_path);
-
-// Returns true if the handle corresponds to the object pointed by this path.
-bool SameObject(HANDLE handle, const wchar_t* full_path);
-
 // Resolves a handle to an nt path or nullopt if the path cannot be resolved.
 std::optional<std::wstring> GetPathFromHandle(HANDLE handle);
 
@@ -79,12 +58,6 @@ std::optional<std::wstring> GetNtPathFromWin32Path(const std::wstring& path);
 
 // Resolves a handle to its type name. Returns the typename if successful.
 std::optional<std::wstring> GetTypeNameFromHandle(HANDLE handle);
-
-// Resolves a user-readable registry path to a system-readable registry path.
-// For example, HKEY_LOCAL_MACHINE\\Software\\microsoft is translated to
-// \\registry\\machine\\software\\microsoft. Returns nullopt if the path
-// cannot be resolved.
-std::optional<std::wstring> ResolveRegistryName(std::wstring name);
 
 // Allocates |buffer_bytes| in child (PAGE_READWRITE) and copies data
 // from |local_buffer| in this process into |child|. |remote_buffer|
@@ -97,7 +70,7 @@ bool CopyToChildMemory(HANDLE child,
                        size_t buffer_bytes,
                        void** remote_buffer);
 
-// Returns true if the provided path points to a pipe.
+// Returns true if the provided path points to a pipe using a native path.
 bool IsPipe(const std::wstring& path);
 
 // Converts a NTSTATUS code to a Win32 error code.
@@ -115,10 +88,9 @@ void* GetProcessBaseAddress(HANDLE process);
 // use them.
 std::optional<ProcessHandleMap> GetCurrentProcessHandles();
 
-}  // namespace sandbox
+// Returns true if the string contains a NUL ('\0') character.
+bool ContainsNulCharacter(std::wstring_view str);
 
-// Resolves a function name in NTDLL to a function pointer. The second parameter
-// is a pointer to the function pointer.
-void ResolveNTFunctionPtr(const char* name, void* ptr);
+}  // namespace sandbox
 
 #endif  // SANDBOX_WIN_SRC_WIN_UTILS_H_

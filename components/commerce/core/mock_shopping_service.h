@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/commerce/core/compare/product_group.h"
 #include "components/commerce/core/shopping_service.h"
 #include "components/commerce/core/subscriptions/commerce_subscription.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -22,6 +23,8 @@ class BookmarkNode;
 namespace commerce {
 
 class AccountChecker;
+class MockClusterManager;
+class MockProductSpecificationsService;
 
 // A mock ShoppingService that allows us to decide the response.
 class MockShoppingService : public commerce::ShoppingService {
@@ -138,10 +141,7 @@ class MockShoppingService : public commerce::ShoppingService {
               GetProductSpecificationsService,
               (),
               (override));
-  MOCK_METHOD(std::optional<EntryPointInfo>,
-              GetEntryPointInfoForSelection,
-              (GURL old_url, GURL new_url),
-              (override));
+  MOCK_METHOD(ClusterManager*, GetClusterManager, (), (override));
 
   // Make this mock permissive for all features but default to providing empty
   // data for all accessors of shopping data.
@@ -180,13 +180,14 @@ class MockShoppingService : public commerce::ShoppingService {
       std::vector<ParcelTrackingStatus> parcels);
   void SetResponseForGetProductSpecificationsForUrls(
       ProductSpecifications specs);
-  void SetResponseForGetEntryPointInfoForSelection(
-      std::optional<EntryPointInfo> entry_point_info);
 
  private:
   // Since the discount API wants a const ref to some map, keep a default
   // instance here.
   DiscountsMap default_discounts_map_;
+  std::unique_ptr<MockProductSpecificationsService>
+      product_specifications_service_;
+  std::unique_ptr<MockClusterManager> cluster_manager_;
 };
 
 }  // namespace commerce

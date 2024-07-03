@@ -20,6 +20,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/interaction/interactive_browser_test.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/test/browser_test.h"
 #include "url/gurl.h"
@@ -120,8 +121,9 @@ class ThumbnailTabHelperInteractiveTest : public InProcessBrowserTest {
   void EnsureTabLoaded(content::WebContents* tab) {
     content::NavigationController* controller = &tab->GetController();
     if (!controller->NeedsReload() && !controller->GetPendingEntry() &&
-        !tab->IsLoading())
+        !tab->IsLoading()) {
       return;
+    }
 
     content::LoadStopObserver(tab).Wait();
   }
@@ -155,29 +157,77 @@ class ThumbnailTabHelperInteractiveTest : public InProcessBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// TODO(crbug.com/40883117) flakes on ChromeOS and MSAN/TSAN/ASAN builders.
-// TODO(crbug.com/335997050) timeout on ARM64 debug builder.
-#if BUILDFLAG(IS_CHROMEOS) || defined(THREAD_SANITIZER) || \
-    defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || \
-    (BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64) && !defined(NDEBUG))
+// Updated test fixture for testing interaction of thumbnail tab helper and
+// browser, specifically testing interaction of tab load and thumbnail capture.
+class ThumbnailTabHelperUpdatedInteractiveTest : public InteractiveBrowserTest {
+ protected:
+  void SetUp() override {
+    // This flag causes the thumbnail tab helper system to engage. Otherwise
+    // there is no ThumbnailTabHelper created. Note that there *are* other flags
+    // that also trigger the existence of the helper.
+    scoped_feature_list_.InitAndEnableFeature(features::kTabHoverCardImages);
+    InteractiveBrowserTest::SetUp();
+  }
+
+  int GetTabCount() { return browser()->tab_strip_model()->count(); }
+
+  auto CheckTabHasThumbnailData(int tab_index, bool has_data) {
+    return CheckResult(
+        [=]() {
+          return ThumbnailTabHelper::FromWebContents(
+                     browser()->tab_strip_model()->GetWebContentsAt(tab_index))
+              ->thumbnail()
+              ->has_data();
+        },
+        has_data,
+        base::StrCat({"Checking that tab ", base::NumberToString(tab_index),
+                      (has_data ? " has" : " doesn't have"), " data"}));
+  }
+
+  auto WaitForAndVerifyThumbnail(int tab_index) {
+    return Check(
+        [=]() {
+          auto* const thumbnail_tab_helper =
+              ThumbnailTabHelper::FromWebContents(
+                  browser()->tab_strip_model()->GetWebContentsAt(tab_index));
+          auto thumbnail = thumbnail_tab_helper->thumbnail();
+
+          ThumbnailWaiter waiter;
+          const std::optional<gfx::ImageSkia> data =
+              waiter.WaitForThumbnail(thumbnail.get());
+          return data && !data->isNull();
+        },
+        "Wait for thumbail and verify it is present");
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// TODO(crbug.com/40883117): Failing on win-asan.
+#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
 #define MAYBE_TabLoadTriggersScreenshot DISABLED_TabLoadTriggersScreenshot
 #else
 #define MAYBE_TabLoadTriggersScreenshot TabLoadTriggersScreenshot
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
-IN_PROC_BROWSER_TEST_F(ThumbnailTabHelperInteractiveTest,
+#endif
+IN_PROC_BROWSER_TEST_F(ThumbnailTabHelperUpdatedInteractiveTest,
                        MAYBE_TabLoadTriggersScreenshot) {
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(), url2_, WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
-
-  DCHECK_EQ(2, browser()->tab_strip_model()->count());
-  WaitForAndVerifyThumbnail(browser(), 1);
+  RunTestSequence(
+      Do([this]() {
+        ui_test_utils::NavigateToURLWithDisposition(
+            browser(), GURL(chrome::kChromeUINewTabURL),
+            WindowOpenDisposition::NEW_BACKGROUND_TAB,
+            ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
+      }),
+      CheckResult([this]() { return GetTabCount(); }, 2,
+                  "Checking that there are two tabs"),
+      CheckTabHasThumbnailData(0, false), CheckTabHasThumbnailData(1, false),
+      WaitForAndVerifyThumbnail(0), CheckTabHasThumbnailData(0, true));
 }
 
 // TODO(crbug.com/40883117) flakes on ChromeOS and MSAN/TSAN/ASAN builders.
 // TODO(crbug.com/335997050) timeout on ARM64 debug builder.
-#if BUILDFLAG(IS_CHROMEOS) || defined(THREAD_SANITIZER) || \
+#if BUILDFLAG(IS_CHROMEOS) || defined(THREAD_SANITIZER) ||     \
     defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || \
     (BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64) && !defined(NDEBUG))
 #define MAYBE_TabDiscardPreservesScreenshot \
@@ -239,6 +289,7 @@ IN_PROC_BROWSER_TEST_F(ThumbnailTabHelperInteractiveTest,
   constexpr int kTabCount = 4;
   AddSomeTabs(browser2, kTabCount - browser2->tab_strip_model()->count());
   EXPECT_EQ(kTabCount, browser2->tab_strip_model()->count());
+  const int active_tab_index = browser2->tab_strip_model()->active_index();
   CloseBrowserSynchronously(browser2);
 
   // Set up the tab loader to ensure tabs are left unloaded.
@@ -253,7 +304,7 @@ IN_PROC_BROWSER_TEST_F(ThumbnailTabHelperInteractiveTest,
   browser2 = GetBrowser(1);
 
   EXPECT_EQ(kTabCount, browser2->tab_strip_model()->count());
-  EXPECT_EQ(0, browser2->tab_strip_model()->active_index());
+  EXPECT_EQ(active_tab_index, browser2->tab_strip_model()->active_index());
 
   // These tabs shouldn't want to be loaded.
   for (int tab_idx = 1; tab_idx < kTabCount - 1; ++tab_idx) {

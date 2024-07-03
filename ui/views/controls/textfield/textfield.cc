@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if defined(UNSAFE_BUFFERS_BUILD)
+// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
+// then remove this pragma.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "ui/views/controls/textfield/textfield.h"
 
 #include <algorithm>
@@ -231,20 +237,18 @@ Textfield::Textfield()
                                                 GetCornerRadius());
   FocusRing::Install(this);
   FocusRing::Get(this)->SetOutsetFocusRingDisabled(true);
-  if (::features::IsChromeRefresh2023()) {
-    InkDropHost* ink_drop_host =
-        InkDrop::Install(this, std::make_unique<views::InkDropHost>(this));
-    ink_drop_host->SetMode(InkDropHost::InkDropMode::ON);
-    ink_drop_host->SetLayerRegion(LayerRegion::kAbove);
-    ink_drop_host->SetHighlightOpacity(1.0f);
-    ink_drop_host->SetBaseColorCallback(base::BindRepeating(
-        [](Textfield* host) {
-          return host->HasFocus() ? SK_ColorTRANSPARENT
-                                  : host->GetColorProvider()->GetColor(
-                                        ui::kColorTextfieldHover);
-        },
-        this));
-  }
+  InkDropHost* ink_drop_host =
+      InkDrop::Install(this, std::make_unique<views::InkDropHost>(this));
+  ink_drop_host->SetMode(InkDropHost::InkDropMode::ON);
+  ink_drop_host->SetLayerRegion(LayerRegion::kAbove);
+  ink_drop_host->SetHighlightOpacity(1.0f);
+  ink_drop_host->SetBaseColorCallback(base::BindRepeating(
+      [](Textfield* host) {
+        return host->HasFocus() ? SK_ColorTRANSPARENT
+                                : host->GetColorProvider()->GetColor(
+                                      ui::kColorTextfieldHover);
+      },
+      this));
 
 #if !BUILDFLAG(IS_MAC)
   // Do not map accelerators on Mac. E.g. They might not reflect custom
@@ -262,7 +266,7 @@ Textfield::Textfield()
   AddAccelerator(ui::Accelerator(ui::VKEY_V, ui::EF_CONTROL_DOWN));
 #endif
 
-  SetAccessibilityProperties(ax::mojom::Role::kTextField);
+  GetViewAccessibility().SetProperties(ax::mojom::Role::kTextField);
 
   // Sometimes there are additional ignored views, such as the View representing
   // the cursor, inside the text field. These should always be ignored by
@@ -673,7 +677,7 @@ ui::Cursor Textfield::GetCursor(const ui::MouseEvent& event) {
 bool Textfield::OnMousePressed(const ui::MouseEvent& event) {
   const bool had_focus = HasFocus();
   bool handled = controller_ && controller_->HandleMouseEvent(this, event);
-  if (::features::IsChromeRefresh2023() && InkDrop::Get(this)) {
+  if (InkDrop::Get(this)) {
     // When a textfield is pressed, the hover state should be off and the
     // background color should no longer have a mask.
     InkDrop::Get(this)->GetInkDrop()->SetHovered(false);
@@ -1054,8 +1058,9 @@ void Textfield::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->AddIntAttribute(ax::mojom::IntAttribute::kTextSelEnd,
                              base::checked_cast<int32_t>(range.end()));
 
-  // TODO(ViewsAX): In order to update the cache whenever the offset changes,
-  // we could set this attribute in Textfield::UpdateCursorViewPosition.
+  // TODO(crbug.com/325137417): In order to update the cache whenever the offset
+  // changes, we could set this attribute in
+  // Textfield::UpdateCursorViewPosition.
   node_data->AddIntAttribute(ax::mojom::IntAttribute::kScrollX,
                              GetRenderText()->GetUpdatedDisplayOffset().x());
 
@@ -1068,9 +1073,22 @@ void Textfield::GetAccessibleNodeData(ui::AXNodeData* node_data) {
       (ax_value_used_to_compute_offsets_ != ax_value ||
        needs_ax_text_offsets_update_)) {
     GetViewAccessibility().ClearTextOffsets();
+
+    // TODO(crbug.com/325137417): When this function is only used to initialize
+    // the cache with these values, refactor this part to not rely on the cache
+    // as it will cause a chicken and egg situation. For now, this is necessary
+    // to keep the text offsets up to date.
     RefreshAccessibleTextOffsets();
     ax_value_used_to_compute_offsets_ = ax_value;
     needs_ax_text_offsets_update_ = false;
+
+    node_data->AddIntListAttribute(
+        ax::mojom::IntListAttribute::kCharacterOffsets,
+        GetViewAccessibility().GetCharacterOffsets());
+    node_data->AddIntListAttribute(ax::mojom::IntListAttribute::kWordStarts,
+                                   GetViewAccessibility().GetWordStarts());
+    node_data->AddIntListAttribute(ax::mojom::IntListAttribute::kWordEnds,
+                                   GetViewAccessibility().GetWordEnds());
   }
 #endif  // BUILDFLAG(SUPPORTS_AX_TEXT_OFFSETS)
 }
@@ -2625,8 +2643,7 @@ void Textfield::UpdateDefaultBorder() {
   if (!use_default_border_) {
     return;
   }
-  auto border = std::make_unique<views::FocusableBorder>(
-      ::features::IsChromeRefresh2023());
+  auto border = std::make_unique<views::FocusableBorder>();
   const LayoutProvider* provider = LayoutProvider::Get();
   border->SetColorId(ui::kColorTextfieldOutline);
   border->SetInsets(gfx::Insets::TLBR(

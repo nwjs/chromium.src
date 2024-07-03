@@ -119,6 +119,10 @@ bool PrintBackendInitializeConfig(sandbox::TargetConfig* config) {
 }
 #endif
 
+std::string UtilityAppContainerId(base::CommandLine& cmd_line) {
+  return base::WideToUTF8(cmd_line.GetProgram().value());
+}
+
 bool IconReaderInitializeConfig(sandbox::TargetConfig* config) {
   DCHECK(!config->IsConfigured());
 
@@ -136,20 +140,6 @@ bool IconReaderInitializeConfig(sandbox::TargetConfig* config) {
   sandbox::MitigationFlags flags = config->GetDelayedProcessMitigations();
   flags |= sandbox::MITIGATION_DYNAMIC_CODE_DISABLE;
   result = config->SetDelayedProcessMitigations(flags);
-  if (result != sandbox::SBOX_ALL_OK)
-    return false;
-
-  // Allow file read. These should match IconLoader::GroupForFilepath().
-  result = config->AllowFileAccess(sandbox::FileSemantics::kAllowReadonly,
-                                   L"\\??\\*.exe");
-  if (result != sandbox::SBOX_ALL_OK)
-    return false;
-  result = config->AllowFileAccess(sandbox::FileSemantics::kAllowReadonly,
-                                   L"\\??\\*.dll");
-  if (result != sandbox::SBOX_ALL_OK)
-    return false;
-  result = config->AllowFileAccess(sandbox::FileSemantics::kAllowReadonly,
-                                   L"\\??\\*.ico");
   if (result != sandbox::SBOX_ALL_OK)
     return false;
   return true;
@@ -198,8 +188,7 @@ bool XrCompositingInitializeConfig(sandbox::TargetConfig* config,
   if (result != sandbox::SBOX_ALL_OK)
     return false;
 
-  std::string appcontainer_id =
-      GetContentClient()->browser()->GetAppContainerId();
+  std::string appcontainer_id = UtilityAppContainerId(cmd_line);
   result = sandbox::policy::SandboxWin::AddAppContainerProfileToConfig(
       cmd_line, sandbox_type, appcontainer_id, config);
   if (result != sandbox::SBOX_ALL_OK)
@@ -259,13 +248,13 @@ bool UtilitySandboxedProcessLauncherDelegate::GetAppContainerId(
     case sandbox::mojom::Sandbox::kOnDeviceModelExecution:
     case sandbox::mojom::Sandbox::kWindowsSystemProxyResolver:
     case sandbox::mojom::Sandbox::kXrCompositing:
-      *appcontainer_id = GetContentClient()->browser()->GetAppContainerId();
+      *appcontainer_id = UtilityAppContainerId(cmd_line_);
       return true;
 #if BUILDFLAG(ENABLE_PRINTING)
     case sandbox::mojom::Sandbox::kPrintCompositor:
       if (base::FeatureList::IsEnabled(
               sandbox::policy::features::kPrintCompositorLPAC)) {
-        *appcontainer_id = GetContentClient()->browser()->GetAppContainerId();
+        *appcontainer_id = UtilityAppContainerId(cmd_line_);
         return true;
       }
       return false;

@@ -170,20 +170,20 @@ UILabel* TextLabel(NSString* text,
     UILabel* valueLabel =
         TextLabel(suggestionText, [UIColor colorNamed:kTextPrimaryColor],
                   /*bold=*/YES, /*isTitle=*/YES);
-    [stackView addArrangedSubview:valueLabel];
+    [stackView addArrangedSubview:[self splitLabel:valueLabel]];
 
     if ([suggestion.minorValue length] > 0) {
       UILabel* minorValueLabel = TextLabel(
           suggestion.minorValue, [UIColor colorNamed:kTextPrimaryColor],
           /*bold=*/YES, /*isTitle=*/NO);
-      [stackView addArrangedSubview:minorValueLabel];
+      [stackView addArrangedSubview:[self splitLabel:minorValueLabel]];
     }
 
     if ([suggestion.displayDescription length] > 0) {
       UILabel* description = TextLabel(suggestion.displayDescription,
                                        [UIColor colorNamed:kTextSecondaryColor],
                                        /*bold=*/NO, /*isTitle=*/NO);
-      [stackView addArrangedSubview:description];
+      [stackView addArrangedSubview:[self splitLabel:description]];
     }
 
     [self setBackgroundColor:[self customBackgroundColor]];
@@ -193,7 +193,7 @@ UILabel* TextLabel(NSString* text,
     [self setIsAccessibilityElement:YES];
     [self setAccessibilityLabel:l10n_util::GetNSStringF(
                                     IDS_IOS_AUTOFILL_ACCNAME_SUGGESTION,
-                                    base::SysNSStringToUTF16(suggestion.value),
+                                    base::SysNSStringToUTF16(suggestionText),
                                     base::SysNSStringToUTF16(
                                         suggestion.displayDescription))];
     [self setAccessibilityValue:l10n_util::GetNSStringF(
@@ -318,6 +318,45 @@ UILabel* TextLabel(NSString* text,
       break;
   }
   return maxWidth;
+}
+
+// Splits a credit card label into 2 labels, with one being an incompressible
+// credit card number label.
+- (UIView*)splitLabel:(UILabel*)label {
+  if (![self isCreditCardSuggestion]) {
+    return label;
+  }
+
+  // Look for a credit card number in the string. Note that U+202A is the
+  // "Left-to-right embedding" character and U+202C is the "Pop directional
+  // formatting" character. Credit card numbers are surrounded by these two
+  // Unicode characters.
+  NSRange range =
+      [label.text rangeOfString:@"\U0000202a•⁠ ⁠•⁠ ⁠"];
+  if (range.location == NSNotFound || range.location < 1) {
+    return label;
+  }
+
+  // Split the string in pre and post credit card number labels.
+  UILabel* creditCardLabel = [[UILabel alloc] init];
+  creditCardLabel.font = label.font;
+  creditCardLabel.text = [label.text substringFromIndex:range.location];
+  // The credit card number should not be compressible.
+  [creditCardLabel
+      setContentCompressionResistancePriority:UILayoutPriorityRequired
+                                      forAxis:UILayoutConstraintAxisHorizontal];
+
+  // Remove credit card number from the original string.
+  label.text = [label.text substringToIndex:range.location - 1];
+
+  // Stack both labels horizontally.
+  UIStackView* stackView = [[UIStackView alloc] initWithArrangedSubviews:@[]];
+  stackView.axis = UILayoutConstraintAxisHorizontal;
+  stackView.alignment = UIStackViewAlignmentCenter;
+  stackView.spacing = kSpacing;
+  [stackView addArrangedSubview:label];
+  [stackView addArrangedSubview:creditCardLabel];
+  return stackView;
 }
 
 @end

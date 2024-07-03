@@ -23,6 +23,9 @@ class USER_MANAGER_EXPORT FakeUserManagerDelegate
   const std::string& GetApplicationLocale() override;
   void OverrideDirHome(const User& primary_user) override;
   bool IsUserSessionRestoreInProgress() override;
+  void CheckProfileOnLogin(const User& user) override;
+  void RemoveProfileByAccountId(const AccountId& account_id) override;
+  void RemoveCryptohomeAsync(const AccountId& account_id) override;
 };
 
 }  // namespace user_manager

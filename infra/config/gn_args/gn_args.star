@@ -400,6 +400,7 @@ gn_args.config(
     args = {
         "clang_base_path": "//third_party/cronet_android_mainline_clang/linux-amd64",
         "clang_use_chrome_plugins": False,
+        "default_min_sdk_version": 29,
         # https://crbug.com/1481060
         "llvm_android_mainline": True,
     },
@@ -887,6 +888,13 @@ gn_args.config(
 gn_args.config(
     name = "no_reclient",
     args = {
+        "use_reclient": False,
+    },
+)
+
+gn_args.config(
+    name = "no_remoteexec",
+    args = {
         "use_remoteexec": False,
     },
 )
@@ -1018,7 +1026,7 @@ gn_args.config(
 )
 
 gn_args.config(
-    name = "reclient",
+    name = "remoteexec",
     args = {
         "use_remoteexec": True,
     },
@@ -1027,10 +1035,10 @@ gn_args.config(
 gn_args.config(
     name = "reclient_with_remoteexec_links",
     args = {
-        "use_remoteexec_links": True,
+        "use_reclient_links": True,
         "concurrent_links": 50,
     },
-    configs = ["reclient"],
+    configs = ["remoteexec"],
 )
 
 gn_args.config(

@@ -16,8 +16,17 @@ namespace data_controls {
 // on what UX should be shown, what should be reported, etc.
 class Verdict {
  public:
-  // The key is the rule's ID and the value is the rule's name.
-  using TriggeredRules = base::flat_map<std::string, std::string>;
+  // The key is the rule's index in the "DataControlsRules" policy list
+  // representation that exists in `RulesService`.
+  // Since policy updates can change the rules list and invalidate indexes of
+  // previously triggered rules, this index key should only be used
+  // synchronously to merge rules and not in async cases (for example after a
+  // warning dialog has been shown).
+  struct TriggeredRule {
+    std::string rule_id;
+    std::string rule_name;
+  };
+  using TriggeredRules = base::flat_map<size_t, TriggeredRule>;
 
   static Verdict NotSet();
   static Verdict Report(TriggeredRules triggered_rules);
@@ -31,6 +40,18 @@ class Verdict {
   // triggered rules of the destination one for reporting.
   static Verdict MergePasteVerdicts(Verdict source_verdict,
                                     Verdict destination_verdict);
+
+  // Creates a combination of two `Verdict`s for a single warning copy action.
+  // `source_only_verdict` represents the verdict against no specific
+  // destination (aka a copy warning dialog verdict, and `os_clipboard_verdict`
+  // represents the verdict deciding if data should be shared with the OS
+  // clipboard. The resulting verdict should only contain triggered rules meant
+  // to be reported.
+  //
+  // This function should only be called when a warning dialog is about to be
+  // showned, so the level of the returned verdict is always `kWarn`.
+  static Verdict MergeCopyWarningVerdicts(Verdict source_only_verdict,
+                                          Verdict os_clipboard_verdict);
 
   ~Verdict();
   Verdict(Verdict&&);

@@ -159,6 +159,7 @@ QuicSessionPoolTestBase::QuicSessionPoolTestBase(
           &QuicSessionPoolTestBase::OnFailedOnDefaultNetwork,
           base::Unretained(this))),
       quic_params_(context_.params()) {
+  SetQuicRestartFlag(quic_opport_bundle_qpack_decoder_data5, true);
   enabled_features.push_back(features::kAsyncQuicSession);
   scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   FLAGS_quic_enable_http3_grease_randomness = false;
@@ -354,6 +355,18 @@ QuicSessionPoolTestBase::ConstructConnectUdpRequestPacket(
     std::string authority,
     std::string path,
     bool fin) {
+  return ConstructConnectUdpRequestPacket(client_maker_, packet_number,
+                                          stream_id, authority, path, fin);
+}
+
+std::unique_ptr<quic::QuicEncryptedPacket>
+QuicSessionPoolTestBase::ConstructConnectUdpRequestPacket(
+    QuicTestPacketMaker& packet_maker,
+    uint64_t packet_number,
+    quic::QuicStreamId stream_id,
+    std::string authority,
+    std::string path,
+    bool fin) {
   spdy::Http2HeaderBlock headers;
   headers[":scheme"] = "https";
   headers[":path"] = path;
@@ -365,15 +378,13 @@ QuicSessionPoolTestBase::ConstructConnectUdpRequestPacket(
   spdy::SpdyPriority priority =
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
   size_t spdy_headers_frame_len;
-  auto rv = client_maker_.MakeRequestHeadersPacket(
+  auto rv = packet_maker.MakeRequestHeadersPacket(
       packet_number, stream_id, fin, priority, std::move(headers),
       &spdy_headers_frame_len, /*should_include_priority_frame=*/false);
   return rv;
 }
 
-std::unique_ptr<quic::QuicEncryptedPacket>
-QuicSessionPoolTestBase::ConstructClientH3DatagramPacket(
-    uint64_t packet_number,
+std::string QuicSessionPoolTestBase::ConstructClientH3DatagramFrame(
     uint64_t quarter_stream_id,
     uint64_t context_id,
     std::unique_ptr<quic::QuicEncryptedPacket> inner) {
@@ -385,6 +396,17 @@ QuicSessionPoolTestBase::ConstructClientH3DatagramPacket(
   CHECK(writer.WriteVarInt62(context_id));
   CHECK(writer.WriteBytes(inner->data(), inner->length()));
   data.resize(writer.length());
+  return data;
+}
+
+std::unique_ptr<quic::QuicEncryptedPacket>
+QuicSessionPoolTestBase::ConstructClientH3DatagramPacket(
+    uint64_t packet_number,
+    uint64_t quarter_stream_id,
+    uint64_t context_id,
+    std::unique_ptr<quic::QuicEncryptedPacket> inner) {
+  std::string data = ConstructClientH3DatagramFrame(
+      quarter_stream_id, context_id, std::move(inner));
   return client_maker_.MakeDatagramPacket(packet_number, data);
 }
 
@@ -392,11 +414,21 @@ std::unique_ptr<quic::QuicEncryptedPacket>
 QuicSessionPoolTestBase::ConstructOkResponsePacket(uint64_t packet_number,
                                                    quic::QuicStreamId stream_id,
                                                    bool fin) {
-  spdy::Http2HeaderBlock headers = server_maker_.GetResponseHeaders("200");
+  return ConstructOkResponsePacket(server_maker_, packet_number, stream_id,
+                                   fin);
+}
+
+std::unique_ptr<quic::QuicEncryptedPacket>
+QuicSessionPoolTestBase::ConstructOkResponsePacket(
+    QuicTestPacketMaker& packet_maker,
+    uint64_t packet_number,
+    quic::QuicStreamId stream_id,
+    bool fin) {
+  spdy::Http2HeaderBlock headers = packet_maker.GetResponseHeaders("200");
   size_t spdy_headers_frame_len;
-  return server_maker_.MakeResponseHeadersPacket(packet_number, stream_id, fin,
-                                                 std::move(headers),
-                                                 &spdy_headers_frame_len);
+  return packet_maker.MakeResponseHeadersPacket(packet_number, stream_id, fin,
+                                                std::move(headers),
+                                                &spdy_headers_frame_len);
 }
 
 std::unique_ptr<quic::QuicReceivedPacket>
@@ -410,9 +442,27 @@ QuicSessionPoolTestBase::ConstructInitialSettingsPacket(
   return client_maker_.MakeInitialSettingsPacket(packet_number);
 }
 
+std::unique_ptr<quic::QuicReceivedPacket>
+QuicSessionPoolTestBase::ConstructInitialSettingsPacket(
+    QuicTestPacketMaker& packet_maker,
+    uint64_t packet_number) {
+  return packet_maker.MakeInitialSettingsPacket(packet_number);
+}
+
 std::unique_ptr<quic::QuicEncryptedPacket>
 QuicSessionPoolTestBase::ConstructServerSettingsPacket(uint64_t packet_number) {
   return server_maker_.MakeInitialSettingsPacket(packet_number);
+}
+
+std::unique_ptr<quic::QuicEncryptedPacket>
+QuicSessionPoolTestBase::ConstructAckPacket(
+    test::QuicTestPacketMaker& packet_maker,
+    uint64_t packet_number,
+    uint64_t packet_num_received,
+    uint64_t smallest_received,
+    uint64_t largest_received) {
+  return packet_maker.MakeAckPacket(packet_number, packet_num_received,
+                                    smallest_received, largest_received);
 }
 
 std::string QuicSessionPoolTestBase::ConstructDataHeader(size_t body_len) {
@@ -427,6 +477,21 @@ QuicSessionPoolTestBase::ConstructServerDataPacket(uint64_t packet_number,
                                                    bool fin,
                                                    std::string_view data) {
   return server_maker_.MakeDataPacket(packet_number, stream_id, fin, data);
+}
+
+std::string QuicSessionPoolTestBase::ConstructH3Datagram(
+    uint64_t stream_id,
+    uint64_t context_id,
+    std::unique_ptr<quic::QuicEncryptedPacket> packet) {
+  std::string data;
+  // Allow enough space for payload and two varint-62's.
+  data.resize(packet->length() + 2 * 8);
+  quiche::QuicheDataWriter writer(data.capacity(), data.data());
+  CHECK(writer.WriteVarInt62(stream_id >> 2));
+  CHECK(writer.WriteVarInt62(context_id));
+  CHECK(writer.WriteBytes(packet->data(), packet->length()));
+  data.resize(writer.length());
+  return data;
 }
 
 quic::QuicStreamId

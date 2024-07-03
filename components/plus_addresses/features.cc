@@ -60,11 +60,28 @@ BASE_FEATURE(kPlusAddressRefreshUiInDesktopModal,
              "PlusAddressRefreshUiInDesktopModal",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, refresh UI is shown in the bottom sheet on iOS.
+BASE_FEATURE(kPlusAddressRefreshUiInIOS,
+             "PlusAddressRefreshUiInIOS",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, allows the use of affiliation data with plus addresses. This
 // includes things like prefetching affiliation data, or suggesting plus
 // addresses for affiliated domains.
 BASE_FEATURE(kPlusAddressAffiliations,
              "PlusAddressAffiliations",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the redesigned UI for plus addresses on all platforms.
+BASE_FEATURE(kPlusAddressUIRedesign,
+             "PlusAddressUIRedesign",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, refresh UI is shown in the bottom sheet on Android.
+BASE_FEATURE(kPlusAddressRefreshUiInAndroid,
+             "PlusAddressRefreshUiInAndroid",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 }  // namespace plus_addresses::features

@@ -104,8 +104,9 @@ class FencedFrameReporterTest : public RenderViewHostTestHarness {
  public:
   FencedFrameReporterTest() {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{blink::features::
-                                  kFencedFramesAutomaticBeaconCredentials},
+        /*enabled_features=*/
+        {blink::features::kFencedFramesAutomaticBeaconCredentials,
+         blink::features::kFencedFramesReportEventHeaderChanges},
         /*disabled_features=*/{});
   }
 
@@ -137,6 +138,8 @@ class FencedFrameReporterTest : public RenderViewHostTestHarness {
     EXPECT_EQ(request.credentials_mode, network::mojom::CredentialsMode::kOmit);
     EXPECT_TRUE(request.trusted_params->isolation_info.network_isolation_key()
                     .IsTransient());
+    EXPECT_EQ(request.referrer, main_frame_origin_.GetURL());
+    EXPECT_EQ(request.referrer_policy, net::ReferrerPolicy::ORIGIN);
 
     // Checks specific to DestinationURL events.
     if (!event_data.has_value()) {

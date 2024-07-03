@@ -178,6 +178,9 @@ BASE_DECLARE_FEATURE(kEnableLensInNTP);
 // Feature flag to enable the Lens "Search copied image" omnibox entrypoint.
 BASE_DECLARE_FEATURE(kEnableLensInOmniboxCopiedImage);
 
+// Feature flag to enable the Lens "Search copied image" omnibox entrypoint.
+BASE_DECLARE_FEATURE(kEnableLensOverlay);
+
 // Feature flag to enable UITraitCollection workaround for fixing incorrect
 // trait propagation.
 BASE_DECLARE_FEATURE(kEnableTraitCollectionWorkAround);
@@ -312,12 +315,6 @@ BASE_DECLARE_FEATURE(kTabGridAlwaysBounce);
 // Feature flag enabling tab grid refactoring.
 BASE_DECLARE_FEATURE(kTabGridRefactoring);
 
-// Feature flag enabling the tab grid new compositional layout.
-BASE_DECLARE_FEATURE(kTabGridCompositionalLayout);
-
-// Whether the Tab Grid should use its compositional layout.
-bool IsTabGridCompositionalLayoutEnabled();
-
 // Whether the Safety Check module should be shown in the Magic Stack.
 bool IsSafetyCheckMagicStackEnabled();
 
@@ -329,21 +326,6 @@ BASE_DECLARE_FEATURE(kIOSSaveToPhotos);
 
 // Feature flag enabling a fix for the Download manager mediator.
 BASE_DECLARE_FEATURE(kIOSDownloadNoUIUpdateInBackground);
-
-// Causes the restore shorty and re-signin flows to offer a history opt-in
-// screen.
-BASE_DECLARE_FEATURE(kHistoryOptInForRestoreShortyAndReSignin);
-
-// Enables batch upload entry point from the Bookmarks Manager.
-BASE_DECLARE_FEATURE(kEnableBatchUploadFromBookmarksManager);
-
-// Enables the promo in the Bookmarks Manager or Reading Lists Manager to review
-// account settings when these types are disabled.
-BASE_DECLARE_FEATURE(kEnableReviewAccountSettingsPromo);
-
-// Enables linking account settings in the Privacy Settings page footer for
-// signed in non syncing users.
-BASE_DECLARE_FEATURE(kLinkAccountSettingsToPrivacyFooter);
 
 // Feature flag to enable feed background refresh.
 // Use IsFeedBackgroundRefreshEnabled() instead of this constant directly.
@@ -371,6 +353,13 @@ BASE_DECLARE_FEATURE(kContentPushNotifications);
 // Feature flag to enable Content Notification experiments.
 BASE_DECLARE_FEATURE(kContentNotificationExperiment);
 
+// Feature flag to enable Content Notification Provisional without any
+// conditions.
+BASE_DECLARE_FEATURE(kContentNotificationProvisionalIgnoreConditions);
+
+// True if Content Notification Provisional is enabled without any conditions.
+bool IsContentNotificationProvisionalIgnoreConditions();
+
 // Feature flag to enable the Large Fakebox design changes.
 BASE_DECLARE_FEATURE(kIOSLargeFakebox);
 
@@ -397,6 +386,12 @@ BASE_DECLARE_FEATURE(kDisableLensCamera);
 
 // Feature flag to enable color icons in the Omnibox.
 BASE_DECLARE_FEATURE(kOmniboxColorIcons);
+
+// Feature flag that allows clearing data for managed users signing out.
+BASE_DECLARE_FEATURE(kClearDeviceDataOnSignOutForManagedUsers);
+
+// Feature flag that allows opening the downloaded PDF files in Chrome.
+BASE_DECLARE_FEATURE(kDownloadedPDFOpening);
 
 // Feature param under `kEnableFeedBackgroundRefresh` to also enable background
 // refresh for the Following feed.
@@ -491,7 +486,7 @@ bool IsFeedAblationEnabled();
 bool IsFollowUIUpdateEnabled();
 
 // YES if content push notification experiments are enabled.
-bool IsContentNotificationExperimentEnalbed();
+bool IsContentNotificationExperimentEnabled();
 
 // YES when any of the content push notification variations are enabled.
 bool IsContentPushNotificationsEnabled();
@@ -507,11 +502,6 @@ bool IsContentPushNotificationsSetUpListEnabled();
 
 // YES when the Content Provisional Push Notifications are enabled.
 bool IsContentPushNotificationsProvisionalEnabled();
-
-// TODO(b/322348322): Remove provisional notifications bypass conditions testing
-// flag param. YES when the Content Provisional Push Notifications are enabled
-// and the time based conditions should be ignored.
-bool IsContentPushNotificationsProvisionalBypass();
 
 // YES when the Content Push Notifications Promo is registered with no UI
 // change.
@@ -539,6 +529,20 @@ BASE_DECLARE_FEATURE(kEnableFeedContainment);
 
 // Feature that enables tab resumption.
 BASE_DECLARE_FEATURE(kTabResumption);
+
+// Feature that enables enhancements for Tab Resumption.
+BASE_DECLARE_FEATURE(kTabResumption1_5);
+
+// A parameter to indicate whether the Tab resumption tile should use salient
+// images.
+extern const char kTR15SalientImageParam[];
+
+// A parameter to indicate whether the Tab resumption tile should have a see
+// more button.
+extern const char kTR15SeeMoreButtonParam[];
+
+// Feature that enables tab resumption 2.0.
+BASE_DECLARE_FEATURE(kTabResumption2);
 
 // A parameter to indicate whether the Most Visited Tiles should be in the Magic
 // Stack.
@@ -579,8 +583,21 @@ CGFloat HomeModuleMinimumPadding();
 // Whether the tab resumption feature is enabled.
 bool IsTabResumptionEnabled();
 
+// Whether the tab resumption feature is enabled in 2.0 version. Implies
+// `IsTabResumptionEnabled`.
+bool IsTabResumption2_0Enabled();
+
 // Whether the tab resumption feature is enabled for most recent tab only.
 bool IsTabResumptionEnabledForMostRecentTabOnly();
+
+// Whether the tab resumption enhancements feature is enabled.
+bool IsTabResumption1_5Enabled();
+
+// Whether the tab resumption with salient images is enabled.
+bool IsTabResumption1_5SalientImageEnabled();
+
+// Whether the tab resumption with see more button is enabled.
+bool IsTabResumption1_5SeeMoreEnabled();
 
 // Convenience method for determining the tab resumption time threshold for
 // X-Devices tabs only.

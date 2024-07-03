@@ -26,6 +26,7 @@
 #include "components/user_manager/known_user.h"
 #include "ui/events/ash/keyboard_capability.h"
 #include "ui/events/ash/mojom/extended_fkeys_modifier.mojom-shared.h"
+#include "ui/events/ash/mojom/meta_key.mojom-shared.h"
 #include "ui/events/ash/mojom/modifier_key.mojom.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
@@ -139,8 +140,11 @@ bool IsValidModifier(int val) {
 }
 
 std::string BuildDeviceKey(const ui::InputDevice& device) {
-  return base::StrCat(
-      {HexEncode(device.vendor_id), ":", HexEncode(device.product_id)});
+  return BuildDeviceKey(device.vendor_id, device.product_id);
+}
+
+std::string BuildDeviceKey(uint16_t vendor_id, uint16_t product_id) {
+  return base::StrCat({HexEncode(vendor_id), ":", HexEncode(product_id)});
 }
 
 template <typename T>
@@ -413,15 +417,12 @@ mojom::ButtonRemappingPtr ConvertDictToButtonRemapping(
 }
 
 bool IsChromeOSKeyboard(const mojom::Keyboard& keyboard) {
-  return keyboard.meta_key == mojom::MetaKey::kLauncher ||
-         keyboard.meta_key == mojom::MetaKey::kSearch;
+  return keyboard.meta_key == ui::mojom::MetaKey::kLauncher ||
+         keyboard.meta_key == ui::mojom::MetaKey::kSearch;
 }
 
 bool IsSplitModifierKeyboard(const mojom::Keyboard& keyboard) {
-  return base::Contains(keyboard.modifier_keys,
-                        ui::mojom::ModifierKey::kFunction) &&
-         base::Contains(keyboard.modifier_keys,
-                        ui::mojom::ModifierKey::kRightAlt);
+  return keyboard.meta_key == ui::mojom::MetaKey::kLauncherRefresh;
 }
 
 bool IsSplitModifierKeyboard(int device_id) {

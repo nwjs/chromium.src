@@ -17,7 +17,7 @@ namespace ash {
 // - Expanded bar menu: the menu will be shown when right clicking in the
 // Overview mode and there is a birch bar displayed. The menu includes
 // customizing suggestion options.
-class BirchBarContextMenuModel : public ui::SimpleMenuModel {
+class ASH_EXPORT BirchBarContextMenuModel : public ui::SimpleMenuModel {
  public:
   // The commands for the birch bar menu items.
   enum class ASH_EXPORT CommandId {
@@ -26,6 +26,8 @@ class BirchBarContextMenuModel : public ui::SimpleMenuModel {
     kCalendarSuggestions,     // Show/hide the Calendar related suggestions.
     kDriveSuggestions,        // Show/hide the Drive related suggestions.
     kOtherDeviceSuggestions,  // Show/hide the suggestions from other device.
+    kLastActiveSuggestions,   // Show/hide last active tab suggestions.
+    kMostVisitedSuggestions,  // Show/hide most visited tab suggestions.
     kReset,                   // Reset preferences of all types of suggestions.
     kBarMenuEnd,
   };

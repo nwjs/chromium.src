@@ -28,6 +28,7 @@
 #include "components/autofill/core/browser/autofill_driver.h"
 #include "components/autofill/core/browser/autofill_external_delegate.h"
 #include "components/autofill/core/browser/autofill_manager.h"
+#include "components/autofill/core/browser/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/autofill_trigger_details.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling_product.h"
@@ -43,6 +44,7 @@
 #include "components/autofill/core/browser/payments/autofill_offer_manager.h"
 #include "components/autofill/core/browser/payments/card_unmask_delegate.h"
 #include "components/autofill/core/browser/payments/full_card_request.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/single_field_form_fill_router.h"
 #include "components/autofill/core/browser/ui/fast_checkout_delegate.h"
@@ -59,12 +61,13 @@
 
 namespace autofill {
 
+class AddressSuggestionGenerator;
 class AutofillField;
 class AutofillClient;
-class AutofillSuggestionGenerator;
 class AutofillProfile;
 class CreditCard;
 class CreditCardAccessManager;
+class PaymentsSuggestionGenerator;
 
 struct FormData;
 class FormFieldData;
@@ -128,6 +131,13 @@ inline constexpr char kAutocompleteSuppressionByPlusAddressUma[] =
 // forms. One per frame; owned by the AutofillDriver.
 class BrowserAutofillManager : public AutofillManager {
  public:
+  // Triggered when `GenerateSuggestionsAndMaybeShowUI` is complete.
+  // `show_suggestions` indicates whether or not the list of `suggestions`
+  // should be displayed (via the `external_delegate_`).
+  using OnGenerateSuggestionsCallback =
+      base::OnceCallback<void(bool show_suggestions,
+                              std::vector<Suggestion> suggestions)>;
+
   BrowserAutofillManager(AutofillDriver* driver,
                          const std::string& app_locale);
 
@@ -160,7 +170,7 @@ class BrowserAutofillManager : public AutofillManager {
       const std::u16string& cvc,
       const AutofillTriggerDetails& trigger_details);
 
-  // Routes calls from external components to FillOrPreviewFieldImpl.
+  // Routes calls from external components to FormFiller::FillOrPreviewField.
   // Virtual for testing.
   // TODO(crbug.com/40227496): Replace FormFieldData parameter by FieldGlobalId.
   virtual void FillOrPreviewField(mojom::ActionPersistence action_persistence,
@@ -168,7 +178,8 @@ class BrowserAutofillManager : public AutofillManager {
                                   const FormData& form,
                                   const FormFieldData& field,
                                   const std::u16string& value,
-                                  SuggestionType type);
+                                  SuggestionType type,
+                                  std::optional<FieldType> field_type_used);
 
   // Logs metrics when the user accepts address form filling suggestion. This
   // happens only for already parsed forms (`FormStructure` and `AutofillField`
@@ -276,7 +287,7 @@ class BrowserAutofillManager : public AutofillManager {
   bool ShouldClearPreviewedForm() override;
   void OnFocusOnNonFormFieldImpl(bool had_interacted_form) override;
   void OnFocusOnFormFieldImpl(const FormData& form,
-                              const FormFieldData& field) override;
+                              const FieldGlobalId& field_id) override;
   void OnDidFillAutofillFormDataImpl(const FormData& form,
                                      const base::TimeTicks timestamp) override;
   void OnDidEndTextFieldEditingImpl() override;
@@ -284,7 +295,7 @@ class BrowserAutofillManager : public AutofillManager {
   void OnSelectOrSelectListFieldOptionsDidChangeImpl(
       const FormData& form) override;
   void OnJavaScriptChangedAutofilledValueImpl(const FormData& form,
-                                              const FormFieldData& field,
+                                              const FieldGlobalId& field_id,
                                               const std::u16string& old_value,
                                               bool formatting_only) override;
   void Reset() override;
@@ -383,7 +394,6 @@ class BrowserAutofillManager : public AutofillManager {
   void OnGetSingleFieldSuggestionsCallback(
       bool form_element_was_clicked,
       const FormData& form,
-      base::TimeTicks request_start_time,
       FieldTypeGroup focused_field_type_group,
       FieldGlobalId field_id,
       const std::vector<Suggestion>& suggestions);
@@ -422,20 +432,20 @@ class BrowserAutofillManager : public AutofillManager {
                            bool known_success,
                            mojom::SubmissionSource source) override;
   void OnCaretMovedInFormFieldImpl(const FormData& form,
-                                   const FormFieldData& field,
+                                   const FieldGlobalId& field_id,
                                    const gfx::Rect& caret_bounds) override {}
   void OnTextFieldDidChangeImpl(const FormData& form,
-                                const FormFieldData& field,
+                                const FieldGlobalId& field_id,
                                 const base::TimeTicks timestamp) override;
   void OnTextFieldDidScrollImpl(const FormData& form,
-                                const FormFieldData& field) override {}
+                                const FieldGlobalId& field_id) override {}
   void OnAskForValuesToFillImpl(
       const FormData& form,
-      const FormFieldData& field,
+      const FieldGlobalId& field_id,
       const gfx::Rect& caret_bounds,
       AutofillSuggestionTriggerSource trigger_source) override;
   void OnSelectControlDidChangeImpl(const FormData& form,
-                                    const FormFieldData& field) override;
+                                    const FieldGlobalId& field_id) override;
   bool ShouldParseForms() override;
   void OnBeforeProcessParsedForms() override;
   void OnFormProcessed(const FormData& form,
@@ -452,15 +462,6 @@ class BrowserAutofillManager : public AutofillManager {
 
   // Returns false if Autofill is disabled or if no Autofill data is available.
   bool RefreshDataModels();
-
-  // TODO(crbug.com/40197696): Move the functions to
-  // AutofillSuggestionGenerator. Gets the card referred to by the guid
-  // |unique_id|. Returns |nullptr| if card does not exist.
-  CreditCard* GetCreditCard(Suggestion::BackendId unique_id);
-
-  // Gets the profile referred to by the guid |unique_id|. Returns |nullptr| if
-  // profile does not exist.
-  AutofillProfile* GetProfile(Suggestion::BackendId unique_id);
 
   // Creates a FormStructure using the FormData received from the renderer. Will
   // return an empty scoped_ptr if the data should not be processed for upload
@@ -534,17 +535,64 @@ class BrowserAutofillManager : public AutofillManager {
                                                bool cleared_value,
                                                bool formatting_only);
 
-  // Replaces the contents of `suggestions` with available suggestions for
-  // `field`. Which fields of the `form` are filled depends on the
-  // `trigger_source`.
-  // `context` will contain additional information about the suggestions, such
-  // as if they correspond to credit card suggestions and if the context is
-  // secure.
-  void GetAvailableSuggestions(const FormData& form,
-                               const FormFieldData& field,
-                               AutofillSuggestionTriggerSource trigger_source,
-                               std::vector<Suggestion>* suggestions,
-                               SuggestionsContext* context);
+  // Populates all the fields (except for ablation stuy related fields) in
+  // `SuggestionsContext` based on the given params.
+  SuggestionsContext BuildSuggestionsContext(
+      const FormData& form,
+      const FormFieldData& field,
+      AutofillSuggestionTriggerSource trigger_source);
+
+  // Returns a list with the suggestions available for `field`. Which fields of
+  // the `form` are filled depends on the `trigger_source`. `context` could
+  // contain additional information about the suggestions, such as ablation
+  // study related fields.
+  // TODO(b/340494671): Move ablation study fields out of the function and make
+  // the context a const ref.
+  std::vector<Suggestion> GetAvailableAddressAndCreditCardSuggestions(
+      const FormData& form,
+      const FormFieldData& field,
+      AutofillSuggestionTriggerSource trigger_source,
+      SuggestionsContext& context);
+
+  // Generates and prioritizes different kinds of suggestions and
+  // suggestion surfaces accordingly (e.g. Fast Checkout,
+  // SingleFieldFormFiller(s), address and credit card popups). Suggestion flows
+  // that handle their own UI flow (e.g. FastCheckout, TTF,
+  // SingleFieldFormFiller) are triggered from within this function. Other flows
+  // that rely on the `external_delegate_` to show their suggestions, pass the
+  // suggestions list to the delegate on `OnGenerateSuggestionsComplete` and
+  // request them to be shown (via `show_suggestions`). Note that the `callback`
+  // is always called regardless of the suggestion surface. The only case when
+  // it's not called is when suggestions are suppressed (See
+  // `ShouldSuppressSuggestions`).
+  void GenerateSuggestionsAndMaybeShowUI(
+      const FormData& form,
+      const FormFieldData& field,
+      AutofillSuggestionTriggerSource trigger_source,
+      SuggestionsContext context,
+      OnGenerateSuggestionsCallback callback);
+
+  // The function receives a the list of `suggestions` from
+  // `GenerateSuggestionsAndMaybeShowUI` and displays them if `show_suggestions`
+  // is true (via the `external_delegate_`). It also logs whether there is a
+  // suggestion for the user and whether the suggestion is shown.
+  // TODO(b/340494671): Move to the unnamed namespace.
+  void OnGenerateSuggestionsComplete(
+      const FormData& form,
+      const FormFieldData& field,
+      AutofillSuggestionTriggerSource trigger_source,
+      const SuggestionsContext& context,
+      bool show_suggestions,
+      std::vector<Suggestion> suggestions);
+
+  void OnGetPlusAddressSuggestions(
+      AutofillPlusAddressDelegate::SuggestionContext suggestions_context,
+      AutofillClient::PasswordFormType password_form_type,
+      const FormData& form,
+      const FormFieldData& field,
+      std::vector<Suggestion> address_suggestions,
+      OnGenerateSuggestionsCallback callback,
+      std::vector<Suggestion> suggestions);
 
   // For each submitted field in the |form_structure|, it determines whether
   // |ADDRESS_HOME_STATE| is a possible matching type.
@@ -592,9 +640,9 @@ class BrowserAutofillManager : public AutofillManager {
   // Autocomplete and merchant promo codes.
   std::unique_ptr<SingleFieldFormFillRouter> single_field_form_fill_router_ =
       std::make_unique<SingleFieldFormFillRouter>(
-          unsafe_client().GetAutocompleteHistoryManager(),
-          unsafe_client().GetIbanManager(),
-          unsafe_client().GetMerchantPromoCodeManager());
+          client().GetAutocompleteHistoryManager(),
+          client().GetPaymentsAutofillClient()->GetIbanManager(),
+          client().GetMerchantPromoCodeManager());
 
   // Utilities for logging form events. The loggers emit metrics during their
   // destruction, effectively when the BrowserAutofillManager is reset or
@@ -643,10 +691,12 @@ class BrowserAutofillManager : public AutofillManager {
   std::unique_ptr<FormData> pending_form_data_;
 
   // The credit card access manager, used to access local and server cards.
+  // Lazily initialized: access only through GetCreditCardAccessManager().
   std::unique_ptr<CreditCardAccessManager> credit_card_access_manager_;
 
-  // Helper class to generate Autofill suggestions.
-  std::unique_ptr<AutofillSuggestionGenerator> suggestion_generator_;
+  // TODO(b/41484171): Remove.
+  std::unique_ptr<AddressSuggestionGenerator> address_suggestion_generator_;
+  std::unique_ptr<PaymentsSuggestionGenerator> payments_suggestion_generator_;
 
   // Helper class to autofill forms and fields. Do not use directly, use
   // form_filler() instead.

@@ -97,6 +97,7 @@ suite(SettingsSliderV2Element.is, () => {
     setup(async () => {
       clearBody();
       slider = document.createElement(SettingsSliderV2Element.is);
+      slider.value = 16;
       document.body.appendChild(slider);
       internalSlider = slider.shadowRoot!.querySelector('cr-slider')!;
       await flushTasks();
@@ -112,6 +113,30 @@ suite(SettingsSliderV2Element.is, () => {
       flush();
       assertTrue(slider.disabled);
       assertEquals('true', internalSlider.ariaDisabled);
+    });
+
+    test('markers are shown by default when ticks is set', async () => {
+      slider.ticks = ticks;
+      flush();
+
+      assertEquals(ticks.length, internalSlider.markerCount);
+    });
+
+    test('markers are hidden if number of ticks is greater than 10', () => {
+      const longTicks: number[] =
+          [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048];
+      slider.ticks = longTicks;
+
+      flush();
+      assertEquals(0, internalSlider.markerCount);
+    });
+
+    test('explicitly set hideMarkers to true will hide markers', () => {
+      slider.hideMarkers = true;
+      slider.ticks = ticks;
+
+      flush();
+      assertEquals(0, internalSlider.markerCount);
     });
 
     [true, false].forEach(hideLabel => {
@@ -214,11 +239,25 @@ suite(SettingsSliderV2Element.is, () => {
           // should be 64.
           press('ArrowRight');
           const newValue = 64;
-          assertEquals(newValue, slider.pref!.value);
 
           const event = await prefChangeEventPromise;
           assertEquals(fakePrefObject.key, event.detail.prefKey);
           assertEquals(newValue, event.detail.value);
+        });
+
+        test('slider does not update the pref value directly', async () => {
+          slider.ticks = ticks;
+          const initialPrefValue = slider.pref!.value;
+
+          const prefChangeEventPromise =
+              eventToPromise('user-action-setting-pref-change', window);
+          // Drag the knob on slider to the right.
+          press('ArrowRight');
+          await prefChangeEventPromise;
+
+          // Local pref object should be treated as immutable data and should
+          // not be updated directly.
+          assertEquals(initialPrefValue, slider.pref!.value);
         });
 
         suite('Pref type validation', () => {
@@ -286,6 +325,8 @@ suite(SettingsSliderV2Element.is, () => {
 
         const event = await changeEventPromise;
         assertEquals(newValue, event.detail);
+        // Event should not pass the shadow DOM boundary.
+        assertFalse(event.composed);
       });
 
       suite('with ticks', () => {

@@ -29,6 +29,7 @@
       'chromeos-arm-generic-cfi-thin-lto-chrome': 'chromeos_arm-generic_cfi_thin_lto_official_reclient',
       'chromeos-arm64-generic-cfi-thin-lto-chrome': 'chromeos_arm64-generic_cfi_thin_lto_official_reclient',
       'chromeos-betty-arc-r-chrome': 'chromeos_betty-arc-r_include_unwind_tables_official_use_fake_dbus_clients_reclient',
+      'chromeos-betty-chrome': 'chromeos_betty_include_unwind_tables_official_reclient',
       'chromeos-betty-pi-arc-cfi-thin-lto-chrome': 'chromeos_betty-pi-arc_cfi_thin_lto_official_reclient',
       'chromeos-betty-pi-arc-chrome': 'chromeos_betty-pi-arc_dchecks_reclient',
       'chromeos-brya-chrome-skylab': 'chromeos_brya_include_unwind_tables_official_skylab_reclient',
@@ -123,6 +124,7 @@
       'linux-builder-perf-rel': 'official_linux_perf',
       'mac-arm-builder-perf': 'official_reclient_mac_arm_perf',
       'mac-arm-builder-perf-pgo': 'official_reclient_mac_arm_perf_pgo',
+      'mac-arm-no-brp-builder-perf': 'official_reclient_mac_arm_no_brp_perf',
       'mac-builder-perf': 'official_reclient_mac_perf',
       'mac-builder-perf-pgo': 'official_reclient_mac_perf_pgo',
       'win64-builder-perf': 'official_reclient_perf_win_cross',
@@ -212,6 +214,7 @@
     },
 
     'internal.chromeos.fyi': {
+      'chromeos-betty-chrome': 'chromeos_betty_include_unwind_tables_official_reclient',
       'chromeos-betty-pi-arc-chrome-accessibility-fyi': 'chromeos_betty-pi-arc_dchecks_reclient',
       'chromeos-betty-pi-arc-chrome-dchecks': 'chromeos_betty-pi-arc_dchecks_reclient',
       'chromeos-betty-pi-arc-finch-smoke-chrome': 'chromeos_betty-pi-arc_dchecks_reclient',
@@ -238,7 +241,7 @@
 
     # Internal codesearch builders.
     'luci.infra-internal.codesearch': {
-      'codesearch-gen-chrome-internal-linux': 'codesearch_gen_chromium_bot_reclient',
+      'codesearch-gen-chrome-internal-linux': 'codesearch_gen_chrome_bot_reclient',
     },
 
     'official.chrome': {
@@ -304,23 +307,8 @@
     },
 
     'tryserver.chromium.perf': {
-      'Android Compile Perf': 'official_goma_minimal_symbols_android',
-      'Android Compile Perf PGO': 'official_goma_minimal_symbols_android_pgo',
       'Android arm64 Compile Perf': 'official_minimal_symbols_android_arm64',
-      'Android arm64 Compile Perf PGO': 'official_goma_minimal_symbols_android_arm64_pgo',
-      'Android arm64 High End Compile Perf': 'official_goma_minimal_symbols_android_arm64_high_end',
-      'Android arm64 High End Compile Perf PGO': 'official_goma_minimal_symbols_android_arm64_high_end_pgo',
-      'Chromeos Amd64 Generic Lacros Builder Perf': 'chromeos_amd64-generic_lacros_official',
-      'Fuchsia Builder Perf': 'official_goma_fuchsia_arm64_perf',
-      'Fuchsia Builder Perf x64': 'official_goma_fuchsia_x64_perf',
       'Linux Builder Perf': 'official_linux_perf',
-      'Linux Builder Perf PGO': 'official_goma_linux_perf_pgo',
-      'Mac Builder Perf': 'official_goma_mac_perf',
-      'Mac Builder Perf PGO': 'official_goma_mac_perf_pgo',
-      'Mac arm Builder Perf': 'official_goma_mac_arm_perf',
-      'Mac arm Builder Perf PGO': 'official_goma_mac_arm_perf_pgo',
-      'Win x64 Builder Perf': 'official_goma_perf',
-      'Win x64 Builder Perf PGO': 'official_goma_perf_pgo',
     },
 
     'tryserver.devtools-frontend': {
@@ -404,10 +392,6 @@
       'chrome_branded', 'minimal_symbols', 'release_bot_reclient',
     ],
 
-    'chromeos_amd64-generic_lacros_official': [
-      'chromeos_amd64-generic-crostoolchain', 'lacros', 'official', 'minimal_symbols', 'cfi', 'thin_lto', 'no_reclient', 'goma',
-    ],
-
     'chromeos_amd64-generic_lacros_official_reclient': [
       'chromeos_amd64-generic-crostoolchain_reclient', 'lacros', 'official', 'minimal_symbols', 'cfi', 'thin_lto',
     ],
@@ -484,6 +468,11 @@
     'chromeos_betty-pi-arc_dchecks_reclient': [
       'chromeos_device_reclient', 'betty-pi-arc', 'include_unwind_tables', 'official',
       'use_fake_dbus_clients', 'dcheck_always_on',
+      'also_build_lacros_chrome_for_architecture_amd64', 'ozone_headless'
+    ],
+
+    'chromeos_betty_include_unwind_tables_official_reclient': [
+      'chromeos_device_reclient', 'betty', 'include_unwind_tables', 'official', 'is_skylab',
       'also_build_lacros_chrome_for_architecture_amd64', 'ozone_headless'
     ],
 
@@ -580,6 +569,10 @@
 
     'clang_tot_win_official_full_symbols_static_x86': [
       'clang_tot', 'official', 'full_symbols', 'static', 'x86', 'win_linker_timing',
+    ],
+
+    'codesearch_gen_chrome_bot_reclient': [
+      'codesearch_reclient', 'chrome_branded',
     ],
 
     'codesearch_gen_chromium_android_bot_reclient': [
@@ -692,62 +685,6 @@
       'fuchsia', 'official', 'x64', 'custom_args',
     ],
 
-    'official_goma_fuchsia_arm64_perf': [
-      'cast_receiver_size_optimized_internal', 'official', 'goma', 'minimal_symbols', 'fuchsia', 'fuchsia_include_sd_images', 'arm64', 'ffmpeg_branding_chrome', 'proprietary_codecs', 'test_isolate_no_emulator'
-    ],
-
-    'official_goma_fuchsia_x64_perf': [
-      'official', 'goma', 'minimal_symbols', 'fuchsia', 'x64', 'ffmpeg_branding_chrome', 'proprietary_codecs', 'test_isolate_no_emulator', 'fuchsia_chrome'
-    ],
-
-    'official_goma_linux_perf_pgo': [
-      'official', 'goma', 'no_gnome_keyring', 'minimal_symbols',
-    ],
-
-    'official_goma_mac_arm_perf': [
-      'official', 'goma', 'no_keystone_registration_framework', 'no_widevine_cdm_host_verification', 'minimal_symbols', 'arm64', 'pgo_phase_0',
-    ],
-
-    'official_goma_mac_arm_perf_pgo': [
-      'official', 'goma', 'no_keystone_registration_framework', 'no_widevine_cdm_host_verification', 'minimal_symbols', 'arm64',
-    ],
-
-    'official_goma_mac_perf': [
-      'official', 'goma', 'no_keystone_registration_framework', 'no_widevine_cdm_host_verification', 'minimal_symbols', 'pgo_phase_0',
-    ],
-
-    'official_goma_mac_perf_pgo': [
-      'official', 'goma', 'no_keystone_registration_framework', 'no_widevine_cdm_host_verification', 'minimal_symbols',
-    ],
-
-    'official_goma_minimal_symbols_android': [
-      'official', 'goma', 'minimal_symbols', 'android', 'pgo_phase_0', 'no_default_afdo'
-    ],
-
-    'official_goma_minimal_symbols_android_arm64_high_end': [
-      'official', 'goma', 'minimal_symbols', 'android', 'arm64', 'pgo_phase_0', 'no_default_afdo', 'android_high_end'
-    ],
-
-    'official_goma_minimal_symbols_android_arm64_high_end_pgo': [
-      'official', 'goma', 'minimal_symbols', 'android', 'arm64', 'no_default_afdo', 'android_high_end'
-    ],
-
-    'official_goma_minimal_symbols_android_arm64_pgo': [
-      'official', 'goma', 'minimal_symbols', 'android', 'arm64', 'android_low_end'
-    ],
-
-    'official_goma_minimal_symbols_android_pgo': [
-      'official', 'goma', 'minimal_symbols', 'android'
-    ],
-
-    'official_goma_perf': [
-      'official', 'goma', 'minimal_symbols', 'pgo_phase_0',
-    ],
-
-    'official_goma_perf_pgo': [
-      'official', 'goma', 'minimal_symbols',
-    ],
-
    'official_lacros_amd64_pgo': [
       'official', 'release', 'lacros', 'amd64-generic-crostoolchain', 'chromeos_device_reclient', 'no_symbols', 'pgo_phase_1',
     ],
@@ -769,7 +706,7 @@
     ],
 
     'official_mac_arm_pgo_with_symbols': [
-      'official', 'reclient', 'no_widevine_cdm_host_verification', 'arm64', 'disable_widevine_signing', 'minimal_symbols', 'pgo_phase_1', 'release', 'disable_stripping'
+      'official', 'reclient', 'no_widevine_cdm_host_verification', 'arm64', 'disable_widevine_signing', 'minimal_symbols', 'pgo_phase_1', 'release', 'disable_stripping', 'disable_pa_freelist_dispatcher'
     ],
 
     'official_mac_pgo_with_symbols': [
@@ -811,6 +748,10 @@
 
     'official_reclient_mac_arm': [
       'official', 'reclient', 'no_widevine_cdm_host_verification', 'arm64',
+    ],
+
+    'official_reclient_mac_arm_no_brp_perf': [
+      'official', 'reclient', 'no_keystone_registration_framework', 'no_widevine_cdm_host_verification', 'minimal_symbols', 'arm64', 'pgo_phase_0', 'no_brp',
     ],
 
     'official_reclient_mac_arm_perf': [
@@ -1051,6 +992,10 @@
       'gn_args': 'is_asan=true',
     },
 
+    'betty': {
+      'args_file': '//build/args/chromeos/betty.gni',
+    },
+
     'betty-arc-r': {
       'args_file': '//build/args/chromeos/betty-arc-r.gni',
     },
@@ -1236,6 +1181,10 @@
       'gn_args': 'devtools_skip_typecheck=false',
     },
 
+    'disable_pa_freelist_dispatcher': {
+      'gn_args': 'use_freelist_dispatcher = false'
+    },
+
     'disable_stripping': {
       'gn_args': 'enable_stripping=false',
     },
@@ -1260,20 +1209,12 @@
       'gn_args': 'target_os="fuchsia"',
     },
 
-    'fuchsia_chrome': {
-      'gn_args': 'fuchsia_browser_type="chrome"',
-    },
-
     'fuchsia_include_sd_images': {
       'gn_args': 'fuchsia_additional_boot_images=["//third_party/fuchsia-sdk/images-internal/astro-release/","//third_party/fuchsia-sdk/images-internal/sherlock-release/","//third_party/fuchsia-sdk/images-internal/nelson-release/"]',
     },
 
     'full_symbols': {
       'gn_args': 'symbol_level=2',
-    },
-
-    'goma': {
-      'gn_args': 'use_goma=true',
     },
 
     'gpu_tests': {
@@ -1333,6 +1274,10 @@
       'gn_args': 'enable_ml_internal=true',
     },
 
+    'no_brp': {
+      'gn_args': 'enable_backup_ref_ptr_support=false use_raw_ptr_backup_ref_impl=false',
+    },
+
     'no_default_afdo': {
       'gn_args': 'clang_use_default_sample_profile=false',
     },
@@ -1343,10 +1288,6 @@
 
     'no_keystone_registration_framework': {
       'gn_args': 'enable_keystone_registration_framework=false',
-    },
-
-    'no_reclient': {
-      'gn_args': 'use_remoteexec=false',
     },
 
     'no_symbols': {
@@ -1400,7 +1341,7 @@
 
     # windows cross. crbug.com/1213717 crbug.com/1407983
     'reclient_win_cross': {
-      'gn_args': 'use_remoteexec=true rbe_cfg_dir="//buildtools/reclient_cfgs/win-cross"',
+      'gn_args': 'use_remoteexec=true reclient_cfg_dir="//buildtools/reclient_cfgs/win-cross"',
     },
 
     # Historically, a 'release' bot had DCHECKs turned off. DCHECKs are now

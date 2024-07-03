@@ -63,7 +63,7 @@ std::u16string PossibleResidentKeyWarning(
     case device::ResidentKeyRequirement::kRequired:
       return l10n_util::GetStringUTF16(IDS_WEBAUTHN_RESIDENT_KEY_PRIVACY);
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return std::u16string();
 }
 
@@ -149,7 +149,7 @@ void AuthenticatorSheetModelBase::OnBack() {
 }
 
 void AuthenticatorSheetModelBase::OnAccept() {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void AuthenticatorSheetModelBase::OnCancel() {
@@ -180,46 +180,16 @@ bool AuthenticatorMechanismSelectorSheetModel::IsActivityIndicatorVisible()
 }
 
 std::u16string AuthenticatorMechanismSelectorSheetModel::GetStepTitle() const {
-  switch (dialog_model()->request_type) {
-    case device::FidoRequestType::kMakeCredential:
-      return l10n_util::GetStringUTF16(
-          IDS_WEBAUTHN_CREATE_PASSKEY_CHOOSE_DEVICE_TITLE);
-    case device::FidoRequestType::kGetAssertion:
-      return l10n_util::GetStringUTF16(
-          IDS_WEBAUTHN_USE_PASSKEY_CHOOSE_DEVICE_TITLE);
-  }
+  CHECK_EQ(dialog_model()->request_type,
+           device::FidoRequestType::kMakeCredential);
+  return l10n_util::GetStringFUTF16(
+      IDS_WEBAUTHN_CREATE_PASSKEY_CHOOSE_DEVICE_TITLE,
+      GetRelyingPartyIdString(dialog_model()));
 }
 
 std::u16string AuthenticatorMechanismSelectorSheetModel::GetStepDescription()
     const {
-  switch (dialog_model()->request_type) {
-    case device::FidoRequestType::kMakeCredential:
-      return l10n_util::GetStringFUTF16(
-          IDS_WEBAUTHN_CREATE_PASSKEY_CHOOSE_DEVICE_BODY,
-          GetRelyingPartyIdString(dialog_model()));
-    case device::FidoRequestType::kGetAssertion:
-      return l10n_util::GetStringFUTF16(
-          IDS_WEBAUTHN_USE_PASSKEY_CHOOSE_DEVICE_BODY,
-          GetRelyingPartyIdString(dialog_model()));
-  }
-}
-
-bool AuthenticatorMechanismSelectorSheetModel::IsManageDevicesButtonVisible()
-    const {
-  // If any phones are shown then also show a button that goes to the settings
-  // page to manage them.
-  return base::ranges::any_of(
-      dialog_model()->mechanisms,
-      [](const AuthenticatorRequestDialogModel::Mechanism& mechanism) {
-        return absl::holds_alternative<
-            AuthenticatorRequestDialogModel::Mechanism::Phone>(mechanism.type);
-      });
-}
-
-void AuthenticatorMechanismSelectorSheetModel::OnManageDevices() {
-  if (dialog_model()) {
-    dialog_model()->OnManageDevicesClicked();
-  }
+  return u"";
 }
 
 // AuthenticatorInsertAndActivateUsbSheetModel ----------------------
@@ -745,6 +715,18 @@ std::u16string AuthenticatorPaaskSheetModel::GetStepDescription() const {
           base::UTF8ToUTF16(dialog_model()->selected_phone_name.value_or("")));
     }
   }
+}
+
+bool AuthenticatorPaaskSheetModel::IsOtherMechanismButtonVisible() const {
+  return false;
+}
+
+bool AuthenticatorPaaskSheetModel::IsManageDevicesButtonVisible() const {
+  return true;
+}
+
+void AuthenticatorPaaskSheetModel::OnManageDevices() {
+  dialog_model()->OnManageDevicesClicked();
 }
 
 // AuthenticatorAndroidAccessorySheetModel ------------------------------------
@@ -1358,22 +1340,6 @@ std::u16string AuthenticatorQRSheetModel::GetSecurityKeyLabel() const {
   }
 }
 
-std::u16string AuthenticatorQRSheetModel::GetOtherMechanismButtonLabel() const {
-  // If the QR code sheet was the priority mechanism, the button taking the user
-  // to the selection sheet should read "Use a different passkey".
-  if (dialog_model()->priority_mechanism_index &&
-      absl::holds_alternative<
-          AuthenticatorRequestDialogModel::Mechanism::AddPhone>(
-          dialog_model()
-              ->mechanisms[*dialog_model()->priority_mechanism_index]
-              .type)) {
-    return AuthenticatorSheetModelBase::GetOtherMechanismButtonLabel();
-  }
-  // Otherwise, the user must have tapped a button on the selection sheet to get
-  // here. The button taking the user to the selection sheet should read "Back".
-  return l10n_util::GetStringUTF16(IDS_WEBAUTHN_BACK);
-}
-
 // AuthenticatorConnectingSheetModel ------------------------------------------
 
 AuthenticatorConnectingSheetModel::AuthenticatorConnectingSheetModel(
@@ -1965,6 +1931,12 @@ bool AuthenticatorTrustThisComputerAssertionSheetModel::IsCancelButtonVisible()
 std::u16string
 AuthenticatorTrustThisComputerAssertionSheetModel::GetCancelButtonLabel()
     const {
+  const std::optional<std::string>& phone_name =
+      dialog_model()->priority_phone_name;
+  if (phone_name) {
+    return l10n_util::GetStringFUTF16(IDS_WEBAUTHN_USE_PHONE_WITH_NAME,
+                                      base::UTF8ToUTF16(*phone_name));
+  }
   return l10n_util::GetStringUTF16(IDS_WEBAUTHN_USE_A_DIFFERENT_DEVICE);
 }
 
@@ -2202,10 +2174,6 @@ bool AuthenticatorTrustThisComputerCreationSheetModel::IsCancelButtonVisible()
 std::u16string
 AuthenticatorTrustThisComputerCreationSheetModel::GetCancelButtonLabel() const {
   return l10n_util::GetStringUTF16(IDS_CANCEL);
-}
-
-void AuthenticatorTrustThisComputerCreationSheetModel::OnCancel() {
-  dialog_model()->StartOver();
 }
 
 bool AuthenticatorTrustThisComputerCreationSheetModel::IsAcceptButtonEnabled()

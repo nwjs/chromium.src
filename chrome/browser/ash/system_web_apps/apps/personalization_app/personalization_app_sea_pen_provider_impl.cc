@@ -36,7 +36,8 @@ void OnSeaPenImageDeleted(const AccountId& account_id,
   // Set selected wallpaper to default if the deleted image currently selected.
   auto* wallpaper_controller = WallpaperController::Get();
   DCHECK(wallpaper_controller);
-  auto wallpaper_info = wallpaper_controller->GetActiveUserWallpaperInfo();
+  auto wallpaper_info =
+      wallpaper_controller->GetWallpaperInfoForAccountId(account_id);
   if (wallpaper_info.has_value() &&
       wallpaper_info->type == WallpaperType::kSeaPen &&
       wallpaper_info->location == base::NumberToString(image_id)) {
@@ -93,8 +94,8 @@ void PersonalizationAppSeaPenProviderImpl::SelectRecentSeaPenImageInternal(
                                            std::move(callback));
 }
 
-void PersonalizationAppSeaPenProviderImpl::GetRecentSeaPenImagesInternal(
-    GetRecentSeaPenImagesCallback callback) {
+void PersonalizationAppSeaPenProviderImpl::GetRecentSeaPenImageIdsInternal(
+    GetRecentSeaPenImageIdsCallback callback) {
   auto* sea_pen_wallpaper_manager = SeaPenWallpaperManager::GetInstance();
   DCHECK(sea_pen_wallpaper_manager);
   sea_pen_wallpaper_manager->GetImageIds(GetAccountId(profile_),

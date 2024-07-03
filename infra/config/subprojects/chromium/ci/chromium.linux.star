@@ -6,7 +6,7 @@
 load("//lib/args.star", "args")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_health_indicators.star", "health_spec")
-load("//lib/builders.star", "builders", "os", "reclient", "sheriff_rotations")
+load("//lib/builders.star", "builders", "gardener_rotations", "os", "siso")
 load("//lib/branches.star", "branches")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
@@ -16,21 +16,23 @@ load("//lib/targets.star", "targets")
 ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
     builder_group = "chromium.linux",
+    builder_config_settings = builder_config.ci_settings(
+        retry_failed_shards = True,
+    ),
     pool = ci.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
-    sheriff_rotations = sheriff_rotations.CHROMIUM,
     tree_closing = True,
     main_console_view = "main",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
+    gardener_rotations = gardener_rotations.CHROMIUM,
     health_spec = health_spec.DEFAULT,
     notifies = ["chromium.linux"],
-    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
-    siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 consoles.console_view(
@@ -71,12 +73,10 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "cast_receiver",
-            "reclient",
+            "remoteexec",
             "minimal_symbols",
         ],
     ),
-    # TODO(crbug.com/332735845): Garden this once stabilized.
-    sheriff_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "cast",
@@ -84,6 +84,8 @@ ci.builder(
     ),
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "cast-eng@google.com",
+    # TODO(crbug.com/332735845): Garden this once stabilized.
+    gardener_rotations = args.ignore_default(None),
 )
 
 ci.builder(
@@ -113,13 +115,11 @@ ci.builder(
         configs = [
             "cast_receiver",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "arm64",
             "minimal_symbols",
         ],
     ),
-    # TODO(crbug.com/332735845): Garden this once stabilized.
-    sheriff_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "cast",
@@ -127,6 +127,8 @@ ci.builder(
     ),
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "cast-eng@google.com",
+    # TODO(crbug.com/332735845): Garden this once stabilized.
+    gardener_rotations = args.ignore_default(None),
 )
 
 ci.builder(
@@ -135,7 +137,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "release_builder",
-            "reclient",
+            "remoteexec",
             "minimal_symbols",
         ],
     ),
@@ -152,7 +154,7 @@ ci.builder(
     contact_team_email = "chrome-build-team@google.com",
     execution_timeout = 6 * time.hour,
     notifies = ["Deterministic Linux", "close-on-any-step-failure"],
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.builder(
@@ -161,7 +163,7 @@ ci.builder(
     gn_args = {
         "local": "debug_builder",
         "reclient": gn_args.config(
-            configs = ["debug_builder", "reclient"],
+            configs = ["debug_builder", "remoteexec"],
         ),
     },
     cores = 32,
@@ -171,7 +173,7 @@ ci.builder(
     ),
     contact_team_email = "chrome-build-team@google.com",
     execution_timeout = 7 * time.hour,
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.builder(
@@ -188,9 +190,8 @@ ci.builder(
         build_gs_bucket = "chromium-linux-archive",
     ),
     gn_args = gn_args.config(
-        configs = ["release_builder", "reclient"],
+        configs = ["release_builder", "remoteexec"],
     ),
-    sheriff_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         console_view = "chromium.fyi",
@@ -198,8 +199,9 @@ ci.builder(
         short_name = "lk",
     ),
     main_console_view = None,
+    gardener_rotations = args.ignore_default(None),
     notifies = args.ignore_default([]),
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.builder(
@@ -230,7 +232,7 @@ ci.builder(
         configs = [
             "gpu_tests",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "devtools_do_typecheck",
         ],
     ),
@@ -267,7 +269,7 @@ ci.builder(
         configs = [
             "gpu_tests",
             "debug_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     targets = targets.bundle(
@@ -281,7 +283,7 @@ ci.builder(
     ),
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "chrome-linux-engprod@google.com",
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.builder(
@@ -309,7 +311,7 @@ ci.builder(
         configs = [
             "gpu_tests",
             "release_builder",
-            "reclient",
+            "remoteexec",
             "linux_wayland",
             "ozone_headless",
         ],
@@ -323,7 +325,7 @@ ci.builder(
     ),
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "chrome-linux-engprod@google.com",
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.thin_tester(
@@ -348,9 +350,6 @@ ci.thin_tester(
             target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-linux-archive",
-    ),
-    builder_config_settings = builder_config.ci_settings(
-        retry_failed_shards = True,
     ),
     console_view_entry = consoles.console_view_entry(
         category = "release",
@@ -388,9 +387,6 @@ ci.thin_tester(
             target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-linux-archive",
-    ),
-    builder_config_settings = builder_config.ci_settings(
-        retry_failed_shards = True,
     ),
     targets = targets.bundle(
         targets = [
@@ -574,14 +570,14 @@ ci.builder(
         build_gs_bucket = "chromium-linux-archive",
     ),
     gn_args = gn_args.config(
-        configs = ["release_builder", "reclient"],
+        configs = ["release_builder", "remoteexec"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "release",
         short_name = "nsl",
     ),
     contact_team_email = "chrome-linux-engprod@google.com",
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.builder(
@@ -604,14 +600,14 @@ ci.builder(
         build_gs_bucket = "chromium-linux-archive",
     ),
     gn_args = gn_args.config(
-        configs = ["release_builder_blink", "reclient"],
+        configs = ["release_builder_blink", "remoteexec"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "bfcache",
         short_name = "bfc",
     ),
     contact_team_email = "chrome-linux-engprod@google.com",
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.builder(
@@ -636,7 +632,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "release_builder",
-            "reclient",
+            "remoteexec",
             "extended_tracing",
         ],
     ),
@@ -645,7 +641,7 @@ ci.builder(
         short_name = "trc",
     ),
     contact_team_email = "chrome-linux-engprod@google.com",
-    reclient_jobs = reclient.jobs.DEFAULT,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
 
 ci.builder(
@@ -658,7 +654,7 @@ ci.builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "chromium_no_goma",
+            config = "chromium",
             apply_configs = [
                 "mb",
             ],
@@ -709,7 +705,7 @@ ci.builder(
             "v4l2_codec",
             "chrome_with_codecs",
             "release_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     tree_closing = False,

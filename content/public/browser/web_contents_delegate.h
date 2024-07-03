@@ -69,7 +69,6 @@ class SiteInstance;
 struct ContextMenuParams;
 struct DropData;
 struct MediaPlayerWatchTime;
-struct NativeWebKeyboardEvent;
 struct Referrer;
 }  // namespace content
 
@@ -83,6 +82,10 @@ namespace gfx {
 class Rect;
 class Size;
 }
+
+namespace input {
+struct NativeWebKeyboardEvent;
+}  // namespace input
 
 namespace ui {
 class Event;
@@ -295,14 +298,14 @@ class CONTENT_EXPORT WebContentsDelegate {
   // See enum for description of return values.
   virtual KeyboardEventProcessingResult PreHandleKeyboardEvent(
       WebContents* source,
-      const NativeWebKeyboardEvent& event);
+      const input::NativeWebKeyboardEvent& event);
 
   // Allows delegates to handle unhandled keyboard messages coming back from
   // the renderer. Returns true if the event was handled, false otherwise. A
   // true value means no more processing should happen on the event. The default
   // return value is false
   virtual bool HandleKeyboardEvent(WebContents* source,
-                                   const NativeWebKeyboardEvent& event);
+                                   const input::NativeWebKeyboardEvent& event);
 
   // Allows delegates to handle gesture events before sending to the renderer.
   // Returns true if the |event| was handled and thus shouldn't be processed
@@ -410,7 +413,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual JavaScriptDialogManager* GetJavaScriptDialogManager(
       WebContents* source);
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   // Called when color chooser should open. Returns the opened color chooser.
   // Returns nullptr if we failed to open the color chooser. The color chooser
   // is supported/required for Android or iOS.
@@ -724,7 +727,7 @@ class CONTENT_EXPORT WebContentsDelegate {
 
   // Return true if the back forward cache is supported. This is not an
   // indication that the cache will be used.
-  virtual bool IsBackForwardCacheSupported();
+  virtual bool IsBackForwardCacheSupported(WebContents& web_contents);
 
   // Returns PreloadingEligibility::kEligible if Prerender2 (see
   // content/browser/preloading/prerender/README.md for details) is supported.
@@ -735,6 +738,16 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Returns whether to override user agent for prerendering navigation.
   virtual NavigationController::UserAgentOverrideOption
   ShouldOverrideUserAgentForPrerender2();
+
+  // Returns true if the embedder allows initiator and transition type mismatch
+  // for prerender activation navigations that are embedder-initiated and have
+  // no initiators.
+  //
+  // This relaxation is mainly for Android WebView (speculationrules +
+  // `WebView.loadUrl`), as WebView is intended to host embedder-trusted
+  // contents.
+  virtual bool ShouldAllowPartialParamMismatchOfPrerender2(
+      NavigationHandle& navigation_handle);
 
   // If |old_contents| is being inspected by a DevTools window, it updates the
   // window to inspect |new_contents| instead and calls |callback| after it
@@ -808,6 +821,13 @@ class CONTENT_EXPORT WebContentsDelegate {
   // later time.
   virtual bool MaybeCopyContentAreaAsBitmap(
       base::OnceCallback<void(const SkBitmap&)> callback);
+
+#if BUILDFLAG(IS_ANDROID)
+  // Notifies the delegate that the back forward transition animation state
+  // has changed. If necessary, the delegate should use this notification to
+  // hold on its animation until the back forward transition has completed.
+  virtual void DidBackForwardTransitionAnimationChange() {}
+#endif  // BUILDFLAG(IS_ANDROID)
 
  protected:
   virtual ~WebContentsDelegate();

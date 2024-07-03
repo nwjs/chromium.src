@@ -77,10 +77,6 @@
 #import "ui/base/device_form_factor.h"
 #import "url/gurl.h"
 
-BASE_FEATURE(kEnableFocusOmniboxWorkaround,
-             "EnableFocusOmniboxWorkaround",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 namespace {
 const size_t kMaxURLDisplayChars = 32 * 1024;
 }  // namespace
@@ -169,9 +165,6 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
 
   BOOL isIncognito = self.browserState->IsOffTheRecord();
 
-  PrefService* originalPrefs = self.browser->GetBrowserState()
-                                   ->GetOriginalChromeBrowserState()
-                                   ->GetPrefs();
   self.viewController = [[LocationBarViewController alloc] init];
   self.viewController.incognito = isIncognito;
   self.viewController.delegate = self;
@@ -185,9 +178,8 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
       ios::provider::IsVoiceSearchEnabled();
   self.viewController.layoutGuideCenter =
       LayoutGuideCenterForBrowser(self.browser);
-  self.viewController.originalPrefService = originalPrefs;
 
-  _locationBar = std::make_unique<WebLocationBarImpl>(self, self.delegate);
+  _locationBar = std::make_unique<WebLocationBarImpl>(self);
   _locationBar->SetURLLoader(self);
   _locationBarModelDelegate.reset(new LocationBarModelDelegateIOS(
       self.browser->GetWebStateList(), self.browserState));
@@ -199,6 +191,7 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
                                                      browser:self.browser];
   self.omniboxCoordinator.bubblePresenter = self.bubblePresenter;
   self.omniboxCoordinator.locationBar = _locationBar.get();
+  self.omniboxCoordinator.focusDelegate = self.delegate;
   self.omniboxCoordinator.presenterDelegate = self.popupPresenterDelegate;
   [self.omniboxCoordinator start];
 
@@ -352,12 +345,7 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
   if (immediately) {
     [self loadURLForQuery:sanitizedQuery];
   } else {
-    // TODO(crbug.com/40275343): Clean up the kill switch and else branch.
-    if (base::FeatureList::IsEnabled(kEnableFocusOmniboxWorkaround)) {
-      [self focusOmnibox];
-    } else {
-      [self.omniboxCoordinator focusOmnibox];
-    }
+    [self focusOmnibox];
     [self.omniboxCoordinator
         insertTextToOmnibox:base::SysUTF16ToNSString(sanitizedQuery)];
   }

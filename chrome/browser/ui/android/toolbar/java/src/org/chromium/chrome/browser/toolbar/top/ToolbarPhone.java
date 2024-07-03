@@ -82,6 +82,7 @@ import org.chromium.components.browser_ui.widget.animation.CancelAwareAnimatorLi
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.interpolators.Interpolators;
@@ -293,6 +294,10 @@ public class ToolbarPhone extends ToolbarLayout
     // page is Start Surface / NTP, to indicate that the appearance of the real search box changed.
     private boolean mIsStartOrNtpWithSurfacePolish;
 
+    // Added due to https://crbug.com/323888159 to mark the loading phase while navigating from NTP
+    // to webpages.
+    private boolean mIsInLoadingPhaseFromNtpToWebpage;
+
     // The following are some properties used during animation.  We use explicit property classes
     // to avoid the cost of reflection for each animation setup.
 
@@ -469,7 +474,7 @@ public class ToolbarPhone extends ToolbarLayout
      * @return The location bar color.
      */
     private @ColorInt int getLocationBarColorForToolbarColor(@ColorInt int toolbarColor) {
-        if (isLocationBarShownInGeneralNtpOrStartSurface()) {
+        if (isLocationBarShownInGeneralNtpOrStartSurface() || mIsInLoadingPhaseFromNtpToWebpage) {
             assert mHomeSurfaceLocationBarBackgroundColor != 0;
             return mHomeSurfaceLocationBarBackgroundColor;
         }
@@ -885,6 +890,9 @@ public class ToolbarPhone extends ToolbarLayout
             case VisualState.NEW_TAB_SEARCH_ENGINE_NO_LOGO:
                 return mHomeSurfaceToolbarBackgroundColor;
             case VisualState.NORMAL:
+                if (mIsInLoadingPhaseFromNtpToWebpage) {
+                    return mHomeSurfaceToolbarBackgroundColor;
+                }
                 return ChromeColors.getDefaultThemeColor(getContext(), false);
             case VisualState.INCOGNITO:
                 return ChromeColors.getDefaultThemeColor(getContext(), true);
@@ -1096,8 +1104,8 @@ public class ToolbarPhone extends ToolbarLayout
     }
 
     /**
-     * Updates the location bar layout, as the result of either a focus change or scrolling the
-     * New Tab Page.
+     * Updates the location bar layout, as the result of either a focus change or scrolling the New
+     * Tab Page.
      */
     private void updateLocationBarLayoutForExpansionAnimation() {
         TraceEvent.begin("ToolbarPhone.updateLocationBarLayoutForExpansionAnimation");
@@ -1202,7 +1210,9 @@ public class ToolbarPhone extends ToolbarLayout
             // change.
             if ((mLocationBar.getPhoneCoordinator().hasFocus() || !isLocationBarShownInNtp)
                     && mTabSwitcherState == STATIC_TAB) {
-                boolean usePolishedLocationBar = isLocationBarShownInGeneralNtpOrStartSurface();
+                boolean usePolishedLocationBar =
+                        isLocationBarShownInGeneralNtpOrStartSurface()
+                                || mIsInLoadingPhaseFromNtpToWebpage;
                 // Add a special case for general NTP and Start Surface to the defaultColor to
                 // ensure that the color is right and changes smoothly during the un-focus
                 // animation.
@@ -1406,8 +1416,7 @@ public class ToolbarPhone extends ToolbarLayout
             if (mIsSurfacePolishEnabled) {
                 int baseInset =
                         resources.getDimensionPixelSize(R.dimen.modern_toolbar_background_size)
-                                - resources.getDimensionPixelSize(
-                                        R.dimen.ntp_search_box_height_polish);
+                                - resources.getDimensionPixelSize(R.dimen.ntp_search_box_height);
                 verticalInset = (int) (((float) (baseInset) / 2) * urlExpansionFractionComplement);
 
                 int locationBarUrlActionOffsetChangeForSurfacePolish =
@@ -1732,8 +1741,8 @@ public class ToolbarPhone extends ToolbarLayout
     }
 
     /**
-     * @return Whether the location bar background should be drawn in
-     *         {@link #drawLocationBar(Canvas, long)}.
+     * @return Whether the location bar background should be drawn in {@link
+     *     #drawLocationBar(Canvas, long)}.
      */
     private boolean shouldDrawLocationBarBackground() {
         return (mLocationBar.getPhoneCoordinator().getAlpha() > 0
@@ -2099,6 +2108,11 @@ public class ToolbarPhone extends ToolbarLayout
         updateProgressBarVisibility();
         updateShadowVisibility();
         updateTabSwitcherButtonRipple();
+        if (mIsShowingStartSurfaceHomepage) {
+            // Makes sure the loading phase from NTP to webpage is not turned on when showing Start
+            // Surface homepage.
+            mIsInLoadingPhaseFromNtpToWebpage = false;
+        }
         // Url bar should be focusable. This will be set in UrlBar#onDraw but there's a delay which
         // may cause focus to fail, so set here too. Only set to true if the GTS is NOT showing,
         // such as during the exit tab switcher event.
@@ -2181,8 +2195,12 @@ public class ToolbarPhone extends ToolbarLayout
         float toolbarButtonTranslationX =
                 MathUtils.flipSignIf(mUrlFocusTranslationX, isRtl) * density;
 
+        // Hide the toolbar buttons immediately on the NTP when animating in the suggestions list to
+        // avoid mixing horizontal and vertical motion; the suggestions translate in vertically.
+        int toolbarButtonFadeDuration =
+                animatingSuggestionsListOnNtp() ? 0 : URL_FOCUS_TOOLBAR_BUTTONS_DURATION_MS;
         animator = getMenuButtonCoordinator().getUrlFocusingAnimator(true);
-        animator.setDuration(URL_FOCUS_TOOLBAR_BUTTONS_DURATION_MS);
+        animator.setDuration(toolbarButtonFadeDuration);
         animator.setInterpolator(Interpolators.FAST_OUT_LINEAR_IN_INTERPOLATOR);
         animators.add(animator);
 
@@ -2191,7 +2209,7 @@ public class ToolbarPhone extends ToolbarLayout
                         mHomeButton,
                         TRANSLATION_X,
                         MathUtils.flipSignIf(-mHomeButton.getWidth() * density, isRtl));
-        animator.setDuration(URL_FOCUS_TOOLBAR_BUTTONS_DURATION_MS);
+        animator.setDuration(toolbarButtonFadeDuration);
         animator.setInterpolator(Interpolators.FAST_OUT_LINEAR_IN_INTERPOLATOR);
         animators.add(animator);
 
@@ -2199,12 +2217,12 @@ public class ToolbarPhone extends ToolbarLayout
             animator =
                     ObjectAnimator.ofFloat(
                             mToggleTabStackButton, TRANSLATION_X, toolbarButtonTranslationX);
-            animator.setDuration(URL_FOCUS_TOOLBAR_BUTTONS_DURATION_MS);
+            animator.setDuration(toolbarButtonFadeDuration);
             animator.setInterpolator(Interpolators.FAST_OUT_LINEAR_IN_INTERPOLATOR);
             animators.add(animator);
 
             animator = ObjectAnimator.ofFloat(mToggleTabStackButton, ALPHA, 0);
-            animator.setDuration(URL_FOCUS_TOOLBAR_BUTTONS_DURATION_MS);
+            animator.setDuration(toolbarButtonFadeDuration);
             animator.setInterpolator(Interpolators.FAST_OUT_LINEAR_IN_INTERPOLATOR);
             animators.add(animator);
         }
@@ -2280,6 +2298,11 @@ public class ToolbarPhone extends ToolbarLayout
         triggerUrlFocusAnimation(hasFocus);
     }
 
+    private boolean animatingSuggestionsListOnNtp() {
+        return OmniboxFeatures.shouldAnimateSuggestionsListAppearance()
+                && getToolbarDataProvider().getNewTabPageDelegate().isLocationBarShown();
+    }
+
     /**
      * @param hasFocus Whether the URL field has gained focus.
      */
@@ -2328,6 +2351,14 @@ public class ToolbarPhone extends ToolbarLayout
         mUrlFocusLayoutAnimator.playTogether(animators);
 
         mUrlFocusChangeInProgress = true;
+        // Hide the optional button immediately when animating in the suggestions list (since other
+        // toolbar buttons are also hidden immediately) or restore it when omnibox focus is lost.
+        if (animatingSuggestionsListOnNtp()) {
+            ButtonData copy = mButtonData;
+            updateOptionalButton(hasFocus ? null : mButtonData);
+            mButtonData = copy;
+        }
+
         mUrlFocusLayoutAnimator.addListener(
                 new CancelAwareAnimatorListener() {
                     @Override
@@ -2425,6 +2456,23 @@ public class ToolbarPhone extends ToolbarLayout
     }
 
     @Override
+    public void onDidFirstVisuallyNonEmptyPaint() {
+        super.onDidFirstVisuallyNonEmptyPaint();
+        if (mIsInLoadingPhaseFromNtpToWebpage) {
+            // Updates toolbar and location bar's color to the default color when transitioning from
+            // NTP to other webpages before {@link ToolbarPhone#onPrimaryColorChanged(boolean)}
+            // is triggered. TODO(crbug.com/323888159): This code was created to deal with the
+            // case when the navigating webpage does not have the "theme-color" meta element or does
+            // not have its own brand color. In this situation, the function and {@link
+            // ToolbarPhone#onPrimaryColorChanged(boolean)} won't be triggered. This solution has
+            // limitations when dealing with webpages that use a brand color, as there may be a few
+            // frames with incorrect colors before the correct brand color is loaded. This code will
+            // be removed once a better solution is developed.
+            onPrimaryColorChanged(/* shouldAnimate= */ true);
+        }
+    }
+
+    @Override
     public void onTabOrModelChanged() {
         super.onTabOrModelChanged();
         updateNtpAnimationState();
@@ -2451,6 +2499,12 @@ public class ToolbarPhone extends ToolbarLayout
 
         final @ColorInt int initialLocationBarColor =
                 getLocationBarColorForToolbarColor(initialColor);
+
+        // When the webpage finishes loading during the NTP phase, the process should halt at this
+        // point because the tab's color is updated, and the initial color of the location bar is
+        // established for the upcoming navigation animation.
+        mIsInLoadingPhaseFromNtpToWebpage = false;
+
         final @ColorInt int finalLocationBarColor = getLocationBarColorForToolbarColor(finalColor);
 
         // Ignore theme color changes while the omnibox is focused, since we want a standard,
@@ -2749,6 +2803,8 @@ public class ToolbarPhone extends ToolbarLayout
             }
         }
 
+        startLoadingPhaseFromNtpToWebpage(newVisualState);
+
         mVisualState = newVisualState;
 
         // Refresh the toolbar texture.
@@ -2803,6 +2859,28 @@ public class ToolbarPhone extends ToolbarLayout
 
         getMenuButtonCoordinator().setVisibility(true);
         TraceEvent.end("ToolbarPhone.updateVisualsForLocationBarState");
+    }
+
+    /**
+     * Initiates the loading phase when transitioning from the NTP to a webpage. When the old visual
+     * state is either VisualState.NEW_TAB_NORMAL or VisualState.NEW_TAB_SEARCH_ENGINE_NO_LOGO, and
+     * the new visual state updates to VisualState.NORMAL, and the current page is NTP instead of
+     * Start Surface, this indicates the beginning of the process of navigating from the New Tab
+     * Page to other webpages. This condition is unique because in other scenarios, the visual state
+     * does not change in this manner.
+     */
+    private void startLoadingPhaseFromNtpToWebpage(@VisualState int newVisualState) {
+        boolean isStartLoadingPhaseFromNtpToWebpage =
+                (mVisualState == VisualState.NEW_TAB_NORMAL
+                                || mVisualState == VisualState.NEW_TAB_SEARCH_ENGINE_NO_LOGO)
+                        && newVisualState == VisualState.NORMAL;
+        boolean hasVisibleNtp = getToolbarDataProvider().getNewTabPageDelegate().wasShowingNtp();
+        if (ChromeFeatureList.sSurfacePolishForToolbarKillSwitch.isEnabled()
+                && isStartLoadingPhaseFromNtpToWebpage
+                && !mIsShowingStartSurfaceHomepage
+                && hasVisibleNtp) {
+            mIsInLoadingPhaseFromNtpToWebpage = true;
+        }
     }
 
     @Override

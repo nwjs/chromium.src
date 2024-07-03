@@ -224,7 +224,7 @@ std::string AccessibilityPrivateEnumForAction(SelectToSpeakPanelAction action) {
           extensions::api::accessibility_private::SelectToSpeakPanelAction::
               kExit);
     case SelectToSpeakPanelAction::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return "";
   }
 }
@@ -505,7 +505,7 @@ AccessibilityManager::AccessibilityManager() {
 
   base::FilePath resources_path;
   if (!base::PathService::Get(chrome::DIR_RESOURCES, &resources_path))
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   const bool enable_v3_manifest =
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           ::switches::kEnableExperimentalAccessibilityManifestV3);
@@ -1793,8 +1793,8 @@ void AccessibilityManager::UpdateChromeOSAccessibilityHistograms() {
     if (large_cursor_enabled) {
       base::HistogramBase* histogram = base::LinearHistogram::FactoryGet(
           "Accessibility.CrosLargeCursorSize2", kMinLargeCursorSize,
-          kMaxExtraLargeCursorSize + 1,
-          (kMaxExtraLargeCursorSize + 1 - kMinLargeCursorSize) / 2 + 2,
+          kMaxLargeCursorSize + 1,
+          (kMaxLargeCursorSize + 1 - kMinLargeCursorSize) / 2 + 2,
           base::HistogramBase::kUmaTargetedHistogramFlag);
       histogram->Add(
           prefs->GetInteger(prefs::kAccessibilityLargeCursorDipSize));
@@ -1859,6 +1859,10 @@ void AccessibilityManager::UpdateChromeOSAccessibilityHistograms() {
   base::UmaHistogramBoolean(
       "Accessibility.CrosSpokenFeedback.BrailleDisplayConnected",
       IsBrailleDisplayConnected());
+  if (::features::IsAccessibilityFaceGazeEnabled()) {
+    base::UmaHistogramBoolean("Accessibility.CrosFaceGaze",
+                              IsFaceGazeEnabled());
+  }
 }
 
 void AccessibilityManager::PlayVolumeAdjustSound() {
@@ -2136,7 +2140,7 @@ void AccessibilityManager::LoadEnhancedNetworkTts() {
 
   base::FilePath resources_path;
   if (!base::PathService::Get(chrome::DIR_RESOURCES, &resources_path))
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
 
   const bool enable_v3_manifest =
       base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -2951,7 +2955,7 @@ void AccessibilityManager::GetTtsDlcContentsOnPackState(
       file_name = kTtsStandardFileName;
       break;
     case TtsVariant::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   base::FilePath path;

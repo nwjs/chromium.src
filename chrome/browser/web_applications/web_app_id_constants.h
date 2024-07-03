@@ -27,6 +27,11 @@ inline constexpr char kCameraAppId[] = "njfbnohfdkmbmnjapinfcopialeghnmh";
 //     "https://canvas.apps.chrome/"))
 inline constexpr char kCanvasAppId[] = "ieailfmhaghpphfffooibmlghaeopach";
 
+// Generated as: web_app::GenerateAppIdFromManifestId(
+//     web_app::GenerateManifestIdFromStartUrlOnly(GURL(
+//         "https://gemini.google.com/")));
+inline constexpr char kContainerAppId[] = "caidcmannjgahlnbpmidmiecjcoiiigg";
+
 // Generated as: web_app::GenerateAppId(/*manifest_id=*/std::nullopt, GURL(
 //     "chrome-untrusted://crosh/"))
 inline constexpr char kCroshAppId[] = "cgfnfgkafmcdkdgilmojlnaadileaach";
@@ -56,6 +61,11 @@ inline constexpr char kGoogleCalendarAppId[] =
 // Generated as: web_app::GenerateAppId(/*manifest_id=*/std::nullopt, GURL(
 //     "https://mail.google.com/chat/"))
 inline constexpr char kGoogleChatAppId[] = "mdpkiolbdkhdjpekfbkbmhigcaggjagi";
+
+// Generated as: web_app::GenerateAppIdFromManifestId(webapps::ManifestId(
+//     "https://classroom.google.com/?lfhs=2"))
+inline constexpr char kGoogleClassroomAppId[] =
+    "kjcjfjccmpngedeildfijeanhihmolck";
 
 // Generated as: web_app::GenerateAppId(/*manifest_id=*/std::nullopt, GURL(
 //     "https://docs.google.com/document/?usp=installed_webapp"))
@@ -148,6 +158,10 @@ inline constexpr char kPlayBooksAppId[] = "jglfhlbohpgcbefmhdmpancnijacbbji";
 //      "chrome://print-management/"))
 inline constexpr char kPrintManagementAppId[] =
     "fglkccnmnaankjodgccmiodmlkpaiodc";
+
+// Generated as: web_app::GenerateAppId(/*manifest_id=*/std::nullopt,
+// GURL("chrome://sanitize/"))
+inline constexpr char kSanitizeAppId[] = "kochjemhjheifpfhkppkameonoheenjk";
 
 // Generated as: web_app::GenerateAppId(/*manifest_id=*/std::nullopt,
 // GURL("chrome://scanning/"))

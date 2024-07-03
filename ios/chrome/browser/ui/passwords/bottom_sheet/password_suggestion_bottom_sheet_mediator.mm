@@ -50,6 +50,7 @@ namespace {
 const char kImageFetcherUmaClient[] = "PasswordBottomSheet";
 const CGFloat kProfileImageSize = 80.0;
 
+using PasswordSuggestionBottomSheetExitReason::kBadProvider;
 using ReauthenticationEvent::kAttempt;
 using ReauthenticationEvent::kFailure;
 using ReauthenticationEvent::kMissingPasscode;
@@ -184,6 +185,12 @@ int PrimaryActionStringIdFromSuggestion(FormSuggestion* suggestion) {
       self.suggestionsProvider = tabHelper->GetAccessoryViewProvider();
       DCHECK(self.suggestionsProvider);
 
+      // The 'params' argument may go out of scope before the completion block
+      // is called, so we need to store variables used in the completion block
+      // locally.
+      autofill::FormRendererId formId = params.form_renderer_id;
+      std::string frameId = params.frame_id;
+
       __weak __typeof(self) weakSelf = self;
       [self.suggestionsProvider
           retrieveSuggestionsForForm:params
@@ -192,9 +199,9 @@ int PrimaryActionStringIdFromSuggestion(FormSuggestion* suggestion) {
                 NSArray<FormSuggestion*>* suggestions,
                 id<FormInputSuggestionsProvider> formInputSuggestionsProvider) {
               weakSelf.suggestions = suggestions;
-              [weakSelf fetchCredentialsForForm:params.form_renderer_id
+              [weakSelf fetchCredentialsForForm:formId
                                        webState:activeWebState
-                                     webFrameId:params.frame_id];
+                                     webFrameId:frameId];
             }];
     }
 
@@ -408,7 +415,11 @@ int PrimaryActionStringIdFromSuggestion(FormSuggestion* suggestion) {
 // Perform suggestion selection
 - (void)selectSuggestion:(FormSuggestion*)suggestion {
   default_browser::NotifyPasswordAutofillSuggestionUsed(_engagementTracker);
-  [self.suggestionsProvider didSelectSuggestion:suggestion];
+  if (self.suggestionsProvider.type == SuggestionProviderTypePassword) {
+    [self.suggestionsProvider didSelectSuggestion:suggestion];
+  } else {
+    [self logExitReason:kBadProvider];
+  }
   [self disconnect];
 }
 

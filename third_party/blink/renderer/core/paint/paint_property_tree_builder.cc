@@ -1799,6 +1799,12 @@ void FragmentPaintPropertyTreeBuilder::
       state.compositor_element_id = CompositorElementIdFromUniqueObjectId(
           object_.UniqueId(),
           CompositorElementIdNamespace::kViewTransitionSubframeRoot);
+      if (const auto& layer =
+              ViewTransitionUtils::GetTransition(object_.GetDocument())
+                  ->GetSubframeSnapshotLayer()) {
+        state.view_transition_element_resource_id =
+            layer->ViewTransitionResourceId();
+      }
 
       auto change_type = properties_->UpdateViewTransitionSubframeRootEffect(
           *context_.current_effect, std::move(state), {});
@@ -3010,7 +3016,7 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffset() {
         break;
       }
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   }
 

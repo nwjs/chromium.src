@@ -212,10 +212,6 @@
       <include name="IDR_POLICY_BASE_JS" file="resources\empty.js" type="BINDATA"/>
       <include name="IDR_POLICY_JS" file="resources\empty.js" type="BINDATA"/>
       <include name="IDR_POLICY_COMMON_CSS" file="resources\empty.css" type="BINDATA"/>
-      <if expr="not is_android">
-        <include name="IDR_MANAGEMENT_HTML" file="resources\management\management.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
-        <include name="IDR_MANAGEMENT_UI_HTML" file="resources\management\management_ui.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
-      </if>
       <include name="IDR_PROFILER_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_PROFILER_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_PROFILE_CUSTOMIZATION_HTML" file="resources\signin\profile_customization\profile_customization.html" type="BINDATA" />

@@ -33,7 +33,6 @@
 #include "content/browser/accessibility/browser_accessibility_state_impl.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/gpu/compositor_util.h"
-#include "content/browser/renderer_host/cursor_manager.h"
 #include "content/browser/renderer_host/delegated_frame_host_client_aura.h"
 #include "content/browser/renderer_host/dip_util.h"
 #include "content/browser/renderer_host/frame_tree.h"
@@ -47,10 +46,11 @@
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
-#include "content/browser/renderer_host/render_widget_host_input_event_router.h"
 #include "content/browser/renderer_host/render_widget_host_view_event_handler.h"
-#include "content/browser/renderer_host/ui_events_helper.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
+#include "content/common/input/cursor_manager.h"
+#include "content/common/input/events_helper.h"
+#include "content/common/input/render_widget_host_input_event_router.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/device_service.h"
 #include "content/public/browser/render_view_host.h"
@@ -1172,7 +1172,7 @@ void RenderWidgetHostViewAura::GestureEventAck(
 }
 
 void RenderWidgetHostViewAura::ProcessAckedTouchEvent(
-    const TouchEventWithLatencyInfo& touch,
+    const input::TouchEventWithLatencyInfo& touch,
     blink::mojom::InputEventResultState ack_result) {
   aura::WindowTreeHost* window_host = window_->GetHost();
   // |host| is NULL during tests.
@@ -1205,7 +1205,7 @@ void RenderWidgetHostViewAura::ProcessAckedTouchEvent(
       break;
     default:
       required_state = blink::WebTouchPoint::State::kStateUndefined;
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 
@@ -1407,8 +1407,8 @@ void RenderWidgetHostViewAura::InsertChar(const ui::KeyEvent& event) {
       event.GetCharacter() != ui::VKEY_RETURN) {
     // Send a blink::WebInputEvent::Char event to |host_|.
     ForwardKeyboardEventWithLatencyInfo(
-        NativeWebKeyboardEvent(event, event.GetCharacter()), *event.latency(),
-        nullptr);
+        input::NativeWebKeyboardEvent(event, event.GetCharacter()),
+        *event.latency(), nullptr);
   }
 }
 
@@ -2010,7 +2010,7 @@ void RenderWidgetHostViewAura::OnCaptureLost() {
 }
 
 void RenderWidgetHostViewAura::OnPaint(const ui::PaintContext& context) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void RenderWidgetHostViewAura::OnDeviceScaleFactorChanged(
@@ -2029,16 +2029,6 @@ void RenderWidgetHostViewAura::OnDeviceScaleFactorChanged(
                               window_->GetLocalSurfaceId());
 
   device_scale_factor_ = new_device_scale_factor;
-  const display::Display display =
-      display::Screen::GetScreen()->GetDisplayNearestWindow(window_);
-  // Sometimes GetDisplayNearestWindow returns the default monitor. We don't
-  // want to use that here.
-  if (display.is_valid()) {
-    // TODO: crbug.com/337612968 - This assumption is not valid, and is probably
-    // causing bugs in other places.
-    DCHECK_EQ(new_device_scale_factor, display.device_scale_factor());
-    current_cursor_.SetDisplayInfo(display);
-  }
 }
 
 void RenderWidgetHostViewAura::OnWindowDestroying(aura::Window* window) {
@@ -2240,7 +2230,7 @@ void RenderWidgetHostViewAura::OnWindowFocused(aura::Window* gained_focus,
   }
 
   if (window_ != lost_focus) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -2541,6 +2531,13 @@ bool RenderWidgetHostViewAura::IsHTMLFormPopup() const {
   return !!popup_parent_host_view_;
 }
 
+void RenderWidgetHostViewAura::ResetGestureDetection() {
+  // TODO(bokan): See the Android implementation - Aura likely needs to
+  // implement this as well so that suppressing input
+  // (WebContentsImpl::IgnoreInputEvents) doesn't continue to generate gestures
+  // which can confuse event validation.
+}
+
 bool RenderWidgetHostViewAura::FocusedFrameHasStickyActivation() const {
   // Unless user has interacted with the iframe, we shouldn't be displaying VK
   // or fire geometrychange event.
@@ -2733,7 +2730,7 @@ void RenderWidgetHostViewAura::DetachFromInputMethod(bool is_removed) {
 }
 
 void RenderWidgetHostViewAura::ForwardKeyboardEventWithLatencyInfo(
-    const NativeWebKeyboardEvent& event,
+    const input::NativeWebKeyboardEvent& event,
     const ui::LatencyInfo& latency,
     bool* update_event) {
   RenderWidgetHostImpl* target_host = host();

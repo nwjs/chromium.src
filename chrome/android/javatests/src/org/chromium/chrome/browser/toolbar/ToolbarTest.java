@@ -41,7 +41,6 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.ChromeActivity;
@@ -52,6 +51,7 @@ import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabbed_mode.TabbedRootUiCoordinator;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.toolbar.top.TabStripTransitionCoordinator;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -199,7 +199,7 @@ public class ToolbarTest {
                 () -> {
                     Criteria.checkThat(
                             activity.getToolbarManager()
-                                    .getLocationBarForTesting()
+                                    .getLocationBar()
                                     .getOmniboxStub()
                                     .isUrlBarFocused(),
                             Matchers.is(true));
@@ -212,7 +212,7 @@ public class ToolbarTest {
                 () -> {
                     Criteria.checkThat(
                             activity.getToolbarManager()
-                                    .getLocationBarForTesting()
+                                    .getLocationBar()
                                     .getOmniboxStub()
                                     .isUrlBarFocused(),
                             Matchers.is(false));
@@ -240,7 +240,7 @@ public class ToolbarTest {
                 () -> {
                     Criteria.checkThat(
                             activity.getToolbarManager()
-                                    .getLocationBarForTesting()
+                                    .getLocationBar()
                                     .getOmniboxStub()
                                     .isUrlBarFocused(),
                             Matchers.is(true));
@@ -249,7 +249,6 @@ public class ToolbarTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(ChromeFeatureList.DYNAMIC_TOP_CHROME)
     @DisableFeatures(ChromeFeatureList.TAB_STRIP_LAYOUT_OPTIMIZATION)
     @Restriction(UiRestriction.RESTRICTION_TYPE_TABLET)
     public void testToggleTabStripVisibility() {
@@ -281,6 +280,13 @@ public class ToolbarTest {
                                         .getContainerViewForTesting()
                                         .getHeight(),
                                 Matchers.equalTo(toolbarLayoutHeight)));
+        CriteriaHelper.pollUiThread(
+                () ->
+                        Criteria.checkThat(
+                                activity.getToolbarManager()
+                                        .getStatusBarColorController()
+                                        .getStatusBarColorWithoutStatusIndicator(),
+                                Matchers.equalTo(activity.getToolbarManager().getPrimaryColor())));
 
         TabStripTransitionCoordinator.setMinScreenWidthForTesting(1);
         TestThreadUtils.runOnUiThreadBlocking(
@@ -295,6 +301,15 @@ public class ToolbarTest {
                                         .getContainerViewForTesting()
                                         .getHeight(),
                                 Matchers.equalTo(toolbarLayoutHeight + tabStripHeightResource)));
+        CriteriaHelper.pollUiThread(
+                () ->
+                        Criteria.checkThat(
+                                activity.getToolbarManager()
+                                        .getStatusBarColorController()
+                                        .getStatusBarColorWithoutStatusIndicator(),
+                                Matchers.equalTo(
+                                        TabUiThemeUtil.getTabStripBackgroundColor(
+                                                activity, /* isIncognito= */ false))));
     }
 
     private void checkTabStripHeightOnUiThread(int tabStripHeight) {

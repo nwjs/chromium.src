@@ -72,9 +72,15 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
     }
   }
 
-  void Clean() const override { RunCommand("clean"); }
+  void Clean() const override {
+    RunCommand("clean");
+    updater::test::Clean(UpdaterScope::kUser);
+  }
 
-  void ExpectClean() const override { RunCommand("expect_clean"); }
+  void ExpectClean() const override {
+    RunCommand("expect_clean");
+    updater::test::ExpectClean(UpdaterScope::kUser);
+  }
 
   void Install(const base::Value::List& switches) const override {
     RunCommand(
@@ -413,7 +419,7 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
   base::FilePath GetDifferentUserPath() const override {
     // On POSIX, the path may be chowned; so do not use a file not owned by the
     // test, nor the test executable itself.
-    NOTREACHED() << __func__ << ": not implemented.";
+    NOTREACHED_IN_MIGRATION() << __func__ << ": not implemented.";
     return base::FilePath();
   }
 

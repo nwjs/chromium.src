@@ -12,6 +12,7 @@
 #include "ash/wm/window_positioning_utils.h"
 #include "ash/wm/window_state_observer.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "ui/aura/window_observer.h"
 #include "ui/display/display_observer.h"
@@ -50,6 +51,9 @@ class SnapGroup : public aura::WindowObserver,
   aura::Window* window1() const { return window1_; }
   aura::Window* window2() const { return window2_; }
   SplitViewDivider* snap_group_divider() { return &snap_group_divider_; }
+  base::TimeTicks carry_over_creation_time() const {
+    return carry_over_creation_time_;
+  }
 
   // Cleans up prior to deletion. Must be called before the object is destroyed.
   void Shutdown();
@@ -75,7 +79,7 @@ class SnapGroup : public aura::WindowObserver,
 
   // Returns true if snap group is configured in a vertical split-screen layout.
   // Returns false otherwise.
-  bool IsSnapGroupLayoutHorizontal();
+  bool IsSnapGroupLayoutHorizontal() const;
 
   // Unified helper to handle mouse/touch events received from
   // `ToplevelWindowEventHandler` to hide `snap_group_divider_` when either of
@@ -98,7 +102,7 @@ class SnapGroup : public aura::WindowObserver,
                                   chromeos::WindowStateType old_type) override;
 
   // LayoutDividerController:
-  aura::Window* GetRootWindow() override;
+  aura::Window* GetRootWindow() const override;
   void StartResizeWithDivider(const gfx::Point& location_in_screen) override;
   void UpdateResizeWithDivider(const gfx::Point& location_in_screen) override;
   bool EndResizeWithDivider(const gfx::Point& location_in_screen) override;
@@ -181,6 +185,9 @@ class SnapGroup : public aura::WindowObserver,
   // for secondary screen orientation.
   raw_ptr<aura::Window> window2_;
 
+  // True if the shutting down process has been triggered.
+  bool is_shutting_down_ = false;
+
   // Tracks the timestamp of the original Snap Group's creation time, preserved
   // when using 'Snap to Replace'.
   const base::TimeTicks carry_over_creation_time_;
@@ -190,8 +197,7 @@ class SnapGroup : public aura::WindowObserver,
   // the two snapped windows remain unchanged throughout its existence.
   const base::TimeTicks actual_creation_time_;
 
-  // True if the shutting down process has been triggered.
-  bool is_shutting_down_ = false;
+  base::WeakPtrFactory<SnapGroup> weak_ptr_factory_{this};
 };
 
 }  // namespace ash

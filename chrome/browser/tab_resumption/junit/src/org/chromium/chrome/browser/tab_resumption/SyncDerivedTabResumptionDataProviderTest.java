@@ -39,15 +39,17 @@ import java.util.concurrent.TimeUnit;
 @Config(manifest = Config.NONE)
 public class SyncDerivedTabResumptionDataProviderTest extends TestSupport {
     static final SuggestionEntry ENTRY1 =
-            new SuggestionEntry("My Tablet", TAB6.url, TAB6.title, TAB6.lastActiveTime, TAB6.id);
+            SuggestionEntry.createFromForeignSessionTab("My Tablet", TAB6);
     static final SuggestionEntry ENTRY2 =
-            new SuggestionEntry("My Tablet", TAB5.url, TAB5.title, TAB5.lastActiveTime, TAB5.id);
+            SuggestionEntry.createFromForeignSessionTab("My Tablet", TAB5);
     static final SuggestionEntry ENTRY3 =
-            new SuggestionEntry("My Desktop", TAB1.url, TAB1.title, TAB1.lastActiveTime, TAB1.id);
+            SuggestionEntry.createFromForeignSessionTab("My Desktop", TAB1);
 
     @Mock private SyncDerivedSuggestionEntrySource mSource;
 
     @Captor private ArgumentCaptor<SourceDataChangedObserver> mSourceDataChangedObserverCaptor;
+
+    private long mFakeTime;
 
     private SyncDerivedTabResumptionDataProvider mDataProvider;
     private SourceDataChangedObserver mSourceDataChangedObserver;
@@ -59,6 +61,8 @@ public class SyncDerivedTabResumptionDataProviderTest extends TestSupport {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
+        mFakeTime = CURRENT_TIME_MS;
+        TabResumptionModuleUtils.setFakeCurrentTimeMsForTesting(() -> mFakeTime);
         mDataProvider = new SyncDerivedTabResumptionDataProvider(mSource, () -> {});
         mDataProvider.setStatusChangedCallback(
                 () -> {
@@ -76,13 +80,15 @@ public class SyncDerivedTabResumptionDataProviderTest extends TestSupport {
             mDataProvider.destroy();
             verify(mSource).removeObserver(mSourceDataChangedObserver);
         }
+        mSourceDataChangedObserver = null;
+        mDataProvider = null;
+        TabResumptionModuleUtils.setFakeCurrentTimeMsForTesting(null);
     }
 
     @Test
     @SmallTest
     public void testMainFlow() {
         when(mSource.canUseData()).thenReturn(true);
-        when(mSource.getCurrentTimeMs()).thenReturn(CURRENT_TIME_MS);
         // Initial fetch yields TENTATIVE results.
         plantSourceGetSuggestionsResult(new ArrayList<>(Arrays.asList(ENTRY1, ENTRY2, ENTRY3)));
         fetchSuggestionsAndCheck(
@@ -146,7 +152,6 @@ public class SyncDerivedTabResumptionDataProviderTest extends TestSupport {
     @SmallTest
     public void testStabilityFromTimeOut() {
         when(mSource.canUseData()).thenReturn(true);
-        when(mSource.getCurrentTimeMs()).thenReturn(CURRENT_TIME_MS);
         // Initial fetch yields TENTATIVE results.
         plantSourceGetSuggestionsResult(new ArrayList<>(Arrays.asList(ENTRY1, ENTRY2, ENTRY3)));
         fetchSuggestionsAndCheck(
@@ -161,7 +166,7 @@ public class SyncDerivedTabResumptionDataProviderTest extends TestSupport {
         Assert.assertEquals(0, mStatusChangedCallbackCounter);
 
         // 1 min elapses: Any new suggestions should be discounted.
-        when(mSource.getCurrentTimeMs()).thenReturn(CURRENT_TIME_MS + TimeUnit.MINUTES.toMillis(1));
+        mFakeTime += TimeUnit.MINUTES.toMillis(1);
 
         // Non-permission data change event no longer triggers dispatch.
         mDataProvider.onDataChanged(/* isPermissionUpdate= */ false);
@@ -193,7 +198,6 @@ public class SyncDerivedTabResumptionDataProviderTest extends TestSupport {
     @SmallTest
     public void testCannotUseData() {
         when(mSource.canUseData()).thenReturn(false);
-        when(mSource.getCurrentTimeMs()).thenReturn(CURRENT_TIME_MS);
         plantSourceGetSuggestionsResult(new ArrayList<>(Arrays.asList(ENTRY1, ENTRY2, ENTRY3)));
         fetchSuggestionsAndCheck(
                 (SuggestionsResult result) -> {

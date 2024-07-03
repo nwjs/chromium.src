@@ -32,9 +32,12 @@
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace content {
-struct NativeWebKeyboardEvent;
 class WebContents;
 }  // namespace content
+
+namespace input {
+struct NativeWebKeyboardEvent;
+}  // namespace input
 
 namespace password_manager {
 class PasswordManagerDriver;
@@ -43,6 +46,7 @@ class PasswordManagerDriver;
 namespace autofill {
 struct FormData;
 namespace password_generation {
+enum class PasswordGenerationType;
 struct PasswordGenerationUIData;
 }  // namespace password_generation
 }  // namespace autofill
@@ -90,6 +94,10 @@ class PasswordGenerationPopupControllerImpl
       const PasswordGenerationPopupControllerImpl&) = delete;
 
   ~PasswordGenerationPopupControllerImpl() override;
+
+  // Generate the password string and store it in `current_generated_password_`.
+  void GeneratePasswordValue(
+      autofill::password_generation::PasswordGenerationType generation_type);
 
   // Create a PasswordGenerationPopupView if one doesn't already exist.
   void Show(GenerationUIState state);
@@ -186,7 +194,7 @@ class PasswordGenerationPopupControllerImpl
 
   void HideImpl();
 
-  bool HandleKeyPressEvent(const content::NativeWebKeyboardEvent& event);
+  bool HandleKeyPressEvent(const input::NativeWebKeyboardEvent& event);
 
   // Whether the elements of popup are selectable (true in generation state).
   bool IsSelectable() const;

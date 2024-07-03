@@ -10,20 +10,155 @@ import {BrowserCommandProxy} from 'chrome://resources/js/browser_command/browser
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {isChromeOS} from 'chrome://resources/js/platform.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import type {TimeDelta} from 'chrome://resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
+import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
 
+import {ScrollDepth} from './whats_new.mojom-webui.js';
 import {getCss} from './whats_new_app.css.js';
 import {getHtml} from './whats_new_app.html.js';
 import {WhatsNewProxyImpl} from './whats_new_proxy.js';
 
-interface CommandData {
+enum EventType {
+  BROWSER_COMMAND = 'browser_command',
+  PAGE_LOADED = 'page_loaded',
+  MODULE_IMPRESSION = 'module_impression',
+  EXPLORE_MORE_OPEN = 'explore_more_open',
+  EXPLORE_MORE_CLOSE = 'explore_more_close',
+  SCROLL = 'scroll',
+  TIME_ON_PAGE_MS = 'time_on_page_ms',
+  GENERAL_LINK_CLICK = 'general_link_click',
+}
+
+// TODO(crbug.com/342172972): Remove legacy browser command format.
+interface LegacyBrowserCommandData {
   commandId: number;
   clickInfo: ClickInfo;
 }
 
-// TODO (https://www.crbug.com/1219381): Add some additional parameters so
-// that we can filter the messages a bit better.
-interface BrowserCommandMessageData {
-  data: CommandData;
+interface BrowserCommandData {
+  event: EventType.BROWSER_COMMAND;
+  commandId: number;
+  clickInfo: ClickInfo;
+}
+
+interface PageLoadedMetric {
+  event: EventType.PAGE_LOADED;
+  type: 'version';
+  version: number;
+}
+
+interface ModuleImpressionMetric {
+  event: EventType.MODULE_IMPRESSION;
+  module_name: string;
+}
+
+interface ExploreMoreOpenMetric {
+  event: EventType.EXPLORE_MORE_OPEN;
+  module_name: 'archive';
+}
+
+interface ExploreMoreCloseMetric {
+  event: EventType.EXPLORE_MORE_CLOSE;
+  module_name: 'archive';
+}
+
+interface ScrollDepthMetric {
+  event: EventType.SCROLL;
+  percent_scrolled: 25|50|75|100;
+}
+
+interface TimeOnPageMetric {
+  event: EventType.TIME_ON_PAGE_MS;
+  time: number;
+}
+
+interface GeneralLinkClickMetric {
+  event: EventType.GENERAL_LINK_CLICK;
+  link_text: string;
+  link_type: string;
+  link_url: string;
+  module_name: string;
+}
+
+type BrowserCommand = LegacyBrowserCommandData|BrowserCommandData;
+type MetricData = PageLoadedMetric|ModuleImpressionMetric|ExploreMoreOpenMetric|
+    ExploreMoreCloseMetric|ScrollDepthMetric|TimeOnPageMetric|
+    GeneralLinkClickMetric;
+
+interface EventData {
+  data: BrowserCommand|MetricData;
+}
+
+// Narrow the type of the message data. This is necessary for the
+// legacy message format that does not supply an event name.
+function isBrowserCommand(messageData: BrowserCommand|
+                          MetricData): messageData is BrowserCommand {
+  // TODO(crbug.com/342172972): Remove legacy browser command format checks.
+  if (Object.hasOwn(messageData, 'event')) {
+    return (messageData as BrowserCommandData | MetricData).event ===
+        EventType.BROWSER_COMMAND;
+  } else {
+    return Object.hasOwn(messageData, 'commandId');
+  }
+}
+
+function handleBrowserCommand(messageData: BrowserCommand) {
+  if (!Object.values(Command).includes(messageData.commandId)) {
+    return;
+  }
+  const {commandId} = messageData;
+  const handler = BrowserCommandProxy.getInstance().handler;
+  handler.canExecuteCommand(commandId).then(({canExecute}) => {
+    if (canExecute) {
+      handler.executeCommand(commandId, messageData.clickInfo);
+    } else {
+      console.warn('Received invalid command: ' + commandId);
+    }
+  });
+}
+
+function handlePageLoadMetric(data: PageLoadedMetric, isAutoOpen: boolean) {
+  if (data.type === 'version' && Number.isInteger(data.version)) {
+    const {handler} = WhatsNewProxyImpl.getInstance();
+    handler.recordVersionPageLoaded(isAutoOpen);
+  } else {
+    console.warn(
+        'Unrecognized page version: ' + data.type + ', ' + data.version);
+  }
+}
+
+function handleScrollDepthMetric(data: ScrollDepthMetric) {
+  let scrollDepth;
+  switch (data.percent_scrolled) {
+    case 25:
+      scrollDepth = ScrollDepth.k25;
+      break;
+    case 50:
+      scrollDepth = ScrollDepth.k50;
+      break;
+    case 75:
+      scrollDepth = ScrollDepth.k75;
+      break;
+    case 100:
+      scrollDepth = ScrollDepth.k100;
+      break;
+  }
+  if (scrollDepth) {
+    const {handler} = WhatsNewProxyImpl.getInstance();
+    handler.recordScrollDepth(scrollDepth);
+  } else {
+    console.warn('Unrecognized scroll percentage: ', data.percent_scrolled);
+  }
+}
+
+function handleTimeOnPageMetric(data: TimeOnPageMetric) {
+  if (Number.isInteger(data.time) && data.time > 0) {
+    const {handler} = WhatsNewProxyImpl.getInstance();
+    const delta: TimeDelta = {microseconds: BigInt(data.time)};
+    handler.recordTimeOnPage(delta);
+  } else {
+    console.warn('Invalid time: ', data.time);
+  }
 }
 
 export class WhatsNewAppElement extends CrLitElement {
@@ -64,13 +199,21 @@ export class WhatsNewAppElement extends CrLitElement {
   override connectedCallback() {
     super.connectedCallback();
 
-    WhatsNewProxyImpl.getInstance().initialize().then(
-        url => this.handleUrlResult_(url));
+    WhatsNewProxyImpl.getInstance().handler.getServerUrl().then(
+        ({url}: {url: Url}) => this.handleUrlResult_(url.url));
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     this.eventTracker_.removeAll();
+  }
+
+  /**
+   * Called when embedded content has loaded.
+   */
+  protected onContentLoaded_() {
+    const {handler} = WhatsNewProxyImpl.getInstance();
+    handler.recordTimeToLoadContent(Date.now());
   }
 
   /**
@@ -98,29 +241,47 @@ export class WhatsNewAppElement extends CrLitElement {
       return;
     }
 
-    const {data, origin} = event;
     const iframeUrl = new URL(this.url_);
-    if (!data || origin !== iframeUrl.origin) {
+    if (!event.data || event.origin !== iframeUrl.origin) {
       return;
     }
 
-    const commandData = (data as BrowserCommandMessageData).data;
-    if (!commandData) {
+    const data = (event.data as EventData).data;
+    if (!data) {
       return;
     }
 
-    const commandId = Object.values(Command).includes(commandData.commandId) ?
-        commandData.commandId :
-        Command.kUnknownCommand;
+    if (isBrowserCommand(data)) {
+      handleBrowserCommand(data);
+      return;
+    }
 
-    const handler = BrowserCommandProxy.getInstance().handler;
-    handler.canExecuteCommand(commandId).then(({canExecute}) => {
-      if (canExecute) {
-        handler.executeCommand(commandId, commandData.clickInfo);
-      } else {
-        console.warn('Received invalid command: ' + commandId);
-      }
-    });
+    const {handler} = WhatsNewProxyImpl.getInstance();
+    switch (data.event) {
+      case EventType.PAGE_LOADED:
+        handlePageLoadMetric(data, this.isAutoOpen_);
+        break;
+      case EventType.MODULE_IMPRESSION:
+        handler.recordModuleImpression(data.module_name);
+        break;
+      case EventType.EXPLORE_MORE_OPEN:
+        handler.recordExploreMoreToggled(true);
+        break;
+      case EventType.EXPLORE_MORE_CLOSE:
+        handler.recordExploreMoreToggled(false);
+        break;
+      case EventType.SCROLL:
+        handleScrollDepthMetric(data);
+        break;
+      case EventType.TIME_ON_PAGE_MS:
+        handleTimeOnPageMetric(data);
+        break;
+      case EventType.GENERAL_LINK_CLICK:
+        handler.recordModuleLinkClicked(data.module_name);
+        break;
+      default:
+        console.warn('Unrecognized message.', data);
+    }
   }
 }
 customElements.define(WhatsNewAppElement.is, WhatsNewAppElement);

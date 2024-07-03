@@ -73,6 +73,8 @@ class PersistentProtoInternal
 
   constexpr explicit operator bool() const { return has_value(); }
 
+  const base::FilePath& path() { return proto_file_->path(); }
+
   // base::ImportantFileWriter::DataSerializer:
   std::optional<std::string> SerializeData() override;
 
@@ -93,6 +95,9 @@ class PersistentProtoInternal
   void DeallocProto();
 
  private:
+  // Queues a task to delete the backing file.
+  void QueueFileDelete();
+
   // Completes a write if there is a queued one.
   //
   // This is needed because it needs to be called by the class that owns the

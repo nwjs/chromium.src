@@ -86,6 +86,10 @@
 #include "chromeos/startup/browser_params_proxy.h"
 #endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/ui/webui/whats_new/whats_new_fetcher.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 namespace {
 
 // Utility functions ----------------------------------------------------------
@@ -263,6 +267,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
       continue;
     }
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     // Start the What's New fetch but don't add the tab at this point. The tab
     // will open as the foreground tab only if the remote content can be
     // retrieved successfully. This prevents needing to automatically close the
@@ -271,6 +276,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
       whats_new::StartWhatsNewFetch(browser);
       continue;
     }
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
     // Headless mode is restricted to only one url in the command line, so
     // just grab the first one assuming it's the target.
@@ -343,7 +349,7 @@ StartupBrowserCreatorImpl::DetermineURLsAndLaunch(
   if (StartupBrowserCreator::ShouldLoadProfileWithoutWindow(*command_line_)) {
     // Checking the flags this late in the launch should be redundant.
     // TODO(crbug.com/40216113): Remove by M104.
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     base::debug::DumpWithoutCrashing();
     return LaunchResult::kNormally;
   }
@@ -520,8 +526,6 @@ StartupBrowserCreatorImpl::DetermineStartupTabs(
     // startup.
     bool has_first_run_experience = false;
     if (promotional_tabs_enabled) {
-      // TODO(b/337135021): Investigate whether the below build flag is causing
-      // a wrong behavior on Lacros.
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
       if (is_first_run_ == chrome::startup::IsFirstRun::kYes) {
         // We just showed the first run experience in the Desktop FRE window.

@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if defined(UNSAFE_BUFFERS_BUILD)
+// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
+// then remove this pragma.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "ui/views/view.h"
 
 #include <stddef.h>
@@ -373,7 +379,7 @@ class A11yTestView : public TestView {
   METADATA_HEADER(A11yTestView, TestView)
 
  public:
-  // Convenience constructor to test `View::SetAccessibilityProperties`
+  // Convenience constructor to test `ViewAccessibility::SetProperties`
   explicit A11yTestView(
       std::optional<ax::mojom::Role> role = std::nullopt,
       std::optional<std::u16string> name = std::nullopt,
@@ -382,7 +388,7 @@ class A11yTestView : public TestView {
       std::optional<ax::mojom::NameFrom> name_from = std::nullopt,
       std::optional<ax::mojom::DescriptionFrom> description_from =
           std::nullopt) {
-    SetAccessibilityProperties(
+    GetViewAccessibility().SetProperties(
         std::move(role), std::move(name), std::move(description),
         std::move(role_description), std::move(name_from),
         std::move(description_from));
@@ -517,30 +523,31 @@ TEST_F(ViewTest, CannotLayoutSuperclassOutsideLayout) {
 
 TEST_F(ViewTest, PauseAccessibilityEvents) {
   TestView v;
-  v.SetAccessibleRole(ax::mojom::Role::kStaticText);
-  EXPECT_EQ(v.pause_accessibility_events_, false);
+  v.GetViewAccessibility().SetRole(ax::mojom::Role::kStaticText);
+  EXPECT_EQ(v.GetViewAccessibility().pause_accessibility_events_, false);
 
   // Setting the accessible name when `pause_accessibility_events_` is false
   // should result in an event being fired.
   v.last_a11y_event_ = ax::mojom::Event::kNone;
   v.SetAccessibleName(u"Name");
   EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kTextChanged);
-  EXPECT_EQ(v.pause_accessibility_events_, false);
+  EXPECT_EQ(v.GetViewAccessibility().pause_accessibility_events_, false);
 
   // Setting the accessible name when `pause_accessibility_events_` is true
   // should result in no event being fired.
   v.last_a11y_event_ = ax::mojom::Event::kNone;
-  v.pause_accessibility_events_ = true;
+  v.GetViewAccessibility().pause_accessibility_events_ = true;
   v.SetAccessibleName(u"New Name");
   EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kNone);
-  EXPECT_EQ(v.pause_accessibility_events_, true);
+  EXPECT_EQ(v.GetViewAccessibility().pause_accessibility_events_, true);
 
-  // A11yTestView views are constructed using `SetAccessibilityProperties`. By
-  // default, `pause_accessibility_events_` is false. It is temporarily set to
-  // true and then reset at the end of initialization.
+  // A11yTestView views are constructed using
+  // `ViewAccessibility::SetProperties`. By default,
+  // `pause_accessibility_events_` is false. It is temporarily set to true and
+  // then reset at the end of initialization.
   A11yTestView ax_v(ax::mojom::Role::kButton, u"Name", u"Description");
   EXPECT_EQ(ax_v.last_a11y_event_, ax::mojom::Event::kNone);
-  EXPECT_EQ(ax_v.pause_accessibility_events_, false);
+  EXPECT_EQ(ax_v.GetViewAccessibility().pause_accessibility_events_, false);
 }
 
 TEST_F(ViewTest, SetAccessibilityPropertiesRoleNameDescription) {
@@ -548,9 +555,9 @@ TEST_F(ViewTest, SetAccessibilityPropertiesRoleNameDescription) {
   A11yTestView v(ax::mojom::Role::kButton, u"Name", u"Description");
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleRole(), ax::mojom::Role::kButton);
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedRole(), ax::mojom::Role::kButton);
   EXPECT_EQ(data.role, ax::mojom::Role::kButton);
-  EXPECT_EQ(v.GetAccessibleName(), u"Name");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"Name");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Name");
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
@@ -564,8 +571,8 @@ TEST_F(ViewTest, SetAccessibilityPropertiesRoleNameDescription) {
             ax::mojom::DescriptionFrom::kAriaDescription);
 
   // There should not be any accessibility events fired when properties are
-  // set within `SetAccessibilityProperties`. For the above properties, the only
-  // event type is `kTextChanged`.
+  // set within `ViewAccessibility::SetProperties`. For the above properties,
+  // the only event type is `kTextChanged`.
   EXPECT_EQ(ax_counter.GetCount(ax::mojom::Event::kTextChanged, &v), 0);
 
   // Setting the accessible name after initialization should result in an event
@@ -581,9 +588,9 @@ TEST_F(ViewTest, SetAccessibilityPropertiesRoleNameDescriptionDetailed) {
                  ax::mojom::DescriptionFrom::kTitle);
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleRole(), ax::mojom::Role::kButton);
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedRole(), ax::mojom::Role::kButton);
   EXPECT_EQ(data.role, ax::mojom::Role::kButton);
-  EXPECT_EQ(v.GetAccessibleName(), u"Name");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"Name");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Name");
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
@@ -597,8 +604,8 @@ TEST_F(ViewTest, SetAccessibilityPropertiesRoleNameDescriptionDetailed) {
             ax::mojom::DescriptionFrom::kTitle);
 
   // There should not be any accessibility events fired when properties are
-  // set within `SetAccessibilityProperties`. For the above properties, the only
-  // event type is `kTextChanged`.
+  // set within `ViewAccessibility::SetProperties`. For the above properties,
+  // the only event type is `kTextChanged`.
   EXPECT_EQ(ax_counter.GetCount(ax::mojom::Event::kTextChanged, &v), 0);
 
   // Setting the accessible name after initialization should result in an event
@@ -613,12 +620,12 @@ TEST_F(ViewTest, SetAccessibilityPropertiesRoleRolenameNameDescription) {
                  u"Super Button");
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleRole(), ax::mojom::Role::kButton);
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedRole(), ax::mojom::Role::kButton);
   EXPECT_EQ(data.role, ax::mojom::Role::kButton);
   EXPECT_EQ(
       data.GetString16Attribute(ax::mojom::StringAttribute::kRoleDescription),
       u"Super Button");
-  EXPECT_EQ(v.GetAccessibleName(), u"Name");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"Name");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Name");
   EXPECT_EQ(v.GetViewAccessibility().GetCachedDescription(), u"Description");
@@ -626,8 +633,8 @@ TEST_F(ViewTest, SetAccessibilityPropertiesRoleRolenameNameDescription) {
             u"Description");
 
   // There should not be any accessibility events fired when properties are
-  // set within `SetAccessibilityProperties`. For the above properties, the only
-  // event type is `kTextChanged`.
+  // set within `ViewAccessibility::SetProperties`. For the above properties,
+  // the only event type is `kTextChanged`.
   EXPECT_EQ(ax_counter.GetCount(ax::mojom::Event::kTextChanged, &v), 0);
 
   // Setting the accessible name after initialization should result in an event
@@ -642,7 +649,7 @@ TEST_F(ViewTest, SetAccessibilityPropertiesRoleAndRoleDescription) {
                  /*description*/ std::nullopt, u"Super Button");
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleRole(), ax::mojom::Role::kButton);
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedRole(), ax::mojom::Role::kButton);
   EXPECT_EQ(data.role, ax::mojom::Role::kButton);
   EXPECT_EQ(
       data.GetString16Attribute(ax::mojom::StringAttribute::kRoleDescription),
@@ -657,9 +664,9 @@ TEST_F(ViewTest, SetAccessibilityPropertiesNameExplicitlyEmpty) {
                  ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleRole(), ax::mojom::Role::kNone);
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedRole(), ax::mojom::Role::kNone);
   EXPECT_EQ(data.role, ax::mojom::Role::kNone);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
                 data.GetIntAttribute(ax::mojom::IntAttribute::kNameFrom)),
@@ -670,23 +677,24 @@ TEST_F(ViewTest, SetAccessibleRole) {
   TestView v;
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleRole(), ax::mojom::Role::kUnknown);
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedRole(),
+            ax::mojom::Role::kUnknown);
   EXPECT_EQ(data.role, ax::mojom::Role::kUnknown);
 
   data = ui::AXNodeData();
-  v.SetAccessibleRole(ax::mojom::Role::kButton);
+  v.GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.role, ax::mojom::Role::kButton);
-  EXPECT_EQ(v.GetAccessibleRole(), ax::mojom::Role::kButton);
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedRole(), ax::mojom::Role::kButton);
 }
 
 TEST_F(ViewTest, SetAccessibleNameToStringWithRoleAlreadySet) {
   TestView v;
-  v.SetAccessibleRole(ax::mojom::Role::kButton);
+  v.GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
 
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
 
   v.last_a11y_event_ = ax::mojom::Event::kNone;
@@ -694,7 +702,7 @@ TEST_F(ViewTest, SetAccessibleNameToStringWithRoleAlreadySet) {
 
   v.SetAccessibleName(u"Name");
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Name");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"Name");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Name");
   EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kTextChanged);
@@ -706,7 +714,7 @@ TEST_F(ViewTest, AdjustAccessibleNameStringWithRoleAlreadySet) {
 
   ui::AXNodeData data;
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
 
   v.last_a11y_event_ = ax::mojom::Event::kNone;
@@ -714,7 +722,7 @@ TEST_F(ViewTest, AdjustAccessibleNameStringWithRoleAlreadySet) {
 
   v.SetAccessibleName(u"Name");
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Prefix: Name");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"Prefix: Name");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Prefix: Name");
   EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kTextChanged);
@@ -722,15 +730,15 @@ TEST_F(ViewTest, AdjustAccessibleNameStringWithRoleAlreadySet) {
 
 TEST_F(ViewTest, SetAccessibleNameToLabelWithRoleAlreadySet) {
   TestView label;
-  label.SetAccessibleRole(ax::mojom::Role::kStaticText);
+  label.GetViewAccessibility().SetRole(ax::mojom::Role::kStaticText);
   label.SetAccessibleName(u"Label's Name");
 
   TestView v;
-  v.SetAccessibleRole(ax::mojom::Role::kButton);
+  v.GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
 
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
                 data.GetIntAttribute(ax::mojom::IntAttribute::kNameFrom)),
@@ -743,7 +751,7 @@ TEST_F(ViewTest, SetAccessibleNameToLabelWithRoleAlreadySet) {
 
   v.SetAccessibleName(&label);
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Label's Name");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"Label's Name");
   EXPECT_TRUE(
       data.HasIntListAttribute(ax::mojom::IntListAttribute::kLabelledbyIds));
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
@@ -760,7 +768,7 @@ TEST_F(ViewTest, AdjustAccessibleNameFrom) {
 
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
 
   v.last_a11y_event_ = ax::mojom::Event::kNone;
@@ -768,7 +776,7 @@ TEST_F(ViewTest, AdjustAccessibleNameFrom) {
 
   v.SetAccessibleName(u"Name");
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Name");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"Name");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Name");
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
@@ -779,7 +787,7 @@ TEST_F(ViewTest, AdjustAccessibleNameFrom) {
 
 TEST_F(ViewTest, AdjustAccessibleNameFromLabelWithRoleAlreadySet) {
   TestView label;
-  label.SetAccessibleRole(ax::mojom::Role::kStaticText);
+  label.GetViewAccessibility().SetRole(ax::mojom::Role::kStaticText);
   label.SetAccessibleName(u"Label's Name");
 
   A11yTestView v(ax::mojom::Role::kButton);
@@ -787,7 +795,7 @@ TEST_F(ViewTest, AdjustAccessibleNameFromLabelWithRoleAlreadySet) {
 
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
                 data.GetIntAttribute(ax::mojom::IntAttribute::kNameFrom)),
@@ -800,7 +808,7 @@ TEST_F(ViewTest, AdjustAccessibleNameFromLabelWithRoleAlreadySet) {
 
   v.SetAccessibleName(&label);
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Prefix: Label's Name");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"Prefix: Label's Name");
   EXPECT_TRUE(
       data.HasIntListAttribute(ax::mojom::IntListAttribute::kLabelledbyIds));
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
@@ -815,7 +823,7 @@ TEST_F(ViewTest, SetAccessibleNameExplicitlyEmpty) {
   TestView v;
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
                 data.GetIntAttribute(ax::mojom::IntAttribute::kNameFrom)),
@@ -824,7 +832,7 @@ TEST_F(ViewTest, SetAccessibleNameExplicitlyEmpty) {
   data = ui::AXNodeData();
   v.SetAccessibleName(u"", ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
                 data.GetIntAttribute(ax::mojom::IntAttribute::kNameFrom)),
@@ -834,93 +842,21 @@ TEST_F(ViewTest, SetAccessibleNameExplicitlyEmpty) {
 TEST_F(ViewTest, SetAccessibleNameExplicitlyEmptyToRemoveName) {
   TestView v;
   ui::AXNodeData data = ui::AXNodeData();
-  v.SetAccessibleRole(ax::mojom::Role::kButton);
+  v.GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
   v.SetAccessibleName(u"Name");
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Name");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"Name");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Name");
 
   data = ui::AXNodeData();
   v.SetAccessibleName(u"", ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
+  EXPECT_EQ(v.GetViewAccessibility().GetCachedName(), u"");
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
   EXPECT_EQ(static_cast<ax::mojom::NameFrom>(
                 data.GetIntAttribute(ax::mojom::IntAttribute::kNameFrom)),
             ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
-}
-
-TEST_F(ViewTest, SetAccessibleNameToStringRoleNotInitiallySet) {
-  TestView v;
-  ui::AXNodeData data = ui::AXNodeData();
-  v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
-
-  v.last_a11y_event_ = ax::mojom::Event::kNone;
-  data = ui::AXNodeData();
-
-  // Setting the name prior to setting the role violates an expectation of
-  // `AXNodeData::SetName`. `View::SetAccessibleName` handles that case by
-  // setting the property but not adding it to `ax_node_data_` until a role
-  // has been set.
-  v.SetAccessibleName(u"Name");
-  v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Name");
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
-  EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kTextChanged);
-
-  v.last_a11y_event_ = ax::mojom::Event::kNone;
-  data = ui::AXNodeData();
-
-  // Setting the role to a valid role should add the previously-set name to
-  // ax_node_data_. Note there is currently no role-changed accessibility event.
-  v.SetAccessibleRole(ax::mojom::Role::kButton);
-  v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Name");
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            u"Name");
-  EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kNone);
-
-  v.last_a11y_event_ = ax::mojom::Event::kNone;
-  data = ui::AXNodeData();
-}
-
-TEST_F(ViewTest, SetAccessibleNameToLabelRoleNotInitiallySet) {
-  TestView label;
-  label.SetAccessibleName(u"Label's Name");
-
-  TestView v;
-  ui::AXNodeData data = ui::AXNodeData();
-  v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"");
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
-
-  v.last_a11y_event_ = ax::mojom::Event::kNone;
-  data = ui::AXNodeData();
-
-  // Setting the name prior to setting the role violates an expectation of
-  // `AXNodeData::SetName`. `View::SetAccessibleName` handles that case by
-  // setting the property but not adding it to `ax_node_data_` until a role
-  // has been set.
-  v.SetAccessibleName(&label);
-  v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Label's Name");
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName), u"");
-  EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kTextChanged);
-
-  v.last_a11y_event_ = ax::mojom::Event::kNone;
-  data = ui::AXNodeData();
-
-  // Setting the role to a valid role should add the previously-set name to
-  // ax_node_data_. Note there is currently no role-changed accessibility event.
-  v.SetAccessibleRole(ax::mojom::Role::kButton);
-  v.GetViewAccessibility().GetAccessibleNodeData(&data);
-  EXPECT_EQ(v.GetAccessibleName(), u"Label's Name");
-  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
-            u"Label's Name");
-  EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kNone);
 }
 
 TEST_F(ViewTest, SetAccessibleDescriptionToString) {
@@ -941,11 +877,11 @@ TEST_F(ViewTest, SetAccessibleDescriptionToString) {
 
 TEST_F(ViewTest, SetAccessibleDescriptionToLabel) {
   TestView label;
-  label.SetAccessibleRole(ax::mojom::Role::kStaticText);
+  label.GetViewAccessibility().SetRole(ax::mojom::Role::kStaticText);
   label.SetAccessibleName(u"Label's Name");
 
   TestView v;
-  v.SetAccessibleRole(ax::mojom::Role::kButton);
+  v.GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
 
   ui::AXNodeData data = ui::AXNodeData();
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
@@ -997,7 +933,7 @@ TEST_F(ViewTest, SetAccessibleDescriptionExplicitlyEmpty) {
 TEST_F(ViewTest, SetAccessibleDescriptionExplicitlyEmptyToRemoveDescription) {
   TestView v;
   ui::AXNodeData data = ui::AXNodeData();
-  v.SetAccessibleRole(ax::mojom::Role::kButton);
+  v.GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
   v.GetViewAccessibility().SetDescription(u"Description");
   v.GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(v.GetViewAccessibility().GetCachedDescription(), u"Description");
@@ -1132,7 +1068,9 @@ TEST_F(ViewTest, MouseEvent) {
   view2->SetBoundsRect(gfx::Rect(100, 100, 100, 100));
 
   UniqueWidgetPtr widget(std::make_unique<Widget>());
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   auto* root = AsViewClass<internal::RootView>(widget->GetRootView());
@@ -1191,7 +1129,9 @@ TEST_F(ViewTest, DeleteOnPressed) {
   view2->Reset();
 
   UniqueWidgetPtr widget(std::make_unique<Widget>());
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -1217,7 +1157,9 @@ TEST_F(ViewTest, DetectReturnFormDrag) {
   view2->SetBoundsRect(gfx::Rect(100, 100, 100, 100));
 
   UniqueWidgetPtr widget(std::make_unique<Widget>());
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   auto* root = AsViewClass<internal::RootView>(widget->GetRootView());
@@ -1281,7 +1223,9 @@ class ScopedTestPaintWidget {
 }  // namespace
 
 TEST_F(ViewTest, PaintEmptyView) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   // |v1| is empty.
@@ -1314,7 +1258,9 @@ TEST_F(ViewTest, PaintEmptyView) {
 }
 
 TEST_F(ViewTest, PaintWithMovedViewUsesCache) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
   TestView* v1 = new TestView;
   v1->SetBounds(10, 11, 12, 13);
@@ -1391,7 +1337,9 @@ TEST_F(ViewTest, PaintWithMovedViewUsesCache) {
 
 TEST_F(ViewTest, PaintWithMovedViewUsesCacheInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
   TestView* v1 = new TestView;
   v1->SetBounds(10, 11, 12, 13);
@@ -1470,7 +1418,9 @@ TEST_F(ViewTest, PaintWithMovedViewUsesCacheInRTL) {
 }
 
 TEST_F(ViewTest, PaintWithUnknownInvalidation) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1511,7 +1461,9 @@ TEST_F(ViewTest, PaintWithUnknownInvalidation) {
 }
 
 TEST_F(ViewTest, PaintContainsChildren) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1546,7 +1498,9 @@ TEST_F(ViewTest, PaintContainsChildren) {
 
 TEST_F(ViewTest, PaintContainsChildrenInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1591,7 +1545,9 @@ TEST_F(ViewTest, PaintContainsChildrenInRTL) {
 }
 
 TEST_F(ViewTest, PaintIntersectsChildren) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1626,7 +1582,9 @@ TEST_F(ViewTest, PaintIntersectsChildren) {
 
 TEST_F(ViewTest, PaintIntersectsChildrenInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1671,7 +1629,9 @@ TEST_F(ViewTest, PaintIntersectsChildrenInRTL) {
 }
 
 TEST_F(ViewTest, PaintIntersectsChildButNotGrandChild) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1706,7 +1666,9 @@ TEST_F(ViewTest, PaintIntersectsChildButNotGrandChild) {
 
 TEST_F(ViewTest, PaintIntersectsChildButNotGrandChildInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1751,7 +1713,9 @@ TEST_F(ViewTest, PaintIntersectsChildButNotGrandChildInRTL) {
 }
 
 TEST_F(ViewTest, PaintIntersectsNoChildren) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1786,7 +1750,9 @@ TEST_F(ViewTest, PaintIntersectsNoChildren) {
 
 TEST_F(ViewTest, PaintIntersectsNoChildrenInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1831,7 +1797,9 @@ TEST_F(ViewTest, PaintIntersectsNoChildrenInRTL) {
 }
 
 TEST_F(ViewTest, PaintIntersectsOneChild) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1879,7 +1847,9 @@ TEST_F(ViewTest, PaintIntersectsOneChild) {
 
 TEST_F(ViewTest, PaintIntersectsOneChildInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1937,7 +1907,9 @@ TEST_F(ViewTest, PaintIntersectsOneChildInRTL) {
 }
 
 TEST_F(ViewTest, PaintInPromotedToLayer) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -2026,7 +1998,9 @@ BEGIN_METADATA(TestPaintView)
 END_METADATA
 
 TEST_F(ViewTest, PaintLocalBounds) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
   // Make |root_view|'s bounds larger so |v1|'s visible bounds is not clipped by
   // |root_view|.
@@ -2071,7 +2045,9 @@ gfx::Transform RotationClockwise() {
 // of rect-based targeting.
 TEST_F(ViewTest, GetEventHandlerForRect) {
   Widget* widget = new Widget;
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
   root_view->SetBoundsRect(gfx::Rect(0, 0, 500, 500));
@@ -2382,7 +2358,9 @@ TEST_F(ViewTest, GetEventHandlerForRect) {
 // when GetCanProcessEventsWithinSubtree() is called.
 TEST_F(ViewTest, GetCanProcessEventsWithinSubtree) {
   Widget* widget = new Widget;
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
   root_view->SetBoundsRect(gfx::Rect(0, 0, 500, 500));
@@ -2538,7 +2516,9 @@ TEST_F(ViewTest, GetCanProcessEventsWithinSubtree) {
 
 TEST_F(ViewTest, NotifyEnterExitOnChild) {
   Widget* widget = new Widget;
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
   root_view->SetBoundsRect(gfx::Rect(0, 0, 500, 500));
@@ -2675,7 +2655,9 @@ TEST_F(ViewTest, Textfield) {
   const std::u16string kExtraText = u"Pretty deep, Philip!";
 
   Widget* widget = new Widget;
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(0, 0, 100, 100);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
@@ -2711,7 +2693,9 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
 
   Widget* widget = new Widget;
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(0, 0, 100, 100);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
@@ -2829,7 +2813,9 @@ class ViewPaintOptimizationTest : public ViewsTestBase {
 
 // Tests that only Views where SchedulePaint was invoked get repainted.
 TEST_F(ViewPaintOptimizationTest, PaintDirtyViewsOnly) {
-  ScopedTestPaintWidget widget(CreateParams(Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = root_view->AddChildView(std::make_unique<TestView>());
@@ -2927,8 +2913,10 @@ class TestViewWidget {
 // This test targets that extra logic, but should also work on other platforms.
 TEST_F(ViewTest, HandleAccelerator) {
   ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
-  TestViewWidget test_widget(CreateParams(Widget::InitParams::TYPE_POPUP),
-                             &return_accelerator);
+  TestViewWidget test_widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP),
+      &return_accelerator);
   TestView* view = test_widget.view();
   Widget* widget = test_widget.widget();
   FocusManager* focus_manager = widget->GetFocusManager();
@@ -2954,7 +2942,8 @@ TEST_F(ViewTest, HandleAccelerator) {
   // Add a child view associated with a child widget.
   Widget* child_widget = new Widget;
   Widget::InitParams child_params =
-      CreateParams(Widget::InitParams::TYPE_CONTROL);
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_CONTROL);
   child_params.parent = widget->GetNativeView();
   child_widget->Init(std::move(child_params));
   TestView* child_view =
@@ -2996,8 +2985,10 @@ TEST_F(ViewTest, HandleAccelerator) {
 TEST_F(ViewTest, ActivateAcceleratorOnMac) {
   // Cmd+1 translates to "noop:" command by interpretKeyEvents.
   ui::Accelerator command_accelerator(ui::VKEY_1, ui::EF_COMMAND_DOWN);
-  TestViewWidget test_widget(CreateParams(Widget::InitParams::TYPE_POPUP),
-                             &command_accelerator);
+  TestViewWidget test_widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP),
+      &command_accelerator);
   TestView* view = test_widget.view();
 
   ui::test::EventGenerator event_generator(
@@ -3040,8 +3031,10 @@ TEST_F(ViewTest, ActivateAcceleratorOnMac) {
 #if BUILDFLAG(IS_MAC)
 TEST_F(ViewTest, ActivateAccelerator) {
   ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
-  TestViewWidget test_widget(CreateParams(Widget::InitParams::TYPE_POPUP),
-                             &return_accelerator);
+  TestViewWidget test_widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP),
+      &return_accelerator);
   TestView* view = test_widget.view();
   FocusManager* focus_manager = test_widget.widget()->GetFocusManager();
 
@@ -3088,8 +3081,10 @@ TEST_F(ViewTest, ActivateAccelerator) {
 
 TEST_F(ViewTest, HiddenViewWithAccelerator) {
   ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
-  TestViewWidget test_widget(CreateParams(Widget::InitParams::TYPE_POPUP),
-                             &return_accelerator);
+  TestViewWidget test_widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP),
+      &return_accelerator);
   TestView* view = test_widget.view();
   FocusManager* focus_manager = test_widget.widget()->GetFocusManager();
 
@@ -3102,8 +3097,10 @@ TEST_F(ViewTest, HiddenViewWithAccelerator) {
 
 TEST_F(ViewTest, ViewInHiddenWidgetWithAccelerator) {
   ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
-  TestViewWidget test_widget(CreateParams(Widget::InitParams::TYPE_POPUP),
-                             &return_accelerator, false);
+  TestViewWidget test_widget(
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP),
+      &return_accelerator, false);
   TestView* view = test_widget.view();
   Widget* widget = test_widget.widget();
   FocusManager* focus_manager = test_widget.widget()->GetFocusManager();
@@ -3165,16 +3162,19 @@ END_METADATA
 TEST_F(ViewTest, NativeViewHierarchyChanged) {
   UniqueWidgetPtr toplevel1 = std::make_unique<Widget>();
   Widget::InitParams toplevel1_params =
-      CreateParams(Widget::InitParams::TYPE_POPUP);
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   toplevel1->Init(std::move(toplevel1_params));
 
   UniqueWidgetPtr toplevel2 = std::make_unique<Widget>();
   Widget::InitParams toplevel2_params =
-      CreateParams(Widget::InitParams::TYPE_POPUP);
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   toplevel2->Init(std::move(toplevel2_params));
 
   UniqueWidgetPtr child = std::make_unique<Widget>();
-  Widget::InitParams child_params(Widget::InitParams::TYPE_CONTROL);
+  Widget::InitParams child_params(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                                  Widget::InitParams::TYPE_CONTROL);
   child_params.parent = toplevel1->GetNativeView();
   child->Init(std::move(child_params));
   EXPECT_EQ(toplevel1.get(), child->parent());
@@ -3240,7 +3240,9 @@ TEST_F(ViewTest, TransformPaint) {
   view2->SetBoundsRect(gfx::Rect(100, 100, 200, 100));
 
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   widget->Show();
@@ -3276,7 +3278,9 @@ TEST_F(ViewTest, TransformEvent) {
   view2->SetBoundsRect(gfx::Rect(100, 100, 200, 100));
 
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -3408,7 +3412,9 @@ TEST_F(ViewTest, TransformVisibleBound) {
   gfx::Rect viewport_bounds(0, 0, 100, 100);
 
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = viewport_bounds;
   widget->Init(std::move(params));
   widget->GetRootView()->SetBoundsRect(viewport_bounds);
@@ -3427,6 +3433,46 @@ TEST_F(ViewTest, TransformVisibleBound) {
   transform.set_rc(1, 3, 50.f);
   child->SetTransform(transform);
   EXPECT_EQ(gfx::Rect(40, 0, 10, 50), child->GetVisibleBounds());
+}
+
+TEST_F(ViewTest, WidgetObserverViewWidgetClosedViewReparented) {
+  UniqueWidgetPtr widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
+  widget->Init(std::move(params));
+  EXPECT_TRUE(widget->GetRootView());
+
+  View* contents_view =
+      widget->GetRootView()->AddChildView(std::make_unique<View>());
+  View* view_1 = contents_view->AddChildView(std::make_unique<View>());
+  View* child_view_1 = view_1->AddChildView(std::make_unique<View>());
+
+  EXPECT_TRUE(!contents_view->GetViewAccessibility().is_widget_closed_);
+  EXPECT_TRUE(!view_1->GetViewAccessibility().is_widget_closed_);
+  EXPECT_TRUE(!child_view_1->GetViewAccessibility().is_widget_closed_);
+
+  widget->CloseNow();
+
+  // Add a child view to the view that has a closed widget.
+  View* child_view_2 = view_1->AddChildView(std::make_unique<View>());
+  EXPECT_TRUE(child_view_2->GetViewAccessibility().is_widget_closed_);
+
+  EXPECT_TRUE(contents_view->GetViewAccessibility().is_widget_closed_);
+  EXPECT_TRUE(view_1->GetViewAccessibility().is_widget_closed_);
+  EXPECT_TRUE(child_view_1->GetViewAccessibility().is_widget_closed_);
+
+  widget = std::make_unique<Widget>();
+  params = CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                        Widget::InitParams::TYPE_WINDOW);
+  widget->Init(std::move(params));
+  EXPECT_TRUE(widget->GetRootView());
+
+  // Reparent the views tree with the closed widget to a new widget.
+  widget->GetRootView()->AddChildView(contents_view);
+  EXPECT_TRUE(!contents_view->GetViewAccessibility().is_widget_closed_);
+  EXPECT_TRUE(!view_1->GetViewAccessibility().is_widget_closed_);
+  EXPECT_TRUE(!child_view_1->GetViewAccessibility().is_widget_closed_);
+  EXPECT_TRUE(!child_view_2->GetViewAccessibility().is_widget_closed_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3465,7 +3511,9 @@ TEST_F(ViewTest, OnVisibleBoundsChanged) {
   gfx::Rect viewport_bounds(0, 0, 100, 100);
 
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = viewport_bounds;
   widget->Init(std::move(params));
   widget->GetRootView()->SetBoundsRect(viewport_bounds);
@@ -3562,7 +3610,9 @@ TEST_F(ViewTest, AddAndRemoveSchedulePaints) {
   // We have to put the View hierarchy into a Widget or no paints will be
   // scheduled.
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = viewport_bounds;
   widget->Init(std::move(params));
   widget->GetRootView()->SetBoundsRect(viewport_bounds);
@@ -3866,7 +3916,9 @@ TEST_F(ViewTest, ConversionsWithTransform) {
 // Tests conversion methods to and from screen coordinates.
 TEST_F(ViewTest, ConversionsToFromScreen) {
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
 
@@ -3896,7 +3948,9 @@ TEST_F(ViewTest, ConversionsToFromScreen) {
 // Tests conversion methods for rectangles.
 TEST_F(ViewTest, ConvertRectWithTransform) {
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -4172,7 +4226,9 @@ END_METADATA
 // finally v1 is removed from root.
 TEST_F(ViewTest, AddedToRemovedFromWidget) {
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
 
@@ -4238,7 +4294,8 @@ TEST_F(ViewTest, AddedToRemovedFromWidget) {
 
   // Test move between widgets.
   UniqueWidgetPtr second_widget = std::make_unique<Widget>();
-  params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  params = CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                        Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(150, 150, 650, 650);
   second_widget->Init(std::move(params));
 
@@ -4559,7 +4616,9 @@ class ActiveWidget : public Widget {
 TEST_F(ViewTest, AdvanceFocusIfNecessaryForUnfocusableView) {
   // Create a widget with two views and give the first one focus.
   UniqueWidgetPtr widget = std::make_unique<ActiveWidget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   widget->Init(std::move(params));
 
   View* view1 = widget->GetRootView()->AddChildView(std::make_unique<View>());
@@ -4684,7 +4743,9 @@ class ViewLayerTest : public ViewsTestBase {
     SetUpPixelCanvas();
     ViewTest::SetUp();
     widget_ = new Widget;
-    Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+    Widget::InitParams params =
+        CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                     Widget::InitParams::TYPE_POPUP);
     params.bounds = gfx::Rect(50, 50, 200, 200);
     widget_->Init(std::move(params));
     widget_->Show();
@@ -5919,7 +5980,9 @@ TEST_F(ViewTest, OnThemeChanged) {
   EXPECT_FALSE(test_view_child->native_theme_);
 
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_WINDOW);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW);
   widget->Init(std::move(params));
 
   TestView* test_view_ptr =
@@ -5954,7 +6017,9 @@ class TestEventHandler : public ui::EventHandler {
 
 TEST_F(ViewTest, ScopedTargetHandlerReceivesEvents) {
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 350, 350);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -6053,7 +6118,9 @@ TEST_F(ViewTest, CrashOnAddFromFromOnThemeChanged) {
   ui::TestNativeTheme theme;
   UniqueWidgetPtr widget = std::make_unique<WidgetWithCustomTheme>(&theme);
   test::WidgetDestroyedWaiter waiter(widget.get());
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 350, 350);
   widget->Init(std::move(params));
 
@@ -6109,7 +6176,9 @@ END_METADATA
 TEST_F(ViewTest, DestroyLayerInClose) {
   bool removed_from_widget = false;
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_WINDOW);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW);
   widget->Init(std::move(params));
   widget->SetBounds(gfx::Rect(0, 0, 100, 100));
   auto* view = widget->GetContentsView()->AddChildView(
@@ -6282,7 +6351,9 @@ TEST_F(ViewTest, TestVisibleChangedCallback) {
 
 TEST_F(ViewTest, TooltipShowsForDisabledView) {
   UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_WINDOW);
+  Widget::InitParams params =
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW);
   widget->Init(std::move(params));
   widget->SetBounds(gfx::Rect(0, 0, 100, 100));
 

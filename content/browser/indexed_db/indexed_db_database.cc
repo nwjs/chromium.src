@@ -175,8 +175,8 @@ void IndexedDBDatabase::RequireBlockingTransactionClientsToBeActive(
   }
 
   for (IndexedDBConnection* connection : connections_) {
-    if (connection->client_id() ==
-        current_transaction->connection()->client_id()) {
+    if (connection->client_token() ==
+        current_transaction->connection()->client_token()) {
       continue;
     }
 
@@ -310,8 +310,9 @@ leveldb::Status IndexedDBDatabase::ForceCloseAndRunTasks() {
   connections_.clear();
   leveldb::Status abort_status =
       connection_coordinator_.PruneTasksForForceClose();
-  if (UNLIKELY(!abort_status.ok()))
+  if (!abort_status.ok()) [[unlikely]] {
     return abort_status;
+  }
   connection_coordinator_.OnNoConnections();
 
   // Execute any pending tasks in the connection coordinator.
@@ -329,28 +330,6 @@ leveldb::Status IndexedDBDatabase::ForceCloseAndRunTasks() {
   force_closing_ = false;
   bucket_context_->QueueRunTasks();
   return status;
-}
-
-void IndexedDBDatabase::TransactionCreated() {
-  ++transaction_count_;
-}
-
-void IndexedDBDatabase::TransactionFinished(
-    blink::mojom::IDBTransactionMode mode,
-    bool committed) {
-  --transaction_count_;
-  DCHECK_GE(transaction_count_, 0);
-
-  // TODO(dmurph): To help remove this integration with IndexedDBDatabase, make
-  // a 'committed' listener closure on all transactions. Then the request can
-  // just listen for that.
-
-  // This may be an unrelated transaction finishing while waiting for
-  // connections to close, or the actual upgrade transaction from an active
-  // request. Notify the active request if it's the latter.
-  if (mode == blink::mojom::IDBTransactionMode::VersionChange) {
-    connection_coordinator_.OnUpgradeTransactionFinished(committed);
-  }
 }
 
 void IndexedDBDatabase::ScheduleOpenConnection(
@@ -424,7 +403,6 @@ leveldb::Status IndexedDBDatabase::CreateObjectStoreOperation(
     bool auto_increment,
     IndexedDBTransaction* transaction) {
   DCHECK(transaction);
-  DCHECK_EQ(transaction->database().get(), this);
   TRACE_EVENT1("IndexedDB", "IndexedDBDatabase::CreateObjectStoreOperation",
                "txn.id", transaction->id());
   DCHECK_EQ(transaction->mode(),
@@ -482,8 +460,7 @@ Status IndexedDBDatabase::DeleteObjectStoreOperation(
 
   // Then remove object store contents.
   s = backing_store()->ClearObjectStore(transaction->BackingStoreTransaction(),
-                                        transaction->database()->id(),
-                                        object_store_id);
+                                        id(), object_store_id);
 
   if (!s.ok()) {
     AddObjectStoreToMetadata(std::move(object_store_metadata),
@@ -642,8 +619,7 @@ Status IndexedDBDatabase::DeleteIndexOperation(
   if (!s.ok())
     return s;
 
-  s = backing_store()->ClearIndex(transaction->BackingStoreTransaction(),
-                                  transaction->database()->id(),
+  s = backing_store()->ClearIndex(transaction->BackingStoreTransaction(), id(),
                                   object_store_id, index_id);
   if (!s.ok()) {
     AddIndexToMetadata(object_store_id, std::move(index_metadata),
@@ -1477,6 +1453,27 @@ bool IndexedDBDatabase::IsObjectStoreIdInMetadataAndIndexNotInMetadata(
   return true;
 }
 
+storage::mojom::IdbDatabaseMetadataPtr
+IndexedDBDatabase::GetIdbInternalsMetadata() const {
+  storage::mojom::IdbDatabaseMetadataPtr info =
+      storage::mojom::IdbDatabaseMetadata::New();
+  info->name = name();
+  info->connection_count = ConnectionCount();
+  info->active_open_delete = ActiveOpenDeleteCount();
+  info->pending_open_delete = PendingOpenDeleteCount();
+  for (const IndexedDBConnection* connection : connections()) {
+    for (const auto& [_, transaction] : connection->transactions()) {
+      info->transactions.push_back(transaction->GetIdbInternalsMetadata());
+    }
+  }
+  return info;
+}
+
+void IndexedDBDatabase::NotifyOfIdbInternalsRelevantChange() {
+  // This metadata is included in the context metadata, so call up the chain.
+  bucket_context_->NotifyOfIdbInternalsRelevantChange();
+}
+
 // kIDBMaxMessageSize is defined based on the original
 // IPC::Channel::kMaximumMessageSize value.  We use kIDBMaxMessageSize to limit
 // the size of arguments we pass into our Mojo calls.  We want to ensure this
@@ -1507,7 +1504,7 @@ std::unique_ptr<IndexedDBConnection> IndexedDBDatabase::CreateConnection(
     std::unique_ptr<IndexedDBDatabaseCallbacks> database_callbacks,
     mojo::Remote<storage::mojom::IndexedDBClientStateChecker>
         client_state_checker,
-    uint64_t client_id) {
+    base::UnguessableToken client_token) {
   auto connection = std::make_unique<IndexedDBConnection>(
       *bucket_context_, weak_factory_.GetWeakPtr(),
       base::BindRepeating(&IndexedDBDatabase::VersionChangeIgnored,
@@ -1515,7 +1512,7 @@ std::unique_ptr<IndexedDBConnection> IndexedDBDatabase::CreateConnection(
       base::BindOnce(&IndexedDBDatabase::ConnectionClosed,
                      weak_factory_.GetWeakPtr()),
       std::move(database_callbacks), std::move(client_state_checker),
-      client_id);
+      client_token);
   connections_.insert(connection.get());
   return connection;
 }

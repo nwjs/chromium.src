@@ -119,19 +119,14 @@ public class CreatorActionDelegateImpl implements FeedActionDelegate {
     public void startSigninFlow(@SigninAccessPoint int signinAccessPoint) {
         AccountPickerBottomSheetStrings strings =
                 new AccountPickerBottomSheetStrings.Builder(
-                                R.string
-                                        .signin_account_picker_bottom_sheet_title_for_cormorant_signin)
-                        .setSubtitleStringId(
-                                R.string
-                                        .signin_account_picker_bottom_sheet_subtitle_for_cormorant_signin)
-                        .setDismissButtonStringId(R.string.close)
+                                R.string.signin_account_picker_bottom_sheet_title)
                         .build();
         SigninAndHistoryOptInActivityLauncherImpl.get()
                 .launchActivityIfAllowed(
                         mActivity,
                         mProfile,
                         strings,
-                        SigninAndHistoryOptInCoordinator.NoAccountSigninMode.ADD_ACCOUNT,
+                        SigninAndHistoryOptInCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
                         SigninAndHistoryOptInCoordinator.WithAccountSigninMode
                                 .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                         SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE,
@@ -143,17 +138,17 @@ public class CreatorActionDelegateImpl implements FeedActionDelegate {
             @SigninAccessPoint int signinAccessPoint,
             BottomSheetController mBottomSheetController,
             WindowAndroid mWindowAndroid) {
-        AccountPickerBottomSheetStrings strings =
-                new AccountPickerBottomSheetStrings.Builder(
-                                R.string
-                                        .signin_account_picker_bottom_sheet_title_for_cormorant_signin)
-                        .setSubtitleStringId(
-                                R.string
-                                        .signin_account_picker_bottom_sheet_subtitle_for_cormorant_signin)
-                        .setDismissButtonStringId(R.string.close)
-                        .build();
         if (ChromeFeatureList.isEnabled(
                 ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            AccountPickerBottomSheetStrings strings =
+                    new AccountPickerBottomSheetStrings.Builder(
+                                    R.string
+                                            .signin_account_picker_bottom_sheet_title_for_back_of_card_menu_signin)
+                            .setSubtitleStringId(
+                                    R.string
+                                            .signin_account_picker_bottom_sheet_subtitle_for_back_of_card_menu_signin)
+                            .setDismissButtonStringId(R.string.cancel)
+                            .build();
             SigninAndHistoryOptInActivityLauncherImpl.get()
                     .launchActivityIfAllowed(
                             mActivity,
@@ -166,6 +161,15 @@ public class CreatorActionDelegateImpl implements FeedActionDelegate {
                             signinAccessPoint);
             return;
         }
+        AccountPickerBottomSheetStrings strings =
+                new AccountPickerBottomSheetStrings.Builder(
+                                R.string
+                                        .signin_account_picker_bottom_sheet_title_for_cormorant_signin)
+                        .setSubtitleStringId(
+                                R.string
+                                        .signin_account_picker_bottom_sheet_subtitle_for_cormorant_signin)
+                        .setDismissButtonStringId(R.string.close)
+                        .build();
         SigninBottomSheetCoordinator signinCoordinator =
                 new SigninBottomSheetCoordinator(
                         mWindowAndroid,

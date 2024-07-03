@@ -8,19 +8,21 @@
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
-#include "base/strings/string_piece.h"
-#include "chrome/browser/ui/android/webid/internal/jni/AccountSelectionBridge_jni.h"
-#include "chrome/browser/ui/android/webid/jni_headers/Account_jni.h"
-#include "chrome/browser/ui/android/webid/jni_headers/ClientIdMetadata_jni.h"
-#include "chrome/browser/ui/android/webid/jni_headers/IdentityCredentialTokenError_jni.h"
-#include "chrome/browser/ui/android/webid/jni_headers/IdentityProviderMetadata_jni.h"
 #include "chrome/browser/ui/webid/account_selection_view.h"
 #include "content/public/browser/identity_request_dialog_controller.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
 #include "ui/android/color_utils_android.h"
 #include "ui/android/window_android.h"
+#include "ui/gfx/android/java_bitmap.h"
 #include "url/android/gurl_android.h"
 #include "url/gurl.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "chrome/browser/ui/android/webid/internal/jni/AccountSelectionBridge_jni.h"
+#include "chrome/browser/ui/android/webid/jni_headers/Account_jni.h"
+#include "chrome/browser/ui/android/webid/jni_headers/ClientIdMetadata_jni.h"
+#include "chrome/browser/ui/android/webid/jni_headers/IdentityCredentialTokenError_jni.h"
+#include "chrome/browser/ui/android/webid/jni_headers/IdentityProviderMetadata_jni.h"
 
 using base::android::AppendJavaStringArrayToStringVector;
 using base::android::AttachCurrentThread;
@@ -34,12 +36,17 @@ namespace {
 
 ScopedJavaLocalRef<jobject> ConvertToJavaAccount(JNIEnv* env,
                                                  const Account& account) {
+  ScopedJavaLocalRef<jobject> decoded_picture = nullptr;
+  if (!account.decoded_picture.IsEmpty()) {
+    decoded_picture =
+        gfx::ConvertToJavaBitmap(*account.decoded_picture.ToSkBitmap());
+  }
   return Java_Account_Constructor(
       env, ConvertUTF8ToJavaString(env, account.id),
       ConvertUTF8ToJavaString(env, account.email),
       ConvertUTF8ToJavaString(env, account.name),
       ConvertUTF8ToJavaString(env, account.given_name),
-      url::GURLAndroid::FromNativeGURL(env, account.picture),
+      url::GURLAndroid::FromNativeGURL(env, account.picture), decoded_picture,
       account.login_state == Account::LoginState::kSignIn);
 }
 
@@ -155,7 +162,7 @@ AccountSelectionViewAndroid::~AccountSelectionViewAndroid() {
   }
 }
 
-void AccountSelectionViewAndroid::Show(
+bool AccountSelectionViewAndroid::Show(
     const std::string& top_frame_for_display,
     const std::optional<std::string>& iframe_for_display,
     const std::vector<content::IdentityProviderData>& identity_provider_data,
@@ -168,7 +175,7 @@ void AccountSelectionViewAndroid::Show(
     // component. That case may be temporary but we can't let users in a
     // waiting state so report that AccountSelectionView is dismissed instead.
     delegate_->OnDismiss(DismissReason::kOther);
-    return;
+    return false;
   }
 
   // Serialize the `identity_provider_data.accounts` into a Java array and
@@ -196,9 +203,10 @@ void AccountSelectionViewAndroid::Show(
       sign_in_mode == Account::SignInMode::kAuto,
       ConvertRpContextToJavaString(env, identity_provider_data[0].rp_context),
       identity_provider_data[0].request_permission);
+  return true;
 }
 
-void AccountSelectionViewAndroid::ShowFailureDialog(
+bool AccountSelectionViewAndroid::ShowFailureDialog(
     const std::string& top_frame_for_display,
     const std::optional<std::string>& iframe_for_display,
     const std::string& idp_for_display,
@@ -211,7 +219,7 @@ void AccountSelectionViewAndroid::ShowFailureDialog(
     // component. That case may be temporary but we can't let users in a
     // waiting state so report that AccountSelectionView is dismissed instead.
     delegate_->OnDismiss(DismissReason::kOther);
-    return;
+    return false;
   }
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> idp_metadata_obj =
@@ -222,9 +230,10 @@ void AccountSelectionViewAndroid::ShowFailureDialog(
       ConvertUTF8ToJavaString(env, iframe_for_display.value_or("")),
       ConvertUTF8ToJavaString(env, idp_for_display), idp_metadata_obj,
       ConvertRpContextToJavaString(env, rp_context));
+  return true;
 }
 
-void AccountSelectionViewAndroid::ShowErrorDialog(
+bool AccountSelectionViewAndroid::ShowErrorDialog(
     const std::string& top_frame_for_display,
     const std::optional<std::string>& iframe_for_display,
     const std::string& idp_for_display,
@@ -238,7 +247,7 @@ void AccountSelectionViewAndroid::ShowErrorDialog(
     // component. That case may be temporary but we can't let users in a
     // waiting state so report that AccountSelectionView is dismissed instead.
     delegate_->OnDismiss(DismissReason::kOther);
-    return;
+    return false;
   }
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> idp_metadata_obj =
@@ -250,14 +259,16 @@ void AccountSelectionViewAndroid::ShowErrorDialog(
       ConvertUTF8ToJavaString(env, idp_for_display), idp_metadata_obj,
       ConvertRpContextToJavaString(env, rp_context),
       ConvertToJavaIdentityCredentialTokenError(env, error));
+  return true;
 }
 
-void AccountSelectionViewAndroid::ShowLoadingDialog(
+bool AccountSelectionViewAndroid::ShowLoadingDialog(
     const std::string& top_frame_for_display,
     const std::string& idp_for_display,
     blink::mojom::RpContext rp_context,
     blink::mojom::RpMode rp_mode) {
   // TODO(crbug.com/327273595): Prototype button flow on Android.
+  return false;
 }
 
 std::string AccountSelectionViewAndroid::GetTitle() const {
@@ -369,13 +380,14 @@ std::unique_ptr<AccountSelectionView> AccountSelectionView::Create(
 }
 
 // static
-int AccountSelectionView::GetBrandIconMinimumSize() {
+int AccountSelectionView::GetBrandIconMinimumSize(
+    blink::mojom::RpMode rp_mode) {
   return Java_AccountSelectionBridge_getBrandIconMinimumSize(
       base::android::AttachCurrentThread());
 }
 
 // static
-int AccountSelectionView::GetBrandIconIdealSize() {
+int AccountSelectionView::GetBrandIconIdealSize(blink::mojom::RpMode rp_mode) {
   return Java_AccountSelectionBridge_getBrandIconIdealSize(
       base::android::AttachCurrentThread());
 }

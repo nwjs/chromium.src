@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include <stdint.h>
 
 #include <optional>
@@ -233,7 +238,7 @@ class MockClientSocketFactory : public ClientSocketFactory {
       DatagramSocket::BindType bind_type,
       NetLog* net_log,
       const NetLogSource& source) override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
 
@@ -454,7 +459,7 @@ class TestConnectJob : public ConnectJob {
         DoAdvanceAuthChallenge(2, false /* succeed_after_last_challenge */);
         return ERR_IO_PENDING;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         SetSocket(std::unique_ptr<StreamSocket>(), std::nullopt);
         return ERR_FAILED;
     }

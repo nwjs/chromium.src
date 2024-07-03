@@ -34,13 +34,6 @@ const char kAllowCrossOriginAuthPrompt[] = "allow-cross-origin-auth-prompt";
 // extension API.
 const char kAllowHttpScreenCapture[] = "allow-http-screen-capture";
 
-// Allows profiles to be created outside of the user data dir.
-// TODO(crbug.com/40122009): Various places in Chrome assume that all
-// profiles are within the user data dir. Some tests need to violate that
-// assumption. The switch should be removed after this workaround is no longer
-// needed.
-const char kAllowProfilesOutsideUserDir[] = "allow-profiles-outside-user-dir";
-
 // By default, an https page cannot run JavaScript, CSS or plugins from http
 // URLs. This provides an override to get the old insecure behavior.
 const char kAllowRunningInsecureContent[] = "allow-running-insecure-content";
@@ -114,6 +107,11 @@ const char kAutoSelectTabCaptureSourceByTitle[] =
 // to the window.
 const char kAutoSelectWindowCaptureSourceByTitle[] =
     "auto-select-window-capture-source-by-title";
+
+// If specified, allows syncing multiple profiles to the same account. Used for
+// multi-client E2E tests.
+constexpr char kBypassAccountAlreadyUsedByAnotherProfileCheck[] =
+    "bypass-account-already-used-by-another-profile-check";
 
 // How often (in seconds) to check for updates. Should only be used for testing
 // purposes.
@@ -713,10 +711,6 @@ const char kMarketUrlForTesting[] = "market-url-for-testing";
 
 // Force enable user agent overrides to request desktop sites in Clank.
 const char kRequestDesktopSites[] = "request-desktop-sites";
-
-// Hash names of Java functions in SSM. Only has an effect if SSM is enabled.
-const char kStartStackProfilerWithJavaNameHashing[] =
-    "start-stack-profiler-with-java-name-hashing";
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -780,6 +774,16 @@ const char kRelauncherProcessDMGDevice[] = "dmg-device";
 // Indicates whether Chrome should be set as the default browser during
 // installation.
 const char kMakeChromeDefault[] = "make-chrome-default";
+
+// A process type (switches::kProcessType) that cleans up the browser's
+// temporary code sign clone.
+const char kCodeSignCloneCleanupProcess[] = "code-sign-clone-cleanup";
+
+// When switches::kProcessType is switches::kCodeSignCloneCleanupProcess this
+// switch is required. The value must be the unique suffix portion of the
+// temporary directory that contains the clone. The full path will be
+// reconstructed by the cleanup process.
+const char kUniqueTempDirSuffix[] = "unique-temp-dir-suffix";
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)

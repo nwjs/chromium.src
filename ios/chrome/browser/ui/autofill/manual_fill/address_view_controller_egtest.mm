@@ -2,7 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "components/autofill/core/browser/autofill_test_utils.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/ui/autofill/autofill_app_interface.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_constants.h"
@@ -16,6 +18,7 @@
 #import "ios/web/public/test/element_selector.h"
 #import "net/test/embedded_test_server/embedded_test_server.h"
 #import "ui/base/l10n/l10n_util.h"
+#import "ui/base/l10n/l10n_util_mac.h"
 #import "url/gurl.h"
 
 using base::test::ios::kWaitForActionTimeout;
@@ -31,8 +34,11 @@ using chrome_test_util::TapWebElementWithId;
 
 namespace {
 
-constexpr char kFormElementName[] = "name";
+constexpr char kFormElementAddress[] = "address";
 constexpr char kFormElementCity[] = "city";
+constexpr char kFormElementName[] = "name";
+constexpr char kFormElementState[] = "state";
+constexpr char kFormElementZip[] = "zip";
 
 constexpr char kFormHTMLFile[] = "/profile_form.html";
 
@@ -87,11 +93,75 @@ id<GREYMatcher> AddressManualFillViewTab() {
       nil);
 }
 
+// Matcher for the chip button with the given `title`.
+id<GREYMatcher> ChipButton(std::u16string title) {
+  NSString* accessibility_label =
+      [AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]
+          ? l10n_util::GetNSStringF(
+                IDS_IOS_MANUAL_FALLBACK_CHIP_ACCESSIBILITY_LABEL, title)
+          : base::SysUTF16ToNSString(title);
+  return grey_allOf(
+      chrome_test_util::ButtonWithAccessibilityLabel(accessibility_label),
+      grey_interactable(), nullptr);
+}
+
+// Matcher for the overflow menu button shown in the address cells.
+id<GREYMatcher> OverflowMenuButton() {
+  return grey_allOf(
+      chrome_test_util::ButtonWithAccessibilityLabelId(
+          IDS_IOS_MANUAL_FALLBACK_THREE_DOT_MENU_BUTTON_ACCESSIBILITY_LABEL),
+      grey_interactable(), nullptr);
+}
+
+// Matcher for the "Edit" action made available by the overflow menu button.
+id<GREYMatcher> OverflowMenuEditAction() {
+  return grey_allOf(chrome_test_util::ButtonWithAccessibilityLabelId(
+                        IDS_IOS_EDIT_ACTION_TITLE),
+                    grey_interactable(), nullptr);
+}
+
 // Matcher for the "Autofill Form" button shown in the address cells.
 id<GREYMatcher> AutofillFormButton() {
   return grey_allOf(chrome_test_util::ButtonWithAccessibilityLabelId(
                         IDS_IOS_MANUAL_FALLBACK_AUTOFILL_FORM_BUTTON_TITLE),
                     grey_interactable(), nullptr);
+}
+
+// Checks that the chip button with `title` is sufficiently visible.
+void CheckChipButtonVisibility(std::u16string title) {
+  [[EarlGrey selectElementWithMatcher:ChipButton(title)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+}
+
+// Checks that the chip buttons of the example profile are all visible.
+void CheckChipButtonsOfExampleProfile() {
+  autofill::AutofillProfile profile = autofill::test::GetFullProfile();
+  std::string locale = l10n_util::GetLocaleOverride();
+
+  CheckChipButtonVisibility(profile.GetInfo(autofill::NAME_FIRST, locale));
+  CheckChipButtonVisibility(profile.GetInfo(autofill::NAME_MIDDLE, locale));
+  CheckChipButtonVisibility(profile.GetInfo(autofill::NAME_LAST, locale));
+  CheckChipButtonVisibility(profile.GetInfo(autofill::COMPANY_NAME, locale));
+  CheckChipButtonVisibility(
+      profile.GetInfo(autofill::ADDRESS_HOME_LINE1, locale));
+  CheckChipButtonVisibility(
+      profile.GetInfo(autofill::ADDRESS_HOME_LINE2, locale));
+
+  // Scroll down to show the remaining chips.
+  [[EarlGrey selectElementWithMatcher:ManualFallbackProfilesTableViewMatcher()]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeBottom)];
+
+  CheckChipButtonVisibility(
+      profile.GetInfo(autofill::ADDRESS_HOME_CITY, locale));
+  CheckChipButtonVisibility(
+      profile.GetInfo(autofill::ADDRESS_HOME_STATE, locale));
+  CheckChipButtonVisibility(
+      profile.GetInfo(autofill::ADDRESS_HOME_ZIP, locale));
+  CheckChipButtonVisibility(
+      profile.GetInfo(autofill::ADDRESS_HOME_COUNTRY, locale));
+  CheckChipButtonVisibility(profile.GetInfo(autofill::EMAIL_ADDRESS, locale));
+  CheckChipButtonVisibility(
+      profile.GetInfo(autofill::ADDRESS_HOME_ZIP, locale));
 }
 
 // Opens the address manual fill view when there are no saved addresses and
@@ -168,6 +238,20 @@ void OpenAddressManualFillViewWithNoSavedAddresses() {
   // Open the address manual fill view and verify that the address table view
   // controller is visible.
   OpenAddressManualFillView();
+}
+
+// Tests that the saved address chip buttons are all visible in the address
+// table view controller, and that they have the right accessibility label.
+- (void)testAddressChipButtonsAreAllVisible {
+  // Bring up the keyboard.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+
+  // Open the address manual fill view and verify that the address table view
+  // controller is visible.
+  OpenAddressManualFillView();
+
+  CheckChipButtonsOfExampleProfile();
 }
 
 // Tests that the "Manage Addresses..." action works.
@@ -396,11 +480,108 @@ void OpenAddressManualFillViewWithNoSavedAddresses() {
   [[EarlGrey selectElementWithMatcher:ManualFallbackProfilesTableViewMatcher()]
       performAction:grey_scrollToContentEdge(kGREYContentEdgeBottom)];
 
+  // Tap the "Autofill Form" button.
   [[EarlGrey selectElementWithMatcher:AutofillFormButton()]
-      assertWithMatcher:grey_sufficientlyVisible()];
+      performAction:grey_tap()];
 
-  // TODO(crbug.com/326413487): Perform tap on the button and assert that the
-  // form was filled.
+  // Verify that the page is filled properly.
+  [self verifyAddressInfoHasBeenFilled:autofill::test::GetFullProfile()];
+}
+
+// Tests that the overflow menu button is only visible when the Keyboard
+// Accessory Upgrade feature is enabled.
+- (void)testOverflowMenuVisibility {
+  // Bring up the keyboard
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
+                 @"Keyboard Should be Shown");
+
+  // Open the address manual fill view.
+  OpenAddressManualFillView();
+
+  if ([AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    [[EarlGrey selectElementWithMatcher:OverflowMenuButton()]
+        assertWithMatcher:grey_sufficientlyVisible()];
+  } else {
+    [[EarlGrey selectElementWithMatcher:OverflowMenuButton()]
+        assertWithMatcher:grey_notVisible()];
+  }
+}
+
+// Tests the "Edit" action of the overflow menu button displays the address's
+// details in edit mode.
+- (void)testEditAddressFromOverflowMenu {
+  if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    EARL_GREY_TEST_DISABLED(@"This test is not relevant when the Keyboard "
+                            @"Accessory Upgrade feature is disabled.")
+  }
+
+  // Bring up the keyboard
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
+                 @"Keyboard Should be Shown");
+
+  // Open the address manual fill view.
+  OpenAddressManualFillView();
+
+  // Tap the overflow menu button and select the "Edit" action.
+  [[EarlGrey selectElementWithMatcher:OverflowMenuButton()]
+      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:OverflowMenuEditAction()]
+      performAction:grey_tap()];
+
+  // TODO(crbug.com/326413640): Check that the details page was opened in edit
+  // mode.
+}
+
+#pragma mark - Private
+
+// Verify that the address info has been filled.
+- (void)verifyAddressInfoHasBeenFilled:(autofill::AutofillProfile)profile {
+  std::string locale = l10n_util::GetLocaleOverride();
+
+  // Full name.
+  NSString* name =
+      base::SysUTF16ToNSString(profile.GetInfo(autofill::NAME_FULL, locale));
+  NSString* nameCondition = [NSString
+      stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
+                       kFormElementName, name];
+
+  // Address.
+  NSString* address = base::SysUTF16ToNSString(
+      profile.GetInfo(autofill::ADDRESS_HOME_LINE1, locale));
+  NSString* addressCondition = [NSString
+      stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
+                       kFormElementAddress, address];
+
+  // City.
+  NSString* city = base::SysUTF16ToNSString(
+      profile.GetInfo(autofill::ADDRESS_HOME_CITY, locale));
+  NSString* cityCondition = [NSString
+      stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
+                       kFormElementCity, city];
+
+  // State.
+  NSString* state = base::SysUTF16ToNSString(
+      profile.GetInfo(autofill::ADDRESS_HOME_STATE, locale));
+  NSString* stateCondition = [NSString
+      stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
+                       kFormElementState, state];
+
+  // Zip code.
+  NSString* zip = base::SysUTF16ToNSString(
+      profile.GetInfo(autofill::ADDRESS_HOME_ZIP, locale));
+  NSString* zipCondition = [NSString
+      stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
+                       kFormElementZip, zip];
+
+  NSString* condition =
+      [NSString stringWithFormat:@"%@ && %@ && %@ && %@ && %@", nameCondition,
+                                 addressCondition, cityCondition,
+                                 stateCondition, zipCondition];
+  [ChromeEarlGrey waitForJavaScriptCondition:condition];
 }
 
 @end

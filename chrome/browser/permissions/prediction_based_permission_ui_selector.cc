@@ -197,7 +197,7 @@ void PredictionBasedPermissionUiSelector::SelectUiToUse(
     return;
   }
 #endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void PredictionBasedPermissionUiSelector::Cancel() {
@@ -323,7 +323,7 @@ bool PredictionBasedPermissionUiSelector::ShouldHoldBack(
       should_holdback =
           holdback_chance < on_device_geolocation_holdback_threshold;
     } else {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
     }
   } else {
     should_holdback = holdback_chance < server_side_holdback_threshold;
@@ -339,13 +339,10 @@ PredictionSource PredictionBasedPermissionUiSelector::GetPredictionTypeToUse(
       unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled);
 
   const bool is_notification_cpss_enabled =
-      profile_->GetPrefs()->GetBoolean(prefs::kEnableNotificationCPSS) &&
-      (base::FeatureList::IsEnabled(features::kQuietNotificationPrompts) ||
-       permissions::PermissionUtil::DoesPlatformSupportChip());
+      profile_->GetPrefs()->GetBoolean(prefs::kEnableNotificationCPSS);
 
   const bool is_geolocation_cpss_enabled =
-      profile_->GetPrefs()->GetBoolean(prefs::kEnableGeolocationCPSS) &&
-      permissions::PermissionUtil::DoesPlatformSupportChip();
+      profile_->GetPrefs()->GetBoolean(prefs::kEnableGeolocationCPSS);
 
   if (request_type == permissions::RequestType::kNotifications &&
       !is_notification_cpss_enabled) {

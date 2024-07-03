@@ -28,6 +28,7 @@ chromium-metrics-reviews@google.com.
   <variant name="CursorHighlight"/>
   <variant name="Dictation"/>
   <variant name="DockedMagnifier"/>
+  <variant name="FaceGaze"/>
   <variant name="FocusHighlight"/>
   <variant name="HighContrast"/>
   <variant name="LargeCursor"/>
@@ -451,7 +452,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.ATK-APIs" enum="AccessibilityATKAPIEnum"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>jdiggs@chromium.org</owner>
   <owner>jkim@igalia.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
@@ -505,7 +506,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.AXTreeSnapshotter.Snapshot.Error"
-    enum="AXTreeSnapshotErrorReason" expires_after="2024-09-30">
+    enum="AXTreeSnapshotErrorReason" expires_after="2024-12-01">
   <owner>mschillaci@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
@@ -612,7 +613,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.CrosCaretBlinkInterval" units="ms"
-    expires_after="2024-08-18">
+    expires_after="2024-11-10">
   <owner>katie@chromium.org</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
@@ -733,7 +734,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.CrosDictation.UsedOnDeviceSpeech"
-    enum="BooleanUsage" expires_after="2024-08-04">
+    enum="BooleanUsage" expires_after="2024-11-17">
   <owner>katie@chromium.org</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
@@ -994,7 +995,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeatureName" variants="BaseCrosAccessibilityFeatures">
     <variant name="Autoclick"/>
-    <variant name="FaceGaze"/>
     <variant name="LiveCaption"/>
     <variant name="MonoAudio"/>
     <variant name="SpokenFeedback"/>
@@ -1094,7 +1094,6 @@ chromium-metrics-reviews@google.com.
   <token key="FeatureName" variants="BaseCrosAccessibilityFeatures">
     <variant name="Autoclick"/>
     <variant name="CursorColor"/>
-    <variant name="FaceGaze"/>
     <variant name="LiveCaption"/>
     <variant name="MonoAudio"/>
     <variant name="MouseKeys"/>
@@ -1201,6 +1200,21 @@ even if they fit the naming pattern. -->
     AccessibilityPerformanceFiltering feature is enabled.
 
     This is currently only used on Android OS.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.FaceGaze.AverageFaceLandmarkerLatency"
+    units="ms" expires_after="2025-05-30">
+  <owner>akihiroota@chromium.org</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    The time it takes for the FaceLandmarker API to process a single video
+    frame. This histogram is recorded once every 100 frames and represents the
+    average latency of the FaceLandmarker API on those frames. The reason we use
+    the average is because there could be potentially thousands of calls to the
+    FaceLandmarker API during a FaceGaze session and we don't want to clutter
+    the histograms. Each call to record a histogram also takes work and we don't
+    want to spam the histograms API multiple times per second.
   </summary>
 </histogram>
 
@@ -1804,6 +1818,26 @@ even if they fit the naming pattern. -->
   </summary>
 </histogram>
 
+<histogram name="Accessibility.PdfOcr.MediaApp.ActiveTime" units="seconds"
+    expires_after="2025-06-30">
+  <owner>kyungjunlee@google.com</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    Records the time difference between when a ChromeVox user starts reading
+    OCRed content in MediaApp and when the user reads it most recently.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.PdfOcr.MediaApp.PdfLoaded" enum="BooleanExists"
+    expires_after="2025-06-30">
+  <owner>nektar@chromium.org</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    Tracks how many PDFs were opened in the Media App while the ChromeVox screen
+    reader is enabled, which causes the PDF to be OCRed.
+  </summary>
+</histogram>
+
 <histogram name="Accessibility.PdfOcr.MostDetectedLanguageInOcrData"
     enum="LocaleCodeISO639" expires_after="2024-10-06">
   <owner>kyungjunlee@google.com</owner>
@@ -1836,16 +1870,6 @@ even if they fit the naming pattern. -->
     Records user accept languages when PDF OCR first runs for the always mode
     after user login; or whenever the user uses the once mode to extract text
     from a PDF file.
-  </summary>
-</histogram>
-
-<histogram name="Accessibility.PdfOcr.UserSelection" enum="PdfOcrUserSelection"
-    expires_after="2025-02-28">
-  <owner>kyungjunlee@google.com</owner>
-  <owner>chrome-a11y-core@google.com</owner>
-  <summary>
-    Tracks the PDF OCR menu item that the user selects to turn on or off the PDF
-    OCR feature.
   </summary>
 </histogram>
 
@@ -1903,7 +1927,7 @@ even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.Performance.AXObjectCacheImpl.Snapshot"
-    units="bytes" expires_after="2024-09-15">
+    units="bytes" expires_after="2024-11-17">
   <owner>kevers@chromium.org</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
@@ -2371,11 +2395,72 @@ even if they fit the naming pattern. -->
   </token>
 </histogram>
 
+<histogram name="Accessibility.ReadAnything.NewPage" enum="ReadAnythingNewPage"
+    expires_after="2025-02-28">
+  <owner>kristislee@google.com</owner>
+  <owner>komo-eng@google.com</owner>
+  <summary>
+    Records when the Read Anything panel distills a new page and whether the
+    user uses Read Aloud to play the text aloud for the new page.
+  </summary>
+</histogram>
+
 <histogram name="Accessibility.ReadAnything.OmniboxIconShown"
     enum="BooleanShown" expires_after="2025-02-28">
   <owner>abigailbklein@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>Records when the Read Anything omnibox icon is shown.</summary>
+</histogram>
+
+<histogram name="Accessibility.ReadAnything.ReadAloud.HighlightState"
+    enum="ReadAnythingHighlightState" expires_after="2025-02-28">
+  <owner>kristislee@google.com</owner>
+  <owner>komo-eng@google.com</owner>
+  <summary>
+    Records the user-chosen highlight state for reading aloud in the Read
+    Anything panel.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.ReadAnything.ReadAloud.Language"
+    enum="LocaleCodeISO639" expires_after="2025-02-28">
+  <owner>kristislee@google.com</owner>
+  <owner>komo-eng@google.com</owner>
+  <summary>
+    Records which language the user is using to read aloud text in the Read
+    Anything panel.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.ReadAnything.ReadAloud.SettingsChange"
+    enum="ReadAnythingReadAloudSettingsChange" expires_after="2025-02-28">
+  <owner>lwinston@google.com</owner>
+  <owner>komo-eng@google.com</owner>
+  <summary>
+    Records when the user changes a read aloud speech setting in the Read
+    Anything panel.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.ReadAnything.ReadAloud.Voice"
+    enum="ReadAnythingReadAloudVoice" expires_after="2025-02-28">
+  <owner>kristislee@google.com</owner>
+  <owner>komo-eng@google.com</owner>
+  <summary>
+    Records which kind of voice the user is using to read aloud text in the Read
+    Anything panel. This is recorded when speech stops, either from user action
+    or when speech completes, to avoid blocking speech.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.ReadAnything.ReadAloud.VoiceSpeed"
+    units="speech rate %" expires_after="2025-02-28">
+  <owner>kristislee@google.com</owner>
+  <owner>komo-eng@google.com</owner>
+  <summary>
+    Records the user-chosen voice speed for reading aloud in the Read Anything
+    panel.
+  </summary>
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.ReadAloud{Action}SessionCount"
@@ -2570,6 +2655,13 @@ even if they fit the naming pattern. -->
   </summary>
 </histogram>
 
+<histogram name="Accessibility.ScreenAI.OCR.ClientType" enum="OCRClientType"
+    expires_after="2025-05-01">
+  <owner>rhalavati@chromium.org</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>Records the client type of each OCR request.</summary>
+</histogram>
+
 <histogram name="Accessibility.ScreenAI.OCR.ImageSize.PDF" units="count"
     expires_after="2024-10-01">
   <owner>rhalavati@chromium.org</owner>
@@ -2669,6 +2761,19 @@ even if they fit the naming pattern. -->
   <token key="Result">
     <variant name="Failure" summary="fail initialization"/>
     <variant name="Success" summary="initialize successfully"/>
+  </token>
+</histogram>
+
+<histogram name="Accessibility.ScreenAI.{Feature}.Successful"
+    enum="BooleanSuccess" expires_after="2025-02-28">
+  <owner>rhalavati@chromium.org</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    Records if a request to {Feature} of ScreenAI service was successful or not.
+  </summary>
+  <token key="Feature">
+    <variant name="MainContentExtraction" summary="Main Content Extraction"/>
+    <variant name="OCR" summary="Optical Character Recognition"/>
   </token>
 </histogram>
 
@@ -2828,7 +2933,7 @@ even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="DomDistiller.ReaderShownForPageLoad" enum="Boolean"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>mdjones@chromium.org</owner>
   <summary>
     Records if the panel became visible at any point after a page was navigated.

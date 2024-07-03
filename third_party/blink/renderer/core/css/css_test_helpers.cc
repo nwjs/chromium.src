@@ -17,6 +17,7 @@
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_local_context.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_property_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_selector_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
@@ -174,7 +175,7 @@ void DeclareProperty(Document& document,
   document.GetStyleEngine().PropertyRegistryChanged();
 }
 
-scoped_refptr<CSSVariableData> CreateVariableData(String s) {
+CSSVariableData* CreateVariableData(String s) {
   bool is_animation_tainted = false;
   bool needs_variable_resolution = false;
   return CSSVariableData::Create(s, is_animation_tainted,
@@ -195,10 +196,10 @@ const CSSValue* ParseLonghand(Document& document,
 
   const auto* context = MakeGarbageCollected<CSSParserContext>(document);
   CSSParserLocalContext local_context;
-  auto tokens = CSSTokenizer(value).TokenizeToEOF();
-  CSSParserTokenRange range(tokens);
 
-  return longhand->ParseSingleValueFromRange(range, *context, local_context);
+  CSSTokenizer tokenizer(value);
+  CSSParserTokenStream stream(tokenizer);
+  return longhand->ParseSingleValue(stream, *context, local_context);
 }
 
 const CSSPropertyValueSet* ParseDeclarationBlock(const String& block_text,

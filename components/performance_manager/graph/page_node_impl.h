@@ -19,7 +19,6 @@
 #include "components/performance_manager/graph/node_attached_data.h"
 #include "components/performance_manager/graph/node_base.h"
 #include "components/performance_manager/public/graph/page_node.h"
-#include "components/performance_manager/public/web_contents_proxy.h"
 #include "url/gurl.h"
 
 namespace performance_manager {
@@ -58,9 +57,9 @@ class PageNodeImpl
   // WorkerNode uses blink::WorkerToken) but WebContents has no id to use.
   using PageToken = base::TokenType<class PageTokenTag>;
 
-  static constexpr NodeTypeEnum Type() { return NodeTypeEnum::kPage; }
+  using TypedNodeBase<PageNodeImpl, PageNode, PageNodeObserver>::FromNode;
 
-  PageNodeImpl(const WebContentsProxy& contents_proxy,
+  PageNodeImpl(base::WeakPtr<content::WebContents> web_contents,
                const std::string& browser_context_id,
                const GURL& visible_url,
                PagePropertyFlags initial_properties,
@@ -97,15 +96,10 @@ class PageNodeImpl
   uint64_t EstimateMainFramePrivateFootprintSize() const override;
   bool HadFormInteraction() const override;
   bool HadUserEdits() const override;
-  const WebContentsProxy& GetContentsProxy() const override;
+  base::WeakPtr<content::WebContents> GetWebContents() const override;
   PageState GetPageState() const override;
   uint64_t EstimateResidentSetSize() const override;
   uint64_t EstimatePrivateFootprintSize() const override;
-
-  // Returns the web contents associated with this page node. It is valid to
-  // call this function on any thread but the weak pointer must only be
-  // dereferenced on the UI thread.
-  const WebContentsProxy& contents_proxy() const;
 
   // Returns the unique token for the page node. This function can be called
   // from any thread.
@@ -139,8 +133,7 @@ class PageNodeImpl
   FrameNodeImpl* opener_frame_node() const;
   FrameNodeImpl* embedder_frame_node() const;
   FrameNodeImpl* main_frame_node() const;
-  const base::flat_set<raw_ptr<FrameNodeImpl, CtnExperimental>>&
-  main_frame_nodes() const;
+  NodeSetView<FrameNodeImpl*> main_frame_nodes() const;
 
   // Invoked to set/clear the opener of this page.
   void SetOpenerFrameNode(FrameNodeImpl* opener);
@@ -235,9 +228,7 @@ class PageNodeImpl
   const FrameNode* GetOpenerFrameNode() const override;
   const FrameNode* GetEmbedderFrameNode() const override;
   const FrameNode* GetMainFrameNode() const override;
-  bool VisitMainFrameNodes(const FrameNodeVisitor& visitor) const override;
-  const base::flat_set<raw_ptr<const FrameNode, CtnExperimental>>
-  GetMainFrameNodes() const override;
+  NodeSetView<const FrameNode*> GetMainFrameNodes() const override;
 
   // NodeBase:
   void OnJoiningGraph() override;
@@ -250,8 +241,8 @@ class PageNodeImpl
   void SetHadFormInteraction(bool had_form_interaction);
   void SetHadUserEdits(bool had_user_edits);
 
-  // The WebContentsProxy associated with this page.
-  const WebContentsProxy contents_proxy_;
+  // The WebContents associated with this page.
+  const base::WeakPtr<content::WebContents> web_contents_;
 
   // The unique token that identifies this PageNode for the life of the browser.
   const PageToken page_token_;
@@ -260,8 +251,7 @@ class PageNodeImpl
   // in a page, among other reasons because during main frame navigation, the
   // pending navigation will coexist with the existing main frame until it's
   // committed.
-  base::flat_set<raw_ptr<FrameNodeImpl, CtnExperimental>> main_frame_nodes_
-      GUARDED_BY_CONTEXT(sequence_checker_);
+  NodeSet main_frame_nodes_ GUARDED_BY_CONTEXT(sequence_checker_);
 
   // The total count of frames that tally up to this page.
   size_t frame_node_count_ GUARDED_BY_CONTEXT(sequence_checker_) = 0;

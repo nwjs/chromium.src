@@ -37,7 +37,6 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
-#include "third_party/blink/renderer/platform/geometry/layout_rect.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "ui/gfx/geometry/quad_f.h"
@@ -180,12 +179,12 @@ bool WebRemoteFrameImpl::IsWebLocalFrame() const {
 }
 
 WebLocalFrame* WebRemoteFrameImpl::ToWebLocalFrame() {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 
 const WebLocalFrame* WebRemoteFrameImpl::ToWebLocalFrame() const {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 
@@ -278,11 +277,11 @@ void WebRemoteFrameImpl::InitializeCoreFrame(
   // WebFrameWidget containing this frame, and this is true for regular frames
   // in the frame tree as well as for fenced frames, which are not in the frame
   // tree; hence the code to traverse up through FrameOwner.
-  WebFrameWidget* ancestor_widget = nullptr;
+  WebFrameWidgetImpl* ancestor_widget = nullptr;
   if (parent) {
     if (parent->IsWebLocalFrame()) {
       ancestor_widget =
-          To<WebLocalFrameImpl>(parent)->LocalRoot()->FrameWidget();
+          To<WebLocalFrameImpl>(parent)->LocalRoot()->FrameWidgetImpl();
     }
   } else if (owner && owner->IsLocal()) {
     // Never gets to this point unless |owner| is a <fencedframe>
@@ -291,7 +290,8 @@ void WebRemoteFrameImpl::InitializeCoreFrame(
     DCHECK(owner_element->IsHTMLFencedFrameElement());
     LocalFrame& local_frame =
         owner_element->GetDocument().GetFrame()->LocalFrameRoot();
-    ancestor_widget = WebLocalFrameImpl::FromFrame(local_frame)->FrameWidget();
+    ancestor_widget =
+        WebLocalFrameImpl::FromFrame(local_frame)->FrameWidgetImpl();
   }
 
   SetCoreFrame(MakeGarbageCollected<RemoteFrame>(
@@ -352,10 +352,10 @@ void WebRemoteFrameImpl::SetCoreFrame(RemoteFrame* frame) {
 }
 
 void WebRemoteFrameImpl::InitializeFrameVisualProperties(
-    WebFrameWidget* ancestor_widget,
+    WebFrameWidgetImpl* ancestor_widget,
     WebView* web_view) {
   FrameVisualProperties visual_properties;
-  visual_properties.zoom_level = web_view->ZoomLevel();
+  visual_properties.zoom_level = ancestor_widget->GetZoomLevel();
   visual_properties.page_scale_factor = ancestor_widget->PageScaleInMainFrame();
   visual_properties.is_pinch_gesture_active =
       ancestor_widget->PinchGestureActiveInMainFrame();

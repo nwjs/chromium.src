@@ -23,6 +23,9 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <variants name="NewBadgeFeature">
+  <variant name="AutofillForUnclassifiedFieldsAvailable"
+      summary="For address and card field-by-field filling; shown in the
+               autofill section of the context menu."/>
   <variant name="Compose"
       summary="For Compose feature; shown in web context menu."/>
   <variant name="ComposeNudge"
@@ -31,6 +34,8 @@ chromium-metrics-reviews@google.com.
       summary="Lens Overlay entry points in app and web context menus."/>
   <variant name="NewBadgeTestFeature"
       summary="Used for testing purposes only."/>
+  <variant name="TabOrganization"
+      summary="Promotion for Organize Tabs in the app menu."/>
 </variants>
 
 <variants name="TutorialID">
@@ -71,7 +76,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tutorial{TutorialID}.Completion" enum="BooleanSuccess"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>dpenning@chromium.org</owner>
   <owner>dfried@chromium.org</owner>
   <summary>
@@ -113,6 +118,18 @@ chromium-metrics-reviews@google.com.
     Records what failure prevented an In-Product Help from being shown to the
     user. The failure defines the state of the User Education system, which can
     be many varieties (e.g. snoozed, disabled blocked by another promo, etc.).
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.MessageNotShown.DesktopReEngagement.NoBrowser"
+    units="tries" expires_after="2024-12-01">
+  <owner>dfried@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records when the re-engagement promo is not shown because there is no
+    eligible browser. This is recorded on a new User Education session. The
+    value is the number of times the promo had attempted to show; typical values
+    are low (1-2) as the number of retries is limited.
   </summary>
 </histogram>
 
@@ -293,6 +310,84 @@ chromium-metrics-reviews@google.com.
     When a new User Education session starts, records the number of recent
     sessions in the &quot;short-term&quot; window, which is 7 days. This helps
     us understand how frequently new sessions are triggered.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.WhatsNew.ExploreMoreExpanded"
+    enum="BooleanSuccess" expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records when the user expands or collapses the &quot;Explore More&quot;
+    section of the What's New page.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.WhatsNew.ScrollDepth" enum="ScrollDepthQuartile"
+    expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records when the user scrolls past a quartile threshold of the What's New
+    page.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.WhatsNew.TimeOnPage" units="ms"
+    expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records the total amount of time the user spent on the What's New page
+    before navigating away.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.WhatsNew.TimeToLoadContent" units="ms"
+    expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records the time it took in milliseconds for the embedded What's New page to
+    load after the WebUI was created.
+  </summary>
+</histogram>
+
+<histogram name="WhatsNew.LoadEvent" enum="WhatsNewLoadEvent"
+    expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records load events for the What's New page when a load event occurs. This
+    tracks how many times loading remote content is attempted, and whether it
+    succeeds, fails and results in an error page, fails and redirects to the New
+    Tab Page, fails and doesn't open the tab (for preloading), or fails and
+    closes the tab. Load is attempted when the page is first opened or on first
+    startup after updating to a new milestone. Success or failure will occur
+    when the network request completes. Desktop only.
+  </summary>
+</histogram>
+
+<histogram name="WhatsNew.LoadResponseCode"
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records the net error or HTTP response code of the network request for the
+    remote content for the iframe in the What's New page. This request is
+    triggered when the What's New page is opened. Desktop only.
+  </summary>
+</histogram>
+
+<histogram name="WhatsNew.StartupType" enum="WhatsNewStartupType"
+    expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records whether the What's New page should try to show, whether it is
+    overridden (e.g. by welcome) and whether the user is ineligible (e.g. due to
+    being in incognito mode). Recorded when startup tabs are being determined at
+    initialization. Desktop only.
   </summary>
 </histogram>
 

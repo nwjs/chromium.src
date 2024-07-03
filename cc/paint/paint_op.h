@@ -86,12 +86,14 @@ enum class PaintOpType : uint8_t {
   kConcat,
   kCustomData,
   kDrawArc,
+  kDrawArcLite,
   kDrawColor,
   kDrawDRRect,
   kDrawImage,
   kDrawImageRect,
   kDrawIRect,
   kDrawLine,
+  kDrawLineLite,
   kDrawOval,
   kDrawPath,
   kDrawRecord,
@@ -615,6 +617,71 @@ class CC_PAINT_EXPORT DrawLineOp final : public PaintOpWithFlags {
   DrawLineOp() : PaintOpWithFlags(kType) {}
 };
 
+// TODO(crbug.com/340122178): figure out a better way to unify types.
+class CC_PAINT_EXPORT DrawLineLiteOp final : public PaintOp {
+ public:
+  static constexpr PaintOpType kType = PaintOpType::kDrawLineLite;
+  static constexpr bool kIsDrawOp = true;
+  DrawLineLiteOp(SkScalar x0,
+                 SkScalar y0,
+                 SkScalar x1,
+                 SkScalar y1,
+                 const CorePaintFlags& core_paint_flags)
+      : PaintOp(kType),
+        x0(x0),
+        y0(y0),
+        x1(x1),
+        y1(y1),
+        core_paint_flags(core_paint_flags) {}
+  static void Raster(const DrawLineLiteOp* op,
+                     SkCanvas* canvas,
+                     const PlaybackParams& params);
+  bool IsValid() const { return core_paint_flags.IsValid(); }
+  bool EqualsForTesting(const DrawLineLiteOp& other) const;
+  HAS_SERIALIZATION_FUNCTIONS();
+
+  int CountSlowPaths() const { return 0; }
+
+  SkScalar x0;
+  SkScalar y0;
+  SkScalar x1;
+  SkScalar y1;
+  CorePaintFlags core_paint_flags;
+
+ private:
+  DrawLineLiteOp() : PaintOp(kType) {}
+};
+
+// TODO(crbug.com/340122178): figure out a better way to unify types.
+class CC_PAINT_EXPORT DrawArcLiteOp final : public PaintOp {
+ public:
+  static constexpr PaintOpType kType = PaintOpType::kDrawArcLite;
+  static constexpr bool kIsDrawOp = true;
+  DrawArcLiteOp(const SkRect& oval,
+                SkScalar start_angle_degrees,
+                SkScalar sweep_angle_degrees,
+                const CorePaintFlags& core_paint_flags)
+      : PaintOp(kType),
+        oval(oval),
+        start_angle_degrees(start_angle_degrees),
+        sweep_angle_degrees(sweep_angle_degrees),
+        core_paint_flags(core_paint_flags) {}
+  static void Raster(const DrawArcLiteOp* op,
+                     SkCanvas* canvas,
+                     const PlaybackParams& params);
+  bool IsValid() const { return core_paint_flags.IsValid(); }
+  bool EqualsForTesting(const DrawArcLiteOp& other) const;
+  HAS_SERIALIZATION_FUNCTIONS();
+
+  SkRect oval;
+  SkScalar start_angle_degrees;
+  SkScalar sweep_angle_degrees;
+  CorePaintFlags core_paint_flags;
+
+ private:
+  DrawArcLiteOp() : PaintOp(kType) {}
+};
+
 class CC_PAINT_EXPORT DrawArcOp final : public PaintOpWithFlags {
  public:
   static constexpr PaintOpType kType = PaintOpType::kDrawArc;
@@ -655,10 +722,7 @@ class CC_PAINT_EXPORT DrawOvalOp final : public PaintOpWithFlags {
                               const PaintFlags* flags,
                               SkCanvas* canvas,
                               const PlaybackParams& params);
-  bool IsValid() const {
-    // Reproduce SkRRect::isValid without converting.
-    return flags.IsValid() && oval.isFinite() && oval.isSorted();
-  }
+  bool IsValid() const { return flags.IsValid() && oval.isFinite(); }
   bool EqualsForTesting(const DrawOvalOp& other) const;
   HAS_SERIALIZATION_FUNCTIONS();
 
@@ -1073,7 +1137,7 @@ class CC_PAINT_EXPORT SaveLayerFiltersOp final : public PaintOpWithFlags {
                               const PaintFlags* flags,
                               SkCanvas* canvas,
                               const PlaybackParams& params);
-  bool IsValid() const { return true; }
+  bool IsValid() const { return flags.IsValid(); }
   bool EqualsForTesting(const SaveLayerFiltersOp& other) const;
   bool HasSaveLayerOps() const { return true; }
   HAS_SERIALIZATION_FUNCTIONS();
@@ -1178,6 +1242,8 @@ inline constexpr size_t kLargestPaintOpAlignedSize =
 // the //cc:test_support target. Depend on that to use this in your unit test.
 // This should not be used in production code.
 void PrintTo(const PaintOp& rect, std::ostream* os);
+
+CC_PAINT_EXPORT bool AreLiteOpsEnabled();
 
 }  // namespace cc
 

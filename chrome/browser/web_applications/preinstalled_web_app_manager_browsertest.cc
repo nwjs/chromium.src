@@ -223,7 +223,8 @@ class PreinstalledWebAppManagerBrowserTestBase
         .LoadAndSynchronizeForTesting(base::BindLambdaForTesting(
             [&](std::map<GURL, ExternallyManagedAppManager::InstallResult>
                     install_results,
-                std::map<GURL, bool> uninstall_results) {
+                std::map<GURL, webapps::UninstallResultCode>
+                    uninstall_results) {
               EXPECT_EQ(install_results.size(), 0u);
               EXPECT_EQ(uninstall_results.size(), 0u);
               run_loop.Quit();
@@ -268,7 +269,8 @@ class PreinstalledWebAppManagerBrowserTestBase
         .LoadAndSynchronizeForTesting(base::BindLambdaForTesting(
             [&](std::map<GURL, ExternallyManagedAppManager::InstallResult>
                     install_results,
-                std::map<GURL, bool> uninstall_results) {
+                std::map<GURL, webapps::UninstallResultCode>
+                    uninstall_results) {
               auto it = install_results.find(install_url);
               if (it != install_results.end())
                 code = it->second.code;
@@ -298,7 +300,13 @@ class PreinstalledWebAppManagerBrowserTest
     : public PreinstalledWebAppManagerBrowserTestBase {
  public:
   PreinstalledWebAppManagerBrowserTest() {
+#if BUILDFLAG(IS_CHROMEOS)
+    feature_list_.InitWithFeatures(
+        {features::kRecordWebAppDebugInfo},
+        {chromeos::features::kPreinstalledWebAppsCoreOnly});
+#else
     feature_list_.InitWithFeatures({features::kRecordWebAppDebugInfo}, {});
+#endif
   }
 
  private:
@@ -785,7 +793,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
     base::test::TestFuture<webapps::UninstallResultCode> future;
     provider().scheduler().RemoveUserUninstallableManagements(
         app_id, webapps::WebappUninstallSource::kAppMenu, future.GetCallback());
-    ASSERT_EQ(future.Get(), webapps::UninstallResultCode::kSuccess);
+    ASSERT_EQ(future.Get(), webapps::UninstallResultCode::kAppRemoved);
     ASSERT_FALSE(registrar().IsInstalled(app_id));
   }
 

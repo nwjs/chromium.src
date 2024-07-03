@@ -44,6 +44,7 @@ const char kHIDServiceUUID[] = "1812";
 const char kSecurityKeyServiceUUID[] = "FFFD";
 
 constexpr base::TimeDelta kMaxDeviceSelectionDuration = base::Seconds(30);
+constexpr base::TimeDelta kConnectionTimeIntervalThreshold = base::Minutes(15);
 
 constexpr uint8_t kLimitedDiscoveryFlag = 0x01;
 constexpr uint8_t kGeneralDiscoveryFlag = 0x02;
@@ -185,6 +186,24 @@ void EmitFilteredFailureReason(ConnectionFailureReason failure_reason,
     case ConnectionFailureReason::kNotFound:
       [[fallthrough]];
     case ConnectionFailureReason::kBluetoothDisabled:
+      [[fallthrough]];
+    case ConnectionFailureReason::kDeviceNotReady:
+      [[fallthrough]];
+    case ConnectionFailureReason::kAlreadyConnected:
+      [[fallthrough]];
+    case ConnectionFailureReason::kDeviceAlreadyExists:
+      [[fallthrough]];
+    case ConnectionFailureReason::kInvalidArgs:
+      [[fallthrough]];
+    case ConnectionFailureReason::kNonAuthTimeout:
+      [[fallthrough]];
+    case ConnectionFailureReason::kNoMemory:
+      [[fallthrough]];
+    case ConnectionFailureReason::kJniEnvironment:
+      [[fallthrough]];
+    case ConnectionFailureReason::kJniThreadAttach:
+      [[fallthrough]];
+    case ConnectionFailureReason::kWakelock:
       const std::string result_histogram_name_prefix =
           "Bluetooth.ChromeOS.Pairing.Result";
       base::UmaHistogramEnumeration(
@@ -196,7 +215,7 @@ void EmitFilteredFailureReason(ConnectionFailureReason failure_reason,
                                     failure_reason);
       return;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -237,6 +256,52 @@ BluetoothTransport InferDeviceTransport(const device::BluetoothDevice* device) {
 }
 
 }  // namespace
+
+ConnectionFailureReason GetConnectionFailureReason(
+    device::BluetoothDevice::ConnectErrorCode error_code) {
+  switch (error_code) {
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_AUTH_CANCELED:
+      return device::ConnectionFailureReason::kAuthCanceled;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_AUTH_FAILED:
+      return device::ConnectionFailureReason::kAuthFailed;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_AUTH_REJECTED:
+      return device::ConnectionFailureReason::kAuthRejected;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_AUTH_TIMEOUT:
+      return device::ConnectionFailureReason::kAuthTimeout;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_FAILED:
+      return device::ConnectionFailureReason::kFailed;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_INPROGRESS:
+      return device::ConnectionFailureReason::kInprogress;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_UNKNOWN:
+      return device::ConnectionFailureReason::kUnknownError;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_UNSUPPORTED_DEVICE:
+      return device::ConnectionFailureReason::kUnsupportedDevice;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_DEVICE_NOT_READY:
+      return device::ConnectionFailureReason::kDeviceNotReady;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_ALREADY_CONNECTED:
+      return device::ConnectionFailureReason::kAlreadyConnected;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_DEVICE_ALREADY_EXISTS:
+      return device::ConnectionFailureReason::kDeviceAlreadyExists;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_DEVICE_UNCONNECTED:
+      return device::ConnectionFailureReason::kNotConnectable;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_DOES_NOT_EXIST:
+      return device::ConnectionFailureReason::kNotFound;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_INVALID_ARGS:
+      return device::ConnectionFailureReason::kInvalidArgs;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_NON_AUTH_TIMEOUT:
+      return device::ConnectionFailureReason::kNonAuthTimeout;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_NO_MEMORY:
+      return device::ConnectionFailureReason::kNoMemory;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_JNI_ENVIRONMENT:
+      return device::ConnectionFailureReason::kJniEnvironment;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_JNI_THREAD_ATTACH:
+      return device::ConnectionFailureReason::kJniThreadAttach;
+    case device::BluetoothDevice::ConnectErrorCode::ERROR_WAKELOCK:
+      return device::ConnectionFailureReason::kWakelock;
+    case device::BluetoothDevice::ConnectErrorCode::NUM_CONNECT_ERROR_CODES:
+      NOTREACHED_NORETURN();
+  }
+}
 
 device::BluetoothAdapter::DeviceList FilterBluetoothDeviceList(
     const BluetoothAdapter::DeviceList& devices,
@@ -516,6 +581,18 @@ void RecordUserInitiatedReconnectionAttemptDuration(
 void RecordSetDeviceNickName(SetNicknameResult set_nickname_result) {
   base::UmaHistogramEnumeration("Bluetooth.ChromeOS.SetNickname.Result",
                                 set_nickname_result);
+}
+
+void RecordTimeIntervalBetweenConnections(
+    base::TimeDelta time_interval_since_last_connection) {
+  if (time_interval_since_last_connection >= kConnectionTimeIntervalThreshold) {
+    return;
+  }
+  base::UmaHistogramCustomTimes(
+      "Bluetooth.ChromeOS.TimeIntervalBetweenConnections",
+      time_interval_since_last_connection,
+      /*min=*/base::Milliseconds(0),
+      /*max=*/kConnectionTimeIntervalThreshold, 100);
 }
 
 }  // namespace device

@@ -29,6 +29,10 @@
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
 #include "url/gurl.h"
 
+namespace gfx {
+class Image;
+}
+
 namespace content {
 
 class FederatedAuthDisconnectRequest;
@@ -290,6 +294,19 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
       std::unique_ptr<IdentityProviderInfo> idp_info,
       IdpNetworkRequestManager::FetchStatus status,
       IdpNetworkRequestManager::AccountList accounts);
+  // Fetches the account pictures for |accounts| and calls
+  // OnFetchDataForIdpSucceeded when done.
+  void FetchAccountPictures(
+      std::unique_ptr<IdentityProviderInfo> idp_info,
+      const IdpNetworkRequestManager::AccountList& accounts,
+      const IdpNetworkRequestManager::ClientMetadata& client_metadata);
+  void OnAccountPictureReceived(base::RepeatingClosure cb,
+                                GURL url,
+                                const gfx::Image& image);
+  void OnAllAccountPicturesReceived(
+      std::unique_ptr<IdentityProviderInfo> idp_info,
+      IdpNetworkRequestManager::AccountList accounts,
+      const IdpNetworkRequestManager::ClientMetadata& client_metadata);
   void OnAccountSelected(const GURL& idp_config_url,
                          const std::string& account_id,
                          bool is_sign_in);
@@ -445,6 +462,9 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   // Maps the login URL to the info that may be added as query parameters to
   // that URL. Populated by OnAllConfigAndWellKnownFetched().
   base::flat_map<GURL, IdentityProviderLoginUrlInfo> idp_login_infos_;
+
+  // The downloaded image data.
+  std::map<GURL, gfx::Image> downloaded_images_;
 
   raw_ptr<FederatedIdentityApiPermissionContextDelegate>
       api_permission_delegate_ = nullptr;

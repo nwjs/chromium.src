@@ -38,6 +38,7 @@ class OrderControllerSourceFromWebStateListStorage final
                         int opener_index,
                         bool check_navigation_index) const final;
   TabGroupRange GetGroupRangeOfItemAt(int index) const final;
+  std::set<int> GetCollapsedGroupIndexes() const final;
 
  private:
   raw_ref<const ios::proto::WebStateListStorage> session_metadata_;
@@ -98,6 +99,20 @@ OrderControllerSourceFromWebStateListStorage::GetGroupRangeOfItemAt(
     }
   }
   return TabGroupRange::InvalidRange();
+}
+
+std::set<int>
+OrderControllerSourceFromWebStateListStorage::GetCollapsedGroupIndexes() const {
+  std::set<int> collapsed_indexes;
+
+  for (auto& group_storage : session_metadata_->groups()) {
+    if (group_storage.collapsed()) {
+      const ios::proto::RangeIndex range_index = group_storage.range();
+      const TabGroupRange group_range(range_index.start(), range_index.count());
+      collapsed_indexes.insert(group_range.begin(), group_range.end());
+    }
+  }
+  return collapsed_indexes;
 }
 
 // Returns an ios::proto::WebStateListStorage representing an empty session.

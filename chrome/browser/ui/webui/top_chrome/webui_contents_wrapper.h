@@ -9,15 +9,13 @@
 #include <utility>
 
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
-#include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
-#include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
 #include "chrome/browser/ui/webui_name_variants.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/referrer.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
 #include "ui/base/models/menu_model.h"
@@ -46,7 +44,7 @@ class WebUIContentsWrapper : public content::WebContentsDelegate,
                                        const gfx::Size& new_size) {}
     virtual bool HandleKeyboardEvent(
         content::WebContents* source,
-        const content::NativeWebKeyboardEvent& event);
+        const input::NativeWebKeyboardEvent& event);
     virtual bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
                                    const content::ContextMenuParams& params);
     virtual void RequestMediaAccessPermission(
@@ -83,10 +81,9 @@ class WebUIContentsWrapper : public content::WebContentsDelegate,
                              const gfx::Size& new_size) override;
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
       content::WebContents* source,
-      const content::NativeWebKeyboardEvent& event) override;
-  bool HandleKeyboardEvent(
-      content::WebContents* source,
-      const content::NativeWebKeyboardEvent& event) override;
+      const input::NativeWebKeyboardEvent& event) override;
+  bool HandleKeyboardEvent(content::WebContents* source,
+                           const input::NativeWebKeyboardEvent& event) override;
   bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
                          const content::ContextMenuParams& params) override;
   std::unique_ptr<content::EyeDropper> OpenEyeDropper(
@@ -189,8 +186,7 @@ class WebUIContentsWrapperT : public WebUIContentsWrapper {
                              supports_draggable_regions,
                              T::GetWebUIName()),
         webui_url_(webui_url) {
-    static_assert(
-        views_metrics::IsValidWebUINameVariant("." + T::GetWebUIName()));
+    static_assert(views_metrics::IsValidWebUIName("." + T::GetWebUIName()));
     if (is_ready_to_show()) {
       CHECK(GetWebUIController());
       GetWebUIController()->set_embedder(weak_ptr_factory_.GetWeakPtr());

@@ -14,6 +14,7 @@
 #include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
+#include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/optimization_guide/core/optimization_guide_decider.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 
@@ -36,11 +37,14 @@ GetVcnMerchantOptOutOptimizationTypeForCard(const CreditCard& card) {
     return optimization_guide::proto::TYPE_UNSPECIFIED;
   }
 
-  // Now that we know this card is enrolled into VCN and is a network-level
-  // enrollment, if it is a network that we have an optimization type for then
+  // If there is an optimization type present for the card's network, then
   // return that optimization type.
   if (card.network() == kVisaCard) {
     return optimization_guide::proto::VCN_MERCHANT_OPT_OUT_VISA;
+  } else if (card.network() == kMasterCard) {
+    return optimization_guide::proto::VCN_MERCHANT_OPT_OUT_MASTERCARD;
+  } else if (card.network() == kDiscoverCard) {
+    return optimization_guide::proto::VCN_MERCHANT_OPT_OUT_DISCOVER;
   }
 
   // No conditions to return an optimization type were found, so return that we
@@ -51,18 +55,14 @@ GetVcnMerchantOptOutOptimizationTypeForCard(const CreditCard& card) {
 std::vector<optimization_guide::proto::OptimizationType>
 GetCardBenefitsOptimizationTypesForCard(const CreditCard& card) {
   std::vector<optimization_guide::proto::OptimizationType> optimization_types;
-  if (card.issuer_id() == kAmexCardIssuerId &&
-      base::FeatureList::IsEnabled(
-          features::kAutofillEnableCardBenefitsForAmericanExpress)) {
+  if (card.issuer_id() == kAmexCardIssuerId) {
     optimization_types.push_back(
         optimization_guide::proto::
             AMERICAN_EXPRESS_CREDIT_CARD_FLIGHT_BENEFITS);
     optimization_types.push_back(
         optimization_guide::proto::
             AMERICAN_EXPRESS_CREDIT_CARD_SUBSCRIPTION_BENEFITS);
-  } else if (card.issuer_id() == kCapitalOneCardIssuerId &&
-             base::FeatureList::IsEnabled(
-                 features::kAutofillEnableCardBenefitsForCapitalOne)) {
+  } else if (card.issuer_id() == kCapitalOneCardIssuerId) {
     optimization_types.push_back(
         optimization_guide::proto::CAPITAL_ONE_CREDIT_CARD_DINING_BENEFITS);
     optimization_types.push_back(
@@ -95,11 +95,14 @@ void AddCreditCardOptimizationTypes(
     // optimizations from supported issuers. Other benefit types are read
     // directly from the PersonalDataManager and don't require filter
     // optimizations.
-    auto benefits_optimization_types =
-        GetCardBenefitsOptimizationTypesForCard(*card);
-    if (!benefits_optimization_types.empty()) {
-      optimization_types.insert(benefits_optimization_types.begin(),
-                                benefits_optimization_types.end());
+    if (base::FeatureList::IsEnabled(
+            features::kAutofillEnableCardBenefitsSync)) {
+      auto benefits_optimization_types =
+          GetCardBenefitsOptimizationTypesForCard(*card);
+      if (!benefits_optimization_types.empty()) {
+        optimization_types.insert(benefits_optimization_types.begin(),
+                                  benefits_optimization_types.end());
+      }
     }
   }
 }

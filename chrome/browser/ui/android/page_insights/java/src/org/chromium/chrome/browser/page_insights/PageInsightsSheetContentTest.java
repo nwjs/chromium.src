@@ -37,6 +37,7 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.page_insights.proto.IntentParams.PageInsightsIntentParams;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -118,7 +119,6 @@ public class PageInsightsSheetContentTest {
 
     private void createSheetContent() {
         TestValues testValues = new TestValues();
-        testValues.addFeatureFlagOverride(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB, true);
         createSheetContent(testValues);
     }
 
@@ -128,6 +128,8 @@ public class PageInsightsSheetContentTest {
 
     private void createSheetContent(TestValues testValues, PageInsightsIntentParams intentParams) {
         FeatureList.setTestValues(testValues);
+        // Disable native because this test does not initialize native.
+        FeatureList.setDisableNativeForTesting(true);
 
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -266,7 +268,7 @@ public class PageInsightsSheetContentTest {
 
                     assertEquals(testView, feedView.getChildAt(0));
                     int expectedHeight =
-                            (int) (mFullHeight * PageInsightsSheetContent.DEFAULT_FULL_HEIGHT_RATIO)
+                            (int) (mFullHeight * PageInsightsSheetContent.FULL_HEIGHT_RATIO)
                                     - sTestRule
                                             .getActivity()
                                             .getResources()
@@ -276,41 +278,6 @@ public class PageInsightsSheetContentTest {
                             expectedHeight,
                             getContentViewById(R.id.page_insights_content_container).getHeight());
                     assertEquals(expectedHeight, feedView.getHeight());
-                });
-    }
-
-    @Test
-    @SmallTest
-    public void initContent_fullHeightFromFlag() {
-        TestValues testValues = new TestValues();
-        testValues.addFeatureFlagOverride(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB, true);
-        testValues.addFieldTrialParamOverride(
-                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
-                PageInsightsSheetContent.PAGE_INSIGHTS_FULL_HEIGHT_RATIO_PARAM,
-                "0.123");
-        createSheetContent(testValues);
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mSheetContent.initContent(
-                            new View(sTestRule.getActivity()),
-                            /* isPrivacyNoticeRequired= */ true,
-                            /* shouldHavePeekState= */ true);
-                    int expectedHeight =
-                            (int) (mFullHeight * 0.123)
-                                    - sTestRule
-                                            .getActivity()
-                                            .getResources()
-                                            .getDimensionPixelSize(
-                                                    R.dimen.page_insights_toolbar_height);
-                    assertEquals(
-                            expectedHeight,
-                            getContentViewById(R.id.page_insights_content_container).getHeight());
-                    assertEquals(
-                            expectedHeight,
-                            mSheetContent
-                                    .getContentView()
-                                    .findViewById(R.id.page_insights_feed_content)
-                                    .getHeight());
                 });
     }
 
@@ -407,7 +374,7 @@ public class PageInsightsSheetContentTest {
                             getContentViewById(R.id.page_insights_privacy_notice).getVisibility());
 
                     int expectedFullContentHeight =
-                            (int) (mFullHeight * PageInsightsSheetContent.DEFAULT_FULL_HEIGHT_RATIO)
+                            (int) (mFullHeight * PageInsightsSheetContent.FULL_HEIGHT_RATIO)
                                     - sTestRule
                                             .getActivity()
                                             .getResources()
@@ -432,9 +399,8 @@ public class PageInsightsSheetContentTest {
     @MediumTest
     public void privacyNoticeShownForFirstTime_peekHeightFromFlag() {
         TestValues testValues = new TestValues();
-        testValues.addFeatureFlagOverride(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB, true);
         testValues.addFieldTrialParamOverride(
-                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
+                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB_PEEK,
                 PageInsightsSheetContent.PAGE_INSIGHTS_PEEK_WITH_PRIVACY_HEIGHT_RATIO_PARAM,
                 "0.123");
         createSheetContent(testValues);
@@ -457,9 +423,8 @@ public class PageInsightsSheetContentTest {
     @MediumTest
     public void privacyNoticeShownForFirstTime_peekHeightFromIntentParam() {
         TestValues testValues = new TestValues();
-        testValues.addFeatureFlagOverride(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB, true);
         testValues.addFieldTrialParamOverride(
-                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
+                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB_PEEK,
                 PageInsightsSheetContent.PAGE_INSIGHTS_PEEK_WITH_PRIVACY_HEIGHT_RATIO_PARAM,
                 "0.123");
         createSheetContent(
@@ -507,6 +472,7 @@ public class PageInsightsSheetContentTest {
 
     @Test
     @MediumTest
+    @RequiresRestart("crbug.com/344675716")
     public void privacyNoticeCloseButtonPressed() {
         createSheetContent();
         TestThreadUtils.runOnUiThreadBlocking(
@@ -833,9 +799,8 @@ public class PageInsightsSheetContentTest {
     @MediumTest
     public void getPeekHeight_shouldHavePeekState_peekHeightFromFlag() {
         TestValues testValues = new TestValues();
-        testValues.addFeatureFlagOverride(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB, true);
         testValues.addFieldTrialParamOverride(
-                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
+                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB_PEEK,
                 PageInsightsSheetContent.PAGE_INSIGHTS_PEEK_HEIGHT_RATIO_PARAM,
                 "0.123");
         assertPeekHeight(testValues, PageInsightsIntentParams.getDefaultInstance(), 0.123f);
@@ -845,9 +810,8 @@ public class PageInsightsSheetContentTest {
     @MediumTest
     public void getPeekHeight_shouldHavePeekState_peekHeightFromIntentParam() {
         TestValues testValues = new TestValues();
-        testValues.addFeatureFlagOverride(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB, true);
         testValues.addFieldTrialParamOverride(
-                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
+                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB_PEEK,
                 PageInsightsSheetContent.PAGE_INSIGHTS_PEEK_HEIGHT_RATIO_PARAM,
                 "0.123");
         assertPeekHeight(

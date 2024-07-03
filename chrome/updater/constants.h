@@ -136,9 +136,12 @@ extern const char kAppGuidSwitch[];
 // https://bugs.chromium.org/p/crashpad/issues/detail?id=23
 extern const char kNoRateLimitSwitch[];
 
-// Causes crashpad handler to start a second instance, to monitor the first
+// Causes crashpad handler to start a second instance to monitor the first
 // instance for exceptions.
 extern const char kMonitorSelfSwitch[];
+
+// Additional arguments passed to the --monitor-self instance.
+extern const char kMonitorSelfSwitchArgument[];
 
 // The handle of an event to signal when the initialization of the main process
 // is complete.
@@ -526,6 +529,12 @@ inline constexpr int GOOPDATEINSTALL_E_INSTALLER_FAILED_START = 0x80040901;
 inline constexpr int GOOPDATEINSTALL_E_INSTALLER_FAILED = 0x80040902;
 inline constexpr int GOOPDATEINSTALL_E_INSTALLER_TIMED_OUT = 0x80040904;
 inline constexpr int GOOPDATEINSTALL_E_INSTALL_ALREADY_RUNNING = 0x80040907;
+
+// Install Sources.
+extern const char kInstallSourceTaggedMetainstaller[];
+extern const char kInstallSourceOffline[];
+extern const char kInstallSourcePolicy[];
+extern const char kInstallSourceOnDemand[];
 
 }  // namespace updater
 

@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">e verdhë pastel</translation>
 <translation id="1056898198331236512">Paralajmërim</translation>
 <translation id="1059913517121127803">Skanimi nuk mund të nisej</translation>
+<translation id="1061864016440983342">Përdor pa vendndodhjen</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> nga <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">U zbulua mur mbrojtës</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Cilësime të tjera</translation>
 <translation id="2082932131694554252">Tasti i caktuar i tastierës</translation>
 <translation id="2085089206770112532">Ulja e ndriçimit të ekranit</translation>
+<translation id="2086091080968010660">Ndryshimet e bazuara te ora mund të mos jenë të sakta. Aktivizo qasjen te vendndodhja e sistemit te cilësimet.</translation>
 <translation id="2102231663024125441">Redaktimi i tekstit</translation>
 <translation id="2105810540595158374">Pajisja është një kontrollues loje.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versioni <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Modifiko detajet e APN-së</translation>
 <translation id="2195732836444333448">Në maksimumin e kapacitetin për momentin. Kthehu përsëri së shpejti.</translation>
 <translation id="2201758491318984023">biçikletë</translation>
-<translation id="2203222757805818543">Orari aktual është caktuar si <ph name="SUNRISE" /> - <ph name="SUNSET" />. Për të përditësuar automatikisht orarin e modalitetit të errët, <ph name="BEGIN_LINK" />aktivizo qasjen te vendndodhja<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">ujëra termale</translation>
 <translation id="2203642483788377106">shkëmb</translation>
 <translation id="2208388655216963643">impresionist</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Restauro parazgjedhjet</translation>
 <translation id="2286454467119466181">I thjeshtë</translation>
 <translation id="2287186687001756809">Nuk ka asnjë imazh. Për të shtuar fotografi, shko te <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Orari aktual është caktuar në <ph name="SUNRISE" />-<ph name="SUNSET" />. Për të përditësuar automatikisht orarin e lindjes dhe perëndimit të diellit, aktivizo qasjen te vendndodhja e sistemit.</translation>
 <translation id="2305172810646967500">e zezë</translation>
 <translation id="2307344026739914387">Përdor çiftin aktual të çelësave</translation>
 <translation id="2308243864813041101">Hiq kabllon USB të pajisjes "<ph name="DEVICE_NAME" />" për të vazhduar procesin e përditësimit</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">dunë rëre</translation>
 <translation id="2619761439309613843">Rifreskimi i përditshëm</translation>
 <translation id="2620436844016719705">Sistemi</translation>
+<translation id="2637303424821734920">JOAKTIV - Për të shfaqur motin lokal, <ph name="BEGIN_LINK" />aktivizo qasjen te vendndodhja e sistemit<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Imazhi i identifikimit</translation>
 <translation id="2640549051766135490">Është zgjedhur albumi <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Kontrollet</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Sfondi</translation>
 <translation id="3027578600144895987">Mbylle kamerën</translation>
 <translation id="3031560714565892478">Pajisja është një video-kamerë.</translation>
+<translation id="3051968340259309715">Kjo i lejon shërbimet e sistemit që të përdorin "Saktësinë e vendndodhjes" për të përcaktuar vendndodhjen tënde. "Saktësia e vendndodhjes" përdor informacionet për sinjalet wireless, si p.sh. pikat e qasjes Wi-Fi, kullat e rrjetit celular dhe sistemin GPS, bashkë me të dhënat e sensorëve të pajisjes, si p.sh. përshpejtuesi dhe xhiroskopi, për të përllogaritur vendndodhjen e pajisjes. Mund ta çaktivizosh vendndodhjen te Cilësimet &gt; Privatësia dhe siguria &gt; Kontrollet e privatësisë &gt; Qasja te vendndodhja. <ph name="LINK_BEGIN" />Mëso më shumë<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Pika përfundimtare</translation>
 <translation id="3060579846059757016">Përvijimet</translation>
+<translation id="3061850252076394168">aktivizo "Zgjidh që të thuhet"</translation>
 <translation id="3069085583900247081">Testi dështoi</translation>
 <translation id="3078740164268491126">tabela</translation>
 <translation id="3081652522083185657">e ndriçuar</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Zgjidhja e të gjithë pritësve dështoi</translation>
 <translation id="4593212453765072419">Kërkohet vërtetimi i serverit përfaqësues</translation>
 <translation id="4609350030397390689">Ulja e ndriçimit të tastierës</translation>
-<translation id="4617553623719764431">Moti nuk shfaqet pasi shërbimi nuk e di vendndodhjen tënde. Për të shfaqur motin lokal, <ph name="BEGIN_LINK" />aktivizo qasjen te vendndodhja<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> nga <ph name="TOTAL_PAGE_NUMBER" />. Shtyp Enter për të anuluar printimin.</translation>
 <translation id="463791356324567266">Skanimi po anulohet...</translation>
 <translation id="4646949265910132906">Lidhja e sigurt WiFi</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Ekzekuto</translation>
 <translation id="4987769320337599931">Mur mbrojtës</translation>
 <translation id="4988526792673242964">Faqet</translation>
+<translation id="4989542687859782284">Nuk ofrohen</translation>
 <translation id="4999333166442584738">Fshih raportin</translation>
 <translation id="500920857929044050">Ndalo testin</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">ndriçimi i tastierës</translation>
 <translation id="6412715219990689313">Tastiera e integruar</translation>
 <translation id="6417265370957905582">Asistenti i Google</translation>
+<translation id="6419454453018688975">Aktivizo qasjen te vendndodhja e sistemit</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Kjo i lejon shërbimet e sistemit që kanë leje që të përdorin vendndodhjen tënde. Vendndodhja mund të përdorë burime si Wi-Fi, rrjetet celulare dhe sensorët për të përllogaritur vendndodhjen e pajisjes sate. <ph name="LINK_BEGIN" />Mëso më shumë<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">I dobët (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Shko te cilësimet e llogarisë</translation>
 <translation id="6462978824459367242">Butoni "Shto APN-në" është aktivizuar tani</translation>

@@ -21,7 +21,9 @@
 #include "base/uuid.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_access_controller.h"
+#include "components/optimization_guide/core/model_execution/on_device_model_adaptation_loader.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_metadata.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_service_controller.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_test_utils.h"
@@ -31,7 +33,6 @@
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/core/test_model_info_builder.h"
 #include "components/optimization_guide/proto/features/compose.pb.h"
@@ -51,6 +52,8 @@ using ExecuteModelResult = SessionImpl::ExecuteModelResult;
 
 namespace {
 
+constexpr int64_t kModelAdatationVersion = 1;
+
 // Sets a threshold that will rejct text containing "unsafe"  when used with
 // FakeOnDeviceModel::ClassifyTextSafety..
 proto::SafetyCategoryThreshold ForbidUnsafe() {
@@ -68,6 +71,24 @@ proto::SafetyCategoryThreshold RequireReasonable() {
   result.set_threshold(0.5);
   return result;
 }
+
+class FakeOnDeviceModelAvailabilityObserver
+    : public OnDeviceModelAvailabilityObserver {
+ public:
+  explicit FakeOnDeviceModelAvailabilityObserver(
+      ModelBasedCapabilityKey expected_feature) {
+    expected_feature_ = expected_feature;
+  }
+
+  void OnDeviceModelAvailablityChanged(
+      ModelBasedCapabilityKey feature,
+      OnDeviceModelEligibilityReason reason) override {
+    EXPECT_EQ(expected_feature_, feature);
+    reason_ = reason;
+  }
+  ModelBasedCapabilityKey expected_feature_;
+  std::optional<OnDeviceModelEligibilityReason> reason_;
+};
 
 }  // namespace
 
@@ -96,17 +117,19 @@ class OnDeviceModelServiceControllerTest : public testing::Test {
            {"on_device_model_context_token_chunk_size", "4"},
            {"on_device_model_topk", "1"},
            {"on_device_model_temperature", "0"}}},
-         {features::kTextSafetyClassifier,
-          {{"on_device_must_use_safety_model", "false"}}}},
-        {});
-    prefs::RegisterLocalStatePrefs(pref_service_.registry());
+         {features::kTextSafetyClassifier, {}},
+         {features::kOnDeviceModelValidation,
+          {{"on_device_model_validation_delay", "0"}}}},
+        {features::internal::kModelAdaptationCompose});
+    model_execution::prefs::RegisterLocalStatePrefs(pref_service_.registry());
 
     // Fake the requirements to install the model.
     pref_service_.SetInteger(
-        prefs::localstate::kOnDevicePerformanceClass,
+        model_execution::prefs::localstate::kOnDevicePerformanceClass,
         base::to_underlying(OnDeviceModelPerformanceClass::kLow));
     pref_service_.SetTime(
-        prefs::localstate::kLastTimeOnDeviceEligibleFeatureWasUsed,
+        model_execution::prefs::GetOnDeviceFeatureRecentlyUsedPref(
+            ModelBasedCapabilityKey::kCompose),
         base::Time::Now());
   }
 
@@ -123,17 +146,22 @@ class OnDeviceModelServiceControllerTest : public testing::Test {
     // Whether to make the downloaded model available prior to initialization of
     // the service controller.
     bool model_component_ready = true;
+
+    std::optional<proto::OnDeviceModelValidationConfig> validation_config;
   };
 
   void Initialize() { Initialize({}); }
 
   void Initialize(const InitializeParams& params) {
     if (params.config) {
-      WriteFeatureConfig(*params.config, params.config2);
+      WriteFeatureConfig(*params.config, params.config2,
+                         params.validation_config);
     } else {
       proto::OnDeviceModelExecutionFeatureConfig default_config;
+      default_config.set_can_skip_text_safety(true);
       PopulateConfigForFeature(kFeature, default_config);
-      WriteFeatureConfig(default_config);
+      WriteFeatureConfig(default_config, std::nullopt,
+                         params.validation_config);
     }
 
     if (params.model_component_ready) {
@@ -278,11 +306,16 @@ class OnDeviceModelServiceControllerTest : public testing::Test {
   void WriteFeatureConfig(
       const proto::OnDeviceModelExecutionFeatureConfig& config,
       std::optional<proto::OnDeviceModelExecutionFeatureConfig> config2 =
+          std::nullopt,
+      std::optional<proto::OnDeviceModelValidationConfig> validation_config =
           std::nullopt) {
     proto::OnDeviceModelExecutionConfig execution_config;
     *execution_config.add_feature_configs() = config;
     if (config2) {
       *execution_config.add_feature_configs() = *config2;
+    }
+    if (validation_config) {
+      *execution_config.mutable_validation_config() = *validation_config;
     }
     WriteExecutionConfig(execution_config);
   }
@@ -409,10 +442,15 @@ TEST_F(OnDeviceModelServiceControllerTest, ModelExecutionSuccess) {
       log_entry_received_->log_ai_data_request()
           ->model_execution_info()
           .on_device_model_execution_info();
-  EXPECT_EQ(logged_on_device_model_execution_info.model_versions()
-                .on_device_model_service_version()
-                .component_version(),
+  const auto& model_version =
+      logged_on_device_model_execution_info.model_versions()
+          .on_device_model_service_version();
+  EXPECT_EQ(model_version.component_version(), "0.0.1");
+  EXPECT_EQ(model_version.on_device_base_model_metadata().base_model_name(),
+            "Test");
+  EXPECT_EQ(model_version.on_device_base_model_metadata().base_model_version(),
             "0.0.1");
+  EXPECT_FALSE(model_version.model_adaptation_version());
   EXPECT_GT(logged_on_device_model_execution_info.execution_infos_size(), 0);
   EXPECT_EQ(logged_on_device_model_execution_info.execution_infos(0)
                 .response()
@@ -435,17 +473,37 @@ TEST_F(OnDeviceModelServiceControllerTest,
       {});
 
   proto::OnDeviceModelExecutionFeatureConfig config_compose, config_test;
+  config_compose.set_can_skip_text_safety(true);
+  config_test.set_can_skip_text_safety(true);
   PopulateConfigForFeature(ModelBasedCapabilityKey::kCompose, config_compose);
   PopulateConfigForFeature(ModelBasedCapabilityKey::kTest, config_test);
 
   Initialize({.config = config_compose, .config2 = config_test});
 
+  FakeOnDeviceModelAvailabilityObserver availability_observer_compose(
+      ModelBasedCapabilityKey::kCompose),
+      availability_observer_test(ModelBasedCapabilityKey::kTest);
+  test_controller_->AddOnDeviceModelAvailabilityChangeObserver(
+      ModelBasedCapabilityKey::kCompose, &availability_observer_compose);
+  test_controller_->AddOnDeviceModelAvailabilityChangeObserver(
+      ModelBasedCapabilityKey::kTest, &availability_observer_test);
+
   test_controller_->MaybeUpdateModelAdaptation(
       ModelBasedCapabilityKey::kCompose,
-      std::make_unique<on_device_model::AdaptationAssetPaths>());
+      OnDeviceModelAdaptationMetadata::New(
+          on_device_model::AdaptationAssetPaths(), kModelAdatationVersion,
+          /*adapter=*/nullptr));
+  EXPECT_EQ(OnDeviceModelEligibilityReason::kSuccess,
+            availability_observer_compose.reason_);
+  EXPECT_FALSE(availability_observer_test.reason_);
+
   test_controller_->MaybeUpdateModelAdaptation(
       ModelBasedCapabilityKey::kTest,
-      std::make_unique<on_device_model::AdaptationAssetPaths>());
+      OnDeviceModelAdaptationMetadata::New(
+          on_device_model::AdaptationAssetPaths(), kModelAdatationVersion,
+          /*adapter=*/nullptr));
+  EXPECT_EQ(OnDeviceModelEligibilityReason::kSuccess,
+            availability_observer_test.reason_);
 
   auto session_compose = test_controller_->CreateSession(
       ModelBasedCapabilityKey::kCompose, base::DoNothing(),
@@ -470,6 +528,21 @@ TEST_F(OnDeviceModelServiceControllerTest,
   EXPECT_TRUE(response_received_);
   EXPECT_EQ(*response_received_, "Adaptation model: 2\nInput: execute:bar\n");
   EXPECT_TRUE(*provided_by_on_device_);
+
+  EXPECT_TRUE(log_entry_received_);
+  const auto logged_on_device_model_execution_info =
+      log_entry_received_->log_ai_data_request()
+          ->model_execution_info()
+          .on_device_model_execution_info();
+  const auto& model_version =
+      logged_on_device_model_execution_info.model_versions()
+          .on_device_model_service_version();
+  EXPECT_EQ(model_version.component_version(), "0.0.1");
+  EXPECT_EQ(model_version.on_device_base_model_metadata().base_model_name(),
+            "Test");
+  EXPECT_EQ(model_version.on_device_base_model_metadata().base_model_version(),
+            "0.0.1");
+  EXPECT_EQ(model_version.model_adaptation_version(), 1);
 
   session_compose.reset();
   session_test.reset();
@@ -699,16 +772,20 @@ TEST_F(OnDeviceModelServiceControllerTest, SessionBeforeAndAfterModelUpdate) {
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, SessionFailsForInvalidFeature) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      features::internal::kOnDeviceModelTestFeature);
+
   Initialize();
   base::HistogramTester histogram_tester;
 
   EXPECT_FALSE(test_controller_->CreateSession(
-      ModelBasedCapabilityKey::kTabOrganization, base::DoNothing(),
-      logger_.GetWeakPtr(), nullptr, /*config_params=*/std::nullopt));
+      ModelBasedCapabilityKey::kTest, base::DoNothing(), logger_.GetWeakPtr(),
+      nullptr, /*config_params=*/std::nullopt));
 
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceModelEligibilityReason."
-      "TabOrganization",
+      "Test",
       OnDeviceModelEligibilityReason::kConfigNotAvailableForFeature, 1);
 }
 
@@ -806,11 +883,10 @@ TEST_F(OnDeviceModelServiceControllerTest, UpdateSafetyModel) {
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, SessionRequiresSafetyModel) {
-  Initialize();
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kTextSafetyClassifier,
-      {{"on_device_must_use_safety_model", "true"}});
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   // No safety model received yet.
   {
@@ -988,6 +1064,23 @@ TEST_F(OnDeviceModelServiceControllerTest, SessionRequiresSafetyModel) {
         "Compose",
         OnDeviceModelEligibilityReason::kSuccess, 1);
   }
+
+  // No safety model received yet but feature flag should disable safety check.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(features::kTextSafetyClassifier);
+    base::HistogramTester histogram_tester;
+
+    test_controller_->MaybeUpdateSafetyModel(std::nullopt);
+    EXPECT_TRUE(test_controller_->CreateSession(
+        kFeature, base::DoNothing(), logger_.GetWeakPtr(), nullptr,
+        /*config_params=*/std::nullopt));
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelEligibilityReason."
+        "Compose",
+        OnDeviceModelEligibilityReason::kSuccess, 1);
+  }
 }
 
 TEST(SafetyConfigTest, MissingScoreIsUnsafe) {
@@ -1019,12 +1112,15 @@ TEST(SafetyConfigTest, SafeWithRequiredScores) {
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, DefaultOutputSafetyPasses) {
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
+
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
-      {{"on_device_must_use_safety_model", "true"},
-       {"on_device_retract_unsafe_content", "true"}});
+      {{"on_device_retract_unsafe_content", "true"}});
 
   {
     auto safety_config =
@@ -1069,12 +1165,15 @@ TEST_F(OnDeviceModelServiceControllerTest, DefaultOutputSafetyPasses) {
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, DefaultOutputSafetyFails) {
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
+
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
-      {{"on_device_must_use_safety_model", "true"},
-       {"on_device_retract_unsafe_content", "true"}});
+      {{"on_device_retract_unsafe_content", "true"}});
 
   {
     auto safety_config =
@@ -1114,12 +1213,15 @@ TEST_F(OnDeviceModelServiceControllerTest, DefaultOutputSafetyFails) {
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, SafetyModelUsedButNoRetract) {
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
+
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
-      {{"on_device_must_use_safety_model", "true"},
-       {"on_device_retract_unsafe_content", "false"}});
+      {{"on_device_retract_unsafe_content", "false"}});
 
   {
     auto safety_config =
@@ -1165,7 +1267,10 @@ TEST_F(OnDeviceModelServiceControllerTest, RequestCheckPassesWithSafeUrl) {
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
       {{"on_device_retract_unsafe_content", "true"}});
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     // Configure a request safety check on the PageUrl.
@@ -1216,7 +1321,10 @@ TEST_F(OnDeviceModelServiceControllerTest, RequestCheckFailsWithUnsafeUrl) {
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
       {{"on_device_retract_unsafe_content", "true"}});
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     auto safety_config =
@@ -1229,6 +1337,10 @@ TEST_F(OnDeviceModelServiceControllerTest, RequestCheckFailsWithUnsafeUrl) {
     AddPageUrlSubstitution(input_template);
     check->mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     SetFeatureTextSafetyConfiguration(std::move(safety_config));
+
+    std::unique_ptr<optimization_guide::ModelInfo> ld_model_info =
+        TestModelInfoBuilder().SetVersion(123).Build();
+    test_controller_->SetLanguageDetectionModel(*ld_model_info);
   }
 
   // This should pass the default raw output safety check
@@ -1266,7 +1378,10 @@ TEST_F(OnDeviceModelServiceControllerTest, RequestCheckIgnoredInDarkMode) {
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
       {{"on_device_retract_unsafe_content", "false"}});
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     auto safety_config =
@@ -1318,7 +1433,10 @@ TEST_F(OnDeviceModelServiceControllerTest,
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
       {{"on_device_retract_unsafe_content", "true"}});
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     auto safety_config =
@@ -1331,6 +1449,10 @@ TEST_F(OnDeviceModelServiceControllerTest,
     AddPageUrlSubstitution(input_template);
     // Omitted check thresholds, should fallback to default.
     SetFeatureTextSafetyConfiguration(std::move(safety_config));
+
+    std::unique_ptr<optimization_guide::ModelInfo> ld_model_info =
+        TestModelInfoBuilder().SetVersion(123).Build();
+    test_controller_->SetLanguageDetectionModel(*ld_model_info);
   }
 
   // This should pass the default raw output safety check
@@ -1369,7 +1491,10 @@ TEST_F(OnDeviceModelServiceControllerTest,
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
       {{"on_device_retract_unsafe_content", "true"}});
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     // Configure a request safety check on the PageUrl.
@@ -1384,6 +1509,10 @@ TEST_F(OnDeviceModelServiceControllerTest,
     AddPageUrlSubstitution(input_template);
     check->mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     SetFeatureTextSafetyConfiguration(std::move(safety_config));
+
+    std::unique_ptr<optimization_guide::ModelInfo> ld_model_info =
+        TestModelInfoBuilder().SetVersion(123).Build();
+    test_controller_->SetLanguageDetectionModel(*ld_model_info);
   }
 
   // This should pass the default raw output safety check
@@ -1423,6 +1552,10 @@ TEST_F(OnDeviceModelServiceControllerTest,
     AddPageUrlSubstitution(input_template);
     check->mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     SetFeatureTextSafetyConfiguration(std::move(safety_config));
+
+    std::unique_ptr<optimization_guide::ModelInfo> ld_model_info =
+        TestModelInfoBuilder().SetVersion(123).Build();
+    test_controller_->SetLanguageDetectionModel(*ld_model_info);
   }
 
   // This should pass the default raw output safety check
@@ -1523,7 +1656,10 @@ TEST_F(OnDeviceModelServiceControllerTest,
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
       {{"on_device_retract_unsafe_content", "true"}});
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     // Configure a request safety check on the PageUrl.
@@ -1539,6 +1675,10 @@ TEST_F(OnDeviceModelServiceControllerTest,
     check->mutable_safety_category_thresholds()->Add(ForbidUnsafe());
     check->set_check_language_only(true);
     SetFeatureTextSafetyConfiguration(std::move(safety_config));
+
+    std::unique_ptr<optimization_guide::ModelInfo> ld_model_info =
+        TestModelInfoBuilder().SetVersion(123).Build();
+    test_controller_->SetLanguageDetectionModel(*ld_model_info);
   }
 
   // This should pass the default raw output safety check
@@ -1577,10 +1717,12 @@ TEST_F(OnDeviceModelServiceControllerTest,
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
-      {{"on_device_must_use_safety_model", "false"},
-       {"on_device_retract_unsafe_content", "true"}});
+      {{"on_device_retract_unsafe_content", "true"}});
 
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     // Configure a request safety check on the PageUrl.
@@ -1595,6 +1737,10 @@ TEST_F(OnDeviceModelServiceControllerTest,
     input_template->set_string_template("safe_text in esperanto: %s");
     AddStringValueSubstitution(input_template);
     SetFeatureTextSafetyConfiguration(std::move(safety_config));
+
+    std::unique_ptr<optimization_guide::ModelInfo> ld_model_info =
+        TestModelInfoBuilder().SetVersion(123).Build();
+    test_controller_->SetLanguageDetectionModel(*ld_model_info);
   }
 
   // This should be used in the raw output check.
@@ -1632,10 +1778,12 @@ TEST_F(OnDeviceModelServiceControllerTest, RawOutputCheckFailsWithUnsafeText) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
-      {{"on_device_must_use_safety_model", "false"},
-       {"on_device_retract_unsafe_content", "true"}});
+      {{"on_device_retract_unsafe_content", "true"}});
 
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     // Configure a request safety check on the PageUrl.
@@ -1650,6 +1798,10 @@ TEST_F(OnDeviceModelServiceControllerTest, RawOutputCheckFailsWithUnsafeText) {
     input_template->set_string_template("unsafe_text in esperanto: %s");
     AddStringValueSubstitution(input_template);
     SetFeatureTextSafetyConfiguration(std::move(safety_config));
+
+    std::unique_ptr<optimization_guide::ModelInfo> ld_model_info =
+        TestModelInfoBuilder().SetVersion(123).Build();
+    test_controller_->SetLanguageDetectionModel(*ld_model_info);
   }
 
   // This should be used in the raw output check.
@@ -1688,10 +1840,12 @@ TEST_F(OnDeviceModelServiceControllerTest,
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
-      {{"on_device_must_use_safety_model", "false"},
-       {"on_device_retract_unsafe_content", "true"}});
+      {{"on_device_retract_unsafe_content", "true"}});
 
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     // Configure a request safety check on the PageUrl.
@@ -1704,6 +1858,10 @@ TEST_F(OnDeviceModelServiceControllerTest,
     input_template->set_string_template("safe_text in unknown language: %s");
     AddStringValueSubstitution(input_template);
     SetFeatureTextSafetyConfiguration(std::move(safety_config));
+
+    std::unique_ptr<optimization_guide::ModelInfo> ld_model_info =
+        TestModelInfoBuilder().SetVersion(123).Build();
+    test_controller_->SetLanguageDetectionModel(*ld_model_info);
   }
 
   // This should be used in the raw output check.
@@ -1738,12 +1896,15 @@ TEST_F(OnDeviceModelServiceControllerTest,
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, SafetyModelDarkMode) {
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
+
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
-      {{"on_device_must_use_safety_model", "false"},
-       {"on_device_retract_unsafe_content", "false"}});
+      {{"on_device_retract_unsafe_content", "false"}});
 
   {
     auto safety_config =
@@ -1752,6 +1913,10 @@ TEST_F(OnDeviceModelServiceControllerTest, SafetyModelDarkMode) {
     safety_config->mutable_safety_category_thresholds()->Add(
         RequireReasonable());
     SetFeatureTextSafetyConfiguration(std::move(safety_config));
+
+    std::unique_ptr<optimization_guide::ModelInfo> ld_model_info =
+        TestModelInfoBuilder().SetVersion(123).Build();
+    test_controller_->SetLanguageDetectionModel(*ld_model_info);
   }
 
   auto session = test_controller_->CreateSession(
@@ -1783,12 +1948,15 @@ TEST_F(OnDeviceModelServiceControllerTest, SafetyModelDarkMode) {
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, SafetyModelDarkModeNoFeatureConfig) {
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(true);
+  Initialize({.config = config});
+
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kTextSafetyClassifier,
-      {{"on_device_must_use_safety_model", "false"},
-       {"on_device_retract_unsafe_content", "false"}});
+      {{"on_device_retract_unsafe_content", "false"}});
 
   proto::TextSafetyModelMetadata model_metadata;
   auto* other_feature_safety_config =
@@ -2040,8 +2208,9 @@ TEST_F(OnDeviceModelServiceControllerTest,
   // Change the pref to a different value and recreate the service.
   access_controller_ = nullptr;
   test_controller_.reset();
-  pref_service_.SetString(prefs::localstate::kOnDeviceModelChromeVersion,
-                          "BOGUS VERSION");
+  pref_service_.SetString(
+      model_execution::prefs::localstate::kOnDeviceModelChromeVersion,
+      "BOGUS VERSION");
   RecreateServiceController();
   // Wait until configuration is read.
   task_environment_.RunUntilIdle();
@@ -2082,15 +2251,13 @@ TEST_F(OnDeviceModelServiceControllerTest, AddContextDisconnectExecute) {
   EXPECT_THAT(streamed_responses_, ElementsAreArray(expected_responses));
   EXPECT_EQ(log_entry_received_->log_ai_data_request()
                 ->compose()
-                .request_data()
+                .request()
                 .page_metadata()
                 .page_url(),
             "baz");
-  EXPECT_EQ(log_entry_received_->log_ai_data_request()
-                ->compose()
-                .response_data()
-                .output(),
-            "Context: ctx:foo off:0 max:10\nInput: execute:foobaz\n");
+  EXPECT_EQ(
+      log_entry_received_->log_ai_data_request()->compose().response().output(),
+      "Context: ctx:foo off:0 max:10\nInput: execute:foobaz\n");
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, AddContextExecuteDisconnect) {
@@ -2138,15 +2305,13 @@ TEST_F(OnDeviceModelServiceControllerTest, ExecuteDisconnectedSession) {
   EXPECT_THAT(streamed_responses_, ElementsAreArray(expected_responses1));
   EXPECT_EQ(log_entry_received_->log_ai_data_request()
                 ->compose()
-                .request_data()
+                .request()
                 .page_metadata()
                 .page_url(),
             "2");
-  EXPECT_EQ(log_entry_received_->log_ai_data_request()
-                ->compose()
-                .response_data()
-                .output(),
-            "Context: ctx:bar off:0 max:10\nInput: execute:bar2\n");
+  EXPECT_EQ(
+      log_entry_received_->log_ai_data_request()->compose().response().output(),
+      "Context: ctx:bar off:0 max:10\nInput: execute:bar2\n");
   response_received_.reset();
   streamed_responses_.clear();
   log_entry_received_.reset();
@@ -2162,15 +2327,13 @@ TEST_F(OnDeviceModelServiceControllerTest, ExecuteDisconnectedSession) {
   EXPECT_THAT(streamed_responses_, ElementsAreArray(expected_responses2));
   EXPECT_EQ(log_entry_received_->log_ai_data_request()
                 ->compose()
-                .request_data()
+                .request()
                 .page_metadata()
                 .page_url(),
             "1");
-  EXPECT_EQ(log_entry_received_->log_ai_data_request()
-                ->compose()
-                .response_data()
-                .output(),
-            "Context: ctx:foo off:0 max:10\nInput: execute:foo1\n");
+  EXPECT_EQ(
+      log_entry_received_->log_ai_data_request()->compose().response().output(),
+      "Context: ctx:foo off:0 max:10\nInput: execute:foo1\n");
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, CallsRemoteExecute) {
@@ -2203,6 +2366,7 @@ TEST_F(OnDeviceModelServiceControllerTest, CallsRemoteExecute) {
 
 TEST_F(OnDeviceModelServiceControllerTest, AddContextInvalidConfig) {
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   config.set_feature(ToModelExecutionFeatureProto(kFeature));
   Initialize({.config = config});
 
@@ -2233,6 +2397,7 @@ TEST_F(OnDeviceModelServiceControllerTest, AddContextInvalidConfig) {
 
 TEST_F(OnDeviceModelServiceControllerTest, ExecuteInvalidConfig) {
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   config.set_feature(ToModelExecutionFeatureProto(kFeature));
   Initialize({.config = config});
 
@@ -2278,12 +2443,11 @@ TEST_F(OnDeviceModelServiceControllerTest, FallbackToServerAfterDelay) {
   EXPECT_EQ("2z", compose_request.page_metadata().page_url());
   ASSERT_TRUE(log_ai_data_request_passed_to_remote_);
   EXPECT_EQ(log_ai_data_request_passed_to_remote_->compose()
-                .request_data()
+                .request()
                 .page_metadata()
                 .page_url(),
             "2z");
-  EXPECT_FALSE(
-      log_ai_data_request_passed_to_remote_->compose().has_response_data());
+  EXPECT_FALSE(log_ai_data_request_passed_to_remote_->compose().has_response());
   EXPECT_FALSE(provided_by_on_device_.has_value());
 }
 
@@ -2301,16 +2465,15 @@ TEST_F(OnDeviceModelServiceControllerTest,
   task_environment_.RunUntilIdle();
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
-      ExecuteModelResult::kDisconnectAndFallbackToServer, 1);
+      ExecuteModelResult::kDisconnectAndMaybeFallback, 1);
   EXPECT_TRUE(remote_execute_called_);
   ASSERT_TRUE(log_ai_data_request_passed_to_remote_);
   EXPECT_EQ(log_ai_data_request_passed_to_remote_->compose()
-                .request_data()
+                .request()
                 .page_metadata()
                 .page_url(),
             "foo");
-  EXPECT_FALSE(
-      log_ai_data_request_passed_to_remote_->compose().has_response_data());
+  EXPECT_FALSE(log_ai_data_request_passed_to_remote_->compose().has_response());
 }
 
 TEST_F(OnDeviceModelServiceControllerTest,
@@ -2383,6 +2546,7 @@ TEST_F(OnDeviceModelServiceControllerTest, UseServerWithRepeatedDelays) {
 
 TEST_F(OnDeviceModelServiceControllerTest, RedactedField) {
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   PopulateConfigForFeatureWithRedactRule(config, "bar");
   Initialize({.config = config});
 
@@ -2427,6 +2591,7 @@ TEST_F(OnDeviceModelServiceControllerTest, RedactedField) {
 
 TEST_F(OnDeviceModelServiceControllerTest, RejectedField) {
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   PopulateConfigForFeatureWithRedactRule(config, "bar",
                                          proto::RedactBehavior::REJECT);
   Initialize({.config = config});
@@ -2462,6 +2627,7 @@ TEST_F(OnDeviceModelServiceControllerTest, RejectedField) {
 
 TEST_F(OnDeviceModelServiceControllerTest, UsePreviousResponseForRewrite) {
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   PopulateConfigForFeatureWithRedactRule(config, "bar");
   // Add a rule that identifies `previous_response` of `rewrite_params`.
   auto& output_config = *config.mutable_output_config();
@@ -2488,6 +2654,7 @@ TEST_F(OnDeviceModelServiceControllerTest, UsePreviousResponseForRewrite) {
 
 TEST_F(OnDeviceModelServiceControllerTest, ReplacementText) {
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   PopulateConfigForFeatureWithRedactRule(config, "bar")
       .set_replacement_string("[redacted]");
   Initialize({.config = config});
@@ -2595,9 +2762,6 @@ TEST_F(OnDeviceModelServiceControllerTest, DetectsRepeatsAndCancelsResponse) {
                   .response()
                   .on_device_model_service_response()
                   .has_repeats());
-  histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceResponseHasRepeats.Compose",
-      true, 1);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.Compose",
       ExecuteModelResult::kResponseHadRepeats, 1);
@@ -2712,6 +2876,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
 
   base::HistogramTester histogram_tester;
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   PopulateConfigForFeature(kFeature, config);
   Initialize({.config = config});
 
@@ -2744,6 +2909,7 @@ TEST_F(OnDeviceModelServiceControllerTest, UseRemoteTextSafetyFallback) {
 
   base::HistogramTester histogram_tester;
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   PopulateConfigForFeature(kFeature, config);
   // Set input url proto field for text safety to just be user input.
   auto* input_url_proto_field = config.mutable_text_safety_fallback_config()
@@ -2824,6 +2990,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
 
   base::HistogramTester histogram_tester;
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   PopulateConfigForFeature(kFeature, config);
   // Create an empty ts fallback config which is valid and will call the
   // fallback.
@@ -2903,6 +3070,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
 
   base::HistogramTester histogram_tester;
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   PopulateConfigForFeature(kFeature, config);
   // Create an empty ts fallback config which is valid and will call the
   // fallback.
@@ -2958,6 +3126,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
   feature_list.InitAndEnableFeature(features::kTextSafetyRemoteFallback);
 
   proto::OnDeviceModelExecutionFeatureConfig config;
+  config.set_can_skip_text_safety(true);
   PopulateConfigForFeature(kFeature, config);
   // Create an empty ts fallback config which is valid and will call the
   // fallback.
@@ -3068,7 +3237,11 @@ TEST_F(OnDeviceModelServiceControllerTest, TsInterval0) {
            {{"on_device_text_safety_token_interval", "0"}}},
       },
       {});
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
+
   {
     auto safety_config =
         std::make_unique<proto::FeatureTextSafetyConfiguration>();
@@ -3140,7 +3313,11 @@ TEST_F(OnDeviceModelServiceControllerTest, TsInterval3) {
            {{"on_device_text_safety_token_interval", "3"}}},
       },
       {});
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
+
   {
     auto safety_config =
         std::make_unique<proto::FeatureTextSafetyConfiguration>();
@@ -3188,6 +3365,52 @@ TEST_F(OnDeviceModelServiceControllerTest,
       OnDeviceModelEligibilityReason::kModelAdaptationNotAvailable, 1);
 }
 
+TEST_F(OnDeviceModelServiceControllerTest, TestAvailabilityObserver) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::internal::kModelAdaptationCompose, {}},
+       {features::internal::kOnDeviceModelTestFeature,
+        {{"enable_adaptation", "false"}}}},
+      {});
+
+  proto::OnDeviceModelExecutionFeatureConfig config_compose, config_test;
+  config_compose.set_can_skip_text_safety(true);
+  config_test.set_can_skip_text_safety(true);
+  PopulateConfigForFeature(ModelBasedCapabilityKey::kCompose, config_compose);
+  PopulateConfigForFeature(ModelBasedCapabilityKey::kTest, config_test);
+
+  Initialize({.config = config_compose,
+              .config2 = config_test,
+              .model_component_ready = false});
+
+  FakeOnDeviceModelAvailabilityObserver availability_observer_compose(
+      ModelBasedCapabilityKey::kCompose),
+      availability_observer_test(ModelBasedCapabilityKey::kTest);
+  test_controller_->AddOnDeviceModelAvailabilityChangeObserver(
+      ModelBasedCapabilityKey::kCompose, &availability_observer_compose);
+  test_controller_->AddOnDeviceModelAvailabilityChangeObserver(
+      ModelBasedCapabilityKey::kTest, &availability_observer_test);
+
+  on_device_component_state_manager_.get()->OnStartup();
+  task_environment_.RunUntilIdle();
+  on_device_component_state_manager_.SetReady(temp_dir());
+  task_environment_.RunUntilIdle();
+  EXPECT_EQ(OnDeviceModelEligibilityReason::kSuccess,
+            availability_observer_test.reason_);
+  EXPECT_EQ(OnDeviceModelEligibilityReason::kModelAdaptationNotAvailable,
+            availability_observer_compose.reason_);
+
+  test_controller_->MaybeUpdateModelAdaptation(
+      ModelBasedCapabilityKey::kCompose,
+      OnDeviceModelAdaptationMetadata::New(
+          on_device_model::AdaptationAssetPaths(), kModelAdatationVersion,
+          /*adapter=*/nullptr));
+  EXPECT_EQ(OnDeviceModelEligibilityReason::kSuccess,
+            availability_observer_test.reason_);
+  EXPECT_EQ(OnDeviceModelEligibilityReason::kSuccess,
+            availability_observer_compose.reason_);
+}
+
 class OnDeviceModelServiceControllerTsIntervalTest
     : public OnDeviceModelServiceControllerTest,
       public ::testing::WithParamInterface<int> {};
@@ -3200,13 +3423,15 @@ TEST_P(OnDeviceModelServiceControllerTsIntervalTest,
       {{features::kOptimizationGuideOnDeviceModel,
         {{"on_device_model_retract_repeats", "false"}}},
        {features::kTextSafetyClassifier,
-        {{"on_device_must_use_safety_model", "true"},
-         {"on_device_retract_unsafe_content", "true"},
+        {{"on_device_retract_unsafe_content", "true"},
          {"on_device_text_safety_token_interval",
           base::NumberToString(GetParam())}}}},
       {});
 
-  Initialize();
+  proto::OnDeviceModelExecutionFeatureConfig config;
+  PopulateConfigForFeature(kFeature, config);
+  config.set_can_skip_text_safety(false);
+  Initialize({.config = config});
 
   {
     auto safety_config =
@@ -3254,5 +3479,375 @@ TEST_P(OnDeviceModelServiceControllerTsIntervalTest,
 INSTANTIATE_TEST_SUITE_P(OnDeviceModelServiceControllerTsIntervalTests,
                          OnDeviceModelServiceControllerTsIntervalTest,
                          testing::ValuesIn<int>({1, 2, 3, 4, 10}));
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationSucceeds) {
+  proto::OnDeviceModelValidationConfig validation_config;
+  auto* prompt = validation_config.add_validation_prompts();
+  prompt->set_prompt("hello");
+  prompt->set_expected_output("HELLO");
+
+  base::HistogramTester histogram_tester;
+  Initialize({.validation_config = validation_config});
+  task_environment_.RunUntilIdle();
+  // Service should be immediately shut down.
+  EXPECT_FALSE(test_controller_->IsServiceConnected());
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+      OnDeviceModelValidationResult::kSuccess, 1);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest,
+       ModelValidationSucceedsImmediatelyWithNoPrompts) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kOnDeviceModelValidation,
+        {{"on_device_model_validation_delay", "30s"},
+         {"on_device_model_block_on_validation_failure", "true"}}}},
+      {});
+  proto::OnDeviceModelValidationConfig validation_config;
+
+  base::HistogramTester histogram_tester;
+  Initialize({.validation_config = validation_config});
+  task_environment_.RunUntilIdle();
+
+  EXPECT_TRUE(test_controller_->CreateSession(kFeature, base::DoNothing(),
+                                              logger_.GetWeakPtr(), nullptr,
+                                              /*config_params=*/std::nullopt));
+
+  // Full validation did not need to run.
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult", 0);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationBlocksSession) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kOnDeviceModelValidation,
+        {{"on_device_model_validation_delay", "0"},
+         {"on_device_model_block_on_validation_failure", "true"}}}},
+      {});
+  proto::OnDeviceModelValidationConfig validation_config;
+  auto* prompt = validation_config.add_validation_prompts();
+  prompt->set_prompt("hello");
+  prompt->set_expected_output("goodbye");
+
+  {
+    base::HistogramTester histogram_tester;
+    Initialize({.validation_config = validation_config});
+    task_environment_.RunUntilIdle();
+
+    EXPECT_FALSE(test_controller_->CreateSession(
+        kFeature, base::DoNothing(), logger_.GetWeakPtr(), nullptr,
+        /*config_params=*/std::nullopt));
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kNonMatchingOutput, 1);
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelEligibilityReason."
+        "Compose",
+        OnDeviceModelEligibilityReason::kValidationFailed, 1);
+  }
+
+  {
+    fake_settings_.set_execute_result({"goodbye"});
+    base::HistogramTester histogram_tester;
+    RecreateServiceController();
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kSuccess, 1);
+  }
+
+  EXPECT_TRUE(test_controller_->CreateSession(kFeature, base::DoNothing(),
+                                              logger_.GetWeakPtr(), nullptr,
+                                              /*config_params=*/std::nullopt));
+}
+
+TEST_F(OnDeviceModelServiceControllerTest,
+       ModelValidationBlocksSessionPendingCheck) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kOnDeviceModelValidation,
+        {{"on_device_model_validation_delay", "30s"},
+         {"on_device_model_block_on_validation_failure", "true"}}}},
+      {});
+  proto::OnDeviceModelValidationConfig validation_config;
+  auto* prompt = validation_config.add_validation_prompts();
+  prompt->set_prompt("hello");
+  prompt->set_expected_output("hello");
+
+  {
+    base::HistogramTester histogram_tester;
+    Initialize({.validation_config = validation_config});
+    task_environment_.RunUntilIdle();
+
+    EXPECT_FALSE(test_controller_->CreateSession(
+        kFeature, base::DoNothing(), logger_.GetWeakPtr(), nullptr,
+        /*config_params=*/std::nullopt));
+
+    histogram_tester.ExpectTotalCount(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult", 0);
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelEligibilityReason."
+        "Compose",
+        OnDeviceModelEligibilityReason::kValidationPending, 1);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    task_environment_.FastForwardBy(base::Seconds(30) + base::Milliseconds(1));
+    task_environment_.RunUntilIdle();
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kSuccess, 1);
+  }
+
+  EXPECT_TRUE(test_controller_->CreateSession(kFeature, base::DoNothing(),
+                                              logger_.GetWeakPtr(), nullptr,
+                                              /*config_params=*/std::nullopt));
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationNewModelVersion) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kOnDeviceModelValidation,
+        {{"on_device_model_validation_delay", "0"},
+         {"on_device_model_block_on_validation_failure", "true"}}}},
+      {});
+  proto::OnDeviceModelValidationConfig validation_config;
+  auto* prompt = validation_config.add_validation_prompts();
+  prompt->set_prompt("hello");
+  prompt->set_expected_output("hello");
+
+  {
+    base::HistogramTester histogram_tester;
+    Initialize({.validation_config = validation_config});
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kSuccess, 1);
+  }
+
+  EXPECT_TRUE(test_controller_->CreateSession(kFeature, base::DoNothing(),
+                                              logger_.GetWeakPtr(), nullptr,
+                                              /*config_params=*/std::nullopt));
+
+  fake_settings_.set_execute_result({"goodbye"});
+  {
+    base::HistogramTester histogram_tester;
+
+    on_device_component_state_manager_.get()->OnStartup();
+    task_environment_.RunUntilIdle();
+    on_device_component_state_manager_.SetReady(temp_dir(), "0.0.2");
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kNonMatchingOutput, 1);
+  }
+
+  EXPECT_FALSE(test_controller_->CreateSession(kFeature, base::DoNothing(),
+                                               logger_.GetWeakPtr(), nullptr,
+                                               /*config_params=*/std::nullopt));
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationDoesNotRepeat) {
+  proto::OnDeviceModelValidationConfig validation_config;
+  auto* prompt = validation_config.add_validation_prompts();
+  prompt->set_prompt("hello");
+  prompt->set_expected_output("hello");
+
+  {
+    base::HistogramTester histogram_tester;
+    Initialize({.validation_config = validation_config});
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kSuccess, 1);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    RecreateServiceController();
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectTotalCount(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult", 0);
+  }
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationRepeatsOnFailure) {
+  proto::OnDeviceModelValidationConfig validation_config;
+  auto* prompt = validation_config.add_validation_prompts();
+  prompt->set_prompt("hello");
+  prompt->set_expected_output("goodbye");
+
+  {
+    base::HistogramTester histogram_tester;
+    Initialize({.validation_config = validation_config});
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kNonMatchingOutput, 1);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    RecreateServiceController();
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kNonMatchingOutput, 1);
+  }
+
+  {
+    fake_settings_.set_execute_result({"goodbye"});
+    base::HistogramTester histogram_tester;
+    RecreateServiceController();
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kSuccess, 1);
+  }
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationMaximumRetry) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kOnDeviceModelValidation,
+        {{"on_device_model_validation_delay", "0"},
+         {"on_device_model_validation_attempt_count", "2"}}}},
+      {});
+  proto::OnDeviceModelValidationConfig validation_config;
+  auto* prompt = validation_config.add_validation_prompts();
+  prompt->set_prompt("hello");
+  prompt->set_expected_output("goodbye");
+
+  {
+    base::HistogramTester histogram_tester;
+    Initialize({.validation_config = validation_config});
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kNonMatchingOutput, 1);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    RecreateServiceController();
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectUniqueSample(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+        OnDeviceModelValidationResult::kNonMatchingOutput, 1);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    RecreateServiceController();
+    task_environment_.RunUntilIdle();
+
+    histogram_tester.ExpectTotalCount(
+        "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult", 0);
+  }
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kOnDeviceModelValidation);
+
+  base::HistogramTester histogram_tester;
+  Initialize({.validation_config = WillPassValidationConfig()});
+  task_environment_.RunUntilIdle();
+
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult", 0);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationDelayed) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kOnDeviceModelValidation,
+        {{"on_device_model_validation_delay", "30s"}}}},
+      {});
+
+  base::HistogramTester histogram_tester;
+  Initialize({.validation_config = WillPassValidationConfig()});
+  task_environment_.RunUntilIdle();
+
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult", 0);
+
+  task_environment_.FastForwardBy(base::Seconds(15) + base::Milliseconds(1));
+  task_environment_.RunUntilIdle();
+
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult", 0);
+
+  task_environment_.FastForwardBy(base::Seconds(15) + base::Milliseconds(1));
+  task_environment_.RunUntilIdle();
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+      OnDeviceModelValidationResult::kSuccess, 1);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationInterrupted) {
+  fake_settings_.set_execute_delay(base::Seconds(30));
+
+  base::HistogramTester histogram_tester;
+  Initialize({.validation_config = WillPassValidationConfig()});
+  task_environment_.RunUntilIdle();
+
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult", 0);
+
+  EXPECT_TRUE(test_controller_->CreateSession(kFeature, base::DoNothing(),
+                                              logger_.GetWeakPtr(), nullptr,
+                                              /*config_params=*/std::nullopt));
+
+  task_environment_.RunUntilIdle();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+      OnDeviceModelValidationResult::kInterrupted, 1);
+
+  // Session was created to the service should still be connected.
+  EXPECT_TRUE(test_controller_->IsServiceConnected());
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationFails) {
+  base::HistogramTester histogram_tester;
+  Initialize({.validation_config = WillFailValidationConfig()});
+  task_environment_.RunUntilIdle();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+      OnDeviceModelValidationResult::kNonMatchingOutput, 1);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest, ModelValidationFailsOnCrash) {
+  fake_settings_.set_execute_delay(base::Seconds(10));
+
+  base::HistogramTester histogram_tester;
+  Initialize({.validation_config = WillPassValidationConfig()});
+  task_environment_.RunUntilIdle();
+
+  test_controller_->CrashService();
+  task_environment_.FastForwardBy(base::Seconds(10) + base::Milliseconds(1));
+  task_environment_.RunUntilIdle();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.OnDeviceModelValidationResult",
+      OnDeviceModelValidationResult::kServiceCrash, 1);
+}
 
 }  // namespace optimization_guide

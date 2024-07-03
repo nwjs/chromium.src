@@ -209,7 +209,7 @@ DOMWindow* FindWindow(v8::Isolate* isolate,
     return V8Location::ToWrappableUnsafe(isolate, holder)->DomWindow();
 
   // This function can handle only those types listed above.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 

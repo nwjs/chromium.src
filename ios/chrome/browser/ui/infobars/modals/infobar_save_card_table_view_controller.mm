@@ -69,8 +69,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
 // Card related Legal Messages to be displayed.
 @property(nonatomic, copy)
     NSMutableArray<SaveCardMessageWithLinks*>* legalMessages;
-// YES if the Card being displayed has been saved.
-@property(nonatomic, assign) BOOL currentCardSaved;
+// YES if the Card being displayed has been accepted to be saved.
+@property(nonatomic, assign) BOOL currentCardSaveAccepted;
 // Set to YES if the Modal should support editing.
 @property(nonatomic, assign) BOOL supportsEditing;
 // The email to identify the account where the card will be saved. Empty if none
@@ -115,12 +115,13 @@ typedef NS_ENUM(NSInteger, ItemType) {
       setSeparatorInset:UIEdgeInsetsMake(0, kTableViewHorizontalSpacing, 0, 0)];
 
   // Configure the NavigationBar.
-  UIBarButtonItem* cancelButton = [[UIBarButtonItem alloc]
-      initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
-                           target:self
-                           action:@selector(dismissInfobarModal)];
-  cancelButton.accessibilityIdentifier = kInfobarModalCancelButton;
-  self.navigationItem.leftBarButtonItem = cancelButton;
+  UIBarButtonItem* closeButton = [[UIBarButtonItem alloc]
+      initWithTitle:l10n_util::GetNSString(IDS_IOS_AUTOFILL_SAVE_CARD_CLOSE)
+              style:UIBarButtonItemStylePlain
+             target:self
+             action:@selector(dismissInfobarModal)];
+  closeButton.accessibilityIdentifier = kInfobarModalCancelButton;
+  self.navigationItem.leftBarButtonItem = closeButton;
   self.navigationController.navigationBar.prefersLargeTitles = NO;
 
   [self loadModel];
@@ -223,7 +224,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   self.saveCardButtonItem.textAlignment = NSTextAlignmentNatural;
   self.saveCardButtonItem.buttonText =
       l10n_util::GetNSString(IDS_IOS_AUTOFILL_SAVE_CARD);
-  self.saveCardButtonItem.enabled = !self.currentCardSaved;
+  self.saveCardButtonItem.enabled = !self.currentCardSaveAccepted;
   self.saveCardButtonItem.disableButtonIntrinsicWidth = YES;
   [model addItem:self.saveCardButtonItem
       toSectionWithIdentifier:SectionIdentifierContent];
@@ -249,7 +250,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
   self.expirationMonth = prefs[kExpirationMonthPrefKey];
   self.expirationYear = prefs[kExpirationYearPrefKey];
   self.legalMessages = prefs[kLegalMessagesPrefKey];
-  self.currentCardSaved = [prefs[kCurrentCardSavedPrefKey] boolValue];
+  self.currentCardSaveAccepted =
+      [prefs[kCurrentCardSaveAcceptedPrefKey] boolValue];
   self.supportsEditing = [prefs[kSupportsEditingPrefKey] boolValue];
   self.displayedTargetAccountEmail = prefs[kDisplayedTargetAccountEmailPrefKey];
   self.displayedTargetAccountAvatar =
@@ -339,6 +341,13 @@ typedef NS_ENUM(NSInteger, ItemType) {
   }
 
   return cell;
+}
+
+- (void)showLoadingState {
+  self.saveCardButtonItem.buttonText = @"";
+  self.saveCardButtonItem.enabled = NO;
+  self.saveCardButtonItem.showsActivityIndicator = YES;
+  [self reconfigureCellsForItems:@[ self.saveCardButtonItem ]];
 }
 
 #pragma mark - UITableViewDelegate

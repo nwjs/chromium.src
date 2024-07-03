@@ -19,6 +19,7 @@
 #include "ui/base/hit_test.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/display/types/display_constants.h"
+#include "ui/events/base_event_utils.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_widget_types.h"
@@ -33,6 +34,7 @@
 #include "ui/ozone/platform/wayland/host/wayland_event_source.h"
 #include "ui/ozone/platform/wayland/host/wayland_output.h"
 #include "ui/ozone/platform/wayland/host/wayland_output_manager.h"
+#include "ui/ozone/platform/wayland/host/wayland_popup.h"
 #include "ui/ozone/platform/wayland/host/wayland_window.h"
 #include "ui/ozone/platform/wayland/host/wayland_window_drag_controller.h"
 #include "ui/ozone/platform/wayland/host/wayland_zaura_shell.h"
@@ -148,7 +150,8 @@ void WaylandToplevelWindow::DispatchHostWindowDragMovement(
   connection()->Flush();
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)
   // TODO(crbug.com/40917147): Revisit to resolve the correct impl.
-  connection()->event_source()->ResetPointerFlags();
+  connection()->event_source()->ReleasePressedPointerButtons(this,
+                                                             EventTimeForNow());
 #endif
 }
 
@@ -163,9 +166,6 @@ void WaylandToplevelWindow::Show(bool inactive) {
 
   UpdateWindowScale(false);
 
-  if (auto* drag_controller = connection()->window_drag_controller())
-    drag_controller->OnToplevelWindowCreated(this);
-
   if (inactive)
     Deactivate();
 
@@ -176,9 +176,9 @@ void WaylandToplevelWindow::Hide() {
   if (!shell_toplevel_)
     return;
 
-  if (child_window()) {
-    child_window()->Hide();
-    set_child_window(nullptr);
+  if (child_popup()) {
+    child_popup()->Hide();
+    set_child_popup(nullptr);
   }
   for (auto bubble : child_bubbles()) {
     bubble->Hide();
@@ -573,6 +573,8 @@ void WaylandToplevelWindow::HandleAuraToplevelConfigure(
     window_state = PlatformWindowState::kSnappedSecondary;
   } else if (window_states.is_floated) {
     window_state = PlatformWindowState::kFloated;
+  } else if (window_states.is_pip) {
+    window_state = PlatformWindowState::kPip;
   } else {
     window_state = PlatformWindowState::kNormal;
   }
@@ -706,7 +708,7 @@ bool WaylandToplevelWindow::OnInitialize(
 #else
   app_id_ = properties.wayland_app_id;
 #endif
-  SetWaylandExtension(this, static_cast<WaylandExtension*>(this));
+  SetWaylandToplevelExtension(this, this);
   SetWmMoveLoopHandler(this, static_cast<WmMoveLoopHandler*>(this));
   SetWorkspaceExtension(this, static_cast<WorkspaceExtension*>(this));
   SetWorkspaceExtensionDelegate(properties.workspace_extension_delegate);
@@ -888,29 +890,6 @@ void WaylandToplevelWindow::SetShadowCornersRadii(
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-
-void WaylandToplevelWindow::RoundTripQueue() {
-  connection()->RoundTripQueue();
-}
-
-bool WaylandToplevelWindow::HasInFlightRequestsForState() const {
-  CHECK(UseTestConfigForPlatformWindows());
-  return WaylandWindow::HasInFlightRequestsForStateForTesting();
-}
-
-int64_t WaylandToplevelWindow::GetVizSequenceIdForAppliedState() const {
-  CHECK(UseTestConfigForPlatformWindows());
-  return latest_applied_viz_seq_for_testing_;
-}
-
-int64_t WaylandToplevelWindow::GetVizSequenceIdForLatchedState() const {
-  CHECK(UseTestConfigForPlatformWindows());
-  return latest_latched_viz_seq_for_testing_;
-}
-
-void WaylandToplevelWindow::SetLatchImmediately(bool latch_immediately) {
-  latch_immediately_for_testing_ = latch_immediately;
-}
 
 void WaylandToplevelWindow::ShowSnapPreview(
     WaylandWindowSnapDirection snap_direction,

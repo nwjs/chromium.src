@@ -36,6 +36,16 @@ class Widget;
 // Sandbox APIs.
 class PrivacySandboxService : public KeyedService {
  public:
+  // Possible areas where the pref kPrivacySandboxM1AdMeasurement would be set.
+  // LINT.IfChange(M1AdMeasurementSetReason)
+  enum class M1AdMeasurementSetReason {
+    kDisabled_RestrictedNoNotice = 0,
+    kDisabled_PolicySettings = 1,
+    kEnabled = 2,
+    kMaxValue = kEnabled,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/enums.xml:M1AdMeasurementSetReason)
+
   // Possible types of Privacy Sandbox prompts that may be shown to the user.
   // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.privacy_sandbox
   enum class PromptType {
@@ -293,6 +303,9 @@ class PrivacySandboxService : public KeyedService {
   // component, we can create an accurate heuristic to identify distinct user
   // groups based on their Chrome usage patterns. This will enable us to tailor
   // the user experience for specific launches in the near future.
+  //
+  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.privacy_sandbox
+  // LINT.IfChange(PrivacySandboxStorageActivityType)
   enum class PrivacySandboxStorageActivityType {
     kTabbed,              // BrApp
     kAGSACustomTab,       // AGSA-CCT
@@ -304,8 +317,25 @@ class PrivacySandboxService : public KeyedService {
     kWebApk,  // PWA
     kMaxValue = kWebApk,
   };
+  // LINT.ThenChange(/tools/metrics/histograms/enums.xml)
+
   virtual void RecordActivityType(
       PrivacySandboxStorageActivityType type) const = 0;
+
+  // Enum used for recording metrics about Clank Activity Type Storage
+  //
+  // LINT.IfChange(PrivacySandboxStorageUserSegmentByRecentActivity)
+  enum class PrivacySandboxStorageUserSegmentByRecentActivity {
+    kHasBrowserApp,
+    kHasAGSACCT,
+    kHasNonAGSACCT,
+    kHasPWA,
+    kHasTWA,
+    kHasWebapp,
+    kOther,
+    kMaxValue = kOther,
+  };
+  // LINT.ThenChange(/tools/metrics/histograms/enums.xml)
 #endif  // BUILDFLAG(IS_ANDROID)
 };
 

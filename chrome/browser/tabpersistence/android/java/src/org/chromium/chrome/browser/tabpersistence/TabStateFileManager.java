@@ -36,6 +36,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -132,7 +133,13 @@ public class TabStateFileManager {
         // opportunity to save any FlatBuffer based {@link TabState} files yet. So we
         // always have a fallback to regular hand-written based TabState.
         if (isFlatBufferSchemaEnabled()) {
-            TabState tabState = restoreTabState(stateFolder, id, true);
+            TabState tabState = null;
+            try {
+                tabState = restoreTabState(stateFolder, id, true);
+            } catch (Exception e) {
+                // TODO(crbug.com/341122002) Add in metrics
+                Log.d(TAG, "Error restoring TabState using FlatBuffer", e);
+            }
             if (tabState != null) {
                 RecordHistogram.recordEnumeratedHistogram(
                         "Tabs.TabState.RestoreMethod",
@@ -167,7 +174,8 @@ public class TabStateFileManager {
      * @param useFlatBuffer whether to restore using the FlatBuffer based TabState file or not.
      * @return TabState that has been restored, or null if it failed.
      */
-    private static TabState restoreTabState(File stateFolder, int id, boolean useFlatBuffer) {
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    public static TabState restoreTabState(File stateFolder, int id, boolean useFlatBuffer) {
         // First try finding an unencrypted file.
         boolean encrypted = false;
         File file = getTabStateFile(stateFolder, id, encrypted, useFlatBuffer);
@@ -453,11 +461,30 @@ public class TabStateFileManager {
      * @param tabState TabState to store in a file
      * @param tabId identifier for the Tab
      * @param isEncrypted whether the stored Tab is encrypted or not
+     * @return true if migration was successful.
      */
-    public static void migrateTabState(
+    public static boolean migrateTabState(
             File directory, TabState tabState, int tabId, boolean isEncrypted) {
-        saveStateInternal(
-                getTabStateFile(directory, tabId, isEncrypted, true), tabState, isEncrypted);
+        try {
+            saveStateInternal(
+                    getTabStateFile(directory, tabId, isEncrypted, true), tabState, isEncrypted);
+            return true;
+        } catch (Exception e) {
+            // TODO(crbug.com/341122002) Add in metrics
+            Log.d(TAG, "Error saving TabState FlatBuffer file", e);
+        }
+        return false;
+    }
+
+    /**
+     * @param directory directory TabState files are stored in
+     * @param tabId identifier for the {@link Tab}
+     * @param isEncrypted true if the {@link Tab} is incognito. Otherwise false.
+     * @return true if a {@link Tab} is migrated to the new FlatBuffer format.
+     */
+    public static boolean isMigrated(File directory, int tabId, boolean isEncrypted) {
+        File file = getTabStateFile(directory, tabId, isEncrypted, /* isFlatbuffer= */ true);
+        return file != null && file.exists();
     }
 
     /**
@@ -507,7 +534,7 @@ public class TabStateFileManager {
                 try {
                     FlatBufferTabStateSerializer serializer =
                             new FlatBufferTabStateSerializer(encrypted);
-                    ByteBuffer data = serializer.serialize(state);
+                    ByteBuffer data = serializer.serialize(state, contentsStateBytes);
                     if (encrypted) {
                         dataOutputStream.writeInt(data.remaining());
                     }
@@ -583,6 +610,20 @@ public class TabStateFileManager {
     }
 
     /**
+     * Delete migrated TabState file for corresponding Tab
+     *
+     * @param directory directory TabState files are stored in
+     * @param tabId identifier for {@link Tab}
+     * @param encrypted isEncrypted true if the {@link Tab} is incognito. Otherwise false.
+     */
+    public static void deleteMigratedFile(File directory, int tabId, boolean encrypted) {
+        File file = getTabStateFile(directory, tabId, encrypted, /* isFlatbuffer= */ true);
+        if (file != null && file.exists() && !file.delete()) {
+            Log.e(TAG, "Failed to delete TabState: " + file);
+        }
+    }
+
+    /**
      * Generates the name of the state file that should represent the Tab specified by {@code id}
      * and {@code encrypted}.
      *
@@ -637,9 +678,21 @@ public class TabStateFileManager {
                 });
     }
 
-    private static void deleteFlatBufferFiles(File stateDirectory) {
-        for (File file : stateDirectory.listFiles()) {
-            if (file.getName().startsWith(FLATBUFFER_PREFIX) && !file.delete()) {
+    @VisibleForTesting
+    protected static void deleteFlatBufferFiles(File stateDirectory) {
+        if (stateDirectory == null || stateDirectory.listFiles() == null) {
+            return;
+        }
+        for (String filename :
+                stateDirectory.list(
+                        new FilenameFilter() {
+                            @Override
+                            public boolean accept(File dir, String name) {
+                                return name != null && name.startsWith(FLATBUFFER_PREFIX);
+                            }
+                        })) {
+            File file = new File(stateDirectory, filename);
+            if (!file.delete()) {
                 Log.e(TAG, "Failed to delete FlatBuffer TabState: " + file);
             }
         }

@@ -30,6 +30,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "cc/trees/render_frame_metadata.h"
+#include "components/input/mouse_wheel_event_queue.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/surfaces/child_local_surface_id_allocator.h"
@@ -39,7 +40,6 @@
 #include "components/viz/test/fake_surface_observer.h"
 #include "components/viz/test/test_latest_local_surface_id_lookup_delegate.h"
 #include "content/browser/browser_main_loop.h"
-#include "content/browser/compositor/test/test_image_transport_factory.h"
 #include "content/browser/gpu/compositor_util.h"
 #include "content/browser/renderer_host/delegated_frame_host.h"
 #include "content/browser/renderer_host/delegated_frame_host_client_aura.h"
@@ -58,7 +58,6 @@
 #include "content/browser/web_contents/web_contents_view_aura.h"
 #include "content/common/features.h"
 #include "content/common/input/input_router.h"
-#include "content/common/input/mouse_wheel_event_queue.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -67,6 +66,7 @@
 #include "content/public/test/fake_frame_widget.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_browser_context.h"
+#include "content/public/test/test_image_transport_factory.h"
 #include "content/test/mock_render_input_router.h"
 #include "content/test/mock_render_widget_host_delegate.h"
 #include "content/test/mock_widget.h"
@@ -330,7 +330,9 @@ class FullscreenLayoutManager : public aura::LayoutManager {
 
 class MockRenderWidgetHostImpl : public RenderWidgetHostImpl {
  public:
-  ~MockRenderWidgetHostImpl() override {}
+  using RenderWidgetHostImpl::render_input_router_;
+
+  ~MockRenderWidgetHostImpl() override = default;
 
   // Extracts |latency_info| for wheel event, and stores it in
   // |last_wheel_or_touch_event_latency_info_|.
@@ -339,17 +341,8 @@ class MockRenderWidgetHostImpl : public RenderWidgetHostImpl {
       const ui::LatencyInfo& ui_latency) override {
     RenderWidgetHostImpl::ForwardWheelEventWithLatencyInfo(wheel_event,
                                                            ui_latency);
-    last_wheel_or_touch_event_latency_info_ = ui::LatencyInfo(ui_latency);
-  }
-
-  // Extracts |latency_info| for touch event, and stores it in
-  // |last_wheel_or_touch_event_latency_info_|.
-  void ForwardTouchEventWithLatencyInfo(
-      const blink::WebTouchEvent& touch_event,
-      const ui::LatencyInfo& ui_latency) override {
-    RenderWidgetHostImpl::ForwardTouchEventWithLatencyInfo(touch_event,
-                                                           ui_latency);
-    last_wheel_or_touch_event_latency_info_ = ui::LatencyInfo(ui_latency);
+    GetMockRenderInputRouter()->SetLastWheelOrTouchEventLatencyInfo(
+        ui::LatencyInfo(ui_latency));
   }
 
   void ForwardGestureEventWithLatencyInfo(
@@ -398,11 +391,15 @@ class MockRenderWidgetHostImpl : public RenderWidgetHostImpl {
   }
 
   MockWidgetInputHandler* input_handler() {
-    return mock_render_input_router_->mock_widget_input_handler_.get();
+    return GetMockRenderInputRouter()->mock_widget_input_handler_.get();
+  }
+
+  MockRenderInputRouter* GetMockRenderInputRouter() {
+    return static_cast<MockRenderInputRouter*>(render_input_router_.get());
   }
 
   RenderInputRouter* GetRenderInputRouter() override {
-    return mock_render_input_router_.get();
+    return render_input_router_.get();
   }
 
   void reset_new_content_rendering_timeout_fired() {
@@ -415,10 +412,6 @@ class MockRenderWidgetHostImpl : public RenderWidgetHostImpl {
 
   void SetTouchActionFromMain(cc::TouchAction touch_action) {
     widget_.SetTouchActionFromMain(touch_action);
-  }
-
-  const ui::LatencyInfo& LastWheelOrTouchEventLatencyInfo() const {
-    return last_wheel_or_touch_event_latency_info_;
   }
 
  private:
@@ -448,17 +441,15 @@ class MockRenderWidgetHostImpl : public RenderWidgetHostImpl {
   }
 
   void SetupMockRenderInputRouter() {
-    mock_render_input_router_.reset();
-    mock_render_input_router_ = std::make_unique<MockRenderInputRouter>(
-        this, this, MakeFlingScheduler(), this,
+    render_input_router_.reset();
+    render_input_router_ = std::make_unique<MockRenderInputRouter>(
+        this, MakeFlingScheduler(), this,
         base::SingleThreadTaskRunner::GetCurrentDefault());
     SetupInputRouter();
   }
 
-  ui::LatencyInfo last_wheel_or_touch_event_latency_info_;
   bool new_content_rendering_timeout_fired_ = false;
   MockWidget widget_;
-  std::unique_ptr<MockRenderInputRouter> mock_render_input_router_;
   std::optional<WebGestureEvent> last_forwarded_gesture_event_;
 };
 
@@ -1004,8 +995,8 @@ class RenderWidgetHostViewAuraOverscrollTest
 
   uint32_t SendTouchEvent() {
     uint32_t touch_event_id = touch_event_.unique_touch_event_id;
-    widget_host_->ForwardTouchEventWithLatencyInfo(touch_event_,
-                                                   ui::LatencyInfo());
+    widget_host_->GetMockRenderInputRouter()->ForwardTouchEventWithLatencyInfo(
+        touch_event_, ui::LatencyInfo());
     touch_event_.ResetPoints();
     base::RunLoop().RunUntilIdle();
     return touch_event_id;
@@ -1584,7 +1575,7 @@ TEST_F(RenderWidgetHostViewAuraTest,
                           ui::DomCodeToUsLayoutKeyboardCode(ui::DomCode::US_A),
                           ui::DomCode::US_A, ui::EF_NONE);
   view_->OnKeyEvent(&key_event1);
-  const NativeWebKeyboardEvent* event1 =
+  const input::NativeWebKeyboardEvent* event1 =
       render_widget_host_delegate()->last_event();
   ASSERT_FALSE(event1);
   // Run the runloop to ensure input messages are dispatched.  Otherwise the
@@ -1609,7 +1600,7 @@ TEST_F(RenderWidgetHostViewAuraTest,
                            ui::DomCodeToUsLayoutKeyboardCode(dom_code),
                            dom_code, ui::EF_NONE);
     view_->OnKeyEvent(&key_event);
-    const NativeWebKeyboardEvent* event =
+    const input::NativeWebKeyboardEvent* event =
         render_widget_host_delegate()->last_event();
     ASSERT_TRUE(event) << "Failed for DomCode: "
                        << ui::KeycodeConverter::DomCodeToCodeString(dom_code);
@@ -1635,7 +1626,7 @@ TEST_F(RenderWidgetHostViewAuraTest,
       ui::DomCodeToUsLayoutKeyboardCode(ui::DomCode::ESCAPE),
       ui::DomCode::ESCAPE, ui::EF_NONE);
   view_->OnKeyEvent(&key_event1);
-  const NativeWebKeyboardEvent* event1 =
+  const input::NativeWebKeyboardEvent* event1 =
       render_widget_host_delegate()->last_event();
   ASSERT_TRUE(event1);
   ASSERT_EQ(key_event1.key_code(), event1->windows_key_code);
@@ -1647,7 +1638,7 @@ TEST_F(RenderWidgetHostViewAuraTest,
                           ui::DomCodeToUsLayoutKeyboardCode(ui::DomCode::US_B),
                           ui::DomCode::US_B, ui::EF_NONE);
   view_->OnKeyEvent(&key_event2);
-  const NativeWebKeyboardEvent* event2 =
+  const input::NativeWebKeyboardEvent* event2 =
       render_widget_host_delegate()->last_event();
   ASSERT_TRUE(event2);
   ASSERT_EQ(key_event2.key_code(), event2->windows_key_code);
@@ -1673,7 +1664,7 @@ TEST_F(RenderWidgetHostViewAuraTest,
                            ui::DomCodeToUsLayoutKeyboardCode(dom_code),
                            dom_code, ui::EF_NONE);
     view_->OnKeyEvent(&key_event);
-    const NativeWebKeyboardEvent* event =
+    const input::NativeWebKeyboardEvent* event =
         render_widget_host_delegate()->last_event();
     ASSERT_FALSE(event) << "Failed for DomCode: "
                         << ui::KeycodeConverter::DomCodeToCodeString(dom_code);
@@ -1702,7 +1693,7 @@ TEST_F(RenderWidgetHostViewAuraTest,
       ui::DomCodeToUsLayoutKeyboardCode(ui::DomCode::ESCAPE),
       ui::DomCode::ESCAPE, ui::EF_NONE);
   view_->OnKeyEvent(&esc_key_event);
-  const NativeWebKeyboardEvent* esc_event =
+  const input::NativeWebKeyboardEvent* esc_event =
       render_widget_host_delegate()->last_event();
   ASSERT_TRUE(esc_event);
   ASSERT_EQ(esc_key_event.key_code(), esc_event->windows_key_code);
@@ -1745,12 +1736,13 @@ TEST_F(RenderWidgetHostViewAuraTest,
                            ui::DomCodeToUsLayoutKeyboardCode(dom_code),
                            dom_code, ui::EF_NONE);
     parent_view_->OnKeyEvent(&key_event);
-    const NativeWebKeyboardEvent* parent_event = delegates_[0]->last_event();
+    const input::NativeWebKeyboardEvent* parent_event =
+        delegates_[0]->last_event();
     ASSERT_FALSE(parent_event)
         << "Failed for DomCode: "
         << ui::KeycodeConverter::DomCodeToCodeString(dom_code);
 
-    const NativeWebKeyboardEvent* child_event =
+    const input::NativeWebKeyboardEvent* child_event =
         render_widget_host_delegate()->last_event();
     ASSERT_TRUE(child_event)
         << "Failed for DomCode: "
@@ -3432,9 +3424,10 @@ TEST_F(RenderWidgetHostViewAuraTest, SourceEventTypeExistsInLatencyInfo) {
   ui::ScrollEvent scroll(ui::ET_SCROLL, gfx::Point(2, 2), ui::EventTimeForNow(),
                          0, 0, 0, 0, 0, 2);
   view_->OnScrollEvent(&scroll);
-  EXPECT_EQ(
-      widget_host_->LastWheelOrTouchEventLatencyInfo().source_event_type(),
-      ui::SourceEventType::WHEEL);
+  EXPECT_EQ(widget_host_->GetMockRenderInputRouter()
+                ->GetLastWheelOrTouchEventLatencyInfo()
+                ->source_event_type(),
+            ui::SourceEventType::WHEEL);
 
   // TOUCH source exists.
   ui::TouchEvent press(ui::ET_TOUCH_PRESSED, gfx::Point(30, 30),
@@ -3448,9 +3441,10 @@ TEST_F(RenderWidgetHostViewAuraTest, SourceEventTypeExistsInLatencyInfo) {
                          ui::PointerDetails(ui::EventPointerType::kTouch, 0));
   view_->OnTouchEvent(&press);
   view_->OnTouchEvent(&move);
-  EXPECT_EQ(
-      widget_host_->LastWheelOrTouchEventLatencyInfo().source_event_type(),
-      ui::SourceEventType::TOUCH);
+  EXPECT_EQ(widget_host_->GetMockRenderInputRouter()
+                ->GetLastWheelOrTouchEventLatencyInfo()
+                ->source_event_type(),
+            ui::SourceEventType::TOUCH);
   view_->OnTouchEvent(&release);
 }
 
@@ -5094,7 +5088,7 @@ TEST_F(RenderWidgetHostViewAuraTest, KeyEvent) {
                          ui::EF_NONE);
   view_->OnKeyEvent(&key_event);
 
-  const NativeWebKeyboardEvent* event = delegates_.back()->last_event();
+  const input::NativeWebKeyboardEvent* event = delegates_.back()->last_event();
   ASSERT_TRUE(event);
   EXPECT_EQ(key_event.key_code(), event->windows_key_code);
   EXPECT_EQ(ui::KeycodeConverter::DomCodeToNativeKeycode(key_event.code()),

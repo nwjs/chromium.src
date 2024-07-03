@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">пастель сары</translation>
 <translation id="1056898198331236512">Ескерту</translation>
 <translation id="1059913517121127803">Сканерлеуді қосу мүмкін болмады.</translation>
+<translation id="1061864016440983342">Локациясыз пайдалану</translation>
 <translation id="1062823486781306604"><ph name="INDEX" />/<ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Брандмаэур анықталды.</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Қосымша параметрлер</translation>
 <translation id="2082932131694554252">Тағайындалған пернетақта пернесі</translation>
 <translation id="2085089206770112532">Дисплей жарықтығын азайту</translation>
+<translation id="2086091080968010660">Уақытқа негізделген өзгерістер дұрыс болмауы мүмкін. Параметрлерде жүйенің локацияны пайдалану рұқсатын қосыңыз.</translation>
 <translation id="2102231663024125441">Мәтін өңдеу</translation>
 <translation id="2105810540595158374">Бұл — ойын контроллері.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, <ph name="MILESTONE_VERSION" />-нұсқа</translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN мәліметтерін өзгерту</translation>
 <translation id="2195732836444333448">Толық жүктемемен жұмыс істеп тұр. Біраз уақыттан кейін қайтып оралыңыз.</translation>
 <translation id="2201758491318984023">велосипед</translation>
-<translation id="2203222757805818543">Қазіргі кесте <ph name="SUNRISE" /> – <ph name="SUNSET" /> аралығына орнатылды. Қараңғы режим кестесін автоматты түрде жаңарту үшін <ph name="BEGIN_LINK" />локацияны пайдалану рұқсатын<ph name="END_LINK" /> қосыңыз.</translation>
 <translation id="2203272733515928691">ыстық бұлақ</translation>
 <translation id="2203642483788377106">жартас</translation>
 <translation id="2208388655216963643">импрессионизм</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Бастапқы параметрлерді қалпына келтіру</translation>
 <translation id="2286454467119466181">Қарапайым</translation>
 <translation id="2287186687001756809">Қолжетімді суреттер жоқ. Суреттер қосу үшін <ph name="LINK" /> сайтына өтіңіз.</translation>
+<translation id="2294577623958216786">Қазіргі кесте <ph name="SUNRISE" /> – <ph name="SUNSET" /> аралығына орнатылды. Күн шығу және күн бату кестесін автоматты түрде жаңарту үшін жүйенің локацияны пайдалану рұқсатын қосыңыз.</translation>
 <translation id="2305172810646967500">қара</translation>
 <translation id="2307344026739914387">Ағымдағы кілттер жұбын пайдалану</translation>
 <translation id="2308243864813041101">Жаңарту процесін жалғастыру үшін <ph name="DEVICE_NAME" /> USB кабелін ажыратыңыз.</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">дөң</translation>
 <translation id="2619761439309613843">Күн сайын жаңарту</translation>
 <translation id="2620436844016719705">Жүйе</translation>
+<translation id="2637303424821734920">ӨШІРУЛІ: жергілікті ауа райын көрсету үшін <ph name="BEGIN_LINK" />жүйенің локация пайдалану рұқсатын қосыңыз<ph name="END_LINK" />.</translation>
 <translation id="2638662041295312666">Кіру суреті</translation>
 <translation id="2640549051766135490">"<ph name="TITLE" />" (<ph name="DESC" />) альбомы таңдалды.</translation>
 <translation id="2645380101799517405">Басқару элементтері</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Фон</translation>
 <translation id="3027578600144895987">Камераны жабу</translation>
 <translation id="3031560714565892478">Бұл — бейнекамера.</translation>
+<translation id="3051968340259309715">Бұл жағдайда жүйелік қызметтер локацияңызды анықтау үшін локация дәлдігі параметрін пайдалана алады. Локация дәлдігі параметрі құрылғы локациясын анықтау үшін құрылғының акселерометр және гироскоп сияқты датчик деректерімен қатар Wi-Fi кіру нүктелері, ұялы желі мұнаралары және GPS сияқты сымсыз сигналдар туралы ақпаратты пайдаланады. Локацияны "Параметрлер &gt; Құпиялық және қауіпсіздік &gt; Құпиялық параметрлері &gt; Локацияны пайдалану рұқсаты" тармағында өшіруге болады. <ph name="LINK_BEGIN" />Толық ақпарат<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Соңғы нүкте</translation>
 <translation id="3060579846059757016">Негізгі қағидалар</translation>
+<translation id="3061850252076394168">Select to Speak функциясын қосу</translation>
 <translation id="3069085583900247081">Тексерілмеді.</translation>
 <translation id="3078740164268491126">кесте</translation>
 <translation id="3081652522083185657">жарық</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Барлық хост атаулары түрлендірілмеді.</translation>
 <translation id="4593212453765072419">Прокси растауы талап етіледі.</translation>
 <translation id="4609350030397390689">Пернетақта жарықтығын азайту</translation>
-<translation id="4617553623719764431">Орналасқан жеріңізді анықтай алмағандықтан, ауа райы көрсетілмейді. Жергілікті ауа-райын көрсету үшін <ph name="BEGIN_LINK" />"Локация" пайдалану рұқсатын қосыңыз<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" />. Басып шығарудан бас тарту үшін "Enter" пернесін басыңыз.</translation>
 <translation id="463791356324567266">Сканерлеу тоқтатылуда…</translation>
 <translation id="4646949265910132906">Қорғалған Wi-Fi байланысы</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Іске қосу</translation>
 <translation id="4987769320337599931">Брандмауэр</translation>
 <translation id="4988526792673242964">Беттер</translation>
+<translation id="4989542687859782284">Қолжетімді емес</translation>
 <translation id="4999333166442584738">Есепті жасыру</translation>
 <translation id="500920857929044050">Тексеруді тоқтату</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">пернетақта жарықтығы</translation>
 <translation id="6412715219990689313">Ендірілген пернетақта</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
+<translation id="6419454453018688975">Жүйенің локацияны пайдалану рұқсатын қосу</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Рұқсаты бар жүйелік қызметтер локацияңызды пайдалана алады. Құрылғының локациясын анықтау үшін Wi-Fi, мобильдік желілер және датчиктер сияқты көздер пайдаланылуы мүмкін. <ph name="LINK_BEGIN" />Толық ақпарат<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Әлсіз (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Аккаунт параметрлеріне өту</translation>
 <translation id="6462978824459367242">APN қосу түймесі қосылды.</translation>

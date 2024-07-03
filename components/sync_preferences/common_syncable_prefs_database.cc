@@ -39,7 +39,7 @@ namespace syncable_prefs_ids {
 // tools/metrics/histograms/metadata/sync/enums.xml. When removing an unused
 // enumerator, comment it out here, making it clear the value was previously
 // used, and add "(obsolete)" to the corresponding entry in enums.xml.
-// LINT.IfChange(SyncablePref)
+// LINT.IfChange(CommonSyncablePref)
 enum {
   kSyncablePrefForTesting = 0,  // For tests.
   kAutofillCreditCardEnabled = 1,
@@ -115,6 +115,7 @@ enum {
   kShowTabGroupsInBookmarkBar = 71,
   kFacilitatedPaymentsPix = 72,
   kSyncableTabGroups = 73,
+  kAutoPinNewTabGroups = 74,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -122,7 +123,7 @@ enum {
   // guidance and escalation path in case anything is unclear.
   // ^^^^^ IMPORTANT! ^^^^^
 };
-// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncablePref)
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:CommonSyncablePref)
 }  // namespace syncable_prefs_ids
 
 // List of syncable preferences common across platforms.
@@ -224,6 +225,9 @@ constexpr auto kCommonSyncablePrefsAllowlist =
          {syncable_prefs_ids::kSyncedDefaultSearchProviderGUID,
           syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+        {tab_groups::prefs::kAutoPinNewTabGroups,
+         {syncable_prefs_ids::kAutoPinNewTabGroups, syncer::PREFERENCES,
+          PrefSensitivity::kNone, MergeBehavior::kNone}},
         {translate::TranslatePrefs::kPrefForceTriggerTranslateCount,
          {syncable_prefs_ids::kPrefForceTriggerTranslateCount,
           syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},

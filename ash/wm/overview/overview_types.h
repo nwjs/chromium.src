@@ -46,6 +46,8 @@ enum OverviewAnimationType {
   OVERVIEW_ANIMATION_OPACITY_ON_WINDOW_DRAG,
   // Used to fade out the saved desk grid when exiting overview mode.
   OVERVIEW_ANIMATION_EXIT_OVERVIEW_MODE_SAVED_DESK_GRID_FADE_OUT,
+  // Used to fade out the birch bar when existing overview mode.
+  OVERVIEW_ANIMATION_EXIT_OVERVIEW_MODE_BIRCH_BAR_FADE_OUT,
 };
 
 enum class OverviewTransition {
@@ -101,7 +103,7 @@ enum class OverviewEnterExitType {
 // Overview items have certain properties if their aspect ratio exceeds a
 // threshold. This enum keeps track of which category the window falls into,
 // based on its aspect ratio.
-enum class OverviewGridWindowFillMode {
+enum class OverviewItemFillMode {
   // Aspect ratio is between 1:2 and 2:1.
   kNormal,
   // Width to height ratio exceeds 2:1. The overview item will have a 2:1

@@ -9,6 +9,8 @@ import static androidx.browser.customtabs.CustomTabsIntent.ACTIVITY_SIDE_SHEET_P
 import static androidx.browser.customtabs.CustomTabsIntent.ACTIVITY_SIDE_SHEET_ROUNDED_CORNERS_POSITION_NONE;
 import static androidx.browser.customtabs.CustomTabsIntent.CLOSE_BUTTON_POSITION_DEFAULT;
 
+import static org.chromium.chrome.browser.content.WebContentsFactory.DEFAULT_NETWORK_HANDLE;
+
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Intent;
@@ -155,12 +157,7 @@ public abstract class BrowserServicesIntentDataProvider {
         return 0;
     }
 
-    /**
-     * Checks whether or not the Intent is from Chrome or other trusted first party.
-     *
-     * @deprecated This method is not reliable, see https://crbug.com/832124
-     */
-    @Deprecated
+    /** Checks whether or not the Intent is from Chrome or other trusted first party. */
     public boolean isTrustedIntent() {
         return false;
     }
@@ -338,8 +335,25 @@ public abstract class BrowserServicesIntentDataProvider {
     }
 
     /**
-     * @return Whether the Activity should be opened in incognito mode.
+     * @return Whether the Activity should be opened in off-the-record mode.
      */
+    public boolean isOffTheRecord() {
+        return false;
+    }
+
+    /**
+     * @return Whether the Activity should be opened in off-the-record with incognito theme.
+     */
+    public boolean isIncognitoBranded() {
+        return false;
+    }
+
+    /**
+     * @return Whether the Activity should be opened in incognito mode.
+     * @deprecated in favor of {@link #isOffTheRecord()} and {@link #isIncognitoBranded()}.
+     */
+    // TODO(crbug.com/335609494): Remove after updating internal usages.
+    @Deprecated
     public boolean isIncognito() {
         return false;
     }
@@ -603,6 +617,19 @@ public abstract class BrowserServicesIntentDataProvider {
 
     /** Return whether calling package should be allowed to present an interactive Omnibox. */
     public boolean isInteractiveOmniboxAllowed() {
+        return false;
+    }
+
+    /**
+     * Return the network handle that should be used from this intent, the default value to be used
+     * when a network has not been explicitly set via intent.
+     */
+    public long getNetworkHandle() {
+        return DEFAULT_NETWORK_HANDLE;
+    }
+
+    /** Return {@code true} if the service was launched for authentication. */
+    public boolean isAuthView() {
         return false;
     }
 }

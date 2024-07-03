@@ -15941,7 +15941,7 @@ void LogGLApi::glWindowRectanglesEXTFn(GLenum mode,
 
 namespace {
 void NoContextHelper(const char* method_name) {
-  DUMP_WILL_BE_NOTREACHED_NORETURN()
+  NOTREACHED_IN_MIGRATION()
       << "Trying to call " << method_name << " without current GL context";
   LOG(ERROR) << "Trying to call " << method_name
              << " without current GL context";

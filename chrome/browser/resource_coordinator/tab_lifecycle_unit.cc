@@ -262,7 +262,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::UpdateLifecycleState(
     }
 
     default: {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
     }
   }

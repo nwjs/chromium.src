@@ -61,9 +61,6 @@ NSString* const kTimestampAppLastOpenedViaFirstPartyIntent =
 // valid URL into the omnibox.
 NSString* const kTimestampLastValidURLPasted = @"TimestampLastValidURLPasted";
 
-const char kDefaultBrowserPromoForceShowPromo[] =
-    "default-browser-promo-force-show-promo";
-
 // Action string for "Appear" event of the promo.
 const char kAppearAction[] = "Appear";
 
@@ -181,7 +178,7 @@ NSString* StorageKeyForDefaultPromoType(DefaultPromoType type) {
     case DefaultPromoTypeStaySafe:
       return kLastSignificantUserEventStaySafe;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nil;
 }
 
@@ -433,6 +430,8 @@ NSString* const kPromoInterestEventMigrationDone =
     @"promo_interest_event_migration_done";
 NSString* const kPromoImpressionsMigrationDone =
     @"promo_impressions_migration_done";
+NSString* const kTimestampTriggerCriteriaExperimentStarted =
+    @"TimestampTriggerCriteriaExperimentStarted";
 
 std::vector<base::Time> LoadTimestampsForPromoType(DefaultPromoType type) {
   return LoadActiveTimestampsForKey(StorageKeyForDefaultPromoType(type),
@@ -497,33 +496,25 @@ bool ShouldTriggerDefaultBrowserHighlightFeature(
   return false;
 }
 
-bool ShouldForceDefaultPromoType() {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      kDefaultBrowserPromoForceShowPromo);
-}
-
-DefaultPromoType ForceDefaultPromoType() {
-  DCHECK(ShouldForceDefaultPromoType());
-  std::string type =
-      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          kDefaultBrowserPromoForceShowPromo);
-  int default_promo_type = 0;
-  if (base::StringToInt(type, &default_promo_type)) {
-    switch (default_promo_type) {
-      case DefaultPromoTypeGeneral:
-      case DefaultPromoTypeStaySafe:
-      case DefaultPromoTypeMadeForIOS:
-      case DefaultPromoTypeAllTabs:
-        return static_cast<DefaultPromoType>(default_promo_type);
-    }
-  }
-
-  return DefaultPromoType::DefaultPromoTypeGeneral;
-}
-
 bool IsDefaultBrowserTriggerCriteraExperimentEnabled() {
   return base::FeatureList::IsEnabled(
       feature_engagement::kDefaultBrowserTriggerCriteriaExperiment);
+}
+
+void SetTriggerCriteriaExperimentStartTimestamp() {
+  SetObjectIntoStorageForKey(kTimestampTriggerCriteriaExperimentStarted,
+                             [NSDate date]);
+}
+
+bool HasTriggerCriteriaExperimentStarted() {
+  NSDate* date = GetObjectFromStorageForKey<NSDate>(
+      kTimestampTriggerCriteriaExperimentStarted);
+  return date != nil;
+}
+
+bool HasTriggerCriteriaExperimentStarted21days() {
+  return HasRecordedEventForKeyMoreThanDelay(
+      kTimestampTriggerCriteriaExperimentStarted, base::Days(21));
 }
 
 bool IsNonModalDefaultBrowserPromoCooldownRefactorEnabled() {

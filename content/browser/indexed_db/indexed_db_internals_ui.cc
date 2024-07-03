@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/indexed_db/indexed_db_internals_ui.h"
 
 #include <cstdint>
@@ -195,6 +200,35 @@ void IndexedDBInternalsUI::ForceClose(storage::BucketId bucket_id,
           std::move(callback)));
 }
 
+void IndexedDBInternalsUI::StartMetadataRecording(
+    storage::BucketId bucket_id,
+    StartMetadataRecordingCallback callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  storage::mojom::IndexedDBControl* control = GetBucketControl(bucket_id);
+  if (!control) {
+    std::move(callback).Run("IndexedDb control not found");
+    return;
+  }
+
+  control->StartMetadataRecording(
+      bucket_id, base::BindOnce(std::move(callback), std::nullopt));
+}
+void IndexedDBInternalsUI::StopMetadataRecording(
+    storage::BucketId bucket_id,
+    StopMetadataRecordingCallback callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  storage::mojom::IndexedDBControl* control = GetBucketControl(bucket_id);
+  if (!control) {
+    std::move(callback).Run("IndexedDb control not found", {});
+    return;
+  }
+
+  control->StopMetadataRecording(
+      bucket_id, base::BindOnce(std::move(callback), std::nullopt));
+}
+
 void IndexedDBInternalsUI::OnDownloadDataReady(
     DownloadBucketDataCallback callback,
     bool success,
@@ -281,7 +315,7 @@ void FileDeleter::OnDownloadUpdated(download::DownloadItem* item) {
       break;
     }
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 

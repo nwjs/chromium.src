@@ -380,8 +380,35 @@ public class OmniboxResourceProvider {
      * the given context.
      */
     public static @ColorInt int getStandardSuggestionBackgroundColor(Context context) {
+        return ChromeColors.getSurfaceColor(context, R.dimen.omnibox_suggestion_bg_elevation);
+    }
+
+    /**
+     * Returns the background color for the suggestions dropdown in a "standard" (non-incognito)
+     * TabModel with the given context.
+     */
+    public static @ColorInt int getSuggestionsDropdownStandardBackgroundColor(Context context) {
         return ChromeColors.getSurfaceColor(
-                context, R.dimen.omnibox_suggestion_bg_elevation_modern);
+                context, R.dimen.omnibox_suggestion_dropdown_bg_elevation);
+    }
+
+    /**
+     * Returns the background color for the suggestions dropdown in an incognito TabModel with the
+     * given context.
+     */
+    public static @ColorInt int getSuggestionsDropdownIncognitoBackgroundColor(Context context) {
+        return context.getColor(R.color.omnibox_dropdown_bg_incognito);
+    }
+
+    /**
+     * Returns the background color for the suggestions dropdown for the given {@link
+     * BrandedColorScheme} with the given context.
+     */
+    public static @ColorInt int getSuggestionsDropdownBackgroundColorForColorScheme(
+            Context context, @BrandedColorScheme int brandedColorScheme) {
+        return brandedColorScheme == BrandedColorScheme.INCOGNITO
+                ? getSuggestionsDropdownIncognitoBackgroundColor(context)
+                : getSuggestionsDropdownStandardBackgroundColor(context);
     }
 
     /**
@@ -527,5 +554,14 @@ public class OmniboxResourceProvider {
         newConfig.smallestScreenWidthDp = existingConfig.screenWidthDp;
 
         return context.createConfigurationContext(newConfig);
+    }
+
+    /**
+     * @param context The context to retrieve the resources from.
+     * @return the color for the additional text.
+     */
+    @ColorInt
+    public static int getAdditionalTextColor(Context context) {
+        return SemanticColorUtils.getDefaultTextColorSecondary(context);
     }
 }

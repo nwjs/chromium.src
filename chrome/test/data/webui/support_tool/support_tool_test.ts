@@ -11,6 +11,7 @@ import 'chrome://support-tool/support_tool.js';
 import 'chrome://support-tool/url_generator.js';
 
 import type {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
+import type {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
 import type {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.js';
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -57,7 +58,7 @@ const PII_ITEMS: PiiDataItem[] = [
   {
     piiTypeDescription: 'IP Address',
     piiType: 0,
-    detectedData: '255.255.155.2, 255.255.155.255, 172.11.5.5',
+    detectedData: ['255.255.155.2', '255.255.155.255', '172.11.5.5'],
     count: 3,
     keep: false,
     expandDetails: true,
@@ -65,7 +66,7 @@ const PII_ITEMS: PiiDataItem[] = [
   {
     piiTypeDescription: 'Hash',
     piiType: 1,
-    detectedData: '27540283740a0897ab7c8de0f809add2bacde78f',
+    detectedData: ['27540283740a0897ab7c8de0f809add2bacde78f'],
     count: 1,
     keep: false,
     expandDetails: true,
@@ -73,8 +74,11 @@ const PII_ITEMS: PiiDataItem[] = [
   {
     piiTypeDescription: 'URL',
     piiType: 2,
-    detectedData:
-        'chrome://resources/f?user=bar, chrome-extension://nkoccljplnhpfnfiajclkommnmllphnl/foobar.js?bar=x, http://tets.com',
+    detectedData: [
+      'chrome://resources/f?user=bar',
+      'chrome-extension://nkoccljplnhpfnfiajclkommnmllphnl/foobar.js?bar=x',
+      'http://tets.com',
+    ],
     count: 3,
     keep: false,
     expandDetails: true,
@@ -228,11 +232,11 @@ suite('SupportToolTest', function() {
     assertEquals(EMAIL_ADDRESSES.length + 1, emailOptions.length);
   });
 
-  test('data collector selection page', () => {
+  test('data collector selection page', async () => {
     // Check the contents of data collectors page.
     const ironListItems =
         supportTool.$.dataCollectors.shadowRoot!.querySelector(
-                                                    'iron-list')!.items!;
+                                                    'dom-repeat')!.items!;
     assertEquals(ironListItems.length, DATA_COLLECTORS.length);
     for (let i = 0; i < ironListItems.length; i++) {
       const listItem = ironListItems[i];
@@ -241,16 +245,20 @@ suite('SupportToolTest', function() {
       assertEquals(listItem.protoEnum, DATA_COLLECTORS[i]!.protoEnum);
     }
 
+    const selectAllCheckbox =
+        supportTool.$.dataCollectors.shadowRoot!.getElementById(
+            'selectAllCheckbox')! as CrCheckboxElement;
+
     // Verify that the select all functionality works.
-    supportTool.$.dataCollectors.shadowRoot!.getElementById(
-                                                'selectAllButton')!.click();
+    selectAllCheckbox.click();
+    await selectAllCheckbox.updateComplete;
     for (let i = 0; i < ironListItems.length; i++) {
       assertTrue(ironListItems[i].isIncluded);
     }
 
     // Verify that the unselect all functionality works.
-    supportTool.$.dataCollectors.shadowRoot!.getElementById(
-                                                'selectAllButton')!.click();
+    selectAllCheckbox.click();
+    await selectAllCheckbox.updateComplete;
     for (let i = 0; i < ironListItems.length; i++) {
       assertFalse(ironListItems[i].isIncluded);
     }
@@ -404,9 +412,10 @@ suite('UrlGeneratorTest', function() {
     caseIdInput.value = 'test123';
     const dataCollectors =
         urlGenerator.shadowRoot!.querySelectorAll('cr-checkbox');
-    // Select the first one of data collectors.
-    dataCollectors[0]!.click();
-    await dataCollectors[0]!.updateComplete;
+    // Select one of data collectors to enable the button.
+    const firstDataCollector = dataCollectors[0]! as CrCheckboxElement;
+    firstDataCollector.click();
+    await firstDataCollector.updateComplete;
     // Ensure the button is enabled after we select at least one data collector.
     assertFalse(copyLinkButton.disabled);
     const expectedToken = 'chrome://support-tool/?case_id=test123&module=jekhh';
@@ -453,8 +462,9 @@ suite('UrlGeneratorTest', function() {
     const dataCollectors =
         urlGenerator.shadowRoot!.querySelectorAll('cr-checkbox');
     // Select one of data collectors to enable the button.
-    dataCollectors[1]!.click();
-    await dataCollectors[1]!.updateComplete;
+    const firstDataCollector = dataCollectors[0]! as CrCheckboxElement;
+    firstDataCollector.click();
+    await firstDataCollector.updateComplete;
     // Ensure the button is enabled after we select at least one data collector.
     assertFalse(copyTokenButton.disabled);
     const expectedToken = 'jekhh';

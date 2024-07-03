@@ -50,7 +50,7 @@ gfx::Size GetPreferredSizeOfTheRow(int child_number, bool one_browser_window) {
 }  // namespace
 
 PineScreenshotIconRowView::PineScreenshotIconRowView(
-    const PineContentsData::AppsInfos& apps_infos) {
+    const InformedRestoreContentsData::AppsInfos& apps_infos) {
   SetID(pine::kScreenshotIconRowViewID);
   SetCrossAxisAlignment(views::BoxLayout::CrossAxisAlignment::kStart);
   SetOrientation(views::BoxLayout::Orientation::kHorizontal);
@@ -111,47 +111,6 @@ PineScreenshotIconRowView::PineScreenshotIconRowView(
 }
 
 PineScreenshotIconRowView::~PineScreenshotIconRowView() = default;
-
-void PineScreenshotIconRowView::OnBoundsChanged(
-    const gfx::Rect& previous_bounds) {
-  const gfx::Size preferred_size = GetPreferredSize();
-  const int width = preferred_size.width();
-  const int height = preferred_size.height();
-
-  const auto top_left = SkPoint::Make(0.f, 0.f);
-  const auto bottom_left = SkPoint::Make(0.f, kIconRowHeight);
-  const auto bottom_right = SkPoint::Make(width, height);
-
-  const int cutout_curve1_end_x = pine::kPreviewContainerRadius;
-  const int cutout_curve1_end_y = pine::kPreviewContainerRadius;
-
-  const int cutout_curve2_end_x = width - pine::kPreviewContainerRadius;
-  const int cutout_curve2_end_y = 2 * pine::kPreviewContainerRadius;
-
-  auto clip_path =
-      SkPath()
-          // Start from the top-left point.
-          .moveTo(top_left)
-          // Draw the first concave arc at the top-left and a horizontal line
-          // connecting it to the top-right rounded corner.
-          .arcTo(SkPoint::Make(0, cutout_curve1_end_y),
-                 SkPoint::Make(cutout_curve1_end_x, cutout_curve1_end_y),
-                 pine::kPreviewContainerRadius)
-          // Draw the top-right rounded corner and a vertical line connecting
-          // it to the bottom-right concave arc.
-          .arcTo(SkPoint::Make(cutout_curve2_end_x, cutout_curve1_end_y),
-                 SkPoint::Make(cutout_curve2_end_x, cutout_curve2_end_y),
-                 pine::kPreviewContainerRadius)
-          // Draw the bottom-right concave arc and a horizontal line
-          // connecting it to the bottom-left rounded corner.
-          .arcTo(SkPoint::Make(cutout_curve2_end_x, kIconRowHeight),
-                 bottom_right, pine::kPreviewContainerRadius)
-          // Draw the bottom-left rounded corner and the vertical line
-          // connecting it to the top-left point.
-          .arcTo(bottom_left, top_left, pine::kPreviewContainerRadius)
-          .close();
-  SetClipPath(clip_path);
-}
 
 BEGIN_METADATA(PineScreenshotIconRowView)
 END_METADATA

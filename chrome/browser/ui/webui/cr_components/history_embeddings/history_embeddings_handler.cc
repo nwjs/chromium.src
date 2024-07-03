@@ -12,50 +12,6 @@
 #include "components/url_formatter/url_formatter.h"
 #include "ui/base/l10n/time_format.h"
 
-namespace {
-
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-enum class HistoryEmbeddingsUserActions {
-  kNonEmptyQueryHistorySearch = 0,
-  kEmbeddingsSearch = 1,
-  kEmbeddingsNonEmptyResultsShown = 2,
-  kEmbeddingsResultClicked = 3,
-  kMaxValue = kEmbeddingsResultClicked,
-};
-
-// Receives the results of a HistoryEmbeddingsService::Search call, builds
-// them into mojom objects for the page, and sends them to the callback.
-void OnSearchCompleted(HistoryEmbeddingsHandler::SearchCallback callback,
-                       history_embeddings::SearchResult native_search_result) {
-  auto mojom_search_result = history_embeddings::mojom::SearchResult::New();
-  for (history_embeddings::ScoredUrlRow& scored_url_row :
-       native_search_result) {
-    auto item = history_embeddings::mojom::SearchResultItem::New();
-    item->title = base::UTF16ToUTF8(scored_url_row.row.title());
-    item->url = scored_url_row.row.url();
-    item->source_passage = scored_url_row.scored_url.passage;
-    item->relative_time = base::UTF16ToUTF8(ui::TimeFormat::Simple(
-        ui::TimeFormat::FORMAT_ELAPSED, ui::TimeFormat::LENGTH_SHORT,
-        base::Time::Now() - scored_url_row.row.last_visit()));
-    item->last_url_visit_timestamp =
-        scored_url_row.row.last_visit().InMillisecondsFSinceUnixEpoch();
-
-    url_formatter::FormatUrlTypes format_types =
-        url_formatter::kFormatUrlOmitDefaults |
-        url_formatter::kFormatUrlOmitHTTPS |
-        url_formatter::kFormatUrlOmitTrivialSubdomains;
-    item->url_for_display = base::UTF16ToUTF8(url_formatter::FormatUrl(
-        scored_url_row.row.url(), format_types, base::UnescapeRule::SPACES,
-        nullptr, nullptr, nullptr));
-
-    mojom_search_result->items.push_back(std::move(item));
-  }
-  std::move(callback).Run(std::move(mojom_search_result));
-}
-
-}  // namespace
-
 HistoryEmbeddingsHandler::HistoryEmbeddingsHandler(
     mojo::PendingReceiver<history_embeddings::mojom::PageHandler>
         pending_page_handler,
@@ -77,9 +33,43 @@ void HistoryEmbeddingsHandler::Search(
       HistoryEmbeddingsServiceFactory::GetForProfile(profile_.get());
   // The service is never null. Even tests build and use a service.
   CHECK(service);
-  service->Search(query->query, query->time_range_start,
-                  history_embeddings::kSearchResultItemCount.Get(),
-                  base::BindOnce(&OnSearchCompleted, std::move(callback)));
+  service->Search(
+      query->query, query->time_range_start,
+      history_embeddings::kSearchResultItemCount.Get(),
+      base::BindOnce(&HistoryEmbeddingsHandler::OnReceivedSearchResult,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void HistoryEmbeddingsHandler::OnReceivedSearchResult(
+    SearchCallback callback,
+    history_embeddings::SearchResult native_search_result) {
+  auto mojom_search_result = history_embeddings::mojom::SearchResult::New();
+  for (history_embeddings::ScoredUrlRow& scored_url_row :
+       native_search_result.scored_url_rows) {
+    auto item = history_embeddings::mojom::SearchResultItem::New();
+    item->title = base::UTF16ToUTF8(scored_url_row.row.title());
+    item->url = scored_url_row.row.url();
+    item->relative_time = base::UTF16ToUTF8(ui::TimeFormat::Simple(
+        ui::TimeFormat::FORMAT_ELAPSED, ui::TimeFormat::LENGTH_SHORT,
+        base::Time::Now() - scored_url_row.row.last_visit()));
+    item->last_url_visit_timestamp =
+        scored_url_row.row.last_visit().InMillisecondsFSinceUnixEpoch();
+
+    url_formatter::FormatUrlTypes format_types =
+        url_formatter::kFormatUrlOmitDefaults |
+        url_formatter::kFormatUrlOmitHTTPS |
+        url_formatter::kFormatUrlOmitTrivialSubdomains;
+    item->url_for_display = base::UTF16ToUTF8(url_formatter::FormatUrl(
+        scored_url_row.row.url(), format_types, base::UnescapeRule::SPACES,
+        nullptr, nullptr, nullptr));
+
+    if (history_embeddings::kShowSourcePassages.Get()) {
+      item->source_passage = scored_url_row.scored_url.passage;
+    }
+
+    mojom_search_result->items.push_back(std::move(item));
+  }
+  std::move(callback).Run(std::move(mojom_search_result));
 }
 
 void HistoryEmbeddingsHandler::RecordSearchResultsMetrics(

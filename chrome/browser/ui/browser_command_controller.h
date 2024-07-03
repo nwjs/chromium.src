@@ -16,13 +16,14 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_member.h"
 #include "components/sessions/core/tab_restore_service_observer.h"
+#include "ui/actions/actions.h"
 #include "ui/base/window_open_disposition.h"
 
 class Browser;
 class BrowserWindow;
 class Profile;
 
-namespace content {
+namespace input {
 struct NativeWebKeyboardEvent;
 }
 
@@ -46,7 +47,7 @@ class BrowserCommandController : public CommandUpdater,
   // should not be sent to the renderer or |event| was triggered by a key that
   // we never want to send to the renderer.
   bool IsReservedCommandOrKey(int command_id,
-                              const content::NativeWebKeyboardEvent& event);
+                              const input::NativeWebKeyboardEvent& event);
 
   // Notifies the controller that state has changed in one of the following
   // areas and it should update command states.
@@ -204,6 +205,16 @@ class BrowserCommandController : public CommandUpdater,
 
   // Updates commands that depend on the state of the tab strip model.
   void UpdateCommandsForTabStripStateChanged();
+
+  // Returns the relevant action for the current browser for a given
+  // `action_id`.
+  actions::ActionItem* FindAction(actions::ActionId action_id);
+
+  // Updates the enabled status for both `command_id` and `action_id`, given
+  // that it exists.
+  void UpdateCommandAndActionEnabled(int command_id,
+                                     actions::ActionId action_id,
+                                     bool enabled);
 
   inline BrowserWindow* window();
   inline Profile* profile();

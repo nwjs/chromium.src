@@ -15,11 +15,11 @@
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_delegate_view.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
-#include "content/browser/renderer_host/render_widget_host_input_event_router.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/browser/renderer_host/text_input_manager.h"
 #include "content/common/content_switches_internal.h"
 #include "content/common/features.h"
+#include "content/common/input/render_widget_host_input_event_router.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "ui/aura/client/cursor_client.h"
@@ -256,7 +256,7 @@ void RenderWidgetHostViewEventHandler::OnKeyEvent(ui::KeyEvent* event) {
   // we need to notify focus to Blink on ET_KEY_RELEASED for ESC key.
   SetKeyboardFocus();
   // We don't have to communicate with an input method here.
-  NativeWebKeyboardEvent webkit_event(*event);
+  input::NativeWebKeyboardEvent webkit_event(*event);
 
   // If the key has been reserved as part of the active KeyboardLock request,
   // then we want to mark it as such so it is not intercepted by the browser.
@@ -909,7 +909,8 @@ void RenderWidgetHostViewEventHandler::ProcessMouseWheelEvent(
 void RenderWidgetHostViewEventHandler::ProcessTouchEvent(
     const blink::WebTouchEvent& event,
     const ui::LatencyInfo& latency) {
-  host_->ForwardTouchEventWithLatencyInfo(event, latency);
+  host_->GetRenderInputRouter()->ForwardTouchEventWithLatencyInfo(event,
+                                                                  latency);
 }
 
 bool RenderWidgetHostViewEventHandler::IsKeyLocked(const ui::KeyEvent& event) {

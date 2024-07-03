@@ -35,7 +35,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/constants/ash_features.h"
-#include "chrome/test/base/chromeos/crosier/interactive_ash_test.h"
+#include "chrome/test/base/ash/interactive/interactive_ash_test.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 using performance_manager::user_tuning::prefs::BatterySaverModeState;
@@ -424,7 +424,7 @@ IN_PROC_BROWSER_TEST_F(BatterySettingsInteractiveTest,
 
   const DeepQuery iron_collapse = {
       "settings-ui", "settings-main", "settings-basic-page",
-      "settings-battery-page", "iron-collapse#radioGroupCollapse"};
+      "settings-battery-page", "cr-collapse#radioGroupCollapse"};
 
   const DeepQuery turn_on_at_threshold_button = {
       "settings-ui", "settings-main", "settings-basic-page",
@@ -459,7 +459,7 @@ IN_PROC_BROWSER_TEST_F(BatterySettingsInteractiveTest,
       CheckBatteryStateLogged(histogram_tester,
                               BatterySaverModeState::kEnabledBelowThreshold, 1),
 
-      // Wait for the iron-collapse animation to finish so that the battery
+      // Wait for the cr-collapse animation to finish so that the battery
       // saver radio buttons will show on screen
       WaitForIronListCollapseStateChange(kPerformanceSettingsPage,
                                          iron_collapse),

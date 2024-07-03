@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastelgul</translation>
 <translation id="1056898198331236512">Advarsel</translation>
 <translation id="1059913517121127803">Kunne ikke begynde at scanne</translation>
+<translation id="1061864016440983342">Brug uden lokation</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> af <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">En firewall blev registreret</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Flere indstillinger</translation>
 <translation id="2082932131694554252">Tildelt tast</translation>
 <translation id="2085089206770112532">Reducer skærmens lysstyrke</translation>
+<translation id="2086091080968010660">Tidsbaserede ændringer er muligvis ikke nøjagtige. Slå systemets lokationsadgang til i indstillingerne.</translation>
 <translation id="2102231663024125441">Tekstredigering</translation>
 <translation id="2105810540595158374">Enheden er en spilcontroller.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, version <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Rediger APN-oplysninger</translation>
 <translation id="2195732836444333448">Der er ingen kapacitet i øjeblikket. Vend tilbage senere.</translation>
 <translation id="2201758491318984023">en cykel</translation>
-<translation id="2203222757805818543">Den aktuelle tidsplan er indstillet til <ph name="SUNRISE" />-<ph name="SUNSET" />. Hvis du automatisk vil opdatere tidsplanen for mørk tilstand, skal du <ph name="BEGIN_LINK" />aktivere lokationsadgang<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">varm kilde</translation>
 <translation id="2203642483788377106">en klippe</translation>
 <translation id="2208388655216963643">impressionisme</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Gendan standarder</translation>
 <translation id="2286454467119466181">Simple</translation>
 <translation id="2287186687001756809">Der er ingen tilgængelige billeder. Du kan tilføje billeder ved at gå til <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Den aktuelle tidsplan er indstillet til <ph name="SUNRISE" />-<ph name="SUNSET" />. Hvis du vil opdatere tidsplanen for solnedgang og solopgang automatisk, skal du aktivere systemets lokationsadgang.</translation>
 <translation id="2305172810646967500">sort</translation>
 <translation id="2307344026739914387">Brug aktuelt nøglepar</translation>
 <translation id="2308243864813041101">Tag USB-kablet ud af din <ph name="DEVICE_NAME" /> for at fortsætte opdateringsprocessen</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">en sandklit</translation>
 <translation id="2619761439309613843">Nyt hver dag</translation>
 <translation id="2620436844016719705">System</translation>
+<translation id="2637303424821734920">FRA – Hvis du vil se den lokale vejrudsigt, skal du <ph name="BEGIN_LINK" />aktivere systemets lokationsadgang<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Loginbillede</translation>
 <translation id="2640549051766135490">Albummet <ph name="TITLE" /> <ph name="DESC" /> er valgt</translation>
 <translation id="2645380101799517405">Styring</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Baggrund</translation>
 <translation id="3027578600144895987">Luk kamera</translation>
 <translation id="3031560714565892478">Enheden er et videokamera.</translation>
+<translation id="3051968340259309715">Dette giver systemtjenester tilladelse til at anvende Lokationsnøjagtighed til at fastslå din lokation. Lokationsnøjagtighed anvender oplysninger om trådløse signaler, f.eks. Wi-Fi-adgangspunkter, mobilnetværksmaster og GPS, sammen med enhedssensordata, f.eks. accelerometer og gyroskop, til at estimere enhedens lokation. Du kan deaktivere lokation i Indstillinger &gt; Sikkerhed og privatliv &gt; Privatlivsindstillinger &gt; Lokationsadgang. <ph name="LINK_BEGIN" />Få flere oplysninger<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Slutpunkt</translation>
 <translation id="3060579846059757016">Oversigter</translation>
+<translation id="3061850252076394168">aktivér Tekstoplæsning</translation>
 <translation id="3069085583900247081">Testen mislykkedes</translation>
 <translation id="3078740164268491126">tabel</translation>
 <translation id="3081652522083185657">lyst</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Ikke alle hosts kunne identificeres</translation>
 <translation id="4593212453765072419">Proxygodkendelse påkrævet</translation>
 <translation id="4609350030397390689">Reducer tastaturets lysstyrke</translation>
-<translation id="4617553623719764431">Vejrudsigten vises ikke, fordi din lokation er ukendt. Hvis du vil se den lokale vejrudsigt, skal du <ph name="BEGIN_LINK" />aktivere Lokationsadgang<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> ud af <ph name="TOTAL_PAGE_NUMBER" />. Tryk på Enter for at annullere udskriftsjobbet.</translation>
 <translation id="463791356324567266">Annullerer scanning...</translation>
 <translation id="4646949265910132906">Sikker Wi-Fi-forbindelse</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Kør</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Sider</translation>
+<translation id="4989542687859782284">Ikke tilgængelige</translation>
 <translation id="4999333166442584738">Skjul rapport</translation>
 <translation id="500920857929044050">Stop test</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">lysstyrke for tastatur</translation>
 <translation id="6412715219990689313">Indbygget tastatur</translation>
 <translation id="6417265370957905582">Google Assistent</translation>
+<translation id="6419454453018688975">Aktivér systemets lokationsadgang</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Dette giver systemtjenester tilladelse til at anvende din lokation. Lokation kan anvende kilder som f.eks. Wi‑Fi, mobilnetværk og sensorer til at fastslå, hvor din enhed befinder sig. <ph name="LINK_BEGIN" />Få flere oplysninger<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Svagt (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Gå til kontoindstillinger</translation>
 <translation id="6462978824459367242">Knappen Tilføj APN er nu aktiveret</translation>

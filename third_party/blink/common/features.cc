@@ -51,12 +51,6 @@ BASE_FEATURE(kAdInterestGroupAPIRestrictedPolicyByDefault,
              "AdInterestGroupAPIRestrictedPolicyByDefault",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Make MediaDevicesDispatcherHost and ended MediaStreamTrack not block BFCache.
-// See https://crbug.com/1502395 for more details.
-BASE_FEATURE(kAllowBFCacheWhenClosedMediaStreamTrack,
-             "AllowBFCacheWhenClosedMediaStreamTrack",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Allow DeprecatedRenderURLReplacements when
 // CookieDeprecationFacilitatedTesting is enabled.
 BASE_FEATURE(kAlwaysAllowFledgeDeprecatedRenderURLReplacements,
@@ -167,15 +161,6 @@ BASE_FEATURE(kAudioWorkletThreadRealtimePeriodMac,
 BASE_FEATURE(kAudioWorkletThreadPool,
              "AudioWorkletThreadPool",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// If enabled, blink will not set the autofill state of a field after JS
-// modifies its value, and will instead leave it to the WebAutofillClient to
-// take care of the state setting.
-// This feature should be enabled with
-// autofill::features::kAutofillFixCachingOnJavaScriptChanges.
-BASE_FEATURE(kAutofillDontSetAutofillStateAfterJavaScriptChanges,
-             "AutofillDontSetAutofillStateAfterJavaScriptChanges",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, extraction of unassociated listed elements includes elements
 // inside Shadow DOM.
@@ -297,8 +282,17 @@ BASE_FEATURE(kBackForwardCacheWithKeepaliveRequest,
 BASE_FEATURE(kBackgroundResourceFetch,
              "BackgroundResourceFetch",
              base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<bool> kBackgroundResponseProcessor{
-    &kBackgroundResourceFetch, "background-response-processor", true};
+const base::FeatureParam<bool> kBackgroundFontResponseProcessor{
+    &kBackgroundResourceFetch, "background-font-response-processor",
+// Disabled on Windows. See https://crbug.com/344108551.
+#if BUILDFLAG(IS_WIN)
+    false
+#else
+    true
+#endif
+};
+const base::FeatureParam<bool> kBackgroundScriptResponseProcessor{
+    &kBackgroundResourceFetch, "background-script-response-processor", true};
 
 // Redefine the oklab and oklch spaces to have gamut mapping baked into them.
 // https://crbug.com/1508329
@@ -617,6 +611,8 @@ BASE_FEATURE(kCorrectFloatExtensionTestForWebGL,
              "CorrectFloatExtensionTestForWebGL",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kCrabbyAvif, "CrabbyAvif", base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, add a new option, {imageOrientation: 'none'}, to
 // createImageBitmap, which ignores the image orientation metadata of the source
 // and renders the image as encoded.
@@ -754,8 +750,8 @@ BASE_FEATURE(kDiscardInputEventsToRecentlyMovedFrames,
              "DiscardInputEventsToRecentlyMovedFrames",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kDisableThirdPartyStoragePartitioningDeprecationTrial,
-             "DisableThirdPartyStoragePartitioningDeprecationTrial",
+BASE_FEATURE(kDisableThirdPartyStoragePartitioningDeprecationTrial2,
+             "DisableThirdPartyStoragePartitioningDeprecationTrial2",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Kill switch for not WebGL DrawingBuffer using SharedImage without
@@ -784,7 +780,7 @@ BASE_FEATURE(kEstablishGpuChannelAsync,
 // events.
 BASE_FEATURE(kEventTimingKeypressAndCompositionInteractionId,
              "EventTimingKeypressAndCompositionInteractionId",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables unload handler deprecation via Permissions-Policy.
 // https://crbug.com/1324111
@@ -810,17 +806,11 @@ BASE_FEATURE(kDeprecateUnloadByAllowList,
 const base::FeatureParam<std::string> kDeprecateUnloadAllowlist{
     &kDeprecateUnloadByAllowList, "allowlist", ""};
 
-// Enables using a base::ProtectedMemory<bool> value to provide extra protection
-// against MojoJS bindings being enabled via a data-only attack.
-BASE_FEATURE(kEnableMojoJSProtectedMemory,
-             "EnableMojoJSProtectedMemory",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable reporting the modal dialog start time as an alternative end time for
 // duration measurement in performance event timing.
 BASE_FEATURE(kEventTimingFallbackToModalDialogStart,
              "EventTimingFallbackToModalDialogStart",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable not reporting orphan pointerup (pointerup not accompanied by
 // pointerdown) as an interaction in performance event timing.
@@ -912,6 +902,10 @@ BASE_FEATURE(kFencedFramesAutomaticBeaconCredentials,
 // data access in fenced frames.
 BASE_FEATURE(kFencedFramesLocalUnpartitionedDataAccess,
              "FencedFramesLocalUnpartitionedDataAccess",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kFencedFramesReportEventHeaderChanges,
+             "FencedFramesReportEventHeaderChanges",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls access to an API to exempt certain URLs from fenced frame
@@ -1039,10 +1033,15 @@ const base::FeatureParam<int> kFledgeRealTimeReportingNumBuckets{
     &kFledgeRealTimeReporting, "FledgeRealTimeReportingNumBuckets", 1024};
 const base::FeatureParam<double> kFledgeRealTimeReportingEpsilon{
     &kFledgeRealTimeReporting, "FledgeRealTimeReportingEpsilon", 1};
-
-BASE_FEATURE(kForceDeferScriptIntervention,
-             "ForceDeferScriptIntervention",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<double>
+    kFledgeRealTimeReportingPlatformContributionPriority{
+        &kFledgeRealTimeReporting,
+        "FledgeRealTimeReportingPlatformContributionPriority", 1};
+const base::FeatureParam<base::TimeDelta> kFledgeRealTimeReportingWindow{
+    &kFledgeRealTimeReporting, "FledgeRealTimeReportingWindow",
+    base::Seconds(20)};
+const base::FeatureParam<int> kFledgeRealTimeReportingMaxReports{
+    &kFledgeRealTimeReporting, "FledgeRealTimeReportingMaxReports", 10};
 
 BASE_FEATURE(kForceHighPerformanceGPUForWebGL,
              "ForceHighPerformanceGPUForWebGL",
@@ -1201,7 +1200,7 @@ const base::FeatureParam<int> kInterestGroupStorageMaxOpsBeforeMaintenance{
 // sandboxes are isolated.
 BASE_FEATURE(kIsolateSandboxedIframes,
              "IsolateSandboxedIframes",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<IsolateSandboxedIframesGrouping>::Option
     isolated_sandboxed_iframes_grouping_types[] = {
         {IsolateSandboxedIframesGrouping::kPerSite, "per-site"},
@@ -1266,10 +1265,6 @@ const base::FeatureParam<LcppResourceLoadPriority>
         LcppResourceLoadPriority::kVeryHigh, &lcpp_resource_load_priorities};
 
 const base::FeatureParam<bool>
-    kLCPCriticalPathPredictorEnableElementLocatorPerformanceImprovements{
-        &kLCPCriticalPathPredictor, "lcpp_enable_perf_improvements", true};
-
-const base::FeatureParam<bool>
     kLCPCriticalPathPredictorImageLoadPriorityEnabledForHTMLImageElement{
         &kLCPCriticalPathPredictor,
         "lcpp_enable_image_load_priority_for_htmlimageelement", false};
@@ -1326,6 +1321,20 @@ BASE_FEATURE(kLCPPDeferUnusedPreload,
              "LCPPDeferUnusedPreload",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+const base::FeatureParam<LcppDeferUnusedPreloadExcludedResourceType>::Option
+    lcpp_defer_unused_preload_excluded_resource_type[] = {
+        {LcppDeferUnusedPreloadExcludedResourceType::kNone, "none"},
+        {LcppDeferUnusedPreloadExcludedResourceType::kStyleSheet, "stylesheet"},
+        {LcppDeferUnusedPreloadExcludedResourceType::kScript, "script"},
+        {LcppDeferUnusedPreloadExcludedResourceType::kMock, "mock"},
+};
+
+const base::FeatureParam<LcppDeferUnusedPreloadExcludedResourceType>
+    kLcppDeferUnusedPreloadExcludedResourceType{
+        &kLCPPDeferUnusedPreload, "excluded_resource_type",
+        LcppDeferUnusedPreloadExcludedResourceType::kNone,
+        &lcpp_defer_unused_preload_excluded_resource_type};
+
 const base::FeatureParam<double> kLCPPDeferUnusedPreloadFrequencyThreshold{
     &kLCPPDeferUnusedPreload, "lcpp_unused_preload_frequency_threshold", 0.5};
 
@@ -1349,6 +1358,8 @@ const base::FeatureParam<LcppDeferUnusedPreloadTiming>::Option
         {LcppDeferUnusedPreloadTiming::kPostTask, "post_task"},
         {LcppDeferUnusedPreloadTiming::kLcpTimingPredictor,
          "lcp_timing_predictor"},
+        {LcppDeferUnusedPreloadTiming::kLcpTimingPredictorWithPostTask,
+         "lcp_timing_predictor_with_post_task"},
 };
 
 const base::FeatureParam<LcppDeferUnusedPreloadTiming>
@@ -1385,6 +1396,10 @@ const base::FeatureParam<std::string> kLCPPFontURLPredictorExcludedHosts{
 BASE_FEATURE(kLCPPLazyLoadImagePreload,
              "LCPPLazyLoadImagePreload",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If true, do not make a preload request.
+const base::FeatureParam<bool> kLCPPLazyLoadImagePreloadDryRun{
+    &kLCPPLazyLoadImagePreload, "lcpp_lazy_load_image_preload_dry_run", false};
 
 const base::FeatureParam<
     LcppPreloadLazyLoadImageType>::Option lcpp_preload_lazy_load_image[] = {
@@ -1680,6 +1695,13 @@ const base::FeatureParam<int> kPredictorTrafficClientEnabledPercent{
 #endif
 };
 
+// Used to control the collection of new viewport related anchor element
+// metrics. Metrics will not be recorded if either this or kNavigationPredictor
+// is disabled.
+BASE_FEATURE(kNavigationPredictorNewViewportFeatures,
+             "NavigationPredictorNewViewportFeatures",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kNoForcedFrameUpdatesForWebTests,
              "NoForcedFrameUpdatesForWebTests",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1740,6 +1762,13 @@ BASE_FEATURE(kPath2DPaintCache,
 BASE_FEATURE(kPlzDedicatedWorker,
              "PlzDedicatedWorker",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDedicatedWorkerAblationStudyEnabled,
+             "DedicatedWorkerAblationStudyEnabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int> kDedicatedWorkerStartDelayInMs = {
+    &kDedicatedWorkerAblationStudyEnabled, "DedicatedWorkerStartDelayInMs", 0};
 
 BASE_FEATURE(
     kPostMessageFirstPartyToThirdPartyDifferentBucketSameOriginBlocked,
@@ -1854,6 +1883,26 @@ BASE_FEATURE(kPrerender2EarlyDocumentLifecycleUpdate,
              "Prerender2EarlyDocumentLifecycleUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kPrerender2NoVarySearch,
+             "Prerender2NoVarySearch",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrerender2WarmUpCompositor,
+             "Prerender2WarmUpCompositor",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<Prerender2WarmUpCompositorTriggerPoint>::Option
+    prerender2_warm_up_compositor_trigger_point[] = {
+        {Prerender2WarmUpCompositorTriggerPoint::kDidCommitLoad,
+         "did_commit_load"},
+        {Prerender2WarmUpCompositorTriggerPoint::kDidFinishLoad,
+         "did_finish_load"},
+};
+const base::FeatureParam<Prerender2WarmUpCompositorTriggerPoint>
+    kPrerender2WarmUpCompositorTriggerPoint{
+        &kPrerender2WarmUpCompositor, "trigger_point",
+        Prerender2WarmUpCompositorTriggerPoint::kDidCommitLoad,
+        &prerender2_warm_up_compositor_trigger_point};
+
 // Enable limiting previews loading hints to specific resource types.
 BASE_FEATURE(kPreviewsResourceLoadingHintsSpecificResourceTypes,
              "PreviewsResourceLoadingHintsSpecificResourceTypes",
@@ -1912,12 +1961,6 @@ constexpr base::FeatureParam<bool>
 constexpr base::FeatureParam<bool> kPrivateAggregationApiDebugModeEnabledAtAll{
     &kPrivateAggregationApi, "debug_mode_enabled_at_all",
     /*default_value=*/true};
-
-// Allows for different aggregation coordinators to be set. If disabled, any
-// selection will be ignored and replaced with the default.
-BASE_FEATURE(kPrivateAggregationApiMultipleCloudProviders,
-             "PrivateAggregationApiMultipleCloudProviders",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kProcessHtmlDataImmediately,
              "ProcessHtmlDataImmediately",
@@ -2092,7 +2135,7 @@ BASE_FEATURE(kServiceWorkerClientIdAlignedWithSpec,
 // static routing API.
 BASE_FEATURE(kServiceWorkerStaticRouterNotConditionEnabled,
              "ServiceWorkerStaticRouterNotConditionEnabled",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, beacons (and friends) have ResourceLoadPriority::kLow,
 // not ResourceLoadPriority::kVeryLow.
@@ -2312,10 +2355,6 @@ BASE_FEATURE(kStylusRichGestures,
              "StylusRichGestures",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSystemColorChooser,
-             "SystemColorChooser",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables third party script regex matching for detecting technologies.
 BASE_FEATURE(kThirdPartyScriptDetection,
              "ThirdPartyScriptDetection",
@@ -2379,7 +2418,7 @@ BASE_FEATURE(kEmulateLoadStartedForInspectorOncePerResource,
 
 BASE_FEATURE(kBlinkSchedulerPrioritizeNavigationIPCs,
              "BlinkSchedulerPrioritizeNavigationIPCs",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableFileBackedBlobFactory,
              "EnableFileBackedBlobFactory",
@@ -2489,11 +2528,6 @@ BASE_FEATURE(kWebAudioBypassOutputBuffering,
              "WebAudioBypassOutputBuffering",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Allow OnRenderError callback to propagate in WebAudio
-BASE_FEATURE(kWebAudioHandleOnRenderError,
-             "WebAudioHandleOnRenderError",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 /// Enables cache-aware WebFonts loading. See https://crbug.com/570205.
 // The feature is disabled on Android for WebView API issue discussed at
 // https://crbug.com/942440.
@@ -2530,10 +2564,6 @@ BASE_FEATURE(kWebRtcHideLocalIpsWithMdns,
 BASE_FEATURE(kWebRtcIgnoreUnspecifiedColorSpace,
              "WebRtcIgnoreUnspecifiedColorSpace",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kWebRtcInitializeEncoderOnFirstFrame,
-             "WebRtcInitializeEncoderOnFirstFrame",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebRtcThreadsUseResourceEfficientType,
              "WebRtcThreadsUseResourceEfficientType",
@@ -2577,16 +2607,6 @@ bool IsAllowURNsInIframeEnabled() {
 bool DisplayWarningDeprecateURNIframesUseFencedFrames() {
   return base::FeatureList::IsEnabled(
       blink::features::kDisplayWarningDeprecateURNIframesUseFencedFrames);
-}
-
-bool IsAllowBFCacheWhenClosedMediaStreamTrackEnabled() {
-  return base::FeatureList::IsEnabled(
-      blink::features::kAllowBFCacheWhenClosedMediaStreamTrack);
-}
-
-bool IsEnableMojoJSProtectedMemoryEnabled() {
-  return base::FeatureList::IsEnabled(
-      blink::features::kEnableMojoJSProtectedMemory);
 }
 
 bool IsFencedFramesEnabled() {
@@ -2638,12 +2658,23 @@ BASE_FEATURE(kSimplifyLoadingTransparentPlaceholderImage,
              "SimplifyLoadingTransparentPlaceholderImage",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+bool IsSimplifyLoadingTransparentPlaceholderImageEnabled() {
+  static const bool transparent_image_optimization_enabled =
+      base::FeatureList::IsEnabled(
+          features::kSimplifyLoadingTransparentPlaceholderImage);
+  return transparent_image_optimization_enabled;
+}
+
 BASE_FEATURE(kNoThrottlingVisibleAgent,
              "NoThrottlingVisibleAgent",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRenderSizeInScoreAdBrowserSignals,
              "RenderSizeInScoreAdBrowserSignals",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kOptimizeLoadingDataUrls,
+             "OptimizeLoadingDataUrls",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

@@ -53,8 +53,8 @@ bool TriggerNeedsOptInForCollection(const TriggerType trigger_type) {
       return true;
     case TriggerType::DEPRECATED_AD_POPUP:
     case TriggerType::DEPRECATED_AD_REDIRECT:
-      NOTREACHED() << "These triggers have been handled in "
-                      "CanStartDataCollectionWithReason()";
+      NOTREACHED_IN_MIGRATION() << "These triggers have been handled in "
+                                   "CanStartDataCollectionWithReason()";
       return true;
   }
   // By default, require opt-in for all triggers.
@@ -101,7 +101,6 @@ SBErrorOptions TriggerManager::GetSBErrorDisplayOptions(
     const PrefService& pref_service,
     content::WebContents* web_contents) {
   return SBErrorOptions(/*is_main_frame_load_pending=*/false,
-                        /*is_subresource=*/true,
                         IsExtendedReportingOptInAllowed(pref_service),
                         web_contents->GetBrowserContext()->IsOffTheRecord(),
                         IsExtendedReportingEnabled(pref_service),

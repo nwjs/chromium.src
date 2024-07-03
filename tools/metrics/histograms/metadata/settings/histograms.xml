@@ -84,6 +84,30 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Settings.ClearBrowsingData.Advanced.TimePeriod"
+    enum="SettingsClearBrowsingDataTimePeriod" expires_after="2024-11-01">
+  <owner>rainhard@chromium.org</owner>
+  <owner>msramek@chromium.org</owner>
+  <owner>chrome-privacy-controls@google.com</owner>
+  <summary>
+    Records the time period that users cleared from the Clear Browsing Data
+    dialog advanced tab. Users in the CbdTimeframeRequired experiment record
+    this only for the first deletion.
+  </summary>
+</histogram>
+
+<histogram name="Settings.ClearBrowsingData.Basic.TimePeriod"
+    enum="SettingsClearBrowsingDataTimePeriod" expires_after="2024-11-01">
+  <owner>rainhard@chromium.org</owner>
+  <owner>msramek@chromium.org</owner>
+  <owner>chrome-privacy-controls@google.com</owner>
+  <summary>
+    Records the time period that users cleared from the Clear Browsing Data
+    dialog basic tab. Users in the CbdTimeframeRequired experiment record this
+    only for the first deletion.
+  </summary>
+</histogram>
+
 <histogram name="Settings.ClearBrowsingData.OpenMyActivity"
     enum="ClearBrowsingDataMyActivityNavigation" expires_after="2024-11-03">
   <owner>andzaytsev@google.com</owner>
@@ -94,7 +118,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Settings.DefaultBrowserFromSource"
-    enum="IOSDefaultBrowserSettingsPageSource" expires_after="2024-09-01">
+    enum="IOSDefaultBrowserSettingsPageSource" expires_after="2024-11-10">
   <owner>gayane@google.com</owner>
   <owner>bling-mony-pod@google.com</owner>
   <summary>
@@ -305,7 +329,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Settings.PrivacySandbox.AdMeasurement.Enabled"
-    enum="BooleanEnabled" expires_after="2024-09-22">
+    enum="BooleanEnabled" expires_after="2024-11-24">
   <owner>sauski@google.com</owner>
   <owner>olesiamarukhno@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
@@ -364,7 +388,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Settings.PrivacySandbox.Fledge.Enabled" enum="BooleanEnabled"
-    expires_after="2024-09-22">
+    expires_after="2024-11-24">
   <owner>sauski@google.com</owner>
   <owner>olesiamarukhno@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
@@ -488,7 +512,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Settings.SafetyCheck.NotificationsModuleEntryPointShown"
-    enum="BooleanVisible" expires_after="2024-06-01">
+    enum="BooleanVisible" expires_after="2024-12-01">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <owner>hkamila@chromium.org</owner>
@@ -584,7 +608,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Settings.SafetyCheck.UnusedSitePermissionsRegrantDays{SourceUI}.All"
-    units="days" expires_after="2024-06-01">
+    units="days" expires_after="2024-12-01">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>tov@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
@@ -603,7 +627,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Settings.SafetyCheck.UnusedSitePermissionsRegrantDays{SourceUI}.{PermissionType}"
-    units="days" expires_after="2024-06-01">
+    units="days" expires_after="2024-12-01">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>tov@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
@@ -626,6 +650,20 @@ chromium-metrics-reviews@google.com.
   <owner>andzaytsev@google.com</owner>
   <owner>msramek@chromium.org</owner>
   <summary>Resulting state of the safety check updates check.</summary>
+</histogram>
+
+<histogram
+    name="Settings.SafetyHub.AbusiveNotificationPermissionRevocation.Interactions"
+    enum="SafetyCheckUnusedSitePermissionsModuleInteractions"
+    expires_after="2025-06-05">
+  <owner>skrakowi@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    The user actions taken on revoked abusive notifications in the revoked
+    permissions module of the Safety Hub page in settings. Recorded every time
+    the user interacts with the respective UI element for abusive notifications
+    - this does not include interactions with revoked unused permissions.
+  </summary>
 </histogram>
 
 <histogram name="Settings.SafetyHub.DashboardWarning"
@@ -761,6 +799,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Settings.SafetyHub.UnusedSitePermissionsModule.AutoRevoked"
+    enum="SafetyHubPermissionType" expires_after="2024-11-14">
+  <owner>sideyilmaz@chromium.org</owner>
+  <owner>aisulu@google.com</owner>
+  <owner>chrome-privacy-controls@google.com</owner>
+  <summary>
+    The type of permission auto-revoked by the unused site permissions module of
+    Safety Hub. Recorded during the auto-revocation run.
+  </summary>
+</histogram>
+
 <histogram name="Settings.SafetyHub.UnusedSitePermissionsModule.Interactions"
     enum="SafetyCheckUnusedSitePermissionsModuleInteractions"
     expires_after="2024-10-06">
@@ -871,7 +920,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Settings.TrackedPreferenceChanged" enum="TrackedPreference"
-    expires_after="2024-09-22">
+    expires_after="2024-11-24">
   <owner>proberge@chromium.org</owner>
   <owner>junhao.huang@microsoft.com</owner>
   <summary>

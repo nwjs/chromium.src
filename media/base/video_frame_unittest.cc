@@ -526,7 +526,6 @@ TEST(VideoFrame, WrapExternalGpuMemoryBuffer) {
   }
   EXPECT_EQ(frame->layout().modifier(), modifier);
   EXPECT_EQ(frame->storage_type(), VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
-  EXPECT_TRUE(frame->HasGpuMemoryBuffer());
   EXPECT_EQ(frame->GetGpuMemoryBuffer(), gmb_raw_ptr);
   EXPECT_EQ(frame->coded_size(), coded_size);
   EXPECT_EQ(frame->visible_rect(), visible_rect);
@@ -579,14 +578,23 @@ TEST(VideoFrame, WrapExternalDmabufs) {
   auto wrapped_frame = VideoFrame::WrapVideoFrame(
       frame, frame->format(), visible_rect, visible_rect.size());
   ASSERT_NE(wrapped_frame, nullptr);
-  ASSERT_EQ(wrapped_frame->IsSameDmaBufsAs(*frame), true);
+  ASSERT_EQ(frame->NumDmabufFds(), wrapped_frame->NumDmabufFds());
+  for (size_t i = 0; i < frame->NumDmabufFds(); ++i) {
+    ASSERT_EQ(frame->GetDmabufFd(i), wrapped_frame->GetDmabufFd(i));
+  }
 
   // Multi-level wrapping should share same memory as well.
   auto wrapped_frame2 = VideoFrame::WrapVideoFrame(
       wrapped_frame, frame->format(), visible_rect, visible_rect.size());
   ASSERT_NE(wrapped_frame2, nullptr);
-  ASSERT_EQ(wrapped_frame2->IsSameDmaBufsAs(*wrapped_frame), true);
-  ASSERT_EQ(wrapped_frame2->IsSameDmaBufsAs(*frame), true);
+  ASSERT_EQ(frame->NumDmabufFds(), wrapped_frame2->NumDmabufFds());
+  for (size_t i = 0; i < frame->NumDmabufFds(); ++i) {
+    ASSERT_EQ(frame->GetDmabufFd(i), wrapped_frame2->GetDmabufFd(i));
+  }
+  ASSERT_EQ(wrapped_frame->NumDmabufFds(), wrapped_frame2->NumDmabufFds());
+  for (size_t i = 0; i < wrapped_frame2->NumDmabufFds(); ++i) {
+    ASSERT_EQ(wrapped_frame->GetDmabufFd(i), wrapped_frame2->GetDmabufFd(i));
+  }
 }
 #endif
 
@@ -611,11 +619,10 @@ TEST(VideoFrame, TextureNoLongerNeededCallbackIsCalled) {
                                    gpu::CommandBufferId::FromUnsafeValue(1), 1);
 
   {
-    scoped_refptr<gpu::ClientSharedImage>
-        shared_images[VideoFrame::kMaxPlanes] = {
-            gpu::ClientSharedImage::CreateForTesting()};
-    scoped_refptr<VideoFrame> frame = VideoFrame::WrapSharedImages(
-        PIXEL_FORMAT_ARGB, shared_images, gpu::SyncToken(), 5,
+    scoped_refptr<gpu::ClientSharedImage> shared_image =
+        gpu::ClientSharedImage::CreateForTesting();
+    scoped_refptr<VideoFrame> frame = VideoFrame::WrapSharedImage(
+        PIXEL_FORMAT_ARGB, shared_image, gpu::SyncToken(), 5,
         base::BindOnce(&TextureCallback, &called_sync_token),
         gfx::Size(10, 10),   // coded_size
         gfx::Rect(10, 10),   // visible_rect
@@ -731,17 +738,28 @@ TEST(VideoFrame, AllocationSize_OddSize) {
   for (unsigned int i = 1u; i <= PIXEL_FORMAT_MAX; ++i) {
     const VideoPixelFormat format = static_cast<VideoPixelFormat>(i);
     switch (format) {
+      case PIXEL_FORMAT_YUV444AP10:
+        EXPECT_EQ(192u, VideoFrame::AllocationSize(format, size))
+            << VideoPixelFormatToString(format);
+        break;
       case PIXEL_FORMAT_YUV444P9:
       case PIXEL_FORMAT_YUV444P10:
       case PIXEL_FORMAT_YUV444P12:
       case PIXEL_FORMAT_YUV422AP10:
+      case PIXEL_FORMAT_P416LE:
         EXPECT_EQ(144u, VideoFrame::AllocationSize(format, size))
+            << VideoPixelFormatToString(format);
+        break;
+      case PIXEL_FORMAT_RGBAF16:
+      case PIXEL_FORMAT_YUV420AP10:
+        EXPECT_EQ(120u, VideoFrame::AllocationSize(format, size))
             << VideoPixelFormatToString(format);
         break;
       case PIXEL_FORMAT_YUV422P9:
       case PIXEL_FORMAT_YUV422P10:
       case PIXEL_FORMAT_YUV422P12:
       case PIXEL_FORMAT_I444A:
+      case PIXEL_FORMAT_P216LE:
         EXPECT_EQ(96u, VideoFrame::AllocationSize(format, size))
             << VideoPixelFormatToString(format);
         break;
@@ -751,6 +769,7 @@ TEST(VideoFrame, AllocationSize_OddSize) {
       case PIXEL_FORMAT_YUV420P12:
       case PIXEL_FORMAT_P016LE:
       case PIXEL_FORMAT_I422A:
+      case PIXEL_FORMAT_NV24:
         EXPECT_EQ(72u, VideoFrame::AllocationSize(format, size))
             << VideoPixelFormatToString(format);
         break;
@@ -761,6 +780,7 @@ TEST(VideoFrame, AllocationSize_OddSize) {
       case PIXEL_FORMAT_UYVY:
       case PIXEL_FORMAT_YUY2:
       case PIXEL_FORMAT_I422:
+      case PIXEL_FORMAT_NV16:
         EXPECT_EQ(48u, VideoFrame::AllocationSize(format, size))
             << VideoPixelFormatToString(format);
         break;
@@ -788,15 +808,6 @@ TEST(VideoFrame, AllocationSize_OddSize) {
         break;
       case PIXEL_FORMAT_Y16:
         EXPECT_EQ(30u, VideoFrame::AllocationSize(format, size))
-            << VideoPixelFormatToString(format);
-        break;
-      case PIXEL_FORMAT_RGBAF16:
-      case PIXEL_FORMAT_YUV420AP10:
-        EXPECT_EQ(120u, VideoFrame::AllocationSize(format, size))
-            << VideoPixelFormatToString(format);
-        break;
-      case PIXEL_FORMAT_YUV444AP10:
-        EXPECT_EQ(192u, VideoFrame::AllocationSize(format, size))
             << VideoPixelFormatToString(format);
         break;
       case PIXEL_FORMAT_MJPEG:

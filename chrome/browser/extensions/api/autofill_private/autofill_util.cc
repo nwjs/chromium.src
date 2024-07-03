@@ -31,6 +31,7 @@
 #include "components/autofill/core/browser/ui/country_combobox_model.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/user_selectable_type.h"
@@ -58,7 +59,7 @@ autofill_private::AddressSource ConvertProfileSource(
     case autofill::AutofillProfile::Source::kAccount:
       return autofill_private::AddressSource::kAccount;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return autofill_private::AddressSource::kNone;
   }
 }
@@ -195,11 +196,10 @@ namespace extensions::autofill_util {
 
 AddressEntryList GenerateAddressList(
     const autofill::PersonalDataManager& personal_data) {
-  const std::vector<autofill::AutofillProfile*>& profiles =
+  const std::vector<const autofill::AutofillProfile*>& profiles =
       personal_data.address_data_manager().GetProfilesForSettings();
   std::vector<std::u16string> labels;
-  // TODO(crbug.com/40283168): Replace by `profiles` when
-  // `GetProfilesForSettings` starts returning a list of const AutofillProfile*.
+  // TODO(crbug.com/40283168): Replace by `profiles`.
   autofill::AutofillProfile::CreateDifferentiatingLabels(
       std::vector<raw_ptr<const autofill::AutofillProfile, VectorExperimental>>(
           profiles.begin(), profiles.end()),

@@ -4,7 +4,6 @@
 
 import("//build/config/pch.gni")
 import("//build/config/rust.gni")
-import("//build/toolchain/goma.gni")
 import("clang.gni")
 
 if (is_ios) {
@@ -22,6 +21,11 @@ config("find_bad_constructs") {
       "-add-plugin",
       "-Xclang",
       "find-bad-constructs",
+
+      "-Xclang",
+      "-plugin-arg-find-bad-constructs",
+      "-Xclang",
+      "span-ctor-from-string-literal",
 
       "-Xclang",
       "-plugin-arg-find-bad-constructs",
@@ -48,6 +52,18 @@ config("find_bad_constructs") {
       "-plugin-arg-find-bad-constructs",
       "-Xclang",
       "disable-check-raw-ptr-to-stack-allocated-error",
+
+      # TODO(https://crbug.com/40064499): Remove when clang plugin rolls with
+      # updated RawPtrManualPathsToIgnore.h and we confirm that these
+      # directories are fully rewritten.
+      "-Xclang",
+      "-plugin-arg-find-bad-constructs",
+      "-Xclang",
+      "raw-ptr-exclude-path=/renderer/",
+      "-Xclang",
+      "-plugin-arg-find-bad-constructs",
+      "-Xclang",
+      "raw-ptr-exclude-path=third_party/blink/public/web/",
 
       # TODO(crbug.com/40944547): Remove when raw_ptr check has been
       # enabled for the dawn repo.
@@ -101,7 +117,7 @@ config("find_bad_constructs") {
 # should not.
 config("unsafe_buffers") {
   if (clang_use_chrome_plugins && clang_unsafe_buffers_paths != "" &&
-      !use_goma && !enable_precompiled_headers) {
+      !enable_precompiled_headers) {
     cflags = [
       "-DUNSAFE_BUFFERS_BUILD",
 

@@ -7,6 +7,9 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/content_settings/chrome_content_settings_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/media/webrtc/media_stream_device_permissions.h"
+#include "chrome/browser/permissions/system_permission_delegate.h"
+#include "chrome/browser/permissions/system_permission_delegate_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_ask_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_base_view.h"
@@ -16,6 +19,7 @@
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_previously_granted_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_show_system_prompt_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_system_settings_view.h"
+#include "chrome/common/pref_names.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/permissions/permission_uma_util.h"
@@ -58,41 +62,68 @@ bool IsPermissionSetByAdministator(ContentSetting setting,
            info.source == SettingSource::kSupervised));
 }
 
-#if BUILDFLAG(IS_MAC)
-void OpenCameraSystemSettingsOnMacOS() {
-  if (system_media_permissions::CheckSystemVideoCapturePermission() ==
-      system_media_permissions::SystemPermission::kDenied) {
-    base::mac::OpenSystemSettingsPane(
-        base::mac::SystemSettingsPane::kPrivacySecurity_Camera);
+// TODO(41014586): Integrate policy-set media permissions into
+// SettingsSource.policy. Currently, AudioCaptureAllowed, VideoCaptureAllowed
+// are not checked within |IsPermissionSetByAdministrator|, so
+// |IsPermissionBlockedByDevicePolicy| and |IsPermissionAllowedByDevicePolicy|
+// methods are needed to show the appropriate policy screen.
+bool IsPermissionBlockedByDevicePolicy(
+    content::WebContents* web_contents,
+    ContentSetting setting,
+    const content_settings::SettingInfo& info,
+    ContentSettingsType type) {
+  if (IsPermissionSetByAdministator(setting, info) &&
+      setting == CONTENT_SETTING_BLOCK) {
+    return true;
   }
-}
 
-void OpenMicSystemSettingsOnMacOS() {
-  if (system_media_permissions::CheckSystemAudioCapturePermission() ==
-      system_media_permissions::SystemPermission::kDenied) {
-    base::mac::OpenSystemSettingsPane(
-        base::mac::SystemSettingsPane::kPrivacySecurity_Microphone);
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  if (type == ContentSettingsType::MEDIASTREAM_MIC) {
+    return GetDevicePolicy(profile, web_contents->GetLastCommittedURL(),
+                           prefs::kAudioCaptureAllowed,
+                           prefs::kAudioCaptureAllowedUrls) ==
+           MediaStreamDevicePolicy::ALWAYS_DENY;
   }
+
+  if (type == ContentSettingsType::MEDIASTREAM_CAMERA) {
+    return GetDevicePolicy(profile, web_contents->GetLastCommittedURL(),
+                           prefs::kVideoCaptureAllowed,
+                           prefs::kVideoCaptureAllowedUrls) ==
+           MediaStreamDevicePolicy::ALWAYS_DENY;
+  }
+
+  return false;
 }
 
-bool ShouldShowSystemSettingsViewOnMacOS(ContentSettingsType type) {
-  return (type == ContentSettingsType::MEDIASTREAM_MIC &&
-          system_media_permissions::CheckSystemAudioCapturePermission() ==
-              system_media_permissions::SystemPermission::kDenied) ||
-         (type == ContentSettingsType::MEDIASTREAM_CAMERA &&
-          system_media_permissions::CheckSystemVideoCapturePermission() ==
-              system_media_permissions::SystemPermission::kDenied);
-}
+bool IsPermissionAllowedByDevicePolicy(
+    content::WebContents* web_contents,
+    ContentSetting setting,
+    const content_settings::SettingInfo& info,
+    ContentSettingsType type) {
+  if (IsPermissionSetByAdministator(setting, info) &&
+      setting == CONTENT_SETTING_ALLOW) {
+    return true;
+  }
 
-bool ShouldShowOSPromptViewOnMacOS(ContentSettingsType type) {
-  return (type == ContentSettingsType::MEDIASTREAM_MIC &&
-          system_media_permissions::CheckSystemAudioCapturePermission() ==
-              system_media_permissions::SystemPermission::kNotDetermined) ||
-         (type == ContentSettingsType::MEDIASTREAM_CAMERA &&
-          system_media_permissions::CheckSystemVideoCapturePermission() ==
-              system_media_permissions::SystemPermission::kNotDetermined);
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  if (type == ContentSettingsType::MEDIASTREAM_MIC) {
+    return GetDevicePolicy(profile, web_contents->GetLastCommittedURL(),
+                           prefs::kAudioCaptureAllowed,
+                           prefs::kAudioCaptureAllowedUrls) ==
+           MediaStreamDevicePolicy::ALWAYS_ALLOW;
+  }
+
+  if (type == ContentSettingsType::MEDIASTREAM_CAMERA) {
+    return GetDevicePolicy(profile, web_contents->GetLastCommittedURL(),
+                           prefs::kVideoCaptureAllowed,
+                           prefs::kVideoCaptureAllowedUrls) ==
+           MediaStreamDevicePolicy::ALWAYS_ALLOW;
+  }
+
+  return false;
 }
-#endif
 
 permissions::ElementAnchoredBubbleVariant GetVariant(
     EmbeddedPermissionPrompt::Variant variant) {
@@ -115,7 +146,7 @@ permissions::ElementAnchoredBubbleVariant GetVariant(
       return permissions::ElementAnchoredBubbleVariant::ADMINISTRATOR_DENIED;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return permissions::ElementAnchoredBubbleVariant::UNINITIALIZED;
 }
 }  // namespace
@@ -133,7 +164,6 @@ EmbeddedPermissionPrompt::~EmbeddedPermissionPrompt() {
   CloseView();
 }
 
-// static
 EmbeddedPermissionPrompt::Variant
 EmbeddedPermissionPrompt::DeterminePromptVariant(
     ContentSetting setting,
@@ -141,8 +171,7 @@ EmbeddedPermissionPrompt::DeterminePromptVariant(
     ContentSettingsType type) {
   // If the administrator blocked the permission, there is nothing the user can
   // do. Presenting them with a different screen in unproductive.
-  if (IsPermissionSetByAdministator(setting, info) &&
-      setting == CONTENT_SETTING_BLOCK) {
+  if (IsPermissionBlockedByDevicePolicy(web_contents(), setting, info, type)) {
     return Variant::kAdministratorDenied;
   }
 
@@ -151,17 +180,17 @@ EmbeddedPermissionPrompt::DeterminePromptVariant(
   // whereas the "OS Prompt" view is only higher priority then the views that
   // are associated with a site-level allowed state.
   // TODO(crbug.com/40275129): Handle going to Windows settings.
-#if BUILDFLAG(IS_MAC)
-  if (ShouldShowSystemSettingsViewOnMacOS(type)) {
+  auto* system_permission_delegate = GetSystemPermissionDelegate(type);
+  if (system_permission_delegate->IsSystemPermissionDenied()) {
     return Variant::kOsSystemSettings;
   }
 
-  if (setting == CONTENT_SETTING_ALLOW && ShouldShowOSPromptViewOnMacOS(type)) {
+  if (setting == CONTENT_SETTING_ALLOW &&
+      system_permission_delegate->CanShowSystemPermissionPrompt()) {
     return Variant::kOsPrompt;
   }
-#endif
 
-  if (IsPermissionSetByAdministator(setting, info)) {
+  if (IsPermissionAllowedByDevicePolicy(web_contents(), setting, info, type)) {
     return Variant::kAdministratorGranted;
   }
 
@@ -239,9 +268,7 @@ void EmbeddedPermissionPrompt::CloseCurrentViewAndMaybeShowNext(
       current_variant_first_display_time_ = base::Time::Now();
 // This view has no buttons, so the OS level prompt should be triggered at the
 // same time as the |EmbeddedPermissionPromptShowSystemPromptView|.
-#if BUILDFLAG(IS_MAC)
       PromptForOsPermission();
-#endif
       break;
     case Variant::kOsSystemSettings:
       prompt_view = new EmbeddedPermissionPromptSystemSettingsView(
@@ -268,7 +295,7 @@ void EmbeddedPermissionPrompt::CloseCurrentViewAndMaybeShowNext(
           permissions::ElementAnchoredBubbleVariant::ADMINISTRATOR_DENIED);
       break;
     case Variant::kUninitialized:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   if (prompt_view) {
@@ -291,6 +318,9 @@ EmbeddedPermissionPrompt::GetTabSwitchingBehavior() {
 
 void EmbeddedPermissionPrompt::RecordOsMetrics(
     permissions::OsScreenAction action) {
+  const auto& requests = delegate()->Requests();
+  CHECK_GT(requests.size(), 0U);
+
   permissions::OsScreen screen;
 
   switch (embedded_prompt_variant_) {
@@ -307,7 +337,7 @@ void EmbeddedPermissionPrompt::RecordOsMetrics(
   base::TimeDelta time_to_decision =
       base::Time::Now() - current_variant_first_display_time_;
   permissions::PermissionUmaUtil::RecordElementAnchoredBubbleOsMetrics(
-      delegate()->Requests(), screen, action, time_to_decision);
+      requests, screen, action, time_to_decision);
 }
 
 void EmbeddedPermissionPrompt::RecordPermissionActionUKM(
@@ -346,10 +376,11 @@ void EmbeddedPermissionPrompt::PrecalculateVariantsForMetrics() {
 
   site_level_prompt_variant_ = embedded_prompt_variant_;
 
-#if BUILDFLAG(IS_MAC)
   if (os_prompt_variant_ == Variant::kUninitialized) {
     for (const auto& request : delegate()->Requests()) {
-      if (ShouldShowOSPromptViewOnMacOS(request->GetContentSettingsType())) {
+      auto* system_permission_delegate =
+          GetSystemPermissionDelegate(request->GetContentSettingsType());
+      if (system_permission_delegate->CanShowSystemPermissionPrompt()) {
         os_prompt_variant_ = Variant::kOsPrompt;
         break;
       }
@@ -358,14 +389,14 @@ void EmbeddedPermissionPrompt::PrecalculateVariantsForMetrics() {
 
   if (os_system_settings_variant_ == Variant::kUninitialized) {
     for (const auto& request : delegate()->Requests()) {
-      if (ShouldShowSystemSettingsViewOnMacOS(
-              request->GetContentSettingsType())) {
+      auto* system_permission_delegate =
+          GetSystemPermissionDelegate(request->GetContentSettingsType());
+      if (system_permission_delegate->IsSystemPermissionDenied()) {
         os_system_settings_variant_ = Variant::kOsSystemSettings;
         break;
       }
     }
   }
-#endif  // BUILDFLAG(IS_MAC)
 }
 
 std::vector<permissions::ElementAnchoredBubbleVariant>
@@ -442,18 +473,12 @@ void EmbeddedPermissionPrompt::ShowSystemSettings() {
 // TODO(crbug.com/40275129) Chrome always shows the first permission in a group,
 // as it is not possible to open multiple System Setting pages. Figure out a
 // better way to handle this scenario.
-#if BUILDFLAG(IS_MAC)
   RecordOsMetrics(permissions::OsScreenAction::SYSTEM_SETTINGS);
   RecordPermissionActionUKM(
       permissions::ElementAnchoredBubbleAction::kSystemSettings);
-  if (requests_[0]->request_type() == permissions::RequestType::kCameraStream) {
-    OpenCameraSystemSettingsOnMacOS();
-  } else if (requests_[0]->request_type() ==
-             permissions::RequestType::kMicStream) {
-    OpenMicSystemSettingsOnMacOS();
-  }
-
-#endif
+  auto* system_permission_delegate =
+      GetSystemPermissionDelegate(requests_[0]->GetContentSettingsType());
+  system_permission_delegate->ShowSystemPermissionSettingsView();
 }
 
 base::WeakPtr<permissions::PermissionPrompt::Delegate>
@@ -480,80 +505,76 @@ void EmbeddedPermissionPrompt::DismissScrim() {
 }
 
 void EmbeddedPermissionPrompt::PromptForOsPermission() {
-#if BUILDFLAG(IS_MAC)
   // We currently support <=2 grouped permissions.
   CHECK_LE(prompt_types_.size(), 2U);
 
-  for (const auto prompt : prompt_types_) {
-    RequestMacOSMediaSystemPermission(prompt, prompt_types_.size() == 2U);
+  std::vector<ContentSettingsType> types(prompt_types_.begin(),
+                                         prompt_types_.end());
+
+  for (unsigned int idx = 0; idx < types.size(); idx++) {
+    auto* system_permission_delegate = GetSystemPermissionDelegate(types[idx]);
+    system_permission_delegate->RequestSystemPermission(base::BindOnce(
+        &EmbeddedPermissionPrompt::OnRequestSystemPermissionResponse,
+        weak_factory_.GetWeakPtr(), types[idx],
+        // Pass the other type for grouped permission case.
+        (types.size() == 2U ? types[1U - idx] : ContentSettingsType::DEFAULT)));
   }
-#endif
 }
 
+void EmbeddedPermissionPrompt::OnRequestSystemPermissionResponse(
+    const ContentSettingsType request_type,
+    const ContentSettingsType other_request_type) {
+  auto* system_permission_delegate = GetSystemPermissionDelegate(request_type);
+  bool permission_determined =
+      !system_permission_delegate->CanShowSystemPermissionPrompt();
+
+  // `other_permission_determined` is left with true in non-grouped scenario,
+  // which would make the final logic fully rely on `permission_determined`.
+  auto other_permission_determined = true;
+  if (other_request_type != ContentSettingsType::DEFAULT) {
+    auto* other_system_permission_delegate =
+        GetSystemPermissionDelegate(other_request_type);
+    other_permission_determined =
+        !other_system_permission_delegate->CanShowSystemPermissionPrompt();
+  }
+
+  if (permission_determined) {
 #if BUILDFLAG(IS_MAC)
-void EmbeddedPermissionPrompt::OnRequestSystemMediaPermissionResponse(
-    const ContentSettingsType request_type,
-    bool grouped_permissions) {
-  system_media_permissions::SystemPermission permission,
-      other_permission =
-          system_media_permissions::SystemPermission::kNotDetermined;
+    system_media_permissions::SystemPermission permission;
 
-  if (request_type == ContentSettingsType::MEDIASTREAM_MIC) {
-    permission = system_media_permissions::CheckSystemAudioCapturePermission();
-    other_permission =
-        grouped_permissions
-            ? system_media_permissions::CheckSystemVideoCapturePermission()
-            : system_media_permissions::SystemPermission::kNotDetermined;
-  }
+    if (request_type == ContentSettingsType::MEDIASTREAM_MIC) {
+      permission =
+          system_media_permissions::CheckSystemAudioCapturePermission();
+    }
+    if (request_type == ContentSettingsType::MEDIASTREAM_CAMERA) {
+      permission =
+          system_media_permissions::CheckSystemVideoCapturePermission();
+    }
 
-  if (request_type == ContentSettingsType::MEDIASTREAM_CAMERA) {
-    permission = system_media_permissions::CheckSystemVideoCapturePermission();
-    other_permission =
-        grouped_permissions
-            ? system_media_permissions::CheckSystemAudioCapturePermission()
-            : system_media_permissions::SystemPermission::kNotDetermined;
-  }
+    switch (permission) {
+      case system_media_permissions::SystemPermission::kRestricted:
+        break;
+      case system_media_permissions::SystemPermission::kDenied:
+        RecordOsMetrics(permissions::OsScreenAction::OS_PROMPT_DENIED);
+        break;
+      case system_media_permissions::SystemPermission::kAllowed:
+        RecordOsMetrics(permissions::OsScreenAction::OS_PROMPT_ALLOWED);
+        break;
+      case system_media_permissions::SystemPermission::kNotDetermined:
+        NOTREACHED_IN_MIGRATION();
+    }
+#endif  // BUILDFLAG(IS_MAC)
 
-  switch (permission) {
-    case system_media_permissions::SystemPermission::kRestricted:
-    case system_media_permissions::SystemPermission::kDenied:
-    case system_media_permissions::SystemPermission::kAllowed:
-      // Do not finalize request until all the necessary system permissions are
-      // granted.
-      if (!grouped_permissions ||
-          other_permission !=
-              system_media_permissions::SystemPermission::kNotDetermined) {
-        CloseView();
-        delegate_->FinalizeCurrentRequests();
-      }
-      break;
-    case system_media_permissions::SystemPermission::kNotDetermined:
-      NOTREACHED();
+    // Do not finalize request until all the necessary system permissions are
+    // granted.
+    if (other_permission_determined) {
+      CloseView();
+      delegate_->FinalizeCurrentRequests();
+    }
+  } else {
+    NOTREACHED_IN_MIGRATION();
   }
 }
-
-// TODO: Refactor this logic for PEPC and other permission prompts, to avoid
-// code duplication.
-void EmbeddedPermissionPrompt::RequestMacOSMediaSystemPermission(
-    const ContentSettingsType request_type,
-    bool grouped_permissions) {
-  if (request_type == ContentSettingsType::MEDIASTREAM_MIC) {
-    system_media_permissions::RequestSystemAudioCapturePermission(
-        base::BindOnce(
-            &EmbeddedPermissionPrompt::OnRequestSystemMediaPermissionResponse,
-            weak_factory_.GetWeakPtr(), request_type, grouped_permissions));
-    return;
-  }
-
-  if (request_type == ContentSettingsType::MEDIASTREAM_CAMERA) {
-    system_media_permissions::RequestSystemVideoCapturePermission(
-        base::BindOnce(
-            &EmbeddedPermissionPrompt::OnRequestSystemMediaPermissionResponse,
-            weak_factory_.GetWeakPtr(), request_type, grouped_permissions));
-    return;
-  }
-}
-#endif
 
 void EmbeddedPermissionPrompt::PrioritizeAndMergeNewVariant(
     EmbeddedPermissionPrompt::Variant new_variant,
@@ -603,4 +624,16 @@ void EmbeddedPermissionPrompt::CloseView() {
     content_scrim_widget_->Close();
     content_scrim_widget_.reset();
   }
+}
+
+EmbeddedPermissionPrompt::SystemPermissionDelegate*
+EmbeddedPermissionPrompt::GetSystemPermissionDelegate(
+    ContentSettingsType type) {
+  if (system_permission_delegates_.find(type) ==
+      system_permission_delegates_.end()) {
+    system_permission_delegates_.insert(
+        {type, SystemPermissionDelegateFactory::CreateSystemPermissionDelegate(
+                   type)});
+  }
+  return system_permission_delegates_.at(type).get();
 }

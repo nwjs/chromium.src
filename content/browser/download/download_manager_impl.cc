@@ -33,6 +33,7 @@
 #include "components/download/public/common/download_interrupt_reasons.h"
 #include "components/download/public/common/download_item_factory.h"
 #include "components/download/public/common/download_item_impl.h"
+#include "components/download/public/common/download_item_rename_handler.h"
 #include "components/download/public/common/download_stats.h"
 #include "components/download/public/common/download_target_info.h"
 #include "components/download/public/common/download_task_runner.h"
@@ -717,30 +718,34 @@ void DownloadManagerImpl::OnNewDownloadIdRetrieved(
   if (info->transient && !info->is_must_download &&
       delegate_->ShouldOpenPdfInline() &&
       base::EqualsCaseInsensitiveASCII(info->mime_type, kPdfMimeType)) {
-    for (const auto& iter : downloads_by_guid_) {
-      download::DownloadItem* item = iter.second;
-      if (item->GetFileExternallyRemoved() ||
-          item->GetState() != download::DownloadItem::COMPLETE) {
-        continue;
-      }
+    if (IsOffTheRecord()) {
+      info->save_info->use_in_memory_file = true;
+    } else {
+      for (const auto& iter : downloads_by_guid_) {
+        download::DownloadItem* item = iter.second;
+        if (item->GetFileExternallyRemoved() ||
+            item->GetState() != download::DownloadItem::COMPLETE) {
+          continue;
+        }
 
-      if (item->GetMimeType() != kPdfMimeType ||
-          item->GetUrlChain() != info->url_chain) {
-        continue;
-      }
+        if (item->GetMimeType() != kPdfMimeType ||
+            item->GetUrlChain() != info->url_chain) {
+          continue;
+        }
 
-      if (!item->IsTransient() || item->IsMustDownload()) {
-        continue;
-      }
+        if (!item->IsTransient() || item->IsMustDownload()) {
+          continue;
+        }
 
-      disk_access_task_runner_->PostTaskAndReplyWithResult(
-          FROM_HERE,
-          base::BindOnce(&base::PathExists, item->GetTargetFilePath()),
-          base::BindOnce(&DownloadManagerImpl::CreateNewDownloadItemToStart,
-                         weak_factory_.GetWeakPtr(), std::move(info),
-                         std::move(on_started), std::move(callback), id,
-                         item->GetTargetFilePath()));
-      return;
+        disk_access_task_runner_->PostTaskAndReplyWithResult(
+            FROM_HERE,
+            base::BindOnce(&base::PathExists, item->GetTargetFilePath()),
+            base::BindOnce(&DownloadManagerImpl::CreateNewDownloadItemToStart,
+                           weak_factory_.GetWeakPtr(), std::move(info),
+                           std::move(on_started), std::move(callback), id,
+                           item->GetTargetFilePath()));
+        return;
+      }
     }
   }
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -788,6 +793,16 @@ DownloadManagerImpl::GetQuarantineConnectionCallback() {
     return base::NullCallback();
 
   return delegate_->GetQuarantineConnectionCallback();
+}
+
+std::unique_ptr<download::DownloadItemRenameHandler>
+DownloadManagerImpl::GetRenameHandlerForDownload(
+    download::DownloadItemImpl* download_item) {
+  if (!delegate_) {
+    return nullptr;
+  }
+
+  return delegate_->GetRenameHandlerForDownload(download_item);
 }
 
 void DownloadManagerImpl::StartDownload(
@@ -1188,7 +1203,7 @@ void DownloadManagerImpl::PostInitialization(
       break;
     case DOWNLOAD_INITIALIZATION_DEPENDENCY_NONE:
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 

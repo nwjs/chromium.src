@@ -47,9 +47,9 @@ class DummyResponseBodyLoaderClient
     decoded_data_ = decoded_data;
     digest_ = std::move(digest);
   }
-  void DidFinishLoadingBody() override { NOTREACHED(); }
-  void DidFailLoadingBody() override { NOTREACHED(); }
-  void DidCancelLoadingBody() override { NOTREACHED(); }
+  void DidFinishLoadingBody() override { NOTREACHED_IN_MIGRATION(); }
+  void DidFailLoadingBody() override { NOTREACHED_IN_MIGRATION(); }
+  void DidCancelLoadingBody() override { NOTREACHED_IN_MIGRATION(); }
 
   const Deque<Vector<char>>& raw_data() const {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -209,8 +209,8 @@ TEST_F(ScriptDecoderTest, Simple) {
                   base::RunLoop* run_loop, ScriptDecoder::Result result) {
                 CHECK(default_task_runner->RunsTasksInCurrentSequence());
 
-                ASSERT_EQ(result.raw_data.size(), 1u);
-                EXPECT_THAT(result.raw_data.front(),
+                ASSERT_FALSE(result.raw_data.empty());
+                EXPECT_THAT(*result.raw_data.begin(),
                             Vector<char>(base::make_span(kFooUTF8WithBOM)));
                 EXPECT_EQ(result.decoded_data, "foo");
                 EXPECT_THAT(result.digest,

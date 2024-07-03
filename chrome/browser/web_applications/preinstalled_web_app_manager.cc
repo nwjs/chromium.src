@@ -76,6 +76,7 @@
 #if BUILDFLAG(IS_CHROMEOS)
 // TODO(http://b/333583704): Revert CL which added this include after migration.
 #include "chrome/browser/chromeos/echo/echo_util.h"
+#include "chromeos/constants/chromeos_features.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -513,13 +514,11 @@ bool ShouldForceReinstall(const ExternalInstallOptions& options,
     return true;
   }
 
-  if (base::FeatureList::IsEnabled(features::kWebAppDedupeInstallUrls)) {
-    // TODO(crbug.com/40261748): Add metrics for this event.
-    const WebApp* app = registrar.LookUpAppByInstallSourceInstallUrl(
-        WebAppManagement::Type::kDefault, options.install_url);
-    if (app && LooksLikePlaceholder(*app)) {
-      return true;
-    }
+  // TODO(crbug.com/40261748): Add metrics for this event.
+  const WebApp* app = registrar.LookUpAppByInstallSourceInstallUrl(
+      WebAppManagement::Type::kDefault, options.install_url);
+  if (app && LooksLikePlaceholder(*app)) {
+    return true;
   }
 
   return false;
@@ -795,6 +794,16 @@ void PreinstalledWebAppManager::LoadConfigs(ConsumeLoadedConfigs callback) {
     return;
   }
 
+#if BUILDFLAG(IS_CHROMEOS)
+  // Don't load configs from /usr/share/google-chrome/extensions/web_apps when
+  // preinstalling core apps only.
+  if (base::FeatureList::IsEnabled(
+          chromeos::features::kPreinstalledWebAppsCoreOnly)) {
+    std::move(callback).Run({});
+    return;
+  }
+#endif
+
   base::FilePath config_dir = GetPreinstalledWebAppConfigDir(profile_);
   if (config_dir.empty()) {
     std::move(callback).Run({});
@@ -975,7 +984,7 @@ void PreinstalledWebAppManager::OnExternalWebAppsSynchronized(
     std::map<InstallUrl, std::vector<webapps::AppId>> desired_uninstalls,
     std::map<InstallUrl, ExternallyManagedAppManager::InstallResult>
         install_results,
-    std::map<InstallUrl, bool> uninstall_results) {
+    std::map<InstallUrl, webapps::UninstallResultCode> uninstall_results) {
   // Note that we are storing the Chrome version (milestone number) instead of a
   // "has synchronised" bool in order to do version update specific logic.
   profile_->GetPrefs()->SetString(
@@ -1079,7 +1088,7 @@ void PreinstalledWebAppManager::OnExternalWebAppsSynchronized(
 void PreinstalledWebAppManager::OnStartUpTaskCompleted(
     std::map<InstallUrl, ExternallyManagedAppManager::InstallResult>
         install_results,
-    std::map<InstallUrl, bool> uninstall_results) {
+    std::map<InstallUrl, webapps::UninstallResultCode> uninstall_results) {
   if (debug_info_) {
     debug_info_->is_start_up_task_complete = true;
     debug_info_->install_results = std::move(install_results);

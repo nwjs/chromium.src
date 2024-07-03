@@ -6,6 +6,7 @@
 
 #include <string_view>
 
+#include "base/android/scoped_java_ref.h"
 #include "base/numerics/ranges.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
@@ -21,6 +22,7 @@
 #include "content/browser/renderer_host/navigation_transitions/navigation_entry_screenshot_cache.h"
 #include "content/browser/renderer_host/navigation_transitions/navigation_entry_screenshot_manager.h"
 #include "content/browser/renderer_host/navigation_transitions/navigation_transition_utils.h"
+#include "content/browser/web_contents/web_contents_android.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_contents/web_contents_view.h"
 #include "content/browser/web_contents/web_contents_view_android.h"
@@ -154,7 +156,7 @@ SkColor4f GetScrimForGestureProgress(GestureType gesture) {
       break;
     case GestureType::kCancel:
     case GestureType::kInvoke:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
   return scrim;
@@ -2124,6 +2126,60 @@ IN_PROC_BROWSER_TEST_P(BackForwardTransitionAnimationManagerBrowserTest,
   }
 }
 
+// Regression test for https://crbug.com/339501357: If the animator is destroyed
+// in the middle of a gesture, the history navigation should still proceed.
+IN_PROC_BROWSER_TEST_P(BackForwardTransitionAnimationManagerBrowserTest,
+                       AnimatorDestroyedMidGesture) {
+  DisableBackForwardCacheForTesting(
+      web_contents(),
+      BackForwardCache::DisableForTestingReason::TEST_REQUIRES_NO_CACHING);
+
+  std::vector<GestureAndScreenChanged> expected;
+  expected.push_back({.gesture = GestureType::kStart});
+  expected.push_back({.gesture = GestureType::k30ViewportWidth});
+  HistoryBackNavAndAssertAnimatedTransition(expected);
+
+  GetAnimatorForTesting()->SetFinishedStateToInProgress();
+
+  // Destroy the animator.
+  auto* manager = static_cast<BackForwardTransitionAnimationManagerAndroid*>(
+      web_contents()->GetBackForwardTransitionAnimationManager());
+  manager->SynchronouslyDestroyAnimator();
+
+  TestNavigationManager back_to_red(web_contents(), RedURL());
+  // Invoke the gesture and start the navigation.
+  manager->OnGestureInvoked();
+  ASSERT_TRUE(back_to_red.WaitForNavigationFinished());
+}
+
+// Regression test for https://crbug.com/344761329: If the
+// WebContentsViewAndroid's native view is detached from the root window, we
+// should abort the transition.
+IN_PROC_BROWSER_TEST_P(BackForwardTransitionAnimationManagerBrowserTest,
+                       AnimatorDestroyedWhenViewAndroidDetachedFromWindow) {
+  DisableBackForwardCacheForTesting(
+      web_contents(),
+      BackForwardCache::DisableForTestingReason::TEST_REQUIRES_NO_CACHING);
+
+  std::vector<GestureAndScreenChanged> expected;
+  expected.push_back({.gesture = GestureType::kStart});
+  expected.push_back({.gesture = GestureType::k30ViewportWidth});
+  HistoryBackNavAndAssertAnimatedTransition(expected);
+
+  GetAnimatorForTesting()->SetFinishedStateToDisplayingInvokeAnimation();
+
+  TestNavigationManager back_to_red(web_contents(), RedURL());
+  web_contents()
+      ->GetBackForwardTransitionAnimationManager()
+      ->OnGestureInvoked();
+  ASSERT_TRUE(back_to_red.WaitForResponse());
+
+  web_contents()->GetWebContentsAndroid()->SetTopLevelNativeWindow(
+      /*env=*/nullptr,
+      /*jwindow_android=*/base::android::JavaParamRef<jobject>(nullptr));
+  ASSERT_TRUE(back_to_red.WaitForNavigationFinished());
+}
+
 INSTANTIATE_TEST_SUITE_P(All,
                          BackForwardTransitionAnimationManagerBrowserTest,
                          ::testing::ValuesIn(kGestureNavTypes),
@@ -2294,6 +2350,114 @@ IN_PROC_BROWSER_TEST_P(
 INSTANTIATE_TEST_SUITE_P(
     All,
     BackForwardTransitionAnimationManagerBrowserTestDeviceScalingFactor,
+    ::testing::ValuesIn(kGestureNavTypes),
+    &DescribeGestureNavType);
+
+namespace {
+
+class BackForwardTransitionAnimationManagerWithRedirectBrowserTest
+    : public BackForwardTransitionAnimationManagerBrowserTest {
+ public:
+  BackForwardTransitionAnimationManagerWithRedirectBrowserTest() = default;
+  ~BackForwardTransitionAnimationManagerWithRedirectBrowserTest() override =
+      default;
+
+  void SetUpOnMainThread() override {
+    SetupCrossSiteRedirector(embedded_test_server());
+    BackForwardTransitionAnimationManagerBrowserTest::SetUpOnMainThread();
+  }
+};
+
+}  // namespace
+
+IN_PROC_BROWSER_TEST_P(
+    BackForwardTransitionAnimationManagerWithRedirectBrowserTest,
+    AbortedOnCrossOriginRedirect) {
+  DisableBackForwardCacheForTesting(
+      web_contents(),
+      BackForwardCache::DisableForTestingReason::TEST_REQUIRES_NO_CACHING);
+
+  std::vector<GestureAndScreenChanged> expected;
+  expected.push_back({.gesture = GestureType::kStart});
+  expected.push_back({.gesture = GestureType::k60ViewportWidth});
+  HistoryBackNavAndAssertAnimatedTransition(expected);
+
+  bool invoke_played = false;
+  GetAnimatorForTesting()->set_on_invoke_animation_displayed(
+      base::BindLambdaForTesting([&]() { invoke_played = true; }));
+  base::RunLoop destroyed;
+  GetAnimatorForTesting()->set_on_impl_destroyed(destroyed.QuitClosure());
+
+  std::string different_host("b.com");
+  GURL redirect = embedded_test_server()->GetURL(
+      "/cross-site/" + different_host + "/empty.html");
+  GURL expected_url =
+      embedded_test_server()->GetURL(different_host, "/empty.html");
+
+  // [red&, green*]
+  ASSERT_EQ(web_contents()->GetController().GetEntryCount(), 2);
+  web_contents()->GetController().GetEntryAtIndex(0)->SetURL(redirect);
+
+  TestNavigationManager redirect_nav(web_contents(), redirect);
+
+  GetAnimatorForTesting()->SetFinishedStateToDisplayingInvokeAnimation();
+  GetAnimationManager(web_contents())->OnGestureInvoked();
+
+  ASSERT_TRUE(redirect_nav.WaitForNavigationFinished());
+  destroyed.Run();
+  ASSERT_FALSE(invoke_played);
+
+  // [empty.html*, green&]
+  ASSERT_EQ(web_contents()->GetController().GetEntryCount(), 2);
+  ASSERT_EQ(web_contents()->GetController().GetEntryAtIndex(0)->GetURL(),
+            expected_url);
+  ASSERT_EQ(web_contents()->GetController().GetEntryAtIndex(1)->GetURL(),
+            GreenURL());
+}
+
+// Assert that the navigation back to a site with an opaque origin is not
+// considered as redirect. Such sites can be "chrome://newtabpage", "data:" or
+// "file://".
+IN_PROC_BROWSER_TEST_P(
+    BackForwardTransitionAnimationManagerWithRedirectBrowserTest,
+    OpaqueOriginsAreNotRedirects) {
+  DisableBackForwardCacheForTesting(
+      web_contents(),
+      BackForwardCache::DisableForTestingReason::TEST_REQUIRES_NO_CACHING);
+
+  constexpr char kGreenDataURL[] = R"(
+    data:text/html,<body style="background-color:green"></body>
+  )";
+
+  ASSERT_TRUE(NavigateToURL(web_contents(), GURL(kGreenDataURL)));
+  WaitForCopyableViewInWebContents(web_contents());
+  ASSERT_TRUE(NavigateToURL(web_contents(), BlueURL()));
+  WaitForCopyableViewInWebContents(web_contents());
+
+  std::vector<GestureAndScreenChanged> expected;
+  expected.push_back({.gesture = GestureType::kStart});
+  expected.push_back({.gesture = GestureType::k60ViewportWidth});
+  HistoryBackNavAndAssertAnimatedTransition(expected);
+
+  base::RunLoop invoke_played;
+  GetAnimatorForTesting()->set_on_invoke_animation_displayed(
+      invoke_played.QuitClosure());
+  base::RunLoop destroyed;
+  GetAnimatorForTesting()->set_on_impl_destroyed(destroyed.QuitClosure());
+
+  TestNavigationManager back_nav_to_data_url(web_contents(),
+                                             GURL(kGreenDataURL));
+
+  GetAnimationManager(web_contents())->OnGestureInvoked();
+
+  ASSERT_TRUE(back_nav_to_data_url.WaitForNavigationFinished());
+  invoke_played.Run();
+  destroyed.Run();
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    BackForwardTransitionAnimationManagerWithRedirectBrowserTest,
     ::testing::ValuesIn(kGestureNavTypes),
     &DescribeGestureNavType);
 

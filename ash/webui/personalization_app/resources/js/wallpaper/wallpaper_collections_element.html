@@ -4,6 +4,10 @@
     opacity: 0.3;
   }
 
+  wallpaper-grid-item[aria-disabled='true'][data-sea-pen]::part(image) {
+    opacity: 0.38;
+  }
+
   wallpaper-grid-item[data-google-photos]::part(image) {
     height: 64px;
     margin: 12px;
@@ -35,13 +39,26 @@
     justify-content: center;
   }
 
-  wallpaper-grid-item[data-google-photos] iron-icon[icon^='personalization:managed'] {
+  wallpaper-grid-item[data-sea-pen] .secondary-text {
+    align-items: center;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  wallpaper-grid-item[data-google-photos] iron-icon[icon^='personalization:managed'],
+  wallpaper-grid-item[data-sea-pen] iron-icon[icon^='personalization:managed'] {
     --iron-icon-fill-color: var(--cros-icon-color-secondary);
     --iron-icon-height: 16px;
     --iron-icon-width: 16px;
     display: none;
     flex: 0 0 auto;
     margin-inline-end: 8px;
+  }
+
+  wallpaper-grid-item[data-sea-pen][aria-disabled='true'] iron-icon[icon^='personalization:managed'] {
+    --iron-icon-fill-color: white;
+    display: block;
   }
 
   wallpaper-grid-item[data-google-photos][aria-disabled='true'] iron-icon[icon^='personalization:managed'] {
@@ -58,6 +75,11 @@
      */
     color: var(--cros-text-color-secondary-light);
     text-shadow: none;
+  }
+
+  wallpaper-grid-item[data-sea-pen][aria-disabled='true'] p {
+    color: white;
+    margin: 0;
   }
 
   .outer-container {
@@ -98,11 +120,11 @@
     --personalization-app-grid-item-background-color: var(--google-grey-200);
   }
 
-  :host-context(body.jelly-enabled) wallpaper-grid-item[is-local-no-images]::part(item) {
+  wallpaper-grid-item[is-local-no-images]::part(item) {
     background: linear-gradient(var(--cros-sys-primary), var(--cros-sys-primary_container));
   }
 
-  :host-context(body.jelly-enabled) wallpaper-grid-item[is-local-no-images]::part(image) {
+  wallpaper-grid-item[is-local-no-images]::part(image) {
     display: none;
   }
 
@@ -167,7 +189,7 @@
             <wallpaper-grid-item
                 data-sea-pen
                 data-is-promoted-tile
-                aria-label$="[[getSeaPenTileAriaLabel_()]]"
+                aria-describedby="experimentTag"
                 aria-posinset$="[[getAriaIndex_(index)]]"
                 disabled="[[!isSelectableTile_(item)]]"
                 index="[[index]]"
@@ -177,8 +199,14 @@
                 role="option"
                 src="[[item.preview]]"
                 tabindex$="[[tabIndex]]">
+              <template is="dom-if" if="[[!isSelectableTile_(item)]]" restamp>
+                <div slot="secondaryText" class="secondary-text">
+                  <iron-icon icon="personalization:managed" title$="$i18n{managedSetting}"></iron-icon>
+                  <p title$="$i18n{seaPenManagedLabel}">$i18n{seaPenManagedLabel}</p>
+                </div>
+              </template>
             </wallpaper-grid-item>
-            <div id="experimentTag">$i18n{seaPenExperimentLabel}</div>
+            <div id="experimentTag">[[getSeaPenTileTagLabel_(item)]]</div>
           </template>
           <template is="dom-if" if="[[isOnlineTile_(item)]]">
             <wallpaper-grid-item aria-posinset$="[[getAriaIndex_(index)]]"

@@ -120,6 +120,14 @@ BASE_FEATURE(kEvDetailsInPageInfo,
              "EvDetailsInPageInfo",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Enables the feature to remove the last confirmation dialog when relaunching
+// to update Chrome.
+BASE_FEATURE(kFewerUpdateConfirmations,
+             "FewerUpdateConfirmations",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 #if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 // Enables showing the "Get the most out of Chrome" section in settings.
 BASE_FEATURE(kGetTheMostOutOfChrome,
@@ -142,6 +150,12 @@ BASE_FEATURE(kIOSPromoAddressBubble,
 // when adding to the bookmarks.
 BASE_FEATURE(kIOSPromoBookmarkBubble,
              "IOSPromoBookmarkBubble",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// This feature controls whether the user can be shown the Chrome for iOS promo
+// when saving or updating payments.
+BASE_FEATURE(kIOSPromoPaymentBubble,
+             "IOSPromoPaymentBubble",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This array lists the different activation params that can be passed in the
@@ -200,6 +214,9 @@ const base::FeatureParam<PreloadTopChromeWebUIMode> kPreloadTopChromeWebUIMode{
     &kPreloadTopChromeWebUI, kPreloadTopChromeWebUIModeName,
     PreloadTopChromeWebUIMode::kPreloadOnMakeContents,
     &kPreloadTopChromeWebUIModeOptions};
+const char kPreloadTopChromeWebUISmartPreloadName[] = "smart-preload";
+const base::FeatureParam<bool> kPreloadTopChromeWebUISmartPreload{
+    &kPreloadTopChromeWebUI, kPreloadTopChromeWebUISmartPreloadName, false};
 
 // Enables exiting browser fullscreen (users putting the browser itself into the
 // fullscreen mode via the browser UI or shortcuts) with press-and-hold Esc.
@@ -253,16 +270,11 @@ BASE_FEATURE(kSidePanelJourneysQueryless,
 BASE_FEATURE(kSidePanelCompanionDefaultPinned,
              "SidePanelCompanionDefaultPinned",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSidePanelPinning,
-             "SidePanelPinning",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsSidePanelPinningEnabled() {
-  return (IsChromeRefresh2023() &&
-          base::FeatureList::IsEnabled(kSidePanelPinning));
-}
 #endif
+
+BASE_FEATURE(kSidePanelResizing,
+             "SidePanelResizing",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables tabs to scroll in the tabstrip. https://crbug.com/951078
 BASE_FEATURE(kScrollableTabStrip,
@@ -378,38 +390,7 @@ BASE_FEATURE(kTabSearchFeedback,
              "TabSearchFeedback",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Controls whether or not to use fuzzy search for tab search.
-BASE_FEATURE(kTabSearchFuzzySearch,
-             "TabSearchFuzzySearch",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
-const char kTabSearchSearchThresholdName[] = "TabSearchSearchThreshold";
-
-const base::FeatureParam<bool> kTabSearchSearchIgnoreLocation{
-    &kTabSearchFuzzySearch, "TabSearchSearchIgnoreLocation", false};
-
-// If this feature parameter is enabled, show media tabs in both "Audio & Video"
-// section and "Open Tabs" section.
-const char kTabSearchAlsoShowMediaTabsinOpenTabsSectionParameterName[] =
-    "Also show Media Tabs in Open Tabs Section";
-
-const base::FeatureParam<int> kTabSearchSearchDistance{
-    &kTabSearchFuzzySearch, "TabSearchSearchDistance", 200};
-
-const base::FeatureParam<double> kTabSearchSearchThreshold{
-    &kTabSearchFuzzySearch, kTabSearchSearchThresholdName, 0.6};
-
-const base::FeatureParam<double> kTabSearchTitleWeight{
-    &kTabSearchFuzzySearch, "TabSearchTitleWeight", 2.0};
-
-const base::FeatureParam<double> kTabSearchHostnameWeight{
-    &kTabSearchFuzzySearch, "TabSearchHostnameWeight", 1.0};
-
-const base::FeatureParam<double> kTabSearchGroupTitleWeight{
-    &kTabSearchFuzzySearch, "TabSearchGroupTitleWeight", 1.5};
-
-const base::FeatureParam<bool> kTabSearchMoveActiveTabToBottom{
-    &kTabSearchFuzzySearch, "TabSearchMoveActiveTabToBottom", true};
 
 // Controls feature parameters for Tab Search's `Recently Closed` entries.
 BASE_FEATURE(kTabSearchRecentlyClosed,
@@ -435,8 +416,7 @@ BASE_FEATURE(kToolbarPinning,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsToolbarPinningEnabled() {
-  return (IsSidePanelPinningEnabled() &&
-          base::FeatureList::IsEnabled(kToolbarPinning));
+  return base::FeatureList::IsEnabled(kToolbarPinning);
 }
 #endif
 

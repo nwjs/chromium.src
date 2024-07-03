@@ -82,8 +82,9 @@ class UserEducationService : public KeyedService {
 
   // Checks if a "New" Badge should be shown for the given `context` (or
   // profile), for `feature`.
-  static bool MaybeShowNewBadge(content::BrowserContext* context,
-                                const base::Feature& feature);
+  static user_education::DisplayNewBadge MaybeShowNewBadge(
+      content::BrowserContext* context,
+      const base::Feature& feature);
 
   // Notifies that a feature associated with an IPH or "New" Badge was used in
   // `context` (or profile), but only if the context supports user education.

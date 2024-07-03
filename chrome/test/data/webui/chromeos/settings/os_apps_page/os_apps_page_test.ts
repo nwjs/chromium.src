@@ -5,7 +5,7 @@
 import 'chrome://os-settings/lazy_load.js';
 import 'chrome://os-settings/os_settings.js';
 
-import {SettingsAndroidAppsSubpageElement} from 'chrome://os-settings/lazy_load.js';
+import {ParentalControlsDialogAction, SettingsAndroidAppsSubpageElement} from 'chrome://os-settings/lazy_load.js';
 import {AndroidAppsBrowserProxyImpl, appNotificationHandlerMojom, CrDialogElement, createRouterForTesting, CrLinkRowElement, OsSettingsAppsPageElement, OsSettingsRoutes, Router, routes, routesMojom, setAppNotificationProviderForTesting, settingMojom, SettingsDropdownMenuElement} from 'chrome://os-settings/os_settings.js';
 import {Permission} from 'chrome://resources/cr_components/app_management/app_management.mojom-webui.js';
 import {createBoolPermission} from 'chrome://resources/cr_components/app_management/permission_util.js';
@@ -16,7 +16,8 @@ import {assertEquals, assertFalse, assertNull, assertTrue} from 'chrome://webui-
 import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
 import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
 
-import {clearBody} from '../utils.js';
+import {FakeMetricsPrivate} from '../fake_metrics_private.js';
+import {clearBody, hasStringProperty} from '../utils.js';
 
 import {FakeAppNotificationHandler} from './app_notifications_page/fake_app_notification_handler.js';
 import {TestAndroidAppsBrowserProxy} from './test_android_apps_browser_proxy.js';
@@ -54,6 +55,11 @@ function getFakePrefs() {
       },
     },
     on_device_app_controls: {
+      pin: {
+        key: 'on_device_app_controls.pin',
+        type: chrome.settingsPrivate.PrefType.STRING,
+        value: '',
+      },
       setup_completed: {
         key: 'on_device_app_controls.setup_completed',
         type: chrome.settingsPrivate.PrefType.BOOLEAN,
@@ -302,7 +308,12 @@ suite('AppsPageTests', () => {
   });
 
   suite('Main Page', () => {
+    let fakeMetricsPrivate: FakeMetricsPrivate;
+
     setup(() => {
+      fakeMetricsPrivate = new FakeMetricsPrivate();
+      chrome.metricsPrivate = fakeMetricsPrivate;
+
       appsPage.prefs = getFakePrefs();
       appsPage.androidAppsInfo = {
         playStoreEnabled: false,
@@ -314,6 +325,11 @@ suite('AppsPageTests', () => {
     function queryAppNotificationsRow(): CrLinkRowElement|null {
       return appsPage.shadowRoot!.querySelector<CrLinkRowElement>(
           '#appNotificationsRow');
+    }
+
+    function queryParentalControlsRow(): HTMLElement|null {
+      return appsPage.shadowRoot!.querySelector<HTMLElement>(
+          '#appParentalControls');
     }
 
     if (isRevampWayfindingEnabled) {
@@ -389,11 +405,11 @@ suite('AppsPageTests', () => {
 
     if (isAppParentalControlsAvailable) {
       test(
-        'Clicking set up sets up parental controls and navigates to subpage',
-        () => {
-          const parentalControlsRow =
-            appsPage.shadowRoot!.querySelector<HTMLElement>(
-              '#appParentalControls');
+          `Clicking set up and creating a PIN sets up parental controls and
+           navigates to the subpage`,
+          async () => {
+            const parentalControlsRow = queryParentalControlsRow();
+            // Wait for the row to become visible.
             assertTrue(!!parentalControlsRow);
             assertTrue(isVisible(parentalControlsRow));
 
@@ -401,49 +417,444 @@ suite('AppsPageTests', () => {
                 parentalControlsRow.querySelector<HTMLElement>('cr-button');
             assertTrue(!!setUpButton);
             setUpButton.click();
-            flush();
+            await flushTasks();
 
-            assertNull(appsPage.shadowRoot!.querySelector(
-                'settings-app-parental-controls-subpage'));
+            const setupPinDialog =
+                appsPage.shadowRoot!.querySelector<HTMLElement>('#setupPin');
+            assertTrue(!!setupPinDialog);
+            assertEquals(
+                1,
+                fakeMetricsPrivate.countMetricValue(
+                    'ChromeOS.OnDeviceControls.DialogAction.SetUpControls',
+                    ParentalControlsDialogAction.OPEN_DIALOG));
+
+            // Simulate PIN entry.
+            const pin = '123456';
+            const setupPinKeyboard =
+                setupPinDialog.shadowRoot!.getElementById('setupPinKeyboard');
+            assertTrue(!!setupPinKeyboard);
+            const pinKeyboard =
+                setupPinKeyboard.shadowRoot!.getElementById('pinKeyboard');
+            assertTrue(!!pinKeyboard);
+            assertTrue(hasStringProperty(pinKeyboard, 'value'));
+            pinKeyboard.value = pin;
+
+            const continuePinSetupButton =
+                setupPinDialog.shadowRoot!
+                    .querySelector<HTMLElement>('#dialog')!
+                    .querySelector<HTMLElement>('.action-button');
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+
+            // Verify that the PIN keyboard has been reset.
+            assertEquals('', pinKeyboard.value);
+
+            // Re-enter the PIN to confirm it.
+            pinKeyboard.value = pin;
+
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+            await waitAfterNextRender(appsPage);
+
+            assertTrue(appsPage.prefs.on_device_app_controls.pin.value === pin);
+            assertTrue(
+                appsPage.prefs.on_device_app_controls.setup_completed.value);
+            // The subpage should be visible.
+            assertEquals(
+                routes.APP_PARENTAL_CONTROLS,
+                Router.getInstance().currentRoute);
+            assertEquals(
+                1,
+                fakeMetricsPrivate.countMetricValue(
+                    'ChromeOS.OnDeviceControls.DialogAction.SetUpControls',
+                    ParentalControlsDialogAction.FLOW_COMPLETED));
+          });
+
+      test(
+          `Clicking the subpage arrow when parental controls are enabled and
+           entering the correct PIN navigates to the subpage`,
+          async () => {
+            const parentalControlsRow = queryParentalControlsRow();
+            // Wait for the row to become visible.
+            assertTrue(!!parentalControlsRow);
+            assertTrue(isVisible(parentalControlsRow));
+
+            const setUpButton =
+                parentalControlsRow.querySelector<HTMLElement>('cr-button');
+            assertTrue(!!setUpButton);
+            setUpButton.click();
+            await flushTasks();
+
+            const setupPinDialog =
+                appsPage.shadowRoot!.querySelector<HTMLElement>('#setupPin');
+            assertTrue(!!setupPinDialog);
+
+            // Simulate PIN entry.
+            const pin = '123456';
+            const setupPinKeyboard =
+                setupPinDialog.shadowRoot!.getElementById('setupPinKeyboard');
+            assertTrue(!!setupPinKeyboard);
+            const pinKeyboard =
+                setupPinKeyboard.shadowRoot!.getElementById('pinKeyboard');
+            assertTrue(!!pinKeyboard);
+            assertTrue(hasStringProperty(pinKeyboard, 'value'));
+            pinKeyboard.value = pin;
+
+            const continuePinSetupButton =
+                setupPinDialog.shadowRoot!
+                    .querySelector<HTMLElement>('#dialog')!
+                    .querySelector<HTMLElement>('.action-button');
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+
+            // Verify that the PIN keyboard has been reset.
+            assertEquals('', pinKeyboard.value);
+
+            // Re-enter the PIN to confirm it.
+            pinKeyboard.value = pin;
+
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+            await waitAfterNextRender(appsPage);
+
+            assertTrue(appsPage.prefs.on_device_app_controls.pin.value === pin);
+            assertTrue(
+                appsPage.prefs.on_device_app_controls.setup_completed.value);
+            // The subpage should be visible.
+            assertEquals(
+                routes.APP_PARENTAL_CONTROLS,
+                Router.getInstance().currentRoute);
+
+            // Navigate back to apps page from the subpage.
+            const popStateEventPromise = eventToPromise('popstate', window);
+            Router.getInstance().navigateToPreviousRoute();
+            await popStateEventPromise;
+            await waitAfterNextRender(appsPage);
+
+            // Click subpage arrow to navigate to the subpage.
             const subpageArrow = parentalControlsRow.querySelector<HTMLElement>(
                 '.subpage-arrow');
             assertTrue(!!subpageArrow);
             subpageArrow.click();
-            flush();
+            await flushTasks();
 
-            assertTrue(!!appsPage.shadowRoot!.querySelector(
-              'settings-app-parental-controls-subpage'));
-        });
+            const verifyPinDialog =
+                appsPage.shadowRoot!.querySelector<HTMLElement>('#verifyPin');
+            assertTrue(!!verifyPinDialog);
+            assertEquals(
+                1,
+                fakeMetricsPrivate.countMetricValue(
+                    'ChromeOS.OnDeviceControls.DialogAction.' +
+                        'VerifyToEnterControlsPage',
+                    ParentalControlsDialogAction.OPEN_DIALOG));
 
-      test('Toggling parental controls resets parental controls', () => {
-        const parentalControlsRow =
-          appsPage.shadowRoot!.querySelector<HTMLElement>(
-            '#appParentalControls');
-        assertTrue(!!parentalControlsRow);
-        assertTrue(isVisible(parentalControlsRow));
+            // Simulate PIN entry.
+            const verifyPinKeyboard =
+                verifyPinDialog.shadowRoot!.getElementById('pinKeyboard');
+            assertTrue(!!verifyPinKeyboard);
+            assertTrue(hasStringProperty(verifyPinKeyboard, 'value'));
+            verifyPinKeyboard.value = pin;
 
-        const setUpButton =
-            parentalControlsRow.querySelector<HTMLElement>('cr-button');
-        assertTrue(!!setUpButton);
-        setUpButton.click();
-        flush();
+            // Simulate pressing the enter key.
+            const pinInput =
+                verifyPinKeyboard.shadowRoot!.getElementById('pinInput');
+            assertTrue(pinInput instanceof HTMLElement);
+            pinInput.dispatchEvent(
+                new KeyboardEvent('keydown', {key: 'Enter', keyCode: 13}));
+            await waitAfterNextRender(appsPage);
 
-        const toggle =
-            parentalControlsRow.querySelector<HTMLElement>('cr-toggle');
-        assertTrue(!!toggle);
-        toggle.click();
-        flush();
+            // The subpage should be visible.
+            assertEquals(
+                routes.APP_PARENTAL_CONTROLS,
+                Router.getInstance().currentRoute);
+            assertEquals(
+                1,
+                fakeMetricsPrivate.countMetricValue(
+                    'ChromeOS.OnDeviceControls.DialogAction.' +
+                        'VerifyToEnterControlsPage',
+                    ParentalControlsDialogAction.FLOW_COMPLETED));
+          });
 
-        assertTrue(
-            !!parentalControlsRow.querySelector<HTMLElement>('cr-button'));
-      });
+      test(
+          `Clicking the subpage arrow when parental controls are enabled and
+             entering an incorrect PIN surfaces an error and does not navigate
+             to the subpage`,
+          async () => {
+            const parentalControlsRow = queryParentalControlsRow();
+            // Wait for the row to become visible.
+            assertTrue(!!parentalControlsRow);
+            assertTrue(isVisible(parentalControlsRow));
+
+            const setUpButton =
+                parentalControlsRow.querySelector<HTMLElement>('cr-button');
+            assertTrue(!!setUpButton);
+            setUpButton.click();
+            await flushTasks();
+
+            const setupPinDialog =
+                appsPage.shadowRoot!.querySelector<HTMLElement>('#setupPin');
+            assertTrue(!!setupPinDialog);
+
+            // Simulate PIN entry.
+            const pin = '123456';
+            const setupPinKeyboard =
+                setupPinDialog.shadowRoot!.getElementById('setupPinKeyboard');
+            assertTrue(!!setupPinKeyboard);
+            const pinKeyboard =
+                setupPinKeyboard.shadowRoot!.getElementById('pinKeyboard');
+            assertTrue(!!pinKeyboard);
+            assertTrue(hasStringProperty(pinKeyboard, 'value'));
+            pinKeyboard.value = pin;
+
+            const continuePinSetupButton =
+                setupPinDialog.shadowRoot!
+                    .querySelector<HTMLElement>('#dialog')!
+                    .querySelector<HTMLElement>('.action-button');
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+
+            // Verify that the PIN keyboard has been reset.
+            assertEquals('', pinKeyboard.value);
+
+            // Re-enter the PIN to confirm it.
+            pinKeyboard.value = pin;
+
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+            await waitAfterNextRender(appsPage);
+
+            assertTrue(appsPage.prefs.on_device_app_controls.pin.value === pin);
+            assertTrue(
+                appsPage.prefs.on_device_app_controls.setup_completed.value);
+            // The subpage should be visible.
+            assertEquals(
+                routes.APP_PARENTAL_CONTROLS,
+                Router.getInstance().currentRoute);
+
+            // Navigate back to apps page from the subpage.
+            const popStateEventPromise = eventToPromise('popstate', window);
+            Router.getInstance().navigateToPreviousRoute();
+            await popStateEventPromise;
+            await waitAfterNextRender(appsPage);
+
+            // Click subpage arrow to navigate to the subpage.
+            const subpageArrow = parentalControlsRow.querySelector<HTMLElement>(
+                '.subpage-arrow');
+            assertTrue(!!subpageArrow);
+            subpageArrow.click();
+            await flushTasks();
+
+            const verifyPinDialog =
+                appsPage.shadowRoot!.querySelector<HTMLElement>('#verifyPin');
+            assertTrue(!!verifyPinDialog);
+
+            // An error should not be visible in the dialog.
+            const errorDiv =
+                verifyPinDialog.shadowRoot!.getElementById('errorDiv');
+            assertTrue(!!errorDiv);
+            assertTrue(errorDiv.hasAttribute('invisible'));
+
+            // Simulate incorrect PIN entry.
+            const verifyPinKeyboard =
+                verifyPinDialog.shadowRoot!.getElementById('pinKeyboard');
+            assertTrue(!!verifyPinKeyboard);
+            assertTrue(hasStringProperty(verifyPinKeyboard, 'value'));
+            verifyPinKeyboard.value = '123457';
+
+            // Simulate pressing the enter key.
+            const pinInput =
+                verifyPinKeyboard.shadowRoot!.getElementById('pinInput');
+            assertTrue(pinInput instanceof HTMLElement);
+            pinInput.dispatchEvent(
+                new KeyboardEvent('keydown', {key: 'Enter', keyCode: 13}));
+            await waitAfterNextRender(appsPage);
+
+            // An error should be visible in the dialog.
+            assertTrue(!!errorDiv);
+            assertFalse(errorDiv.hasAttribute('invisible'));
+
+            // The subpage should not be visible.
+            assertEquals(routes.APPS, Router.getInstance().currentRoute);
+          });
+
+      test(
+          `Toggling parental controls off and entering the correct PIN resets
+             parental controls`,
+          async () => {
+            const parentalControlsRow = queryParentalControlsRow();
+            // Wait for the row to become visible.
+            assertTrue(!!parentalControlsRow);
+            assertTrue(isVisible(parentalControlsRow));
+
+            let setUpButton =
+                parentalControlsRow.querySelector<HTMLElement>('cr-button');
+            assertTrue(!!setUpButton);
+            setUpButton.click();
+            await flushTasks();
+
+            const setupPinDialog =
+                appsPage.shadowRoot!.querySelector<HTMLElement>('#setupPin');
+            assertTrue(!!setupPinDialog);
+
+            // Simulate PIN entry.
+            const pin = '123456';
+            const setupPinKeyboard =
+                setupPinDialog.shadowRoot!.getElementById('setupPinKeyboard');
+            assertTrue(!!setupPinKeyboard);
+            const pinKeyboard =
+                setupPinKeyboard.shadowRoot!.getElementById('pinKeyboard');
+            assertTrue(!!pinKeyboard);
+            assertTrue(hasStringProperty(pinKeyboard, 'value'));
+            pinKeyboard.value = pin;
+
+            const continuePinSetupButton =
+                setupPinDialog.shadowRoot!
+                    .querySelector<HTMLElement>('#dialog')!
+                    .querySelector<HTMLElement>('.action-button');
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+
+            // Verify that the PIN keyboard has been reset.
+            assertEquals('', pinKeyboard.value);
+
+            // Re-enter the PIN to confirm it.
+            pinKeyboard.value = pin;
+
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+            await waitAfterNextRender(appsPage);
+
+            assertTrue(appsPage.prefs.on_device_app_controls.pin.value === pin);
+            assertTrue(
+                appsPage.prefs.on_device_app_controls.setup_completed.value);
+            // The subpage should be visible.
+            assertEquals(
+                routes.APP_PARENTAL_CONTROLS,
+                Router.getInstance().currentRoute);
+
+            // Navigate back to apps page from the subpage.
+            const popStateEventPromise = eventToPromise('popstate', window);
+            Router.getInstance().navigateToPreviousRoute();
+            await popStateEventPromise;
+            await waitAfterNextRender(appsPage);
+
+            // Click the toggle to disable parental controls.
+            const toggle =
+                parentalControlsRow.querySelector<HTMLElement>('cr-toggle');
+            assertTrue(!!toggle);
+            toggle.click();
+            await flushTasks();
+
+            const disableDialog =
+                appsPage.shadowRoot!.querySelector<HTMLElement>(
+                    '#disableDialog');
+            assertTrue(!!disableDialog);
+            assertEquals(
+                1,
+                fakeMetricsPrivate.countMetricValue(
+                    'ChromeOS.OnDeviceControls.DialogAction.' +
+                        'VerifyToDisableControls',
+                    ParentalControlsDialogAction.OPEN_DIALOG));
+
+            // Simulate PIN entry.
+            const disablePinKeyboard =
+                disableDialog.shadowRoot!.getElementById('pinKeyboard');
+            assertTrue(!!disablePinKeyboard);
+            assertTrue(hasStringProperty(disablePinKeyboard, 'value'));
+            disablePinKeyboard.value = pin;
+
+            // Simulate pressing the enter key.
+            const pinInput =
+                disablePinKeyboard.shadowRoot!.getElementById('pinInput');
+            assertTrue(pinInput instanceof HTMLElement);
+            pinInput.dispatchEvent(
+                new KeyboardEvent('keydown', {key: 'Enter', keyCode: 13}));
+            await waitAfterNextRender(appsPage);
+
+            setUpButton =
+                parentalControlsRow.querySelector<HTMLElement>('cr-button');
+            assertTrue(!!setUpButton);
+            assertTrue(isVisible(setUpButton));
+            assertFalse(
+                appsPage.prefs.on_device_app_controls.setup_completed.value);
+            assertTrue(appsPage.prefs.on_device_app_controls.pin.value === '');
+            assertEquals(
+                1,
+                fakeMetricsPrivate.countMetricValue(
+                    'ChromeOS.OnDeviceControls.DialogAction.' +
+                        'VerifyToDisableControls',
+                    ParentalControlsDialogAction.FLOW_COMPLETED));
+          });
+
+      test(
+          'Searching parental controls deep links to parental controls row',
+          async () => {
+            const parentalControlsSettingId =
+                settingMojom.Setting.kAppParentalControls.toString();
+            const params = new URLSearchParams();
+            params.append('settingId', parentalControlsSettingId);
+            Router.getInstance().navigateTo(routes.APPS, params);
+
+            const parentalControlsRow = queryParentalControlsRow();
+            // Wait for the row to become visible.
+            assertTrue(!!parentalControlsRow);
+            assertTrue(isVisible(parentalControlsRow));
+
+            const setUpButton =
+                parentalControlsRow.querySelector<HTMLElement>('cr-button');
+            assertTrue(!!setUpButton);
+            assertTrue(isVisible(setUpButton));
+            await waitAfterNextRender(setUpButton);
+            assertEquals(setUpButton, getDeepActiveElement());
+
+            setUpButton.click();
+            await flushTasks();
+
+            const setupPinDialog =
+                appsPage.shadowRoot!.querySelector<HTMLElement>('#setupPin');
+            assertTrue(!!setupPinDialog);
+
+            // Simulate PIN entry.
+            const pin = '123456';
+            const setupPinKeyboard =
+                setupPinDialog.shadowRoot!.getElementById('setupPinKeyboard');
+            assertTrue(!!setupPinKeyboard);
+            const pinKeyboard =
+                setupPinKeyboard.shadowRoot!.getElementById('pinKeyboard');
+            assertTrue(!!pinKeyboard);
+            assertTrue(hasStringProperty(pinKeyboard, 'value'));
+            pinKeyboard.value = pin;
+
+            const continuePinSetupButton =
+                setupPinDialog.shadowRoot!
+                    .querySelector<HTMLElement>('#dialog')!
+                    .querySelector<HTMLElement>('.action-button');
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+
+            // Verify that the PIN keyboard has been reset.
+            assertEquals('', pinKeyboard.value);
+
+            // Re-enter the PIN to confirm it.
+            pinKeyboard.value = pin;
+
+            assertTrue(!!continuePinSetupButton);
+            continuePinSetupButton.click();
+            await waitAfterNextRender(appsPage);
+
+            Router.getInstance().navigateTo(routes.APPS, params);
+            const subpageArrow =
+                parentalControlsRow.querySelector('cr-icon-button');
+            assertTrue(!!subpageArrow);
+            assertTrue(isVisible(subpageArrow));
+            await waitAfterNextRender(subpageArrow);
+            assertEquals(subpageArrow, getDeepActiveElement());
+          });
     }
 
     if (!isAppParentalControlsAvailable) {
       test('Parental controls row not visible when feature off', () => {
-        const parentalControlsRow =
-          appsPage.shadowRoot!.querySelector<HTMLElement>(
-            '#appParentalControls');
+        const parentalControlsRow = queryParentalControlsRow();
         assertNull(parentalControlsRow);
       });
     }

@@ -64,27 +64,27 @@ AudioTrackRecorder::AudioTrackRecorder(
     scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner,
     CodecId codec,
     MediaStreamComponent* track,
-    CallbackInterface* callback_interface,
+    WeakCell<CallbackInterface>* callback_interface,
     uint32_t bits_per_second,
     BitrateMode bitrate_mode,
     scoped_refptr<base::SequencedTaskRunner> encoder_task_runner)
     : TrackRecorder(base::BindPostTask(
           main_thread_task_runner,
           WTF::BindOnce(&CallbackInterface::OnSourceReadyStateChanged,
-                        WrapWeakPersistent(callback_interface)))),
+                        WrapPersistent(callback_interface)))),
       track_(track),
       encoder_task_runner_(std::move(encoder_task_runner)),
-      encoder_(
-          encoder_task_runner_,
-          CreateAudioEncoder(
-              codec,
-              encoder_task_runner_,
-              base::BindPostTask(
-                  main_thread_task_runner,
-                  WTF::BindRepeating(&CallbackInterface::OnEncodedAudio,
-                                     WrapWeakPersistent(callback_interface))),
-              bits_per_second,
-              bitrate_mode)) {
+      encoder_(encoder_task_runner_,
+               CreateAudioEncoder(
+                   codec,
+                   encoder_task_runner_,
+                   base::BindPostTask(
+                       main_thread_task_runner,
+                       WTF::BindRepeating(&CallbackInterface::OnEncodedAudio,
+                                          WrapPersistent(callback_interface))),
+                   bits_per_second,
+                   bitrate_mode)),
+      callback_interface_(callback_interface) {
   DCHECK(IsMainThread());
   DCHECK(track_);
   DCHECK(track_->GetSourceType() == MediaStreamSource::kTypeAudio);
@@ -117,7 +117,7 @@ std::unique_ptr<AudioTrackEncoder> AudioTrackRecorder::CreateAudioEncoder(
           encoder_task_runner, codec, std::move(on_encoded_audio_cb),
           bits_per_second);
 #endif
-      NOTREACHED() << "AAC encoder is not supported.";
+      NOTREACHED_IN_MIGRATION() << "AAC encoder is not supported.";
       return nullptr;
     case CodecId::kOpus:
     default:

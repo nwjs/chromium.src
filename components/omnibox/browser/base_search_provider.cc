@@ -18,6 +18,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/omnibox/browser/actions/omnibox_action_in_suggest.h"
+#include "components/omnibox/browser/actions/omnibox_answer_action.h"
 #include "components/omnibox/browser/autocomplete_provider_client.h"
 #include "components/omnibox/browser/autocomplete_provider_listener.h"
 #include "components/omnibox/browser/omnibox_feature_configs.h"
@@ -127,7 +128,7 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
   match.contents = suggestion.match_contents();
   match.contents_class = suggestion.match_contents_class();
   if (OmniboxFieldTrial::kAnswerActionsShowRichCard.Get() &&
-      suggestion.answer()) {
+      suggestion.answer_template()) {
     match.suggestion_group_id = omnibox::GROUP_MOBILE_RICH_ANSWER;
   } else {
     match.suggestion_group_id = suggestion.suggestion_group_id();
@@ -253,6 +254,30 @@ scoped_refptr<OmniboxAction> BaseSearchProvider::CreateActionInSuggest(
 
   return base::MakeRefCounted<OmniboxActionInSuggest>(
       std::move(action_info), std::move(action_search_terms_args));
+}
+
+// static
+scoped_refptr<OmniboxAction> BaseSearchProvider::CreateAnswerAction(
+    omnibox::SuggestionEnhancement enhancement,
+    const TemplateURLRef& search_url,
+    TemplateURLRef::SearchTermsArgs search_terms_args,
+    const SearchTermsData& search_terms_data) {
+  // Define actions destination URL.
+  std::string query_params;
+  for (const auto& param : enhancement.query_cgi_params()) {
+    if (!query_params.empty()) {
+      query_params += '&';
+    }
+    query_params += param.first + "=" + param.second;
+  }
+  search_terms_args.additional_query_params = query_params;
+  search_terms_args.search_terms = base::UTF8ToUTF16(enhancement.query());
+
+  TemplateURLRef::PostContent post_content;
+  GURL rewritten_destination(search_url.ReplaceSearchTerms(
+      search_terms_args, search_terms_data, &post_content));
+  return base::MakeRefCounted<OmniboxAnswerAction>(std::move(enhancement),
+                                                   rewritten_destination);
 }
 
 // static

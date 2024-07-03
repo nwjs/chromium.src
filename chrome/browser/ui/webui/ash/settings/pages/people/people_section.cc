@@ -313,8 +313,6 @@ void AddLockScreenPageStrings(content::WebUIDataSource* html_source,
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
   html_source->AddBoolean("quickUnlockEnabled", quick_unlock::IsPinEnabled());
-  html_source->AddBoolean("quickUnlockPinAutosubmitFeatureEnabled",
-                          features::IsPinAutosubmitFeatureEnabled());
   html_source->AddBoolean("quickUnlockDisabledByPolicy",
                           quick_unlock::IsPinDisabledByPolicy(
                               pref_service, quick_unlock::Purpose::kAny));
@@ -393,6 +391,7 @@ void AddSetupPinDialogStrings(content::WebUIDataSource* html_source) {
       {"configurePinTooShort", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_TOO_SHORT},
       {"configurePinTooLong", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_TOO_LONG},
       {"configurePinWeakPin", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_WEAK_PIN},
+      {"configurePinNondigit", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_NONDIGIT},
       {"internalError", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_INTERNAL_ERROR},
       {"pinKeyboardPlaceholderPin", IDS_PIN_KEYBOARD_HINT_TEXT_PIN},
       {"pinKeyboardPlaceholderPinPassword",
@@ -557,6 +556,17 @@ void PeopleSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       "secondaryGoogleAccountSigninAllowed",
       pref_service_->GetBoolean(
           ::account_manager::prefs::kSecondaryGoogleAccountSigninAllowed));
+
+  // TODO(b/301157620) Temporarily hardcoding SecondaryAccountAllowedInArcpolicy
+  // value since ChromeOS client side implementation b/301157620 is yet to be
+  // completed.
+  const bool secondaryAccountAllowedInArcPolicyValue = false;
+  html_source->AddBoolean(
+      "isSecondaryAccountAllowedInArc",
+      base::FeatureList::IsEnabled(
+          ash::features::kSecondaryAccountAllowedInArcPolicy)
+          ? secondaryAccountAllowedInArcPolicyValue
+          : true);
 
   html_source->AddBoolean(
       "driveSuggestAvailable",

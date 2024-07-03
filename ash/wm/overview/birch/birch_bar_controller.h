@@ -70,6 +70,12 @@ class ASH_EXPORT BirchBarController : public BirchModel::Observer,
   // Gets if the user allows to show the given type of suggestions.
   bool GetShowSuggestionType(BirchSuggestionType type) const;
 
+  // Gets if the suggestion data loading is in progress.
+  bool IsDataLoading() const;
+
+  // Toggles temperature units for weather chip between F and C.
+  void ToggleTemperatureUnits();
+
   // ui::SimpleMenuModel::Delegate:
   void ExecuteCommand(int command_id, int event_flags) override;
 

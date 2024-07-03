@@ -33,9 +33,8 @@ import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeSupplier;
 import org.chromium.chrome.ui.messages.R;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
-import org.chromium.components.browser_ui.widget.InsetObserver;
 import org.chromium.components.browser_ui.widget.text.TemplatePreservingTextView;
-import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.InsetObserver;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.interpolators.Interpolators;
 
@@ -101,8 +100,9 @@ public class SnackbarView implements InsetObserver.WindowInsetObserver {
             OnClickListener listener,
             Snackbar snackbar,
             ViewGroup parentView,
-            @Nullable WindowAndroid windowAndroid) {
-        this(activity, listener, snackbar, parentView, windowAndroid, null);
+            @Nullable WindowAndroid windowAndroid,
+            boolean isTablet) {
+        this(activity, listener, snackbar, parentView, windowAndroid, null, isTablet);
     }
 
     /**
@@ -124,8 +124,9 @@ public class SnackbarView implements InsetObserver.WindowInsetObserver {
             Snackbar snackbar,
             ViewGroup parentView,
             @Nullable WindowAndroid windowAndroid,
-            @Nullable EdgeToEdgeSupplier edgeToEdgeSupplier) {
-        mIsTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(activity);
+            @Nullable EdgeToEdgeSupplier edgeToEdgeSupplier,
+            boolean isTablet) {
+        mIsTablet = isTablet;
         mOriginalParent = parentView;
         mWindowAndroid = windowAndroid;
 

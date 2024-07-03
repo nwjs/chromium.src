@@ -62,11 +62,13 @@ import org.chromium.chrome.browser.browserservices.PostMessageHandler;
 import org.chromium.chrome.browser.browserservices.SessionDataHolder;
 import org.chromium.chrome.browser.browserservices.SessionHandler;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
+import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.customtabs.ClientManager.CalledWarmup;
 import org.chromium.chrome.browser.customtabs.content.EngagementSignalsHandler;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
+import org.chromium.chrome.browser.init.ProcessInitializationHandler;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.page_insights.PageInsightsConfigRequest;
 import org.chromium.chrome.browser.page_insights.proto.Config.PageInsightsConfig;
@@ -82,7 +84,6 @@ import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.Googl
 import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.variations.SyntheticTrialAnnotationMode;
 import org.chromium.content_public.browser.BrowserStartupController;
@@ -233,10 +234,13 @@ public class CustomTabsConnection {
     @Nullable private List<String> mDynamicEnabledFeatures;
     @Nullable private List<String> mDynamicDisabledFeatures;
 
+    // Async tab prewarming can cause flakiness in tests when it runs after test shutdown and
+    // triggers LifetimeAsserts.
+    @VisibleForTesting public static boolean sSkipTabPrewarmingForTesting;
+
     /**
-     * <strong>DO NOT CALL</strong>
-     * Public to be instanciable from {@link ChromeApplicationImpl}. This is however
-     * intended to be private.
+     * <strong>DO NOT CALL</strong> Public to be instanciable from {@link ChromeApplicationImpl}.
+     * This is however intended to be private.
      */
     public CustomTabsConnection() {
         super();
@@ -444,7 +448,7 @@ public class CustomTabsConnection {
                         try (TraceEvent e =
                                 TraceEvent.scoped("CustomTabsConnection.initializeBrowser()")) {
                             initializeBrowser(ContextUtils.getApplicationContext());
-                            ChromeBrowserInitializer.getInstance().initNetworkChangeNotifier();
+                            ProcessInitializationHandler.getInstance().initNetworkChangeNotifier();
                             mWarmupHasBeenFinished.set(true);
                         }
                     });
@@ -547,7 +551,17 @@ public class CustomTabsConnection {
             boolean canUseHiddenTab =
                     mClientManager.getCanUseHiddenTab(session)
                             && !IntentHandler.hasAnyIncognitoExtra(extras);
-            startSpeculation(session, url, canUseHiddenTab, extras, uid);
+
+            boolean useSeparateStoragePartitionForExperiment =
+                    ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.MAYLAUNCHURL_USES_SEPARATE_STORAGE_PARTITION);
+            startSpeculation(
+                    session,
+                    url,
+                    canUseHiddenTab,
+                    extras,
+                    uid,
+                    useSeparateStoragePartitionForExperiment);
         }
         preconnectUrls(otherLikelyBundles);
     }
@@ -1212,10 +1226,14 @@ public class CustomTabsConnection {
         return mClientManager.getClientPackageNameForSession(session);
     }
 
-    /** @return Whether the given package name is that of a first-party application. */
+    /**
+     * @return Whether the given package name is that of a first-party application.
+     */
     public boolean isFirstParty(String packageName) {
         if (packageName == null) return false;
-        return ExternalAuthUtils.getInstance().isGoogleSigned(packageName);
+        return ChromeApplicationImpl.getComponent()
+                .resolveExternalAuthUtils()
+                .isGoogleSigned(packageName);
     }
 
     void setIgnoreUrlFragmentsForSession(CustomTabsSessionToken session, boolean value) {
@@ -1431,12 +1449,14 @@ public class CustomTabsConnection {
 
     /**
      * Does setup of dynamic experiment features that can be enabled/disabled via an Intent.
+     *
      * @param intent The {@link Intent} that is active, to be scanned for enable/disable Extras.
      * @return Whether the setup will actually change the active feature set.
      */
     boolean setupDynamicFeatures(Intent intent) {
+        CustomTabsSessionToken session = CustomTabsSessionToken.getSessionTokenFromIntent(intent);
         if (!mIsDynamicIntentFeatureOverridesEnabled
-                || (!IncognitoCustomTabIntentDataProvider.isIntentFromFirstParty(intent)
+                || (!CustomTabIntentDataProvider.isTrustedCustomTab(intent, session)
                         && !CommandLine.getInstance()
                                 .hasSwitch("cct-client-firstparty-override"))) {
             return false;
@@ -1818,7 +1838,8 @@ public class CustomTabsConnection {
             String url,
             boolean useHiddenTab,
             Bundle extras,
-            int uid) {
+            int uid,
+            boolean useSeparateStoragePartitionForExperiment) {
         WarmupManager warmupManager = WarmupManager.getInstance();
         Profile profile = ProfileManager.getLastUsedRegularProfile();
 
@@ -1826,7 +1847,8 @@ public class CustomTabsConnection {
         cancelSpeculation(null);
 
         if (useHiddenTab) {
-            launchUrlInHiddenTab(session, profile, url, extras);
+            launchUrlInHiddenTab(
+                    session, profile, url, extras, useSeparateStoragePartitionForExperiment);
         } else {
             createSpareWebContents(profile);
         }
@@ -1835,15 +1857,29 @@ public class CustomTabsConnection {
 
     /** Creates a hidden tab and initiates a navigation. */
     private void launchUrlInHiddenTab(
-            CustomTabsSessionToken session, Profile profile, String url, @Nullable Bundle extras) {
+            CustomTabsSessionToken session,
+            Profile profile,
+            String url,
+            @Nullable Bundle extras,
+            boolean useSeparateStoragePartitionForExperiment) {
         ThreadUtils.assertOnUiThread();
+
+        WebContents webContents = null;
+
+        if (useSeparateStoragePartitionForExperiment) {
+            webContents =
+                    WebContentsFactory.createWebContentsWithSeparateStoragePartitionForExperiment(
+                            profile);
+        }
+
         mHiddenTabHolder.launchUrlInHiddenTab(
                 (Tab tab) -> setClientDataHeaderForNewTab(session, tab.getWebContents()),
                 session,
                 profile,
                 mClientManager,
                 url,
-                extras);
+                extras,
+                webContents);
     }
 
     @VisibleForTesting
@@ -1914,6 +1950,7 @@ public class CustomTabsConnection {
     }
 
     public static void createSpareWebContents(Profile profile) {
+        if (sSkipTabPrewarmingForTesting) return;
         if (SysUtils.isLowEndDevice()) return;
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_PREWARM_TAB)) {
             WarmupManager.getInstance().createRegularSpareTab(profile);

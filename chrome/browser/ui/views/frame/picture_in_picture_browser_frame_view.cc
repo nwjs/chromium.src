@@ -67,6 +67,8 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
+#include "chromeos/ui/base/window_properties.h"
+#include "chromeos/ui/base/window_state_type.h"
 #include "chromeos/ui/frame/interior_resize_handler_targeter.h"
 #endif
 
@@ -500,12 +502,9 @@ PictureInPictureBrowserFrameView::PictureInPictureBrowserFrameView(
     auto image_view = std::make_unique<ContentSettingImageView>(
         std::move(model), this, this, font_list);
 
-    // The ContentSettingImageView loses 4px of margin in Chrome Refresh that we
-    // don't want to lose in the document picture-in-picture toolbar.
-    if (features::IsChromeRefresh2023()) {
-      image_view->SetProperty(views::kMarginsKey,
-                              gfx::Insets::TLBR(0, 0, 0, 4));
-    }
+    // The ContentSettingImageView loses 4px of margin that we don't want to
+    // lose in the document picture-in-picture toolbar.
+    image_view->SetProperty(views::kMarginsKey, gfx::Insets::TLBR(0, 0, 0, 4));
 
     content_setting_views_.push_back(
         button_container_view_->AddChildView(std::move(image_view)));
@@ -602,7 +601,10 @@ PictureInPictureBrowserFrameView::PictureInPictureBrowserFrameView(
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   frame->GetNativeWindow()->SetEventTargeter(
-      std::make_unique<chromeos::InteriorResizeHandleTargeter>());
+      std::make_unique<chromeos::InteriorResizeHandleTargeter>(
+          base::BindRepeating([](const aura::Window* window) {
+            return window->GetProperty(chromeos::kWindowStateTypeKey);
+          })));
 #endif
 }
 

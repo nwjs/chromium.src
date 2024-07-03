@@ -32,6 +32,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/time/time.h"
 #include "build/branding_buildflags.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
 #include "chromeos/components/mahi/public/cpp/views/experiment_badge.h"
@@ -48,6 +49,7 @@
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/text_constants.h"
+#include "ui/views/animation/animation_builder.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/highlight_path_generator.h"
@@ -62,6 +64,7 @@
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/flex_layout_view.h"
 #include "ui/views/layout/layout_types.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/metadata/view_factory_internal.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
@@ -124,6 +127,9 @@ constexpr int kScrollViewAndAskQuestionSpacing = 8;
 
 constexpr int kFooterSpacing = 1;
 
+constexpr base::TimeDelta kPanelShowAnimationDelay = base::Milliseconds(50);
+constexpr base::TimeDelta kPanelShowAnimationDuration = base::Milliseconds(300);
+
 // Sets focus ring for `question_textfield`. Insets need to be negative so it
 // can exceed the textfield bounds and cover the entire container.
 void InstallTextfieldFocusRing(views::View* question_textfield,
@@ -181,7 +187,8 @@ class FeedbackButton : public IconButton {
   METADATA_HEADER(FeedbackButton, IconButton)
 
  public:
-  explicit FeedbackButton(FeedbackType feedback_type)
+  FeedbackButton(FeedbackType feedback_type,
+                 base::RepeatingClosure on_toggle_to_active_callback)
       : IconButton(
             views::Button::PressedCallback(),
             IconButton::Type::kSmallFloating,
@@ -191,7 +198,8 @@ class FeedbackButton : public IconButton {
                 : IDS_ASH_MAHI_THUMBS_DOWN_FEEDBACK_BUTTON_ACCESSIBLE_NAME,
             /*is_togglable=*/true,
             /*has_border=*/false),
-        feedback_type_(feedback_type) {
+        feedback_type_(feedback_type),
+        on_toggle_to_active_callback_(std::move(on_toggle_to_active_callback)) {
     SetCallback(base::BindRepeating(&FeedbackButton::OnButtonPressed,
                                     weak_ptr_factory_.GetWeakPtr()));
 
@@ -213,6 +221,7 @@ class FeedbackButton : public IconButton {
       return;
     }
 
+    on_toggle_to_active_callback_.Run();
     base::UmaHistogramBoolean(mahi_constants::kMahiFeedbackHistogramName,
                               feedback_type_ == FeedbackType::kThumbsUp);
 
@@ -234,8 +243,14 @@ class FeedbackButton : public IconButton {
   // Whether the feedback dialog has been shown.
   bool feedback_dialog_was_shown_ = false;
 
+  // Callback when this button is toggled from not toggled to toggled.
+  base::RepeatingClosure on_toggle_to_active_callback_;
+
   base::WeakPtrFactory<FeedbackButton> weak_ptr_factory_{this};
 };
+
+BEGIN_VIEW_BUILDER(/*no export*/, FeedbackButton, views::View)
+END_VIEW_BUILDER
 
 BEGIN_METADATA(FeedbackButton)
 END_METADATA
@@ -496,6 +511,7 @@ END_METADATA
 
 }  // namespace ash
 
+DEFINE_VIEW_BUILDER(/*no export*/, ash::FeedbackButton)
 DEFINE_VIEW_BUILDER(/*no export*/, ash::GoToSummaryOutlinesButton)
 DEFINE_VIEW_BUILDER(/*no export*/, ash::GoToQuestionAndAnswerButton)
 
@@ -507,14 +523,8 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
       open_time_(base::TimeTicks::Now()) {
   CHECK(ui_controller_);
 
-  SetOrientation(views::LayoutOrientation::kVertical);
-  SetMainAxisAlignment(views::LayoutAlignment::kStart);
-  SetInteriorMargin(mahi_constants::kPanelPadding);
-  SetDefault(views::kMarginsKey, gfx::Insets::VH(kPanelChildSpacing, 0));
-  SetIgnoreDefaultMainAxisMargins(true);
-  SetCollapseMargins(true);
   SetID(mahi_constants::ViewId::kMahiPanelView);
-
+  SetUseDefaultFillLayout(true);
   SetBackground(views::CreateThemedRoundedRectBackground(
       cros_tokens::kCrosSysSystemBaseElevated,
       mahi_constants::kPanelCornerRadius));
@@ -532,16 +542,34 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
       views::HighlightBorder::Type::kHighlightBorderOnShadow,
       /*insets_type=*/views::HighlightBorder::InsetsType::kHalfInsets));
 
-  AddChildView(CreateHeaderRow());
+  // The `main_container` is used to anchor the contents to the middle of the
+  // panel when its size is animating. The anchoring to middle effect is
+  // achieved by setting a transform on the `main_container`s layer and
+  // animating it.
+  main_container_ =
+      AddChildView(views::Builder<views::FlexLayoutView>()
+                       .SetID(mahi_constants::ViewId::kMahiPanelMainContainer)
+                       .SetOrientation(views::LayoutOrientation::kVertical)
+                       .SetMainAxisAlignment(views::LayoutAlignment::kStart)
+                       .SetInteriorMargin(mahi_constants::kPanelPadding)
+                       .SetIgnoreDefaultMainAxisMargins(true)
+                       .SetCollapseMargins(true)
+                       .SetPaintToLayer()
+                       .Build());
+  main_container_->layer()->SetFillsBoundsOpaquely(false);
+  main_container_->SetDefault(views::kMarginsKey,
+                              gfx::Insets::VH(kPanelChildSpacing, 0));
+  main_container_->AddChildView(CreateHeaderRow());
 
   // Add a button which shows the content source icon and title.
-  AddChildView(views::Builder<MahiContentSourceButton>()
-                   .CopyAddressTo(&content_source_button_)
-                   .SetID(mahi_constants::ViewId::kContentSourceButton)
-                   .Build());
+  main_container_->AddChildView(
+      views::Builder<MahiContentSourceButton>()
+          .CopyAddressTo(&content_source_button_)
+          .SetID(mahi_constants::ViewId::kContentSourceButton)
+          .Build());
 
   // Add a scrollable view of the panel's content, with a feedback section.
-  AddChildView(
+  main_container_->AddChildView(
       views::Builder<views::View>()
           .SetID(mahi_constants::ViewId::kPanelContentsContainer)
           .SetUseDefaultFillLayout(true)
@@ -563,13 +591,21 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
                       views::BoxLayout::CrossAxisAlignment::kEnd)
                   .SetBetweenChildSpacing(kFeedbackButtonSpacing)
                   .AddChildren(
-                      views::Builder<views::View>(
+                      views::Builder<FeedbackButton>(
                           std::make_unique<FeedbackButton>(
-                              FeedbackType::kThumbsUp))
+                              FeedbackType::kThumbsUp,
+                              base::BindRepeating(
+                                  &MahiPanelView::OnThumbsUpButtonActive,
+                                  weak_ptr_factory_.GetWeakPtr())))
+                          .CopyAddressTo(&thumbs_up_button_)
                           .SetID(mahi_constants::ViewId::kThumbsUpButton),
-                      views::Builder<views::View>(
+                      views::Builder<FeedbackButton>(
                           std::make_unique<FeedbackButton>(
-                              FeedbackType::kThumbsDown))
+                              FeedbackType::kThumbsDown,
+                              base::BindRepeating(
+                                  &MahiPanelView::OnThumbsDownButtonActive,
+                                  weak_ptr_factory_.GetWeakPtr())))
+                          .CopyAddressTo(&thumbs_down_button_)
                           .SetID(mahi_constants::ViewId::kThumbsDownButton)),
               views::Builder<views::ScrollView>(
                   std::make_unique<MahiScrollView>(ui_controller_))
@@ -594,7 +630,15 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
                                       ui_controller_))
                                   .SetID(mahi_constants::ViewId::
                                              kQuestionAnswerView)
-                                  .CopyAddressTo(&question_answer_view_))),
+                                  .CopyAddressTo(&question_answer_view_)
+                                  .SetProperty(
+                                      views::kFlexBehaviorKey,
+                                      views::FlexSpecification(
+                                          views::LayoutOrientation::kHorizontal,
+                                          views::MinimumFlexSizeRule::
+                                              kScaleToZero,
+                                          views::MaximumFlexSizeRule::
+                                              kUnbounded)))),
               views::Builder<MahiErrorStatusView>(
                   std::make_unique<MahiErrorStatusView>(ui_controller_)))
           .Build());
@@ -602,7 +646,7 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
   // Add a row for processing user input that includes a textfield, send button
   // and a back to Q&A button when in the summary section.
   views::FlexLayoutView* ask_question_container = nullptr;
-  AddChildView(
+  main_container_->AddChildView(
       views::Builder<views::FlexLayoutView>()
           .CustomConfigure(base::BindOnce([](views::FlexLayoutView* layout) {
             layout->SetDefault(
@@ -663,7 +707,7 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
   question_textfield_->RemoveHoverEffect();
   InstallTextfieldFocusRing(question_textfield_, send_button_);
 
-  AddChildView(
+  main_container_->AddChildView(
       views::Builder<views::BoxLayoutView>()
           .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
           .SetMainAxisAlignment(views::BoxLayout::MainAxisAlignment::kCenter)
@@ -699,6 +743,31 @@ void MahiPanelView::OnMouseEvent(ui::MouseEvent* event) {
 
 void MahiPanelView::OnGestureEvent(ui::GestureEvent* event) {
   HandleDragEventIfNeeded(event);
+}
+
+void MahiPanelView::AnimatePopIn(const gfx::Rect& start_bounds) {
+  gfx::Rect end_bounds = GetBoundsInScreen();
+
+  // Add a clip rect to reduce the panel's visible area to the provided
+  // `start_bounds`.
+  auto clip_rect = start_bounds - end_bounds.OffsetFromOrigin();
+  layer()->SetClipRect(clip_rect);
+
+  // Anchor the panel's contents to the center of the visible area.
+  auto y_offset = start_bounds.CenterPoint().y() -
+                  main_container_->GetBoundsInScreen().CenterPoint().y();
+  gfx::Transform transform;
+  transform.Translate(gfx::Vector2d(0, y_offset));
+  main_container_->layer()->SetTransform(transform);
+
+  views::AnimationBuilder()
+      .Once()
+      .At(kPanelShowAnimationDelay)
+      .SetDuration(kPanelShowAnimationDuration)
+      .SetTransform(main_container_, gfx::Transform(),
+                    gfx::Tween::ACCEL_40_DECEL_100_3)
+      .SetClipRect(this, gfx::Rect(gfx::Point(), end_bounds.size()),
+                   gfx::Tween::ACCEL_40_DECEL_100_3);
 }
 
 std::unique_ptr<views::View> MahiPanelView::CreateHeaderRow() {
@@ -846,6 +915,18 @@ void MahiPanelView::HandleDragEventIfNeeded(ui::LocatedEvent* event) {
   // here. Other drag behavior, e.g. for text selection, is handled by the
   // panel's child views.
   ui_controller_->drag_controller()->OnLocatedPanelEvent(event);
+}
+
+void MahiPanelView::OnThumbsUpButtonActive() {
+  if (thumbs_down_button_->toggled()) {
+    thumbs_down_button_->SetToggled(false);
+  }
+}
+
+void MahiPanelView::OnThumbsDownButtonActive() {
+  if (thumbs_up_button_->toggled()) {
+    thumbs_up_button_->SetToggled(false);
+  }
 }
 
 BEGIN_METADATA(MahiPanelView)

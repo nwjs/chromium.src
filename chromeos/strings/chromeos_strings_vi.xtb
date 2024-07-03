@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">vàng nhạt</translation>
 <translation id="1056898198331236512">Cảnh báo</translation>
 <translation id="1059913517121127803">Không thể bắt đầu quét</translation>
+<translation id="1061864016440983342">Sử dụng mà không cần thông tin vị trí</translation>
 <translation id="1062823486781306604"><ph name="INDEX" />/<ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Đã phát hiện thấy tường lửa</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Chế độ cài đặt khác</translation>
 <translation id="2082932131694554252">Đã chỉ định phím trên bàn phím</translation>
 <translation id="2085089206770112532">Giảm độ sáng màn hình</translation>
+<translation id="2086091080968010660">Các thay đổi dựa trên thời gian có thể không chính xác. Hãy bật quyền truy cập thông tin vị trí của hệ thống trong phần cài đặt.</translation>
 <translation id="2102231663024125441">Chỉnh sửa văn bản</translation>
 <translation id="2105810540595158374">Thiết bị là tay điều khiển trò chơi.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, phiên bản <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Chỉnh sửa chi tiết về APN</translation>
 <translation id="2195732836444333448">Hệ thống hiện đang hoạt động hết công suất. Vui lòng quay lại sau giây lát.</translation>
 <translation id="2201758491318984023">chiếc xe đạp</translation>
-<translation id="2203222757805818543">Lịch biểu hiện tại là <ph name="SUNRISE" /> – <ph name="SUNSET" />. Nếu bạn muốn lịch áp dụng chế độ tối tự động cập nhật, hãy <ph name="BEGIN_LINK" />bật quyền truy cập thông tin vị trí<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">suối nước nóng</translation>
 <translation id="2203642483788377106">vách đá</translation>
 <translation id="2208388655216963643">trường phái ấn tượng</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Khôi phục chế độ mặc định</translation>
 <translation id="2286454467119466181">Đơn giản</translation>
 <translation id="2287186687001756809">Không có hình ảnh nào. Để thêm ảnh, hãy truy cập <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Lịch biểu hiện tại là <ph name="SUNRISE" /> – <ph name="SUNSET" />. Để lịch biểu mặt trời lặn và mặt trời mọc tự động cập nhật, hãy bật quyền truy cập thông tin vị trí của hệ thống.</translation>
 <translation id="2305172810646967500">đen</translation>
 <translation id="2307344026739914387">Dùng cặp khóa hiện tại</translation>
 <translation id="2308243864813041101">Hãy rút cáp USB của <ph name="DEVICE_NAME" /> ra để tiếp tục quá trình cập nhật</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">cồn cát</translation>
 <translation id="2619761439309613843">Làm mới hàng ngày</translation>
 <translation id="2620436844016719705">Hệ thống</translation>
+<translation id="2637303424821734920">ĐANG TẮT – Để hiển thị thông tin thời tiết địa phương, hãy <ph name="BEGIN_LINK" />bật quyền truy cập thông tin vị trí của hệ thống<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Hình ảnh đăng nhập</translation>
 <translation id="2640549051766135490">Đã chọn album <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Chế độ điều khiển</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Nền</translation>
 <translation id="3027578600144895987">Tắt máy ảnh</translation>
 <translation id="3031560714565892478">Thiết bị là máy quay video.</translation>
+<translation id="3051968340259309715">Quyền này cho phép các dịch vụ hệ thống sử dụng chế độ Độ chính xác của vị trí để xác định vị trí của bạn. Chế độ Độ chính xác của vị trí sử dụng thông tin về tín hiệu không dây (chẳng hạn như điểm truy cập Wi-Fi, trạm phát sóng mạng di động và GPS) cùng với dữ liệu cảm biến trên thiết bị (chẳng hạn như gia tốc kế và con quay hồi chuyển) để ước chừng vị trí của thiết bị. Bạn có thể tắt dịch vụ vị trí trong phần Cài đặt &gt; Quyền riêng tư và bảo mật &gt; Chế độ kiểm soát quyền riêng tư &gt; Quyền truy cập thông tin vị trí. <ph name="LINK_BEGIN" />Tìm hiểu thêm<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Điểm cuối</translation>
 <translation id="3060579846059757016">Dàn ý</translation>
+<translation id="3061850252076394168">bật tính năng chọn để nói</translation>
 <translation id="3069085583900247081">Không kiểm tra được</translation>
 <translation id="3078740164268491126">bảng</translation>
 <translation id="3081652522083185657">sáng</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Không phân giải được một số máy chủ</translation>
 <translation id="4593212453765072419">Yêu cầu xác thực proxy</translation>
 <translation id="4609350030397390689">Giảm độ sáng đèn bàn phím</translation>
-<translation id="4617553623719764431">Không hiển thị thời tiết do không biết vị trí của bạn. Để xem thời tiết địa phương, hãy <ph name="BEGIN_LINK" />bật Quyền truy cập thông tin vị trí<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" />. Hãy nhấn để hủy lệnh in.</translation>
 <translation id="463791356324567266">Đang hủy quá trình quét...</translation>
 <translation id="4646949265910132906">Kết nối Wi-Fi an toàn</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Chạy</translation>
 <translation id="4987769320337599931">Tường lửa</translation>
 <translation id="4988526792673242964">Trang</translation>
+<translation id="4989542687859782284">Không được hỗ trợ</translation>
 <translation id="4999333166442584738">Ẩn báo cáo</translation>
 <translation id="500920857929044050">Dừng kiểm tra</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">độ sáng bàn phím</translation>
 <translation id="6412715219990689313">Bàn phím tích hợp</translation>
 <translation id="6417265370957905582">Trợ lý Google</translation>
+<translation id="6419454453018688975">Bật quyền truy cập thông tin vị trí của hệ thống</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Nếu bạn cho phép, các dịch vụ hệ thống sẽ có quyền sử dụng thông tin vị trí của bạn. Dịch vụ vị trí có thể sử dụng những nguồn như Wi‑Fi, mạng di động và cảm biến để giúp ước chừng vị trí của thiết bị. <ph name="LINK_BEGIN" />Tìm hiểu thêm<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Yếu (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Chuyển đến phần cài đặt tài khoản</translation>
 <translation id="6462978824459367242">Nút Thêm APN hiện đã bật</translation>

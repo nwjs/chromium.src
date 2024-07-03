@@ -8,10 +8,12 @@
 #include "cc/input/browser_controls_state.h"
 #include "cc/slim/layer.h"
 #include "components/embedder_support/android/delegate/web_contents_delegate_android.h"
-#include "components/thin_webview/internal/jni_headers/ThinWebViewImpl_jni.h"
 #include "components/thin_webview/thin_webview_initializer.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "components/thin_webview/internal/jni_headers/ThinWebViewImpl_jni.h"
 
 using base::android::JavaParamRef;
 using web_contents_delegate_android::WebContentsDelegateAndroid;
@@ -51,7 +53,7 @@ void ThinWebView::PrimaryPageChanged(content::Page& page) {
   // Disable browser controls when used for thin webview.
   web_contents_->UpdateBrowserControlsState(cc::BrowserControlsState::kHidden,
                                             cc::BrowserControlsState::kHidden,
-                                            false);
+                                            false, std::nullopt);
 }
 
 void ThinWebView::SetWebContents(

@@ -25,12 +25,12 @@
 #include "components/viz/common/features.h"
 #include "components/viz/test/host_frame_sink_manager_test_api.h"
 #include "content/browser/compositor/surface_utils.h"
-#include "content/browser/renderer_host/cursor_manager.h"
-#include "content/browser/renderer_host/input/touch_emulator.h"
+#include "content/browser/renderer_host/input/touch_emulator_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
-#include "content/browser/renderer_host/render_widget_host_input_event_router.h"
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/browser/site_per_process_browsertest.h"
+#include "content/common/input/cursor_manager.h"
+#include "content/common/input/render_widget_host_input_event_router.h"
 #include "content/common/input/synthetic_smooth_scroll_gesture.h"
 #include "content/common/input/synthetic_tap_gesture.h"
 #include "content/common/input/synthetic_touchpad_pinch_gesture.h"
@@ -2083,7 +2083,8 @@ class SitePerProcessEmulatedTouchBrowserTest
                             position_in_root));
 
     // Enable touch emulation.
-    auto* touch_emulator = router->GetTouchEmulator();
+    auto* touch_emulator =
+        root_rwhv->host()->GetTouchEmulator(/*create_if_necessary=*/true);
     ASSERT_TRUE(touch_emulator);
     touch_emulator->Enable(TouchEmulator::Mode::kEmulatingTouchFromMouse,
                            ui::GestureProviderConfigType::CURRENT_PLATFORM);
@@ -5098,7 +5099,7 @@ namespace {
 uint32_t SendTouchTapWithExpectedTarget(
     RenderWidgetHostViewBase* root_view,
     const gfx::Point& touch_point,
-    RenderWidgetHostViewInput*& router_touch_target,
+    raw_ptr<RenderWidgetHostViewInput>& router_touch_target,
     RenderWidgetHostViewBase* expected_target,
     RenderWidgetHostImpl* child_render_widget_host) {
   auto* root_view_aura = static_cast<RenderWidgetHostViewAura*>(root_view);
@@ -5202,7 +5203,7 @@ void SendGestureTapSequenceWithExpectedTarget(
 void SendTouchpadPinchSequenceWithExpectedTarget(
     RenderWidgetHostViewBase* root_view,
     const gfx::Point& gesture_point,
-    RenderWidgetHostViewInput*& router_touchpad_gesture_target,
+    raw_ptr<RenderWidgetHostViewInput>& router_touchpad_gesture_target,
     RenderWidgetHostViewBase* expected_target) {
   auto* root_view_aura = static_cast<RenderWidgetHostViewAura*>(root_view);
 
@@ -5254,7 +5255,7 @@ void SendTouchpadPinchSequenceWithExpectedTarget(
 void SendTouchpadFlingSequenceWithExpectedTarget(
     RenderWidgetHostViewBase* root_view,
     const gfx::Point& gesture_point,
-    RenderWidgetHostViewInput*& router_wheel_target,
+    raw_ptr<RenderWidgetHostViewInput>& router_wheel_target,
     RenderWidgetHostViewBase* expected_target) {
   auto* root_view_aura = static_cast<RenderWidgetHostViewAura*>(root_view);
 

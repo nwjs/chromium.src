@@ -79,6 +79,9 @@ tast_disabled_tests_from_chrome_all = [
   "arc.ContainerMount",
   "arc.Downloads",
 
+  # b/344853253
+  "borealis.FontCheck@volteer",
+
   # b/296913657
   "secagentd.ProcessEvents@amd64-generic",
 
@@ -103,20 +106,15 @@ tast_disabled_tests_from_chrome_all = [
   "platform.Drivefs@reven-vmtest",
   "platform.Drivefs@betty-pi-arc",
 
-  # b/331384750
-  "videoconferencing.TrayTriggersExtension@brya",
-  "videoconferencing.TrayTriggersExtension.lacros@brya",
-
   # b/338111076
   "crostini.AppAndroidStudio.bookworm_clamshell_stable@octopus",
 
-  # b/339349824, temporarily until LKGM uprev with crrev.com/c/5516014
-  "arc.Print.container_p",
-  "inputs.PhysicalKeyboardKoreanTyping",
+  # b/344945274
+  "nacl.Pnacl.lacros@jacuzzi",
+  "nacl.Pnacl.lacros@volteer",
 
-  # b/307328625
-  "login.ChangePassword.consumer_update",
-  "login.ChangePassword.no_consumer_update",
+  # b/344964853
+  "apps.LaunchHelpAppInBrowserMenu.stable_fieldtrial_testing_config_on@betty-pi-arc",
 
   # READ COMMENT AT TOP BEFORE ADDING NEW TESTS HERE.
 ]
@@ -143,9 +141,6 @@ tast_disabled_tests_from_lacros_all = [
   # https://crbug.com/1376638
   "lacros.AudioRecord",
 
-  # https://crbug.com/1440735
-  "mlservice.WebHandwritingRecognition.lacros",
-
   # https://crbug.com/1446233
   "arc.IntentForward.lacros_vm",
 
@@ -164,16 +159,17 @@ tast_disabled_tests_from_lacros_all = [
   # On branch day, Lacros is +3 newer than ash which break the test.
   "lacros.CompareVersionWithAsh",
 
-  # b/339482904
+  # b/269177409: This is flaky on the Chromium builders, but works on the
+  # ChromeOS builders.
+  "nacl.Pnacl.lacros",
+
+  # b/331384750, b/339482904
   "videoconferencing.TrayTriggersExtension.lacros",
 
   # THIS IS THE LACROS LIST, SCROLL UP FOR CHROME/CHROMEOS.
 ]
 
 if (!is_official_build) {
-  # b/322444880 Should be fixed by the next LKGM uprev.
-  tast_disabled_tests_from_chrome_all += [ "terminal.SSH@octopus" ]
-
   # b/324521903 temporary disabled until the test fixes
   tast_disabled_tests_from_chrome_all +=
       [ "secagentd.AuthenticationEvents.mainline@octopus" ]

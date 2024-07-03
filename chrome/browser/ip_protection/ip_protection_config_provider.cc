@@ -12,6 +12,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
+#include "base/time/time.h"
 #include "chrome/browser/ip_protection/ip_protection_config_http.h"
 #include "chrome/browser/ip_protection/ip_protection_switches.h"
 #include "chrome/browser/profiles/profile.h"
@@ -35,6 +36,16 @@
 #include "net/third_party/quiche/src/quiche/blind_sign_auth/blind_sign_auth.h"
 #include "net/third_party/quiche/src/quiche/blind_sign_auth/proto/blind_sign_auth_options.pb.h"
 #include "net/third_party/quiche/src/quiche/blind_sign_auth/proto/spend_token_data.pb.h"
+
+namespace {
+// TODO(crbug.com/40216037): Once `google_apis::GetAPIKey()` handles this
+// logic we can remove this helper.
+std::string GetAPIKey() {
+  return chrome::GetChannel() == version_info::Channel::STABLE
+             ? google_apis::GetAPIKey()
+             : google_apis::GetNonStableAPIKey();
+}
+}  // namespace
 
 IpProtectionConfigProvider::IpProtectionConfigProvider(
     signin::IdentityManager* identity_manager,
@@ -78,12 +89,6 @@ void IpProtectionConfigProvider::SetUp() {
     }
     bsa_ = blind_sign_auth_.get();
   }
-}
-
-std::string IpProtectionConfigProvider::GetAPIKey() {
-  return chrome::GetChannel() == version_info::Channel::STABLE
-             ? google_apis::GetAPIKey()
-             : google_apis::GetNonStableAPIKey();
 }
 
 void IpProtectionConfigProvider::SetUpForTesting(
@@ -174,6 +179,12 @@ void IpProtectionConfigProvider::GetProxyList(GetProxyListCallback callback) {
   // plan changes, though, we should implement a way for these requests to stop
   // being made.
   if (!IsIpProtectionEnabled()) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  // If we are not able to call `GetProxyConfig` yet, return early.
+  if (no_get_proxy_config_until_ > base::Time::Now()) {
     std::move(callback).Run(std::nullopt);
     return;
   }
@@ -297,9 +308,19 @@ void IpProtectionConfigProvider::OnGetProxyConfigCompleted(
         response) {
   if (!response.has_value()) {
     VLOG(2) << "IPATP::GetProxyList failed: " << response.error();
+
+    // Apply exponential backoff to this sort of failure.
+    no_get_proxy_config_until_ =
+        base::Time::Now() + next_get_proxy_config_backoff_;
+    next_get_proxy_config_backoff_ *= 2;
+
     std::move(callback).Run(std::nullopt);
     return;
   }
+
+  // Cancel any backoff on success.
+  no_get_proxy_config_until_ = base::Time();
+  next_get_proxy_config_backoff_ = kGetProxyConfigFailureTimeout;
 
   std::vector<net::ProxyChain> proxy_list =
       IpProtectionConfigProviderHelper::GetProxyListFromProxyConfigResponse(

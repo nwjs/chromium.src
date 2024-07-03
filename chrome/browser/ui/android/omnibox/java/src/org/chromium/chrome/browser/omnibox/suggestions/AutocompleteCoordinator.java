@@ -10,6 +10,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -20,6 +21,7 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
+import org.chromium.chrome.browser.omnibox.DeferredIMEWindowInsetApplicationCallback;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlTextChangeListener;
@@ -50,6 +52,7 @@ import org.chromium.chrome.browser.tabmodel.TabWindowManager;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.util.KeyNavigationUtil;
 import org.chromium.components.omnibox.AutocompleteMatch;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.action.OmniboxActionDelegate;
 import org.chromium.components.omnibox.suggestions.OmniboxSuggestionUiType;
 import org.chromium.ui.AsyncViewProvider;
@@ -64,19 +67,30 @@ import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /** Coordinator that handles the interactions with the autocomplete system. */
-public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextChangeListener {
+public class AutocompleteCoordinator
+        implements UrlFocusChangeListener, UrlTextChangeListener, OmniboxSuggestionsVisualState {
     private final @NonNull ViewGroup mParent;
     private final @NonNull ObservableSupplier<Profile> mProfileSupplier;
     private final @NonNull Callback<Profile> mProfileChangeCallback;
     private final @NonNull AutocompleteMediator mMediator;
     private final @NonNull Supplier<ModalDialogManager> mModalDialogManagerSupplier;
     private final @NonNull OmniboxSuggestionsDropdownAdapter mAdapter;
-    private final @NonNull PreWarmingRecycledViewPool mRecycledViewPool;
+    private final @NonNull Optional<PreWarmingRecycledViewPool> mRecycledViewPool;
     private @Nullable OmniboxSuggestionsDropdown mDropdown;
     private @NonNull ObserverList<OmniboxSuggestionsDropdownScrollListener> mScrollListenerList =
             new ObserverList<>();
+
+    /** An observer watching for changes to the visual state of the omnibox suggestions. */
+    public interface OmniboxSuggestionsVisualStateObserver {
+        /** Called when the Omnibox session state changes. */
+        void onOmniboxSessionStateChange(boolean isActive);
+
+        /** Called when the background color of the omnibox suggestions changes. */
+        void onOmniboxSuggestionsBackgroundColorChanged(@ColorInt int color);
+    }
 
     public AutocompleteCoordinator(
             @NonNull ViewGroup parent,
@@ -95,18 +109,22 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
             @Nullable OmniboxSuggestionsDropdownScrollListener scrollListener,
             @NonNull ActivityLifecycleDispatcher lifecycleDispatcher,
             boolean forcePhoneStyleOmnibox,
-            @NonNull WindowAndroid windowAndroid) {
+            @NonNull WindowAndroid windowAndroid,
+            @NonNull
+                    DeferredIMEWindowInsetApplicationCallback
+                            deferredIMEWindowInsetApplicationCallback) {
         mParent = parent;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
         Context context = parent.getContext();
 
-        PropertyModel listModel = new PropertyModel(SuggestionListProperties.ALL_KEYS);
         ModelList listItems = new ModelList();
-
-        listModel.set(SuggestionListProperties.EMBEDDER, dropdownEmbedder);
-        listModel.set(SuggestionListProperties.VISIBLE, false);
-        listModel.set(SuggestionListProperties.DRAW_OVER_ANCHOR, false);
-        listModel.set(SuggestionListProperties.SUGGESTION_MODELS, listItems);
+        PropertyModel listModel =
+                new PropertyModel.Builder(SuggestionListProperties.ALL_KEYS)
+                        .with(SuggestionListProperties.EMBEDDER, dropdownEmbedder)
+                        .with(SuggestionListProperties.OMNIBOX_SESSION_ACTIVE, false)
+                        .with(SuggestionListProperties.DRAW_OVER_ANCHOR, false)
+                        .with(SuggestionListProperties.SUGGESTION_MODELS, listItems)
+                        .build();
 
         mMediator =
                 new AutocompleteMediator(
@@ -125,7 +143,8 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
                         omniboxActionDelegate,
                         lifecycleDispatcher,
                         dropdownEmbedder,
-                        windowAndroid);
+                        windowAndroid,
+                        deferredIMEWindowInsetApplicationCallback);
         mMediator.initDefaultProcessors();
 
         if (scrollListener != null) {
@@ -149,7 +168,7 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
                 });
         LazyConstructionPropertyMcp.create(
                 listModel,
-                SuggestionListProperties.VISIBLE,
+                SuggestionListProperties.OMNIBOX_SESSION_ACTIVE,
                 viewProvider,
                 SuggestionListViewBinder::bind);
 
@@ -158,7 +177,12 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
         mProfileSupplier.addObserver(mProfileChangeCallback);
 
         mAdapter = createAdapter(listItems);
-        mRecycledViewPool = new PreWarmingRecycledViewPool(mAdapter, context, new Handler());
+
+        if (!OmniboxFeatures.sAsyncViewInflation.isEnabled()) {
+            mRecycledViewPool = Optional.of(new PreWarmingRecycledViewPool(mAdapter, context));
+        } else {
+            mRecycledViewPool = Optional.empty();
+        }
 
         // https://crbug.com/966227 Set initial layout direction ahead of inflating the suggestions.
         updateSuggestionListLayoutDirection();
@@ -166,13 +190,24 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
 
     /** Clean up resources used by this class. */
     public void destroy() {
-        mRecycledViewPool.destroy();
+        mRecycledViewPool.ifPresent(p -> p.destroy());
         mProfileSupplier.removeObserver(mProfileChangeCallback);
         mMediator.destroy();
         if (mDropdown != null) {
             mDropdown.destroy();
             mDropdown = null;
         }
+    }
+
+    /**
+     * Sets the observer watching the state of the omnibox suggestions. This observer will be
+     * notifying of visual changes to the omnibox suggestions view, such as visibility or background
+     * color changes.
+     */
+    @Override
+    public void setOmniboxSuggestionsVisualStateObserver(
+            Optional<OmniboxSuggestionsVisualStateObserver> omniboxSuggestionsVisualStateObserver) {
+        mMediator.setOmniboxSuggestionsVisualStateObserver(omniboxSuggestionsVisualStateObserver);
     }
 
     private ViewProvider<SuggestionListViewHolder> createViewProvider(
@@ -186,7 +221,8 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
             public void inflate() {
                 AsyncViewStub stub =
                         mParent.getRootView().findViewById(R.id.omnibox_results_container_stub);
-                stub.setShouldInflateOnBackgroundThread(true);
+                stub.setShouldInflateOnBackgroundThread(
+                        OmniboxFeatures.sAsyncViewInflation.isEnabled());
                 mAsyncProvider = AsyncViewProvider.of(stub, R.id.omnibox_results_container);
                 mAsyncProvider.whenLoaded(this::onAsyncInflationComplete);
                 mAsyncProvider.inflate();
@@ -194,11 +230,11 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
 
             private void onAsyncInflationComplete(ViewGroup container) {
                 OmniboxSuggestionsDropdown dropdown =
-                        new OmniboxSuggestionsDropdown(
-                                context, mRecycledViewPool, forcePhoneStyleOmnibox);
+                        container.findViewById(R.id.omnibox_suggestions_dropdown);
 
+                dropdown.forcePhoneStyleOmnibox(forcePhoneStyleOmnibox);
                 dropdown.setAdapter(mAdapter);
-
+                mRecycledViewPool.ifPresent(p -> dropdown.setRecycledViewPool(p));
                 mHolder = new SuggestionListViewHolder(container, dropdown);
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     mCallbacks.get(i).onResult(mHolder);
@@ -333,7 +369,7 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
     /** Signals that native initialization has completed. */
     public void onNativeInitialized() {
         mMediator.onNativeInitialized();
-        mRecycledViewPool.onNativeInitialized();
+        mRecycledViewPool.ifPresent(p -> p.onNativeInitialized());
     }
 
     /**
@@ -429,10 +465,15 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
      * @param profile The profile to expand the query for.
      * @param query The query to be expanded into a fully qualified URL if appropriate.
      * @return The AutocompleteMatch for a default / top match. This may be either SEARCH match
-     *     built with the user's default search engine, or a NAVIGATION match.
+     *     built with the user's default search engine, or a NAVIGATION match. The call might return
+     *     null if it is invoked before Native libraries are initialized, or if the Profile is
+     *     invalid.
      */
-    public static AutocompleteMatch classify(@NonNull Profile profile, @NonNull String query) {
-        return AutocompleteController.getForProfile(profile).classify(query);
+    public static @Nullable AutocompleteMatch classify(
+            @NonNull Profile profile, @NonNull String query) {
+        return AutocompleteController.getForProfile(profile)
+                .map(a -> a.classify(query))
+                .orElse(null);
     }
 
     /** Sends a zero suggest request to the server in order to pre-populate the result cache. */

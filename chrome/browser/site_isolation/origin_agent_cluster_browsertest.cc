@@ -220,28 +220,6 @@ IN_PROC_BROWSER_TEST_F(OriginAgentClusterBrowserTest, Navigations) {
 }
 
 IN_PROC_BROWSER_TEST_F(OriginAgentClusterBrowserTest,
-                       SyntheticTrialActivation) {
-  const std::string kSyntheticTrialName =
-      "ProcessIsolatedOriginAgentClusterActive";
-  const std::string kSyntheticTrialGroup = "Enabled";
-
-  GURL start_url(https_server()->GetURL("foo.com", "/iframe.html"));
-  GURL origin_keyed_url(
-      https_server()->GetURL("origin-keyed.foo.com", "/origin_key_me"));
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), start_url));
-  // We won't have an active synthetic trial until we navigate to
-  // `origin_keyed_url`.
-  EXPECT_FALSE(variations::HasSyntheticTrial(kSyntheticTrialName));
-  EXPECT_TRUE(NavigateIframeToURL(web_contents, "test", origin_keyed_url));
-  EXPECT_TRUE(variations::IsInSyntheticTrialGroup(kSyntheticTrialName,
-                                                  kSyntheticTrialGroup));
-}
-
-IN_PROC_BROWSER_TEST_F(OriginAgentClusterBrowserTest,
                        ProcessCountMetricsSimple) {
   GURL start_url(https_server()->GetURL("foo.com", "/iframe.html"));
   GURL origin_keyed_url(
@@ -307,6 +285,8 @@ IN_PROC_BROWSER_TEST_F(OriginAgentClusterBrowserTest,
 // We expect the OAC overhead to be zero when no OAC origins are present.
 IN_PROC_BROWSER_TEST_F(OriginAgentClusterBrowserTest,
                        ProcessCountMetricsNoOACs) {
+  bool origin_keyed_processes_by_default =
+      base::FeatureList::IsEnabled(features::kOriginKeyedProcessesByDefault);
   GURL start_url(https_server()->GetURL("foo.com", "/iframe.html"));
   GURL sub_origin_url(https_server()->GetURL("sub.foo.com", "/title1.html"));
 
@@ -320,9 +300,18 @@ IN_PROC_BROWSER_TEST_F(OriginAgentClusterBrowserTest,
   scoped_refptr<TestMemoryDetails> details = new TestMemoryDetails();
   details->StartFetchAndWait();
 
-  EXPECT_EQ(1, details->GetTotalProcessCount());
-  EXPECT_EQ(0, details->GetOacProcessCount());
-  EXPECT_EQ(0, details->GetOacProcessCountPercent());
+  if (origin_keyed_processes_by_default) {
+    // Even though sub.foo.com doesn't have an OAC opt-in header, it will still
+    // be isolated in this case due to the Origin Isolation mode, and thus it
+    // should still count as overhead.
+    EXPECT_EQ(2, details->GetTotalProcessCount());
+    EXPECT_EQ(1, details->GetOacProcessCount());
+    EXPECT_EQ(50, details->GetOacProcessCountPercent());
+  } else {
+    EXPECT_EQ(1, details->GetTotalProcessCount());
+    EXPECT_EQ(0, details->GetOacProcessCount());
+    EXPECT_EQ(0, details->GetOacProcessCountPercent());
+  }
 }
 
 // Two distinct OAC sub-origins with a base-origin should have an overhead of

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/accessibility/browser_accessibility_com_win.h"
 
 #include <algorithm>
@@ -111,7 +116,7 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_appName(BSTR* app_name) {
   if (!app_name)
     return E_INVALIDARG;
   *app_name = SysAllocString(
-      base::UTF8ToWide(ui::AXPlatform::GetInstance().product_name()).c_str());
+      base::UTF8ToWide(ui::AXPlatform::GetInstance().GetProductName()).c_str());
   DCHECK(*app_name);
   return *app_name ? S_OK : E_FAIL;
 }
@@ -124,7 +129,7 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_appVersion(BSTR* app_version) {
     return E_INVALIDARG;
 
   *app_version = SysAllocString(
-      base::UTF8ToWide(ui::AXPlatform::GetInstance().product_version())
+      base::UTF8ToWide(ui::AXPlatform::GetInstance().GetProductVersion())
           .c_str());
   DCHECK(*app_version);
   return *app_version ? S_OK : E_FAIL;
@@ -152,7 +157,7 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_toolkitVersion(
     return E_INVALIDARG;
 
   *toolkit_version = SysAllocString(
-      base::UTF8ToWide(ui::AXPlatform::GetInstance().toolkit_version())
+      base::UTF8ToWide(ui::AXPlatform::GetInstance().GetToolkitVersion())
           .c_str());
   DCHECK(*toolkit_version);
   return *toolkit_version ? S_OK : E_FAIL;
@@ -1792,7 +1797,7 @@ LONG BrowserAccessibilityComWin::FindStartOfStyle(
 
   switch (direction) {
     case ax::mojom::MoveDirection::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return start_offset;
     case ax::mojom::MoveDirection::kBackward: {
       if (offset_to_text_attributes().empty())
@@ -1811,7 +1816,7 @@ LONG BrowserAccessibilityComWin::FindStartOfStyle(
     }
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return start_offset;
 }
 

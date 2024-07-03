@@ -62,6 +62,7 @@ source_set("password_store_impl") {
     "//components/os_crypt/sync:os_crypt",
     "//components/password_manager/core/browser:metrics_util",
     "//components/password_manager/core/browser:password_manager_buildflags",
+    "//components/password_manager/core/browser:password_switches",
     "//components/password_manager/core/browser/affiliation:affiliation_match_helper",
     "//components/password_manager/core/browser/features:password_features",
     "//components/password_manager/core/browser/sync",
@@ -86,6 +87,10 @@ source_set("password_store_impl") {
       "password_model_type_controller_delegate_android.h",
       "split_stores_and_local_upm.cc",
       "split_stores_and_local_upm.h",
+    ]
+    deps += [
+      "//components/sync/base",
+      "//components/sync/service",
     ]
   }
 

@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "ash/picker/metrics/picker_session_metrics.h"
+#include "ash/picker/model/picker_action_type.h"
 #include "ash/picker/views/picker_preview_bubble.h"
 #include "ash/picker/views/picker_view.h"
 #include "ash/picker/views/picker_view_delegate.h"
@@ -32,7 +33,9 @@ class FakePickerViewDelegate : public PickerViewDelegate {
  public:
   // PickerViewDelegate:
   std::vector<PickerCategory> GetAvailableCategories() override { return {}; }
-  bool ShouldShowSuggestedResults() override { return false; }
+  std::vector<PickerCategory> GetRecentResultsCategories() override {
+    return {};
+  }
   void GetResultsForCategory(PickerCategory category,
                              SearchResultsCallback callback) override {}
   void TransformSelectedText(PickerCategory category) override {}
@@ -52,6 +55,15 @@ class FakePickerViewDelegate : public PickerViewDelegate {
   PickerSessionMetrics& GetSessionMetrics() override {
     return session_metrics_;
   }
+  PickerActionType GetActionForResult(
+      const PickerSearchResult& result) override {
+    return PickerActionType::kInsert;
+  }
+  std::vector<std::string> GetRecentEmoji(
+      ui::EmojiPickerCategory category) override {
+    return {};
+  }
+  std::vector<std::string> GetPlaceholderEmojis() override { return {}; }
 
  private:
   PickerSessionMetrics session_metrics_;

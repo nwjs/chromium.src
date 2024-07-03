@@ -105,7 +105,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.BackgroundService.Images.Headers.RequestLatency"
-    units="ms" expires_after="2024-09-15">
+    units="ms" expires_after="2024-11-17">
   <owner>danpeng@google.com</owner>
   <owner>pauladedeji@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -118,7 +118,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.BackgroundService.Images.Headers.StatusCode"
-    units="HttpResponseCode" expires_after="2024-09-15">
+    units="HttpResponseCode" expires_after="2024-11-17">
   <owner>danpeng@google.com</owner>
   <owner>pauladedeji@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -530,7 +530,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.CustomizeShortcutAction"
-    enum="NTPCustomizeShortcutAction" expires_after="2024-09-15">
+    enum="NTPCustomizeShortcutAction" expires_after="2024-11-17">
   <owner>tiborg@chromium.org</owner>
   <owner>yyushkina@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -703,7 +703,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.HistoryClusters.HasDiscount" enum="Boolean"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>yuezhanggg@chromium.org</owner>
   <owner>chrome-shopping@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -886,7 +886,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.HistoryClusters.ValidScore" enum="Boolean"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>mfacey@chromium.org</owner>
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
@@ -1059,7 +1059,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Module.Click" enum="ModuleTypeOnStartAndNTP"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -1833,6 +1833,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="NewTabPage.TabResumption.ResultStatus"
+    enum="NtpTabResumeResultStatus" expires_after="2024-11-03">
+  <owner>mfacey@google.com</owner>
+  <owner>romanarora@google.com</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Records result status of the fetcher. Only logged on the 1P NTP and when the
+    Tab Resumption module is enabled.
+  </summary>
+</histogram>
+
 <histogram name="NewTabPage.TabResumption.TabCount" units="count"
     expires_after="2024-09-01">
   <owner>mfacey@google.com</owner>
@@ -1852,6 +1863,18 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the time elapsed since the tab that was clicked was last visited.
     Only logged on the 1P NTP and when the Tab Resumption module is enabled.
+  </summary>
+</histogram>
+
+<histogram name="NewTabPage.TabResumption.URLVisitAggregateDataTypeDisplayed"
+    enum="NtpURLVisitAggregateTypes" expires_after="2024-11-03">
+  <owner>mfacey@google.com</owner>
+  <owner>romanarora@google.com</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Records the data type of each entry shown in the tab resumption module.
+    Logged when the module is shown on the NTP. Only logged on the 1P NTP and
+    when the Tab Resumption module is enabled.
   </summary>
 </histogram>
 

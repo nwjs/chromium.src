@@ -11,7 +11,6 @@ import androidx.annotation.Nullable;
 import org.hamcrest.Matcher;
 
 import org.chromium.base.test.transit.ViewConditions.DisplayedCondition;
-import org.chromium.base.test.transit.ViewConditions.ExistsCondition;
 import org.chromium.base.test.transit.ViewConditions.GatedDisplayedCondition;
 import org.chromium.base.test.transit.ViewConditions.NotDisplayedAnymoreCondition;
 import org.chromium.base.test.transit.ViewElement.Scope;
@@ -28,7 +27,7 @@ import java.util.Set;
  * <p>Generates ENTER and EXIT Conditions for the ConditionalState to ensure the ViewElement is in
  * the right state.
  */
-class ViewElementInState implements ElementInState {
+public class ViewElementInState implements ElementInState {
     private final ViewElement mViewElement;
     private final @Nullable Condition mGate;
 
@@ -40,9 +39,11 @@ class ViewElementInState implements ElementInState {
         mGate = gate;
 
         Matcher<View> viewMatcher = mViewElement.getViewMatcher();
-        ExistsCondition.Options conditionOptions =
-                ExistsCondition.newOptions()
-                        .withExpectEnabled(mViewElement.getOptions().mExpectEnabled)
+        ViewElement.Options elementOptions = mViewElement.getOptions();
+        DisplayedCondition.Options conditionOptions =
+                DisplayedCondition.newOptions()
+                        .withExpectEnabled(elementOptions.mExpectEnabled)
+                        .withDisplayingAtLeast(elementOptions.mDisplayedPercentageRequired)
                         .build();
         if (mGate != null) {
             GatedDisplayedCondition gatedDisplayedCondition =
@@ -56,8 +57,7 @@ class ViewElementInState implements ElementInState {
         }
 
         switch (mViewElement.getScope()) {
-            case Scope.CONDITIONAL_STATE_SCOPED:
-            case Scope.SHARED:
+            case Scope.SCOPED:
                 mExitCondition = new NotDisplayedAnymoreCondition(viewMatcher);
                 break;
             case Scope.UNSCOPED:
@@ -82,9 +82,7 @@ class ViewElementInState implements ElementInState {
     @Override
     public @Nullable Condition getExitCondition(Set<String> destinationElementIds) {
         switch (mViewElement.getScope()) {
-            case Scope.CONDITIONAL_STATE_SCOPED:
-                return mExitCondition;
-            case Scope.SHARED:
+            case Scope.SCOPED:
                 return destinationElementIds.contains(getId()) ? null : mExitCondition;
             case Scope.UNSCOPED:
                 return null;

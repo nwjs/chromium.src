@@ -35,6 +35,7 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/autofill_util.h"
+#include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -305,7 +306,7 @@ TEST_P(CreditCardVerificationCodeTest, FillFormField_StandaloneCVCField) {
       EXPECT_EQ(credit_card.cvc(), value_to_fill);
       return;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -318,7 +319,7 @@ TEST_P(CreditCardVerificationCodeTest,
   field.SetTypeTo(AutofillType(CREDIT_CARD_STANDALONE_VERIFICATION_CODE));
 
   CreditCard credit_card = test::GetVirtualCard();
-  test_api(credit_card).set_network_for_virtual_card(kAmericanExpressCard);
+  test_api(credit_card).set_network_for_card(kAmericanExpressCard);
   const std::u16string kCvc = u"1111";
   credit_card.set_cvc(kCvc);
   std::u16string value_to_fill = GetFillingValueForCreditCard(
@@ -331,7 +332,7 @@ TEST_P(CreditCardVerificationCodeTest,
       EXPECT_EQ(kCvc, value_to_fill);
       return;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -1324,7 +1325,7 @@ TEST_F(FieldFillingPaymentsUtilTest, PreviewVirtualCVC) {
                            CREDIT_CARD_VERIFICATION_CODE);
 
   CreditCard credit_card = test::GetVirtualCard();
-  test_api(credit_card).set_network_for_virtual_card(kMasterCard);
+  test_api(credit_card).set_network_for_card(kMasterCard);
   EXPECT_EQ(
       kMidlineEllipsis3DotsWithoutPadding,
       GetFillingValueForCreditCard(credit_card, /*cvc=*/u"", kAppLocale,
@@ -1338,7 +1339,7 @@ TEST_F(FieldFillingPaymentsUtilTest, PreviewVirtualCVCAmericanExpress) {
                            CREDIT_CARD_VERIFICATION_CODE);
 
   CreditCard credit_card = test::GetVirtualCard();
-  test_api(credit_card).set_network_for_virtual_card(kAmericanExpressCard);
+  test_api(credit_card).set_network_for_card(kAmericanExpressCard);
   EXPECT_EQ(
       kMidlineEllipsis4DotsWithoutPadding,
       GetFillingValueForCreditCard(credit_card, /*cvc=*/u"", kAppLocale,
@@ -1352,7 +1353,7 @@ TEST_F(FieldFillingPaymentsUtilTest, PreviewVirtualCardNumber) {
 
   CreditCard credit_card = test::GetVirtualCard();
   credit_card.SetNumber(u"5454545454545454");
-  test_api(credit_card).set_network_for_virtual_card(kMasterCard);
+  test_api(credit_card).set_network_for_card(kMasterCard);
   // Virtual card Mastercard ••••5454‬
   std::u16string expected =
       u"Virtual card Mastercard  "
@@ -1376,7 +1377,7 @@ TEST_F(FieldFillingPaymentsUtilTest,
 
   CreditCard credit_card = test::GetVirtualCard();
   credit_card.SetNumber(u"5454545454545454");
-  test_api(credit_card).set_network_for_virtual_card(kMasterCard);
+  test_api(credit_card).set_network_for_card(kMasterCard);
   // ••••••••••••5454‬
   std::u16string expected =
       u"\x2022\x2022\x2022\x2022\x2022\x2022\x2022\x2022\x2022\x2022\x2022"

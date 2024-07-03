@@ -131,10 +131,6 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
 
   PhysicalFragment(const PhysicalFragment& other);
 
-  ~PhysicalFragment();
-
-  void Dispose();
-
   FragmentType Type() const { return static_cast<FragmentType>(type_); }
   bool IsContainer() const {
     return Type() == FragmentType::kFragmentBox ||
@@ -524,10 +520,11 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
 
   // Dump the fragment tree, optionally mark |target| if it's found. If not
   // found, the subtree established by |target| will be dumped as well.
-  String DumpFragmentTree(DumpFlags,
-                          const PhysicalFragment* target = nullptr,
-                          std::optional<PhysicalOffset> = std::nullopt,
-                          unsigned indent = 2) const;
+  [[nodiscard]] String DumpFragmentTree(
+      DumpFlags,
+      const PhysicalFragment* target = nullptr,
+      std::optional<PhysicalOffset> = std::nullopt,
+      unsigned indent = 2) const;
 
   // Dump the fragment tree, starting at |root| (searching inside legacy
   // subtrees to find all fragments), optionally mark |target| if it's found. If
@@ -535,9 +532,10 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
   //
   // Note that if we're in the middle of layout somewhere inside the subtree,
   // behavior is undefined.
-  static String DumpFragmentTree(const LayoutObject& root,
-                                 DumpFlags,
-                                 const PhysicalFragment* target = nullptr);
+  [[nodiscard]] static String DumpFragmentTree(
+      const LayoutObject& root,
+      DumpFlags,
+      const PhysicalFragment* target = nullptr);
 
   void Trace(Visitor*) const;
   void TraceAfterDispatch(Visitor*) const;
@@ -563,6 +561,8 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
       using difference_type = ptrdiff_t;
       using pointer = value_type*;
       using reference = value_type&;
+
+      ConstIterator() = default;
 
       ConstIterator(const PhysicalFragmentLink* current, wtf_size_t size)
           : current_(current), end_(current + size) {
@@ -603,8 +603,8 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
         }
       }
 
-      const PhysicalFragmentLink* current_;
-      const PhysicalFragmentLink* end_;
+      const PhysicalFragmentLink* current_ = nullptr;
+      const PhysicalFragmentLink* end_ = nullptr;
       PhysicalFragmentLink post_layout_;
     };
     using const_iterator = ConstIterator;
@@ -727,6 +727,8 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
   bool NeedsOOFPositionedInfoPropagation() const;
 
  protected:
+  ~PhysicalFragment() = default;
+
   const ComputedStyle& SlowEffectiveStyle() const;
 
   void AddOutlineRectsForNormalChildren(

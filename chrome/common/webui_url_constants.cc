@@ -75,11 +75,12 @@ const char kChromeUIDevToolsURL[] =
 const char kChromeUIDeviceLogHost[] = "device-log";
 const char kChromeUIDeviceLogUrl[] = "chrome://device-log";
 const char kChromeUIDevUiLoaderURL[] = "chrome://dev-ui-loader/";
-const char kChromeUIDiceWebSigninInterceptHost[] = "signin-dice-web-intercept";
+const char kChromeUIDiceWebSigninInterceptHost[] =
+    "signin-dice-web-intercept.top-chrome";
 const char kChromeUIDiceWebSigninInterceptURL[] =
-    "chrome://signin-dice-web-intercept/";
+    "chrome://signin-dice-web-intercept.top-chrome/";
 const char kChromeUIDiceWebSigninInterceptChromeSigninURL[] =
-    "chrome://signin-dice-web-intercept/chrome-signin";
+    "chrome://signin-dice-web-intercept.top-chrome/chrome-signin";
 const char kChromeUIDiceWebSigninInterceptChromeSigninSubPage[] =
     "chrome-signin";
 const char kChromeUIDownloadInternalsHost[] = "download-internals";
@@ -248,14 +249,21 @@ const char kChromeUIUntrustedImageEditorURL[] =
     "chrome-untrusted://image-editor/";
 const char kChromeUIUntrustedPrintURL[] = "chrome-untrusted://print/";
 const char kChromeUIUntrustedThemeURL[] = "chrome-untrusted://theme/";
+const char kChromeUIUntrustedDataSharingHost[] = "data-sharing";
+const char kChromeUIUntrustedDataSharingURL[] =
+    "chrome-untrusted://data-sharing/";
 const char kChromeUIUsbInternalsHost[] = "usb-internals";
 const char kChromeUIUserActionsHost[] = "user-actions";
 const char kChromeUIVersionHost[] = "version";
 const char kChromeUIVersionURL[] = "chrome://version/";
 const char kChromeUIWelcomeHost[] = "welcome";
 const char kChromeUIWelcomeURL[] = "chrome://welcome/";
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 const char kChromeUIWhatsNewHost[] = "whats-new";
 const char kChromeUIWhatsNewURL[] = "chrome://whats-new/";
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 const char kChromeUIWebuiGalleryHost[] = "webui-gallery";
 
 #if BUILDFLAG(IS_WIN)
@@ -304,10 +312,6 @@ const char kChromeUIUntrustedReadAnythingSidePanelURL[] =
 const char kChromeUIReadLaterHost[] = "read-later.top-chrome";
 const char kChromeUIReadLaterURL[] = "chrome://read-later.top-chrome/";
 const char kChromeUIUntrustedFeedURL[] = "chrome-untrusted://feed/";
-const char kChromeUIUserNotesSidePanelHost[] =
-    "user-notes-side-panel.top-chrome";
-const char kChromeUIUserNotesSidePanelURL[] =
-    "chrome://user-notes-side-panel.top-chrome/";
 const char kChromeUIOmniboxPopupHost[] = "omnibox-popup.top-chrome";
 const char kChromeUIOmniboxPopupURL[] = "chrome://omnibox-popup.top-chrome/";
 const char kChromeUISuggestInternalsHost[] = "suggest-internals";
@@ -411,6 +415,7 @@ const char kChromeUIPrintManagementUrl[] = "chrome://print-management";
 const char kChromeUIPowerHost[] = "power";
 const char kChromeUIPowerUrl[] = "chrome://power";
 const char kChromeUIRemoteManagementCurtainHost[] = "security-curtain";
+const char kChromeUISanitizeAppURL[] = "chrome://sanitize";
 const char kChromeUIScanningAppURL[] = "chrome://scanning";
 const char kChromeUISetTimeHost[] = "set-time";
 const char kChromeUISetTimeURL[] = "chrome://set-time/";
@@ -770,7 +775,9 @@ const char* const kChromeHostURLs[] = {
     kChromeUINewTabPageThirdPartyHost,
     kChromeUISettingsHost,
     kChromeUISystemInfoHost,
+#if !BUILDFLAG(IS_CHROMEOS)
     kChromeUIWhatsNewHost,
+#endif
 #endif
 #if BUILDFLAG(IS_ANDROID)
     kChromeUIOfflineInternalsHost,

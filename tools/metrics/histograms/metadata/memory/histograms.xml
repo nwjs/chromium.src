@@ -94,7 +94,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="HeapProfiling.AndroidStackUnwinder"
-    enum="AndroidStackUnwinder" expires_after="2024-09-15">
+    enum="AndroidStackUnwinder" expires_after="2024-11-17">
   <owner>joenotcharles@google.com</owner>
   <owner>chrome-memory@google.com</owner>
   <summary>
@@ -237,7 +237,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Browser.MemoryFootprint.Inactive" units="MB"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>justincohen@chromium.org</owner>
   <owner>ajuma@chromium.org</owner>
   <summary>
@@ -1212,7 +1212,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Gpu.SharedMemoryFootprint" units="MB"
-    expires_after="2024-09-29">
+    expires_after="2024-12-01">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <summary>
@@ -1513,7 +1513,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.ParkableString.Compression.Latency"
-    units="microseconds" expires_after="2024-09-22">
+    units="microseconds" expires_after="2024-11-24">
   <owner>lizeb@chromium.org</owner>
   <owner>thiabaud@google.com</owner>
   <summary>
@@ -1525,7 +1525,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.ParkableString.Compression.SizeKb" units="KB"
-    expires_after="2024-09-22">
+    expires_after="2024-11-24">
   <owner>lizeb@chromium.org</owner>
   <owner>thiabaud@google.com</owner>
   <summary>
@@ -1534,7 +1534,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.ParkableString.Decompression.Latency"
-    units="microseconds" expires_after="2024-09-29">
+    units="microseconds" expires_after="2024-12-01">
   <owner>lizeb@chromium.org</owner>
   <owner>thiabaud@google.com</owner>
   <summary>
@@ -1718,6 +1718,16 @@ chromium-metrics-reviews@google.com.
   <token key="Timing" variants="RecordedTiming"/>
 </histogram>
 
+<histogram name="Memory.PreFreeze2.RecordMetricsFailureType"
+    enum="PreFreezeMetricsFailureType" expires_after="2025-02-01">
+  <owner>thiabaud@google.com</owner>
+  <owner>lizeb@google.com</owner>
+  <summary>
+    Recorded when a pre-freeze notification arrives or when we try to record
+    metrics (after pre-freeze trimming should have finished) and fail.
+  </summary>
+</histogram>
+
 <histogram name="Memory.PreFreeze2{Process}.PrivateMemoryFootprint.{Timing}"
     units="MiB" expires_after="2025-02-01">
   <owner>thiabaud@google.com</owner>
@@ -1727,6 +1737,20 @@ chromium-metrics-reviews@google.com.
     notification that the application is about to be frozen. {Timing} Recorded
     only on Android 14+, and only recorded if at least one task has been
     registered with PreFreeze.
+  </summary>
+  <token key="Process" variants="ProfiledProcess"/>
+  <token key="Timing" variants="RecordedTiming"/>
+</histogram>
+
+<histogram name="Memory.PreFreeze2{Process}.Vulkan.{Timing}" units="MiB"
+    expires_after="2025-02-01">
+  <owner>thiabaud@google.com</owner>
+  <owner>lizeb@google.com</owner>
+  <summary>
+    The Vulkan memory usage of {Process}, recorded when we get a notification
+    that the application is about to be frozen. {Timing} Recorded only on
+    Android 14+, and only recorded if at least one task has been registered with
+    PreFreeze, and only if Vulkan is being used.
   </summary>
   <token key="Process" variants="ProfiledProcess"/>
   <token key="Timing" variants="RecordedTiming"/>
@@ -1806,8 +1830,6 @@ chromium-metrics-reviews@google.com.
     <variant name="ImageLayerBridge" summary="ImageLayerBridge sources"/>
     <variant name="PepperGraphics2D" summary="PepperGraphics2D sources"/>
     <variant name="PPBGraphics3D" summary="PPBGraphics3D sources"/>
-    <variant name="SharedElementTransition"
-        summary="SharedElementTransition sources"/>
     <variant name="StaleContent" summary="StaleContent sources"/>
     <variant name="Test" summary="Test sources, which should not be seen,"/>
     <variant name="TileRasterTask" summary="TileRasterTask sources"/>
@@ -1815,6 +1837,7 @@ chromium-metrics-reviews@google.com.
     <variant name="UI" summary="UI sources"/>
     <variant name="Unknown" summary="Unknown sources, which are unexpected,"/>
     <variant name="Video" summary="Video sources"/>
+    <variant name="ViewTransition" summary="ViewTransition sources"/>
     <variant name="WebGPUSwapBuffer" summary="WebGPUSwapBuffer sources"/>
   </token>
 </histogram>
@@ -1901,7 +1924,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count.All" units="processes"
-    expires_after="2024-09-29">
+    expires_after="2024-12-01">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -1921,7 +1944,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count.InitializedAndNotDead"
-    units="processes" expires_after="2024-09-29">
+    units="processes" expires_after="2024-12-01">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -1946,19 +1969,27 @@ chromium-metrics-reviews@google.com.
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <summary>
-    An estimate of additional processes created due to OriginAgentCluster (OAC).
-    Computed assuming no coalescing of multiple BrowsingInstances into a single
-    RenderProcess (including no subframe process reuse), and only when
-    cross-process origin isolation occurs due to the OAC header. Given this, the
-    count of additional SiteInstances corresponds exactly to the additional
-    number of RenderProcesses that OAC gives rise to, and therefore gives a
+    An estimate of additional processes created due to origin-keyed processes,
+    including OriginAgentCluster (OAC) headers and OriginKeyedProcessesByDefault
+    mode. Computed assuming no coalescing of multiple BrowsingInstances into a
+    single RenderProcess (including no subframe process reuse), and only when
+    cross-process origin isolation occurs due to the OAC header or
+    OriginKeyedProcessesByDefault. Given this, the count of additional
+    SiteInstances corresponds exactly to the additional number of
+    RenderProcesses that that are due to origin-keying, and therefore gives a
     sense of how much process count overhead it creates. Recorded once per UMA
     ping.
+
+    Note: when the feature OriginKeyedProcessesByDefault is enabled, all
+    navigations are treated as if the OAC opt-in header is present, unless the
+    OAC opt-out header is present. As a result, any analyses of this metric
+    should separate users with and without OriginKeyedProcessesByDefault, to
+    distinguish actual header adoption.
   </summary>
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count.SandboxedIframeOverhead"
-    units="processes" expires_after="2024-09-15">
+    units="processes" expires_after="2024-11-17">
   <owner>wjmaclean@chromium.org</owner>
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
@@ -1976,20 +2007,26 @@ chromium-metrics-reviews@google.com.
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <summary>
-    The percentage of the total renderer process count that is due to the
-    OriginAgentCluster (OAC) header, based on the overhead estimate from
+    The percentage of the total renderer process count that is due to
+    origin-keyed processes, based on the overhead estimate from
     Memory.RenderProcessHost.Count.OriginAgentClusterProcesses. That value is
     computed assuming no coalescing of multiple BrowsingInstances into a single
     RenderProcess (including no subframe process reuse), and only when
-    cross-process origin isolation occurs due to the OAC header. Given this, the
-    percentage of total SiteInstances due to the OAC header corresponds exactly
-    to the percentage of RenderProcesses that OAC gives rise to. Recorded once
-    per UMA ping.
+    cross-process origin isolation occurs due to origin-keying. Given this, the
+    percentage of total SiteInstances due to origin-keying corresponds exactly
+    to the percentage of RenderProcesses that origin-keying gives rise to.
+    Recorded once per UMA ping.
+
+    Note: when the feature OriginKeyedProcessesByDefault is enabled, all
+    navigations are treated as if the OAC opt-in header is present, unless the
+    OAC opt-out header is present. As a result, any analyses of this metric
+    should separate users with and without OriginKeyedProcessesByDefault, to
+    distinguish actual header adoption.
   </summary>
 </histogram>
 
 <histogram name="Memory.StackSamplingProfiler.StackSampleSize2" units="KB"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>iby@chromium.org</owner>
   <owner>chromeos-data-eng@google.com</owner>
   <summary>
@@ -2178,7 +2215,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Total.RendererPrivateMemoryFootprintExcludingWaived"
-    units="MB" expires_after="2024-06-30">
+    units="MB" expires_after="2024-11-03">
   <owner>ckitagawa@chromium.org</owner>
   <owner>yfriedman@chromium.org</owner>
   <summary>
@@ -2234,7 +2271,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Total.SharedMemoryFootprint" units="MB"
-    expires_after="2024-09-29">
+    expires_after="2024-12-01">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <summary>

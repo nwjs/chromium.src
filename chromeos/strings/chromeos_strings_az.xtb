@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastel sarı</translation>
 <translation id="1056898198331236512">Xəbərdarlıq</translation>
 <translation id="1059913517121127803">Skanlamanı başlatmaq mümkün olmadı</translation>
+<translation id="1061864016440983342">Məkan olmadan istifadə edin</translation>
 <translation id="1062823486781306604"><ph name="INDEX" />/<ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Qoruyucu divar aşkarlandı</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Digər ayarlar</translation>
 <translation id="2082932131694554252">Təyin edilmiş klaviatura düyməsi</translation>
 <translation id="2085089206770112532">Displey parlaqlığını azaldın</translation>
+<translation id="2086091080968010660">Zaman əsaslı dəyişikliklər dəqiq olmaya bilər. Ayarlarda sistemin məkana girişini aktiv edin.</translation>
 <translation id="2102231663024125441">Mətn redaktəsi</translation>
 <translation id="2105810540595158374">Cihaz oyun nizamlayıcısıdır.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versiya <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN detallarını redaktə edin</translation>
 <translation id="2195732836444333448">Hazırda doludur. Sonra yoxlayın.</translation>
 <translation id="2201758491318984023">velosiped</translation>
-<translation id="2203222757805818543">Cari cədvəl: <ph name="SUNRISE" /> - <ph name="SUNSET" />. Qaranlıq rejim cədvəlini avtomatik güncəlləmək üçün <ph name="BEGIN_LINK" />məkana girişi yandırın<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">termal su</translation>
 <translation id="2203642483788377106">uçurum</translation>
 <translation id="2208388655216963643">impressionist</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Defolt halına qaytarın</translation>
 <translation id="2286454467119466181">Sadə</translation>
 <translation id="2287186687001756809">Əlçatan şəkil yoxdur. Foto əlavə etmək üçün <ph name="LINK" /> ünvanına keçin</translation>
+<translation id="2294577623958216786">Cari cədvəl ayarlanıb: <ph name="SUNRISE" />-<ph name="SUNSET" />. Gün batımı və günəşin çıxması cədvəlini avtomatik yeniləmək üçün sistemin məkana girişini aktiv edin.</translation>
 <translation id="2305172810646967500">qara</translation>
 <translation id="2307344026739914387">Cari açar cütündən istifadə edin</translation>
 <translation id="2308243864813041101">Güncəllənmə prosesinə davam etmək üçün <ph name="DEVICE_NAME" /> USB kabelini ayırın</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">qum təpəsi</translation>
 <translation id="2619761439309613843">Gündəlik Yenilənmə</translation>
 <translation id="2620436844016719705">Sistem</translation>
+<translation id="2637303424821734920">SÖNÜLÜ - Yerli havanı göstərmək üçün <ph name="BEGIN_LINK" />sistem məkan girişini yandırın<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Daxil olma şəkli</translation>
 <translation id="2640549051766135490"><ph name="TITLE" /> <ph name="DESC" /> albomu seçildi</translation>
 <translation id="2645380101799517405">Nizamlayıcılar</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Arxa fon</translation>
 <translation id="3027578600144895987">Kameranı bağlayın</translation>
 <translation id="3031560714565892478">Cihaz video kameradır.</translation>
+<translation id="3051968340259309715">Bu, sistem xidmətlərinə məkanı müəyyən etmək üçün Məkan Dəqiqliyindən istifadə etmək imkanı verir. Məkan Dəqiqliyi cihazın məkanını təxmin etmək üçün Wi-Fi giriş nöqtələri, mobil şəbəkə qüllələri və GPS kimi simsiz siqnallar haqqında məlumatlardan, eləcə də akselerometr və giroskop kimi cihaz sensor datasından istifadə edir. Məkanı Ayarlar &gt; Məxfilik və güvənlik &gt; Məxfilik nizamlayıcıları &gt; Məkana giriş bölməsində söndürə bilərsiniz. <ph name="LINK_BEGIN" />Ətraflı məlumat<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">Son nöqtə</translation>
 <translation id="3060579846059757016">Haşiyələr</translation>
+<translation id="3061850252076394168">"basıb dinləyin" seçimini aktivləşdirin</translation>
 <translation id="3069085583900247081">Test uğursuz oldu</translation>
 <translation id="3078740164268491126">cədvəl</translation>
 <translation id="3081652522083185657">işıqlı</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Bütün hostları həll etmək alınmadı</translation>
 <translation id="4593212453765072419">Proksi doğrulama tələb olunur</translation>
 <translation id="4609350030397390689">Klaviatura parlaqlığını azaldın</translation>
-<translation id="4617553623719764431">Məkanı bilmədiyi üçün hava göstərilmir. Yerli havanı göstərmək üçün <ph name="BEGIN_LINK" />Məkana girişi yandırın<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" />. Çap işini ləğv etmək üçün Enter düyməsinə basın.</translation>
 <translation id="463791356324567266">Skanlama ləğv edilir...</translation>
 <translation id="4646949265910132906">Güvənli WiFi Bağlantısı</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">İşə salın</translation>
 <translation id="4987769320337599931">Qoruyucu divar</translation>
 <translation id="4988526792673242964">Səhifələr</translation>
+<translation id="4989542687859782284">Əlçatmaz</translation>
 <translation id="4999333166442584738">Hesabatı gizlədin</translation>
 <translation id="500920857929044050">Testi dayandırın</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">klaviatura parlaqlığı</translation>
 <translation id="6412715219990689313">Quraşdırılmış klaviatura</translation>
 <translation id="6417265370957905582">Google Assistent</translation>
+<translation id="6419454453018688975">Sistemin məkana girişini aktiv edin</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Bu, məkandan istifadə icazəsi olan sistem xidmətlərinə imkan verir. Məkan icazəsi cihaz məkanını təxmin etmək üçün Wi‑Fi, mobil şəbəkə və sensor kimi mənbələrdən istifadə edə bilər. <ph name="LINK_BEGIN" />Ətraflı məlumat<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Zəif (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Hesab ayarlarına keçin</translation>
 <translation id="6462978824459367242">"APN əlavə edin" düyməsi aktivləşdirilib</translation>

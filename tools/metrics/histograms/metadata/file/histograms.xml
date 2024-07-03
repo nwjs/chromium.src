@@ -384,7 +384,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.DownloadDestination.IsGoogleDrive.Started"
-    enum="BooleanEnabled" expires_after="2024-09-15">
+    enum="BooleanEnabled" expires_after="2024-11-17">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -398,9 +398,9 @@ chromium-metrics-reviews@google.com.
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
-    The size of the space consumed by a users files in &quot;My Files&quot;
-    folder and it's children, calculated as a percentage of the total disk
-    space. Calculated on user login and recorded by VolumeManager.
+    The size of the space consumed by a user's files in the 'MyFiles' folder and
+    its children, calculated as a percentage of the total disk space. Calculated
+    on user login and recorded by VolumeManager.
   </summary>
 </histogram>
 
@@ -409,9 +409,8 @@ chromium-metrics-reviews@google.com.
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
-    The total size of all of the users files stored in the &quot;My Files&quot;
-    folder and it's children. Calculated on user login and recorded by
-    VolumeManager.
+    The total size of all of the user's files stored in the 'MyFiles' folder and
+    its children. Calculated on user login and recorded by VolumeManager.
   </summary>
 </histogram>
 
@@ -511,7 +510,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.FolderShortcut.Add" units="Shortcuts"
-    expires_after="2024-07-01">
+    expires_after="2025-07-01">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -521,7 +520,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.FolderShortcut.Count" units="Shortcuts"
-    expires_after="2024-11-03">
+    expires_after="2025-07-01">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -531,7 +530,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.FolderShortcut.Navigate" units="Navigations"
-    expires_after="2024-07-01">
+    expires_after="2025-07-01">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -541,7 +540,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.FolderShortcut.Remove" units="Shortcuts"
-    expires_after="2024-07-01">
+    expires_after="2025-07-01">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -694,7 +693,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.GoogleDrive.BulkPinning.QueueSize" units="count"
-    expires_after="2024-07-01">
+    expires_after="2025-05-21">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -1124,6 +1123,19 @@ chromium-metrics-reviews@google.com.
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
     Chrome OS File Browser: HTTP response code of select Microsoft GraphAPI
+    calls. These histograms are deprecated in favour of the
+    &quot;ResponseCodeSparse&quot; variant.
+  </summary>
+  <token key="GraphAPIMethod" variants="GraphAPIMethod"/>
+</histogram>
+
+<histogram
+    name="FileBrowser.OfficeFiles.ODFS.GraphAPI.ResponseCodeSparse.{GraphAPIMethod}"
+    enum="OfficeGraphAPIResult" expires_after="2025-05-01">
+  <owner>simmonsjosh@google.com</owner>
+  <owner>src/ui/file_manager/OWNERS</owner>
+  <summary>
+    Chrome OS File Browser: HTTP response code of select Microsoft GraphAPI
     calls.
   </summary>
   <token key="GraphAPIMethod" variants="GraphAPIMethod"/>
@@ -1389,6 +1401,28 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="FileBrowser.OfficeFiles.Setup.OfficeWebAppInstallation"
+    enum="WebAppInstallResultCode" expires_after="2025-05-01">
+  <owner>simmonsjosh@google.com</owner>
+  <owner>src/ui/file_manager/OWNERS</owner>
+  <summary>
+    Chrome OS File Browser: Records installation result code for the
+    installation attempt for the Office web app initiated through the Office
+    setup flow.
+  </summary>
+</histogram>
+
+<histogram name="FileBrowser.OfficeFiles.Setup.OfficeWebAppOfflineInstallation"
+    enum="WebAppInstallResultCode" expires_after="2025-05-01">
+  <owner>simmonsjosh@google.com</owner>
+  <owner>src/ui/file_manager/OWNERS</owner>
+  <summary>
+    Chrome OS File Browser: Records installation result code for the offline
+    installation attempt for the Office web app initiated through the Office
+    setup flow.
+  </summary>
+</histogram>
+
 <histogram name="FileBrowser.OfficeFiles.TaskResult.{CloudProvider}"
     enum="OfficeTaskResult" expires_after="2025-05-01">
   <owner>simmonsjosh@google.com</owner>
@@ -1613,7 +1647,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.Trash.DirectorySetupFailed"
-    enum="FileManagerTrashDirectorySetupFailedStep" expires_after="2024-06-30">
+    enum="FileManagerTrashDirectorySetupFailedStep" expires_after="2025-05-21">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -1623,7 +1657,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.Trash.FailedTrashing" enum="FailedTrashingType"
-    expires_after="2024-06-30">
+    expires_after="2025-05-21">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -1632,7 +1666,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.Trash.RestoreFailedNoParent"
-    enum="RestoreFailedNoParentType" expires_after="2024-06-30">
+    enum="RestoreFailedNoParentType" expires_after="2025-05-21">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -1685,7 +1719,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.ViewingFileType.Offline" enum="ViewFileType"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -1696,7 +1730,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.ViewingFileType.Online" enum="ViewFileType"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -1805,7 +1839,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.ZipMountTime.{RootType}" units="ms"
-    expires_after="2024-06-30">
+    expires_after="2025-06-30">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -1815,14 +1849,13 @@ chromium-metrics-reviews@google.com.
     <variant name="Drive"
         summary="The archive to mount is located under the Drive root"/>
     <variant name="MyFiles"
-        summary="The archive to mount is a local archive, located under the
-                 My files or the Downloads root"/>
+        summary="The archive to mount is a local file in 'MyFiles'"/>
     <variant name="Other"/>
   </token>
 </histogram>
 
 <histogram name="FileBrowser.ZipTask.Time" units="ms"
-    expires_after="2024-06-30">
+    expires_after="2025-06-30">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>

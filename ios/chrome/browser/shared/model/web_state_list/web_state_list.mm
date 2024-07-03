@@ -11,6 +11,7 @@
 #import "base/check_op.h"
 #import "base/containers/adapters.h"
 #import "base/containers/contains.h"
+#import "base/debug/alias.h"
 #import "base/memory/raw_ptr.h"
 #import "ios/chrome/browser/shared/model/web_state_list/order_controller.h"
 #import "ios/chrome/browser/shared/model/web_state_list/order_controller_source_from_web_state_list.h"
@@ -357,6 +358,12 @@ void WebStateList::CloseWebStatesAtIndices(int close_flags,
   // quadratic behavior if observers iterate the WebStateList.
   std::vector<std::unique_ptr<web::WebState>> detached_web_states =
       DetachWebStatesAtIndicesImpl(removing_indexes, detach_params);
+
+  // Added to debug reported slowness in https://crbug.com/41483250.
+  const int remaining_count = count();
+  base::debug::Alias(&remaining_count);
+
+  detached_web_states.clear();
 }
 
 const TabGroup* WebStateList::GetGroupOfWebStateAt(int index) const {
@@ -803,6 +810,7 @@ const TabGroup* WebStateList::CreateGroupImpl(
   // Figure out the pivot index.
   int pivot_index = kInvalidIndex;
   const int first_index = *indices.begin();
+  CHECK(ContainsIndex(first_index), base::NotFatalUntil::M128);
   if (IsWebStatePinnedAt(first_index)) {
     // Move to the last pinned tab.
     pivot_index = pinned_tabs_count_;
@@ -924,6 +932,7 @@ void WebStateList::RemoveFromGroupsImpl(const std::set<int>& indices) {
   // keep ungrouped WebStates in the order they were in the group.
   for (auto it = indices.rbegin(); it != indices.rend(); ++it) {
     const int index = *it;
+    CHECK(ContainsIndex(index), base::NotFatalUntil::M128);
     const TabGroup* group = GetGroupOfWebStateAt(index);
     if (group) {
       const int to_index = group->range().range_end() - 1;
@@ -1224,13 +1233,15 @@ void WebStateList::OnActiveWebStateChanged() {
 }
 
 void CloseAllWebStates(WebStateList& web_state_list, int close_flags) {
+  const int count = web_state_list.count();
+  // Added to debug reported slowness in https://crbug.com/41483250.
+  base::debug::Alias(&count);
   const WebStateList::ScopedBatchOperation batch =
       web_state_list.StartBatchOperation();
-  web_state_list.CloseWebStatesAtIndices(close_flags,
-                                         RemovingIndexes({
-                                             .start = 0,
-                                             .count = web_state_list.count(),
-                                         }));
+  web_state_list.CloseWebStatesAtIndices(close_flags, RemovingIndexes({
+                                                          .start = 0,
+                                                          .count = count,
+                                                      }));
 }
 
 void CloseAllNonPinnedWebStates(WebStateList& web_state_list, int close_flags) {

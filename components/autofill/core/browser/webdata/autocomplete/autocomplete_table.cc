@@ -323,7 +323,7 @@ int AutocompleteTable::GetCountOfValuesContainedBetween(base::Time begin,
   s.BindInt64(1, end_time_t);
 
   if (!s.Step()) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return false;
   }
   return s.ColumnInt(0);
@@ -407,11 +407,13 @@ bool AutocompleteTable::AddFormFieldValueTime(
     std::vector<std::string> message_parts = {base::StringPrintf(
         "(Failure during %s, SQL error code = %d, table_exists = %d, ",
         failure_location, sql_error_code, autofill_table_exists)};
-    for (const char* kColumnName :
+    for (const char* column_name :
          {"count", "date_last_used", "name", "value"}) {
-      message_parts.push_back(
-          base::StringPrintf("column %s exists = %d,", kColumnName,
-                             db_->DoesColumnExist("autofill", kColumnName)));
+      message_parts.push_back(base::StringPrintf(
+          "column %s exists = %d,", column_name,
+          db_->DoesColumnExist(
+              "autofill",
+              base::cstring_view(column_name, strlen(column_name)))));
     }
     return base::StrCat(message_parts);
   };
@@ -434,7 +436,7 @@ bool AutocompleteTable::AddFormFieldValueTime(
       ntstatus_key.Set(base::NumberToString(
           static_cast<uint32_t>(base::win::GetLastNtStatus())));
 #endif
-      DUMP_WILL_BE_NOTREACHED_NORETURN() << create_debug_info("UPDATE");
+      DUMP_WILL_BE_NOTREACHED() << create_debug_info("UPDATE");
       return false;
     }
   } else {
@@ -442,7 +444,7 @@ bool AutocompleteTable::AddFormFieldValueTime(
     if (!InsertAutocompleteEntry({{element.name(), element.value()},
                                   /*date_created=*/time,
                                   /*date_last_used=*/time})) {
-      DUMP_WILL_BE_NOTREACHED_NORETURN() << create_debug_info("INSERT");
+      DUMP_WILL_BE_NOTREACHED() << create_debug_info("INSERT");
       return false;
     }
   }

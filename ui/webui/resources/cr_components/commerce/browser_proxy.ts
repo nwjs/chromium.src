@@ -29,6 +29,7 @@ export interface BrowserProxy {
   getPriceTrackingStatusForCurrentUrl(): Promise<{tracked: boolean}>;
   setPriceTrackingStatusForCurrentUrl(track: boolean): void;
   openUrlInNewTab(url: Url): void;
+  switchToOrOpenTab(url: Url): void;
   getParentBookmarkFolderNameForCurrentUrl(): Promise<{name: String16}>;
   showBookmarkEditorForCurrentUrl(): void;
   showFeedback(): void;
@@ -43,6 +44,10 @@ export interface BrowserProxy {
   addProductSpecificationsSet(name: string, urls: Url[]):
       Promise<{createdSet: ProductSpecificationsSet | null}>;
   deleteProductSpecificationsSet(uuid: Uuid): void;
+  setNameForProductSpecificationsSet(uuid: Uuid, name: string):
+      Promise<{updatedSet: ProductSpecificationsSet | null}>;
+  setUrlsForProductSpecificationsSet(uuid: Uuid, urls: Url[]):
+      Promise<{updatedSet: ProductSpecificationsSet | null}>;
 }
 
 export class BrowserProxyImpl implements BrowserProxy {
@@ -124,6 +129,10 @@ export class BrowserProxyImpl implements BrowserProxy {
     this.handler.openUrlInNewTab(url);
   }
 
+  switchToOrOpenTab(url: Url) {
+    this.handler.switchToOrOpenTab(url);
+  }
+
   getParentBookmarkFolderNameForCurrentUrl() {
     return this.handler.getParentBookmarkFolderNameForCurrentUrl();
   }
@@ -150,6 +159,14 @@ export class BrowserProxyImpl implements BrowserProxy {
 
   deleteProductSpecificationsSet(uuid: Uuid) {
     this.handler.deleteProductSpecificationsSet(uuid);
+  }
+
+  setNameForProductSpecificationsSet(uuid: Uuid, name: string) {
+    return this.handler.setNameForProductSpecificationsSet(uuid, name);
+  }
+
+  setUrlsForProductSpecificationsSet(uuid: Uuid, urls: Url[]) {
+    return this.handler.setUrlsForProductSpecificationsSet(uuid, urls);
   }
 
   getCallbackRouter() {

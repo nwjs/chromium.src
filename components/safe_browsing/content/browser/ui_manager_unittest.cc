@@ -122,7 +122,6 @@ class TestSafeBrowsingBlockingPage : public SafeBrowsingBlockingPage {
                 /*settings_helper=*/nullptr),
             BaseSafeBrowsingErrorUI::SBErrorDisplayOptions(
                 BaseBlockingPage::IsMainPageLoadPending(unsafe_resources),
-                BaseBlockingPage::IsSubresource(unsafe_resources),
                 false,                 // is_extended_reporting_opt_in_allowed
                 false,                 // is_off_the_record
                 false,                 // is_extended_reporting_enabled
@@ -141,7 +140,9 @@ class TestSafeBrowsingBlockingPage : public SafeBrowsingBlockingPage {
             /*trigger_manager=*/nullptr,
             /*is_proceed_anyway_disabled=*/false,
             /*is_safe_browsing_surveys_enabled=*/true,
-            /*trust_safety_sentiment_service_trigger=*/base::NullCallback()) {
+            /*trust_safety_sentiment_service_trigger=*/base::NullCallback(),
+            /*ignore_auto_revocation_notifications_trigger=*/
+            base::NullCallback()) {
     // Don't delay details at all for the unittest.
     SetThreatDetailsProceedDelayForTesting(0);
     DontCreateViewForTesting();
@@ -172,7 +173,7 @@ class TestSafeBrowsingBlockingPageFactory
       const GURL& main_frame_url,
       const SafeBrowsingBlockingPage::UnsafeResourceList& unsafe_resources)
       override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
 
@@ -182,7 +183,7 @@ class TestSafeBrowsingBlockingPageFactory
       const GURL& main_frame_url,
       const SafeBrowsingBlockingPage::UnsafeResourceList& unsafe_resources)
       override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
 #endif

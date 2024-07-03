@@ -32,7 +32,7 @@
 #include "content/browser/renderer_host/display_feature.h"
 #include "content/browser/renderer_host/frame_token_message_queue.h"
 #include "content/browser/renderer_host/input/mock_input_router.h"
-#include "content/browser/renderer_host/input/touch_emulator.h"
+#include "content/browser/renderer_host/input/touch_emulator_impl.h"
 #include "content/browser/renderer_host/mock_render_widget_host.h"
 #include "content/browser/renderer_host/render_view_host_delegate_view.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
@@ -92,12 +92,12 @@
 #endif
 
 #if defined(USE_AURA) || BUILDFLAG(IS_APPLE)
-#include "content/browser/compositor/test/test_image_transport_factory.h"
+#include "content/public/test/test_image_transport_factory.h"
 #endif
 
 #if defined(USE_AURA)
 #include "content/browser/renderer_host/render_widget_host_view_aura.h"
-#include "content/browser/renderer_host/ui_events_helper.h"
+#include "content/common/input/events_helper.h"
 #include "ui/aura/test/test_screen.h"
 #include "ui/events/event.h"
 #endif
@@ -221,7 +221,7 @@ class TestView : public TestRenderWidgetHostView {
   }
 
   void ProcessAckedTouchEvent(
-      const TouchEventWithLatencyInfo& touch,
+      const input::TouchEventWithLatencyInfo& touch,
       blink::mojom::InputEventResultState ack_result) override {
     acked_event_ = touch.event;
     ++acked_event_count_;
@@ -440,7 +440,7 @@ class MockRenderWidgetHostDelegate : public RenderWidgetHostDelegate {
 
  protected:
   KeyboardEventProcessingResult PreHandleKeyboardEvent(
-      const NativeWebKeyboardEvent& event) override {
+      const input::NativeWebKeyboardEvent& event) override {
     prehandle_keyboard_event_type_ = event.GetType();
     prehandle_keyboard_event_called_ = true;
     if (prehandle_keyboard_event_)
@@ -450,7 +450,8 @@ class MockRenderWidgetHostDelegate : public RenderWidgetHostDelegate {
                : KeyboardEventProcessingResult::NOT_HANDLED;
   }
 
-  bool HandleKeyboardEvent(const NativeWebKeyboardEvent& event) override {
+  bool HandleKeyboardEvent(
+      const input::NativeWebKeyboardEvent& event) override {
     unhandled_keyboard_event_type_ = event.GetType();
     unhandled_keyboard_event_called_ = true;
     return true;
@@ -538,7 +539,7 @@ class RenderWidgetHostTest : public testing::Test {
 
   ~RenderWidgetHostTest() override = default;
 
-  bool KeyPressEventCallback(const NativeWebKeyboardEvent& /* event */) {
+  bool KeyPressEventCallback(const input::NativeWebKeyboardEvent& /* event */) {
     return handle_key_press_event_;
   }
   bool MouseEventCallback(const blink::WebMouseEvent& /* event */) {
@@ -674,10 +675,10 @@ class RenderWidgetHostTest : public testing::Test {
     return last_simulated_event_time_;
   }
 
-  NativeWebKeyboardEvent CreateNativeWebKeyboardEvent(
+  input::NativeWebKeyboardEvent CreateNativeWebKeyboardEvent(
       WebInputEvent::Type type) {
-    return NativeWebKeyboardEvent(type, /*modifiers=*/0,
-                                  GetNextSimulatedEventTime());
+    return input::NativeWebKeyboardEvent(type, /*modifiers=*/0,
+                                         GetNextSimulatedEventTime());
   }
 
   void SimulateKeyboardEvent(WebInputEvent::Type type) {
@@ -789,7 +790,8 @@ class RenderWidgetHostTest : public testing::Test {
   // handler or not).
   uint32_t SendTouchEvent() {
     uint32_t touch_event_id = touch_event_.unique_touch_event_id;
-    host_->ForwardTouchEventWithLatencyInfo(touch_event_, ui::LatencyInfo());
+    host_->GetRenderInputRouter()->ForwardTouchEventWithLatencyInfo(
+        touch_event_, ui::LatencyInfo());
 
     touch_event_.ResetPoints();
     return touch_event_id;
@@ -1992,7 +1994,8 @@ TEST_F(RenderWidgetHostTest, RendererExitedResetsInputRouter) {
   EXPECT_FALSE(host_->input_router()->HasPendingEvents());
   blink::WebMouseWheelEvent event;
   event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
-  host_->input_router()->SendWheelEvent(MouseWheelEventWithLatencyInfo(event));
+  host_->input_router()->SendWheelEvent(
+      input::MouseWheelEventWithLatencyInfo(event));
   EXPECT_TRUE(host_->input_router()->HasPendingEvents());
 
   // RendererExited will delete the view.
@@ -2021,7 +2024,8 @@ TEST_F(RenderWidgetHostTest, DestroyingRenderWidgetResetsInputRouter) {
   EXPECT_FALSE(host_->input_router()->HasPendingEvents());
   blink::WebMouseWheelEvent event;
   event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
-  host_->input_router()->SendWheelEvent(MouseWheelEventWithLatencyInfo(event));
+  host_->input_router()->SendWheelEvent(
+      input::MouseWheelEventWithLatencyInfo(event));
   EXPECT_TRUE(host_->input_router()->HasPendingEvents());
 
   // The RenderWidget is destroyed in the renderer process as the main frame
@@ -2353,13 +2357,13 @@ TEST_F(RenderWidgetHostTest, AddAndRemoveInputEventObserver) {
   host_->AddInputEventObserver(&observer);
 
   // Confirm OnInputEvent is triggered.
-  NativeWebKeyboardEvent native_event =
+  input::NativeWebKeyboardEvent native_event =
       CreateNativeWebKeyboardEvent(WebInputEvent::Type::kChar);
   ui::LatencyInfo latency_info = ui::LatencyInfo();
   ui::EventLatencyMetadata event_latency_metadata;
   EXPECT_CALL(observer, OnInputEvent(_)).Times(1);
-  host_->DispatchInputEventWithLatencyInfo(native_event, &latency_info,
-                                           &event_latency_metadata);
+  host_->GetRenderInputRouter()->DispatchInputEventWithLatencyInfo(
+      native_event, &latency_info, &event_latency_metadata);
 
   // Remove InputEventObserver.
   host_->RemoveInputEventObserver(&observer);
@@ -2368,8 +2372,8 @@ TEST_F(RenderWidgetHostTest, AddAndRemoveInputEventObserver) {
   EXPECT_CALL(observer, OnInputEvent(_)).Times(0);
   latency_info = ui::LatencyInfo();
   event_latency_metadata = ui::EventLatencyMetadata();
-  host_->DispatchInputEventWithLatencyInfo(native_event, &latency_info,
-                                           &event_latency_metadata);
+  host_->GetRenderInputRouter()->DispatchInputEventWithLatencyInfo(
+      native_event, &latency_info, &event_latency_metadata);
 }
 
 TEST_F(RenderWidgetHostTest, ScopedObservationWithInputEventObserver) {
@@ -2384,13 +2388,13 @@ TEST_F(RenderWidgetHostTest, ScopedObservationWithInputEventObserver) {
   scoped_observation.Observe(host_.get());
 
   // Confirm OnInputEvent is triggered.
-  NativeWebKeyboardEvent native_event =
+  input::NativeWebKeyboardEvent native_event =
       CreateNativeWebKeyboardEvent(WebInputEvent::Type::kChar);
   ui::LatencyInfo latency_info = ui::LatencyInfo();
   ui::EventLatencyMetadata event_latency_metadata;
   EXPECT_CALL(observer, OnInputEvent(_)).Times(1);
-  host_->DispatchInputEventWithLatencyInfo(native_event, &latency_info,
-                                           &event_latency_metadata);
+  host_->GetRenderInputRouter()->DispatchInputEventWithLatencyInfo(
+      native_event, &latency_info, &event_latency_metadata);
 
   // Remove InputEventObserver.
   scoped_observation.Reset();
@@ -2399,8 +2403,8 @@ TEST_F(RenderWidgetHostTest, ScopedObservationWithInputEventObserver) {
   EXPECT_CALL(observer, OnInputEvent(_)).Times(0);
   latency_info = ui::LatencyInfo();
   event_latency_metadata = ui::EventLatencyMetadata();
-  host_->DispatchInputEventWithLatencyInfo(native_event, &latency_info,
-                                           &event_latency_metadata);
+  host_->GetRenderInputRouter()->DispatchInputEventWithLatencyInfo(
+      native_event, &latency_info, &event_latency_metadata);
 }
 
 #if BUILDFLAG(IS_ANDROID)

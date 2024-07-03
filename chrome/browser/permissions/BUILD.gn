@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/ui.gni")
 import("//components/optimization_guide/features.gni")
 import("//third_party/protobuf/proto_library.gni")
 
@@ -52,6 +53,8 @@ source_set("permissions") {
     "quiet_notification_permission_ui_config.h",
     "quiet_notification_permission_ui_state.cc",
     "quiet_notification_permission_ui_state.h",
+    "system/system_permission_settings.cc",
+    "system/system_permission_settings.h",
   ]
 
   deps = [
@@ -62,6 +65,7 @@ source_set("permissions") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profiles",
     "//chrome/browser/safe_browsing",
+    "//chrome/browser/search_engines",
     "//chrome/browser/storage_access_api",
     "//chrome/browser/top_level_storage_access_api:permissions",
     "//chrome/common",
@@ -122,6 +126,40 @@ source_set("permissions") {
 
   if (is_chromeos_ash) {
     deps += [ "//chrome/browser/ash" ]
+  } else if (is_chromeos_lacros) {
+    deps += [ "//chromeos/lacros" ]
+  }
+
+  if (is_mac) {
+    sources += [ "system/system_permission_settings_mac.cc" ]
+    deps += [ "//chrome//browser/web_applications" ]
+  } else if (is_chromeos_ash) {
+    sources += [ "system/system_permission_settings_chromeos.cc" ]
+  } else if (is_chromeos_lacros) {
+    sources += [ "system/system_permission_settings_lacros.cc" ]
+  } else {
+    sources += [ "system/system_permission_settings_default.cc" ]
+  }
+
+  if (toolkit_views) {
+    sources += [
+      "default_system_permission_delegate.cc",
+      "default_system_permission_delegate.h",
+      "system_permission_delegate.h",
+      "system_permission_delegate_factory.cc",
+      "system_permission_delegate_factory.h",
+    ]
+
+    if (is_mac) {
+      sources += [
+        "camera_system_permission_delegate_mac.cc",
+        "camera_system_permission_delegate_mac.h",
+        "geolocation_system_permission_delegate_mac.cc",
+        "geolocation_system_permission_delegate_mac.h",
+        "microphone_system_permission_delegate_mac.cc",
+        "microphone_system_permission_delegate_mac.h",
+      ]
+    }
   }
 
   if (build_with_tflite_lib) {
@@ -159,6 +197,7 @@ source_set("unit_tests") {
   deps = [
     ":permissions",
     ":permissions_proto",
+    "//chrome/browser/search_engines",
     "//chrome/test:test_support",
     "//components/site_engagement/content",
     "//components/ukm/content",

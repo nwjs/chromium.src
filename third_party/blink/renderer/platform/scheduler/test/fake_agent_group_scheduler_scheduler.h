@@ -46,11 +46,15 @@ class FakeAgentGroupScheduler : public AgentGroupScheduler {
       mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>) override {}
 
   v8::Isolate* Isolate() override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
 
   void AddAgent(Agent* agent) override {}
+
+  void OnUrgentMessageReceived() override {}
+
+  void OnUrgentMessageProcessed() override {}
 
  private:
   const raw_ref<WebThreadScheduler> web_thread_scheduler_;

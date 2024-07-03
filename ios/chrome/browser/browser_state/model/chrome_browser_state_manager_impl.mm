@@ -28,6 +28,7 @@
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/page_info/about_this_site_service_factory.h"
+#import "ios/chrome/browser/plus_addresses/model/plus_address_service_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_browser_state_service_factory.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -118,10 +119,13 @@ ChromeBrowserStateManagerImpl::~ChromeBrowserStateManagerImpl() {}
 
 ChromeBrowserState*
 ChromeBrowserStateManagerImpl::GetLastUsedBrowserStateDeprecatedDoNotUse() {
-  return GetBrowserState(GetLastUsedBrowserStateDir(GetUserDataDir()));
+  ChromeBrowserState* browser_state = GetBrowserStateByPath(
+      GetUserDataDir().Append(GetLastUsedBrowserStateName()));
+  CHECK(browser_state);
+  return browser_state;
 }
 
-ChromeBrowserState* ChromeBrowserStateManagerImpl::GetBrowserState(
+ChromeBrowserState* ChromeBrowserStateManagerImpl::GetBrowserStateByPath(
     const base::FilePath& path) {
   // If the browser state is already loaded, just return it.
   auto iter = browser_states_.find(path);
@@ -133,18 +137,16 @@ ChromeBrowserState* ChromeBrowserStateManagerImpl::GetBrowserState(
   return nullptr;
 }
 
-base::FilePath ChromeBrowserStateManagerImpl::GetLastUsedBrowserStateDir(
-    const base::FilePath& user_data_dir) {
+std::string ChromeBrowserStateManagerImpl::GetLastUsedBrowserStateName() const {
   PrefService* local_state = GetApplicationContext()->GetLocalState();
   DCHECK(local_state);
-  // TODO(crbug.com/325921947): Remove use of this key, kBrowserStatesLastActive
-  // should be used.
   std::string last_used_browser_state_name =
       local_state->GetString(prefs::kBrowserStateLastUsed);
   if (last_used_browser_state_name.empty()) {
     last_used_browser_state_name = kIOSChromeInitialBrowserState;
   }
-  return user_data_dir.AppendASCII(last_used_browser_state_name);
+  CHECK(!last_used_browser_state_name.empty());
+  return last_used_browser_state_name;
 }
 
 BrowserStateInfoCache*
@@ -177,10 +179,13 @@ void ChromeBrowserStateManagerImpl::LoadBrowserStates() {
     }
   }
 
-  // If there is no last active browser state load the default one.
-  if (last_active_browser_states_set.size() == 0) {
-    last_active_browser_states_set.insert(kIOSChromeInitialBrowserState);
-  }
+  // Ensure that the last used BrowserState is loaded (since client code
+  // does not expect GetLastUsedBrowserStateDeprecatedDoNotUse() to return
+  // null).
+  //
+  // See https://crbug.com/345478758 for exemple of crashes happening when
+  // the last used BrowserState is not loaded.
+  last_active_browser_states_set.insert(GetLastUsedBrowserStateName());
 
   // Create and load test profiles if experiment enabling Switch Profile
   // developer UI is enabled.
@@ -279,6 +284,8 @@ void ChromeBrowserStateManagerImpl::DoFinalInitForServices(
   // The AboutThisSiteService needs to be created at startup in order to
   // register its OptimizationType with OptimizationGuideDecider.
   AboutThisSiteServiceFactory::GetForBrowserState(browser_state);
+
+  PlusAddressServiceFactory::GetForBrowserState(browser_state);
 }
 
 void ChromeBrowserStateManagerImpl::AddBrowserStateToCache(

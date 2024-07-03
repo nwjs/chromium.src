@@ -13,6 +13,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/cstring_view.h"
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -99,7 +100,7 @@ PepperTCPSocketMessageFilter::PepperTCPSocketMessageFilter(
   host_->AddInstanceObserver(instance_, this);
   if (!host->GetRenderFrameIDsForInstance(instance, &render_process_id_,
                                           &render_frame_id_)) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -300,7 +301,7 @@ int32_t PepperTCPSocketMessageFilter::OnMsgBind(
 
   // This is only supported by PPB_TCPSocket v1.1 or above.
   if (version_ != ppapi::TCP_SOCKET_VERSION_1_1_OR_ABOVE) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return PP_ERROR_NOACCESS;
   }
 
@@ -360,7 +361,7 @@ int32_t PepperTCPSocketMessageFilter::OnMsgConnect(
 
   // This is only supported by PPB_TCPSocket_Private.
   if (!IsPrivateAPI()) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return PP_ERROR_NOACCESS;
   }
 
@@ -373,8 +374,9 @@ int32_t PepperTCPSocketMessageFilter::OnMsgConnect(
   }
 
   if (!state_.IsValidTransition(TCPSocketState::CONNECT)) {
-    NOTREACHED() << "This shouldn't be reached since the renderer only tries "
-                 << "to connect once.";
+    NOTREACHED_IN_MIGRATION()
+        << "This shouldn't be reached since the renderer only tries "
+        << "to connect once.";
     return PP_ERROR_FAILED;
   }
 
@@ -563,7 +565,7 @@ int32_t PepperTCPSocketMessageFilter::OnMsgListen(
 
   // This is only supported by PPB_TCPSocket v1.1 or above.
   if (version_ != ppapi::TCP_SOCKET_VERSION_1_1_OR_ABOVE) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return PP_ERROR_NOACCESS;
   }
 
@@ -716,7 +718,7 @@ int32_t PepperTCPSocketMessageFilter::OnMsgSetOption(
       return PP_OK;
     }
     default: {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return PP_ERROR_BADARGUMENT;
     }
   }
@@ -811,12 +813,12 @@ void PepperTCPSocketMessageFilter::TryWrite() {
 
     DCHECK(write_watcher_);
 
-    size_t num_bytes =
-        pending_write_data_.size() - pending_write_bytes_written_;
+    auto view = base::cstring_view(pending_write_data_);
+    view.remove_prefix(pending_write_bytes_written_);
+    size_t num_bytes = view.size();
     DCHECK_GT(num_bytes, 0u);
-    int mojo_result = send_stream_->WriteData(
-        pending_write_data_.data() + pending_write_bytes_written_, &num_bytes,
-        MOJO_WRITE_DATA_FLAG_NONE);
+    int mojo_result = send_stream_->WriteData(view.c_str(), &num_bytes,
+                                              MOJO_WRITE_DATA_FLAG_NONE);
     if (mojo_result == MOJO_RESULT_SHOULD_WAIT) {
       write_watcher_->ArmOrNotify();
       break;

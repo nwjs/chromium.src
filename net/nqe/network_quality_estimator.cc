@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "net/nqe/network_quality_estimator.h"
 
 #include <algorithm>
@@ -23,7 +28,6 @@
 #include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/task/lazy_thread_pool_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/default_tick_clock.h"
@@ -69,7 +73,7 @@ NetworkQualityObservationSource ProtocolSourceToObservationSource(
     case SocketPerformanceWatcherFactory::PROTOCOL_QUIC:
       return NETWORK_QUALITY_OBSERVATION_SOURCE_QUIC;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return NETWORK_QUALITY_OBSERVATION_SOURCE_TCP;
 }
 
@@ -918,7 +922,7 @@ base::TimeDelta NetworkQualityEstimator::GetRTTEstimateInternal(
                              percentile, observations_count)
               .value_or(nqe::internal::INVALID_RTT_THROUGHPUT));
     case nqe::internal::OBSERVATION_CATEGORY_COUNT:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return base::TimeDelta();
   }
 }

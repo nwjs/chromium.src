@@ -607,11 +607,8 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // windows.
   virtual gfx::Size GetMaximumSize() const;
 
-  // Return the preferred height for a specific width. Override if the
-  // preferred height depends upon the width (such as a multi-line label). If
-  // a LayoutManger has been installed this returns the value of
-  // LayoutManager::GetPreferredHeightForWidth(), otherwise this returns
-  // GetPreferredSize().height().
+  // Return the preferred height for a specific width. It is a helper function
+  // of GetPreferredSize(SizeBounds(w, SizeBound())).height().
   virtual int GetHeightForWidth(int w) const;
 
   // Returns a bound on the available space for a child view, for example, in
@@ -820,9 +817,17 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Sets whether or not the layout manager need to respect the available space.
   //
-  // TODO(crbug.com/40232718): All layout management needs to respect the
-  // available space. But there are some problems with `FlexLayout`. After we
-  // fix the problem with FlexLayout. Remove this.
+  // TODO(crbug.com/40232718): If the cross axis of the constraint space is
+  // constrained in FlexLayout, the cross axis of the host view will be
+  // stretched to the incoming constraint size by default. This results in
+  // incorrect calculations.
+  //
+  // When vertical BoxLayouts and other views are nested inside the horizontal
+  // BoxLayout, the width of the horizontal BoxLayout will be passed in as the
+  // cross axis of the vertical BoxLayout. At this time, if the vertical
+  // BoxLayout is set to stretch the cross axis (default), the first vertical
+  // BoxLayout will occupy all the space, which will cause the subsequent
+  // BoxLayout to be unable to be displayed.
   void SetLayoutManagerUseConstrainedSpace(
       bool layout_manager_use_constrained_space);
 
@@ -1497,7 +1502,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Get the object managing the accessibility interface for this View.
   ViewAccessibility& GetViewAccessibility() const;
 
-  // Modifies |node_data| to reflect the current accessible state of this view.
+  // Modifies `node_data` to reflect the current accessible state of this view.
   // It accomplishes this by keeping the data up-to-date in response to the use
   // of the accessible-property setters.
   // NOTE: View authors should use the available property setters rather than
@@ -1507,8 +1512,10 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // parent class. This ensures that if an owning view customizes an accessible
   // property, such as the name, role, or description, that customization is
   // included in your view's `AXNodeData`.
-  virtual void GetAccessibleNodeData(ui::AXNodeData* node_data);
+  virtual void GetAccessibleNodeData(ui::AXNodeData* node_data) {}
 
+  // DEPRECATED: Use `ViewAccessibility::SetName` instead.
+  //
   // Sets/gets the accessible name.
   // The value of the accessible name is a localized, end-user-consumable string
   // which may be derived from visible information (e.g. the text on a button)
@@ -1517,8 +1524,13 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // reader when that object gains focus and is critical to understanding the
   // purpose of that object non-visually.
   void SetAccessibleName(const std::u16string& name);
-  const std::u16string& GetAccessibleName() const;
 
+  // This function is deprecated. Use `ViewAccessibility::GetCachedName`
+  // instead.
+  std::u16string GetAccessibleName() const;
+
+  // DEPRECATED: Use `ViewAccessibility::SetName` instead.
+  //
   // Sets the accessible name to the specified string and source type.
   // To indicate that this view should never have an accessible name, e.g. to
   // prevent screen readers from speaking redundant information, set the type to
@@ -1528,6 +1540,8 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // especially for views which are focusable or otherwise interactive.
   void SetAccessibleName(std::u16string name, ax::mojom::NameFrom name_from);
 
+  // DEPRECATED: Use `ViewAccessibility::SetName` instead.
+  //
   // Sets the accessible name of this view to that of `naming_view`. Often
   // `naming_view` is a `views::Label`, but any view with an accessible name
   // will work.
@@ -1619,6 +1633,16 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   void RemoveObserver(ViewObserver* observer);
   bool HasObserver(const ViewObserver* observer) const;
 
+  // Called when the accessible name of the View changed.
+  virtual void OnAccessibleNameChanged(const std::u16string& new_name) {}
+
+  // Called by `SetAccessibleName` to allow subclasses to adjust the new name.
+  // Potential use cases include setting the accessible name to the tooltip
+  // text when the new name is empty and prepending/appending additional text
+  // to the new name.
+  virtual void AdjustAccessibleName(std::u16string& new_name,
+                                    ax::mojom::NameFrom& name_from) {}
+
   // View Controller Interfaces -----------------------------------------------
   // These functions provide a common interface for view controllers to interact
   // with views.
@@ -1679,16 +1703,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
       std::optional<ax::mojom::NameFrom> name_from = std::nullopt,
       std::optional<ax::mojom::DescriptionFrom> description_from =
           std::nullopt);
-
-  // Called when the accessible name of the View changed.
-  virtual void OnAccessibleNameChanged(const std::u16string& new_name) {}
-
-  // Called by `SetAccessibleName` to allow subclasses to adjust the new name.
-  // Potential use cases include setting the accessible name to the tooltip
-  // text when the new name is empty and prepending/appending additional text
-  // to the new name.
-  virtual void AdjustAccessibleName(std::u16string& new_name,
-                                    ax::mojom::NameFrom& name_from) {}
 
   // Size and disposition ------------------------------------------------------
 
@@ -1941,7 +1955,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   FRIEND_TEST_ALL_PREFIXES(ViewTest, PaintWithMovedViewUsesCache);
   FRIEND_TEST_ALL_PREFIXES(ViewTest, PaintWithMovedViewUsesCacheInRTL);
   FRIEND_TEST_ALL_PREFIXES(ViewTest, PaintWithUnknownInvalidation);
-  FRIEND_TEST_ALL_PREFIXES(ViewTest, PauseAccessibilityEvents);
 
   // Painting  -----------------------------------------------------------------
 
@@ -2250,11 +2263,18 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  // Observers -----------------------------------------------------------------
+
+  base::ObserverList<ViewObserver>::Unchecked observers_;
+
   // Creation and lifetime -----------------------------------------------------
 
   // False if this View is owned by its parent - i.e. it will be deleted by its
   // parent during its parents destruction. False is the default.
   bool owned_by_client_ = false;
+
+  // http://crbug.com/1162949 : Instrumentation that indicates if this is alive.
+  LifeCycleState life_cycle_state_ = LifeCycleState::kAlive;
 
   // Attributes ----------------------------------------------------------------
 
@@ -2339,7 +2359,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // TODO(crbug.com/40232718): All layout management needs to respect the
   // available space. But there are some problems with `FlexLayout`. After we
   // fix the problem with FlexLayout. Remove this.
-  bool layout_manager_use_constrained_space_ = false;
+  bool layout_manager_use_constrained_space_ = true;
 
   // Used to generate an UMA metric for the maximum reentrant call depth seen
   // during layout. Normally the metric value will be one (Layout() was not
@@ -2484,37 +2504,15 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Accessibility -------------------------------------------------------------
 
-  // Manages the accessibility interface for this View.
+  // Manages the accessibility interface for this View. Some ViewAccessibility
+  // implementations are `ViewObserver`s, so this must be ordered after
+  // `observers_`.
   mutable std::unique_ptr<ViewAccessibility> view_accessibility_;
-
-  // Updated by the accessibility property setters and returned by
-  // `GetAccessibleNodeData`.
-  std::unique_ptr<ui::AXNodeData> ax_node_data_;
-
-  // TODO(accessibility): Remove this attribute once we migrate the
-  // SetAccessibilityProperties function to ViewAccessibility.
-  //
-  // Used by `SetAccessibilityProperties` and to prevent accessibility
-  // property-change events from being fired during initialization of this view.
-  bool pause_accessibility_events_ = false;
 
   // Keeps track of whether accessibility checks for this View have run yet.
   // They run once inside ::OnPaint() to keep overhead low. The idea is that if
   // a View is ready to paint it should also be set up to be accessible.
   bool has_run_accessibility_paint_checks_ = false;
-
-  // Accessible properties whose values are set by views using the accessible
-  // property setters, and used to populate the `AXNodeData` associated with
-  // this view and provided by `View::GetAccessibleNodeData`.
-  std::u16string accessible_name_;
-  ax::mojom::Role accessible_role_ = ax::mojom::Role::kUnknown;
-
-  // Observers -----------------------------------------------------------------
-
-  base::ObserverList<ViewObserver>::Unchecked observers_;
-
-  // http://crbug.com/1162949 : Instrumentation that indicates if this is alive.
-  LifeCycleState life_cycle_state_ = LifeCycleState::kAlive;
 
   // View Controller Interfaces
   base::RepeatingClosureList notify_view_controller_callback_list_;

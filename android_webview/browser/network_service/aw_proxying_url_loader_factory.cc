@@ -18,6 +18,7 @@
 #include "android_webview/browser/aw_contents_origin_matcher.h"
 #include "android_webview/browser/aw_cookie_access_policy.h"
 #include "android_webview/browser/aw_settings.h"
+#include "android_webview/browser/cookie_manager.h"
 #include "android_webview/browser/network_service/aw_web_resource_intercept_response.h"
 #include "android_webview/browser/network_service/net_helpers.h"
 #include "android_webview/browser/renderer_host/auto_login_parser.h"
@@ -30,6 +31,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/trace_event/base_tracing.h"
 #include "components/embedder_support/android/util/input_stream.h"
 #include "components/embedder_support/android/util/response_delegate_impl.h"
 #include "components/embedder_support/android/util/web_resource_response.h"
@@ -57,6 +59,20 @@
 namespace android_webview {
 
 namespace {
+
+std::unique_ptr<AwContentsIoThreadClient> GetIoThreadClient(
+    int frame_tree_node_id,
+    AwBrowserContextIoThreadHandle* browser_context_handle) {
+  // |frame_tree_node_id_| is set to no kNoFrameTreeNodeId for service
+  // workers. |request_.originated_from_service_worker| is insufficient here
+  // because it is not set to true on browser side requested main scripts.
+  if (frame_tree_node_id == content::RenderFrameHost::kNoFrameTreeNodeId) {
+    return browser_context_handle
+               ? browser_context_handle->GetServiceWorkerIoThreadClient()
+               : nullptr;
+  }
+  return AwContentsIoThreadClient::FromID(frame_tree_node_id);
+}
 
 const char kResponseHeaderViaShouldInterceptRequestName[] = "Client-Via";
 const char kResponseHeaderViaShouldInterceptRequestValue[] =
@@ -433,6 +449,7 @@ void OnShouldInterceptRequestAsyncResult(
 }  // namespace
 
 void InterceptedRequest::Restart(std::optional<bool> xrw_enabled) {
+  TRACE_EVENT0("android_webview", "InterceptedRequest::Restart");
   std::unique_ptr<AwContentsIoThreadClient> io_thread_client =
       GetIoThreadClient();
 
@@ -550,7 +567,7 @@ void InterceptedRequest::InterceptResponseReceived(
         committed_mode = CommittedRequestedWithHeaderMode::kConstantWebview;
         break;
       default:
-        NOTREACHED()
+        NOTREACHED_IN_MIGRATION()
             << "Invalid enum value for AwSettings:RequestedWithHeaderMode: "
             << requested_with_header_mode;
     }
@@ -719,6 +736,7 @@ void InterceptedRequest::OnReceiveResponse(
     network::mojom::URLResponseHeadPtr head,
     mojo::ScopedDataPipeConsumerHandle body,
     std::optional<mojo_base::BigBuffer> cached_metadata) {
+  TRACE_EVENT0("android_webview", "InterceptedRequest::OnReceiveResponse");
   // intercept response headers here
   // pause/resume |proxied_client_receiver_| if necessary
 
@@ -829,14 +847,8 @@ void InterceptedRequest::ResumeReadingBodyFromNet() {
 
 std::unique_ptr<AwContentsIoThreadClient>
 InterceptedRequest::GetIoThreadClient() {
-  // |frame_tree_node_id_| is set to no kNoFrameTreeNodeId for service
-  // workers. |request_.originated_from_service_worker| is insufficient here
-  // because it is not set to true on browser side requested main scripts.
-  if (frame_tree_node_id_ == content::RenderFrameHost::kNoFrameTreeNodeId)
-    return browser_context_handle_
-               ? browser_context_handle_->GetServiceWorkerIoThreadClient()
-               : nullptr;
-  return AwContentsIoThreadClient::FromID(frame_tree_node_id_);
+  return ::android_webview::GetIoThreadClient(frame_tree_node_id_,
+                                              browser_context_handle_.get());
 }
 
 void InterceptedRequest::OnURLLoaderClientError() {
@@ -1018,6 +1030,8 @@ void AwProxyingURLLoaderFactory::CreateLoaderAndStart(
     const network::ResourceRequest& request,
     mojo::PendingRemote<network::mojom::URLLoaderClient> client,
     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation) {
+  TRACE_EVENT0("android_webview",
+               "AwProxyingURLLoaderFactory::CreateLoaderAndStart");
   // TODO(timvolodine): handle interception, modification (headers for
   // webview), blocking, callbacks etc..
 
@@ -1027,11 +1041,22 @@ void AwProxyingURLLoaderFactory::CreateLoaderAndStart(
         target_factory_clone.InitWithNewPipeAndPassReceiver());
   }
 
-  bool global_cookie_policy =
-      AwCookieAccessPolicy::GetInstance()->GetShouldAcceptCookies();
+  std::unique_ptr<AwContentsIoThreadClient> io_thread_client =
+      GetIoThreadClient(frame_tree_node_id_, browser_context_handle_.get());
+
+  // It is possible for us to receive a nullptr for the io_thread_client
+  // from AwContentBrowserClient::HandleExternalProtocol.
+  // This is because that method can be called while the RenderFrameHost is
+  // shutting down. Since this behavior is only expected during shutdown, we
+  // will take the safe default and assume cookies are not allowed to avoid
+  // leaking data.
+  bool global_cookie_policy = io_thread_client != nullptr
+                                  ? io_thread_client->ShouldAcceptCookies()
+                                  : false;
+
   bool third_party_cookie_policy =
-      AwCookieAccessPolicy::GetInstance()->GetShouldAcceptThirdPartyCookies(
-          std::nullopt, frame_tree_node_id_);
+      global_cookie_policy && io_thread_client->ShouldAcceptThirdPartyCookies();
+
   if (!global_cookie_policy) {
     options |= network::mojom::kURLLoadOptionBlockAllCookies;
   } else if (!third_party_cookie_policy && !request.url.SchemeIsFile()) {

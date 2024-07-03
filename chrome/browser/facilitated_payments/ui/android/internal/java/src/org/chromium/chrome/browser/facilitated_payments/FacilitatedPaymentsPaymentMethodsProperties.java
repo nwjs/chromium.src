@@ -25,18 +25,30 @@ class FacilitatedPaymentsPaymentMethodsProperties {
         // The header at the top of the FacilitatedPayments bottom sheet.
         int HEADER = 0;
 
-        // A section containing the payment instrument data.
-        int PAYMENT_INSTRUMENT = 1;
+        // A section containing the bank account data.
+        int BANK_ACCOUNT = 1;
+
+        // Additional info to users making payments through bottom sheet.
+        int ADDITIONAL_INFO = 2;
 
         // A footer section containing additional actions.
-        int FOOTER = 2;
+        int FOOTER = 3;
     }
 
     /** Properties for a payment instrument entry in the facilitated payments bottom sheet. */
-    static class PaymentInstrumentProperties {
-        static final PropertyKey[] NON_TRANSFORMING_KEYS = {};
+    static class BankAccountProperties {
+        static final ReadableObjectPropertyKey<String> BANK_NAME =
+                new ReadableObjectPropertyKey("bank_name");
+        static final ReadableObjectPropertyKey<String> BANK_ACCOUNT_SUMMARY =
+                new ReadableObjectPropertyKey("bank_account_summary");
+        static final ReadableIntPropertyKey BANK_ACCOUNT_DRAWABLE_ID =
+                new ReadableIntPropertyKey("bank_account_drawable_id");
 
-        private PaymentInstrumentProperties() {}
+        static final PropertyKey[] NON_TRANSFORMING_KEYS = {
+            BANK_NAME, BANK_ACCOUNT_SUMMARY, BANK_ACCOUNT_DRAWABLE_ID
+        };
+
+        private BankAccountProperties() {}
     }
 
     /**
@@ -49,9 +61,23 @@ class FacilitatedPaymentsPaymentMethodsProperties {
         static final ReadableIntPropertyKey TITLE_ID = new ReadableIntPropertyKey("title_id");
         static final ReadableIntPropertyKey DESCRIPTION_ID =
                 new ReadableIntPropertyKey("description_id");
+
         static final PropertyKey[] ALL_KEYS = {IMAGE_DRAWABLE_ID, TITLE_ID, DESCRIPTION_ID};
 
         private HeaderProperties() {}
+    }
+
+    /**
+     * Properties defined here reflect the visible state of the additional info in the facilitated
+     * payments bottom sheet for payments.
+     */
+    static class AdditionalInfoProperties {
+        static final ReadableIntPropertyKey DESCRIPTION_1_ID =
+                new ReadableIntPropertyKey("description_1_id");
+
+        static final PropertyKey[] ALL_KEYS = {DESCRIPTION_1_ID};
+
+        private AdditionalInfoProperties() {}
     }
 
     /**

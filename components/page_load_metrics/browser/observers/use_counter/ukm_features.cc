@@ -396,7 +396,9 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kNavigatorCookieEnabledThirdParty,
           WebFeature::kSimplifyLoadingTransparentPlaceholderImage,
           WebFeature::kFedCmContinueOnResponse,
-          WebFeature::kSchedulingIsInputPending
+          WebFeature::kSchedulingIsInputPending,
+          WebFeature::kV8DocumentPictureInPicture_RequestWindow_Method,
+          WebFeature::kV8GPUAdapter_RequestAdapterInfo_Method,
       }));
   return *opt_in_features;
 }

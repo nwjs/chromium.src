@@ -45,6 +45,10 @@
 #include "ui/gfx/vector_icon_types.h"
 #include "url/third_party/mozilla/url_parse.h"
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#include "components/omnibox/browser/featured_search_provider.h"
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
 #if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_VR)) && !BUILDFLAG(IS_IOS)
 #include "components/omnibox/browser/suggestion_answer.h"
 #include "components/omnibox/browser/vector_icons.h"  // nogncheck
@@ -591,14 +595,21 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     case Type::CALCULATOR:
       return omnibox::kCalculatorChromeRefreshIcon;
 
-    case Type::NULL_RESULT_MESSAGE: {
-      // The IPH suggestion uses the spark icon. Otherwise (for No Results
+    case Type::NULL_RESULT_MESSAGE:
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+      // Select the icon according to the type of IPH. Otherwise (for No Results
       // Found), fallthrough to use the empty icon.
       if (IsIPHSuggestion()) {
-        return omnibox::kSparkIcon;
+        switch (FeaturedSearchProvider::GetIPHType(*this)) {
+          case FeaturedSearchProvider::IPHType::kGemini:
+            return omnibox::kSparkIcon;
+          case FeaturedSearchProvider::IPHType::kFeaturedEnterpriseSearch:
+            return omnibox::kEnterpriseIcon;
+        }
       }
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
       ABSL_FALLTHROUGH_INTENDED;
-    }
+
     case Type::SEARCH_SUGGEST_TAIL:
       return empty_icon;
 
@@ -806,7 +817,7 @@ ACMatchClassifications AutocompleteMatch::ClassificationsFromString(
     int classification_style = ACMatchClassification::NONE;
     if (!base::StringToInt(tokens[i], &classification_offset) ||
         !base::StringToInt(tokens[i + 1], &classification_style)) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return classifications;
     }
     classifications.push_back(
@@ -1135,7 +1146,7 @@ void AutocompleteMatch::LogSearchEngineUsed(
       break;
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -1307,11 +1318,12 @@ AutocompleteMatch::GetOmniboxEventResultType(int action_index) const {
         return OmniboxEventProto::Suggestion::TAB_SWITCH;
       case OmniboxActionId::HISTORY_CLUSTERS:
       case OmniboxActionId::ACTION_IN_SUGGEST:
+      case OmniboxActionId::ANSWER_ACTION:
         // Preserve existing behavior by continuing on to use the match `type`.
         break;
       case OmniboxActionId::UNKNOWN:
       case OmniboxActionId::LAST:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -1390,8 +1402,7 @@ AutocompleteMatch::GetOmniboxEventResultType(int action_index) const {
     case AutocompleteMatchType::NUM_TYPES:
       break;
   }
-  DUMP_WILL_BE_NOTREACHED_NORETURN()
-      << "Unknown AutocompleteMatchType: " << type;
+  DUMP_WILL_BE_NOTREACHED() << "Unknown AutocompleteMatchType: " << type;
   return OmniboxEventProto::Suggestion::UNKNOWN_RESULT_TYPE;
 }
 
@@ -1453,7 +1464,8 @@ int AutocompleteMatch::GetSortingOrder() const {
 
 bool AutocompleteMatch::IsUrlScoringEligible() const {
   return scoring_signals.has_value() &&
-         type != AutocompleteMatchType::URL_WHAT_YOU_TYPED;
+         type != AutocompleteMatchType::URL_WHAT_YOU_TYPED &&
+         !force_skip_ml_scoring && !AutocompleteMatch::IsSearchType(type);
 }
 
 bool AutocompleteMatch::IsTrendSuggestion() const {
@@ -1461,12 +1473,14 @@ bool AutocompleteMatch::IsTrendSuggestion() const {
 }
 
 bool AutocompleteMatch::IsIPHSuggestion() const {
-  if (!OmniboxFieldTrial::IsStarterPackIPHEnabled()) {
+  if (!OmniboxFieldTrial::IsStarterPackIPHEnabled() &&
+      !OmniboxFieldTrial::IsFeaturedEnterpriseSearchIPHEnabled()) {
     return false;
   }
 
   return type == AutocompleteMatchType::NULL_RESULT_MESSAGE &&
-         provider->type() == AutocompleteProvider::TYPE_FEATURED_SEARCH;
+         (provider &&
+          provider->type() == AutocompleteProvider::TYPE_FEATURED_SEARCH);
 }
 
 void AutocompleteMatch::FilterOmniboxActions(
@@ -1691,6 +1705,17 @@ void AutocompleteMatch::UpgradeMatchWithPropertiesFrom(
   if (rich_autocompletion_triggered == RichAutocompletionType::kNone) {
     rich_autocompletion_triggered =
         duplicate_match.rich_autocompletion_triggered;
+  }
+
+  // If either one of the matches is ineligible for ML scoring, then ensure that
+  // the final match is marked as ineligible for ML scoring. Search suggestions
+  // are guaranteed to be excluded from ML scoring at this time, so there's no
+  // need to set `force_skip_ml_scoring` for those matches.
+  if (base::FeatureList::IsEnabled(omnibox::kEnableForceSkipMlScoring) &&
+      (!IsUrlScoringEligible() || !duplicate_match.IsUrlScoringEligible()) &&
+      !AutocompleteMatch::IsSearchType(type)) {
+    force_skip_ml_scoring = true;
+    RecordAdditionalInfo("force skip ml scoring", "true");
   }
 
   // Merge scoring signals from duplicate match for ML model scoring and

@@ -199,8 +199,6 @@ To get started on Reclient, and for more information on how to use it, see
 or [Google-internal documentation](go/building-chrome), if you are a Google
 employee.
 
-Goma can't be used anymore as of March, 2024.
-
 #### More release-like builds
 
 Chromium projects build in debug mode by default. Release builds (also called
@@ -274,14 +272,14 @@ We can quickly get OS-specific coverage result with the local changes:
 
 * macOS/Linux
 ```
-gn gen out/coverage --args="use_clang_coverage=true is_component_build=false is_chrome_branded=true is_debug=true use_debug_fission=true use_goma=true symbol_level=2"
+gn gen out/coverage --args="use_clang_coverage=true is_component_build=false is_chrome_branded=true is_debug=true use_debug_fission=true use_remoteexec=true symbol_level=2"
 
 vpython3 tools/code_coverage/coverage.py  updater_tests -b out/coverage -o out/report -c 'out/coverage/updater_tests' -f chrome/updater
 ```
 
 * Windows
 ```
-gn gen out\coverage --args="use_clang_coverage=true is_component_build=false is_chrome_branded=true is_debug=true use_debug_fission=true use_goma=true symbol_level=2"
+gn gen out\coverage --args="use_clang_coverage=true is_component_build=false is_chrome_branded=true is_debug=true use_debug_fission=true use_remoteexec=true symbol_level=2"
 
 vpython3 tools\code_coverage\coverage.py updater_tests -b out\coverage -o out\report -c out\coverage\updater_tests.exe  -f chrome/updater
 ```
@@ -457,8 +455,6 @@ see crbug.com/1491876 for a resolution or workaround.
 * **Dependencies are a fast-moving target.** Remember to run `gclient sync -D`
   after every pull from `origin/main` _and_ every branch change. If you aren't
   sure whether you ran it, just run it, it's fast if you don't need it.
-* **Is the Goma client ready?** If your build is failing quickly with a
-  bunch of errors related to Goma, run `goma_ctl ensure_start` and try again.
 * **Symbols too big?** If your build is failing during linking, check your
   `gn args` to verify that `symbol_level=1` (or `0`) is present. If it's not,
   you're running into a known issue where the default symbol level, `2`,

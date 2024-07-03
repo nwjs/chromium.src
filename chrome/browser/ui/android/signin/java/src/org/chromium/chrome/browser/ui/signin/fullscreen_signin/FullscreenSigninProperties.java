@@ -14,6 +14,7 @@ import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModel.ReadableObjectPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableBooleanPropertyKey;
+import org.chromium.ui.modelutil.PropertyModel.WritableIntPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
 
 class FullscreenSigninProperties {
@@ -51,8 +52,11 @@ class FullscreenSigninProperties {
     static final WritableBooleanPropertyKey IS_SIGNIN_SUPPORTED =
             new WritableBooleanPropertyKey("is_signin_supported");
 
-    static final PropertyModel.WritableIntPropertyKey TITLE_STRING_ID =
-            new PropertyModel.WritableIntPropertyKey("title_string");
+    static final WritableIntPropertyKey TITLE_STRING_ID =
+            new WritableIntPropertyKey("title_string_id");
+
+    static final WritableIntPropertyKey SUBTITLE_STRING_ID =
+            new WritableIntPropertyKey("subtitle_string_id");
 
     static final WritableObjectPropertyKey<CharSequence> FOOTER_STRING =
             new WritableObjectPropertyKey<>("footer_string");
@@ -70,6 +74,7 @@ class FullscreenSigninProperties {
                 SHOW_ENTERPRISE_MANAGEMENT_NOTICE,
                 IS_SIGNIN_SUPPORTED,
                 TITLE_STRING_ID,
+                SUBTITLE_STRING_ID,
                 FOOTER_STRING,
             };
 
@@ -80,6 +85,7 @@ class FullscreenSigninProperties {
             Runnable onDismissClicked,
             boolean isSigninSupported,
             @StringRes int titleStringId,
+            @StringRes int subtitleStringId,
             SpannableString footerString) {
         return new PropertyModel.Builder(ALL_KEYS)
                 .with(ON_SELECTED_ACCOUNT_CLICKED, v -> onSelectedAccountClicked.run())
@@ -91,6 +97,7 @@ class FullscreenSigninProperties {
                 .with(SHOW_ENTERPRISE_MANAGEMENT_NOTICE, false)
                 .with(IS_SIGNIN_SUPPORTED, isSigninSupported)
                 .with(TITLE_STRING_ID, titleStringId)
+                .with(SUBTITLE_STRING_ID, subtitleStringId)
                 .with(FOOTER_STRING, footerString)
                 .build();
     }

@@ -131,7 +131,7 @@ DefaultSearchManager::DefaultSearchManager(
         base::BindRepeating(&DefaultSearchManager::OnOverridesPrefChanged,
                             base::Unretained(this)));
   }
-  LoadPrepopulatedDefaultSearch();
+  LoadPrepopulatedFallbackSearch();
   LoadDefaultSearchEngineFromPrefs();
 }
 
@@ -142,9 +142,6 @@ DefaultSearchManager::~DefaultSearchManager() {
 void DefaultSearchManager::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterDictionaryPref(kDefaultSearchProviderDataPrefName);
-  registry->RegisterIntegerPref(
-      kDefaultSearchProviderChoiceLocationPrefName,
-      static_cast<int>(search_engines::ChoiceMadeLocation::kOther));
 }
 
 // static
@@ -317,7 +314,7 @@ void DefaultSearchManager::OnDefaultSearchPrefChanged() {
 }
 
 void DefaultSearchManager::OnOverridesPrefChanged() {
-  LoadPrepopulatedDefaultSearch();
+  LoadPrepopulatedFallbackSearch();
 
   const TemplateURLData* effective_data = GetDefaultSearchEngine(nullptr);
   if (effective_data && effective_data->prepopulate_id) {
@@ -341,7 +338,7 @@ void DefaultSearchManager::MergePrefsDataWithPrepopulated() {
 
   std::vector<std::unique_ptr<TemplateURLData>> prepopulated_urls =
       TemplateURLPrepopulateData::GetPrepopulatedEngines(
-          pref_service_, search_engine_choice_service_, nullptr);
+          pref_service_, search_engine_choice_service_);
 
   auto default_engine = base::ranges::find(
       prepopulated_urls, prefs_default_search_->prepopulate_id,
@@ -404,9 +401,9 @@ void DefaultSearchManager::LoadDefaultSearchEngineFromPrefs() {
   }
 }
 
-void DefaultSearchManager::LoadPrepopulatedDefaultSearch() {
+void DefaultSearchManager::LoadPrepopulatedFallbackSearch() {
   std::unique_ptr<TemplateURLData> data =
-      TemplateURLPrepopulateData::GetPrepopulatedDefaultSearch(
+      TemplateURLPrepopulateData::GetPrepopulatedFallbackSearch(
           pref_service_, search_engine_choice_service_);
   fallback_default_search_ = std::move(data);
   MergePrefsDataWithPrepopulated();

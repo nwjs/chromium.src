@@ -26,7 +26,6 @@
 #include "net/http/http_request_headers.h"
 #include "net/http/http_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/platform/media/url_index.h"
 #include "third_party/blink/public/platform/web_network_state_notifier.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url.h"
@@ -35,6 +34,7 @@
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/renderer/platform/media/testing/mock_resource_fetch_context.h"
 #include "third_party/blink/renderer/platform/media/testing/mock_web_associated_url_loader.h"
+#include "third_party/blink/renderer/platform/media/url_index.h"
 
 namespace blink {
 
@@ -91,11 +91,9 @@ class ResourceMultiBufferDataProviderTest : public testing::Test {
 
     first_position_ = first_position;
 
-    std::unique_ptr<ResourceMultiBufferDataProvider> loader(
-        new ResourceMultiBufferDataProvider(
-            url_data_.get(), first_position_,
-            false /* is_client_audio_element */,
-            task_environment_.GetMainThreadTaskRunner()));
+    auto loader = std::make_unique<ResourceMultiBufferDataProvider>(
+        url_data_.get(), first_position_, false /* is_client_audio_element */,
+        task_environment_.GetMainThreadTaskRunner());
     loader_ = loader.get();
     url_data_->multibuffer()->AddProvider(std::move(loader));
   }

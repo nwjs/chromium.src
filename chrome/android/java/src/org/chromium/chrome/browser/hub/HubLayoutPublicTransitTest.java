@@ -21,7 +21,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.transit.Station;
-import org.chromium.base.test.transit.Trip;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -140,13 +139,8 @@ public class HubLayoutPublicTransitTest {
 
     private NewTabPageStation pauseAndResumeActivity(Station currentStation) {
         NewTabPageStation destination =
-                NewTabPageStation.newBuilder()
-                        .withActivityTestRule(sActivityTestRule)
-                        .withIsOpeningTabs(0)
-                        .withIsSelectingTabs(1)
-                        .build();
-        Trip.travelSync(
-                currentStation,
+                NewTabPageStation.newBuilder().withIsOpeningTabs(0).withIsSelectingTabs(1).build();
+        currentStation.travelToSync(
                 destination,
                 () -> {
                     ChromeTabbedActivity cta = sActivityTestRule.getActivity();

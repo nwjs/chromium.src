@@ -35,6 +35,7 @@
 #include "ui/ozone/platform/wayland/host/wayland_output.h"
 #include "ui/ozone/platform/wayland/host/wayland_surface.h"
 #include "ui/ozone/platform/wayland/host/wayland_zaura_surface.h"
+#include "ui/platform_window/extensions/wayland_extension.h"
 #include "ui/platform_window/platform_window.h"
 #include "ui/platform_window/platform_window_delegate.h"
 #include "ui/platform_window/platform_window_init_properties.h"
@@ -69,6 +70,7 @@ using WidgetSubsurfaceSet = base::flat_set<std::unique_ptr<WaylandSubsurface>>;
 class WaylandWindow : public PlatformWindow,
                       public PlatformEventDispatcher,
                       public WmDragHandler,
+                      public WaylandExtension,
                       public EventTarget,
                       public WaylandZAuraSurface::Delegate {
  public:
@@ -143,8 +145,8 @@ class WaylandWindow : public PlatformWindow,
 
   // Set a child of this window. It is very important in case of nested
   // shell_popups as long as they must be destroyed in the back order.
-  void set_child_window(WaylandWindow* window) { child_window_ = window; }
-  WaylandWindow* child_window() const { return child_window_; }
+  void set_child_popup(WaylandPopup* window) { child_popup_ = window; }
+  WaylandPopup* child_popup() const { return child_popup_; }
 
   // Called only by `WaylandBubble`s that are managed in this instance's
   // `child_bubbles_` list.
@@ -227,6 +229,13 @@ class WaylandWindow : public PlatformWindow,
   bool CanDispatchEvent(const PlatformEvent& event) override;
   uint32_t DispatchEvent(const PlatformEvent& event) override;
 
+  // WaylandExtension:
+  void RoundTripQueue() override;
+  bool HasInFlightRequestsForState() const override;
+  int64_t GetVizSequenceIdForAppliedState() const override;
+  int64_t GetVizSequenceIdForLatchedState() const override;
+  void SetLatchImmediately(bool latch_immediately) override;
+
   // EventTarget:
   bool CanAcceptEvent(const Event& event) override;
   EventTarget* GetParentTarget() override;
@@ -259,6 +268,7 @@ class WaylandWindow : public PlatformWindow,
     bool is_snapped_primary = false;
     bool is_snapped_secondary = false;
     bool is_floated = false;
+    bool is_pip = false;
 #if BUILDFLAG(IS_LINUX)
     WindowTiledEdges tiled_edges;
 #endif
@@ -508,17 +518,6 @@ class WaylandWindow : public PlatformWindow,
   // create a StateRequest for this pending State.
   PendingConfigureState pending_configure_state_;
 
-  // Until all tests work properly with full asynchronicity, we latch
-  // immediately based on the value of `UseTestConfigForPlatformWindows()`.
-  // However, some tests require synchronisation with the wayland server, so
-  // we also provide this flag for turning on asynchronous latching.
-  // Eventually when all tests work asynchronously, we should remove this
-  // and the code to latch immediately based on
-  // `UseTestConfigForPlatformWindows()`.
-  bool latch_immediately_for_testing_ = true;
-  int64_t latest_applied_viz_seq_for_testing_ = -1;
-  int64_t latest_latched_viz_seq_for_testing_ = -1;
-
  private:
   friend class WaylandBufferManagerViewportTest;
   friend class BlockableWaylandToplevelWindow;
@@ -584,8 +583,7 @@ class WaylandWindow : public PlatformWindow,
   raw_ptr<PlatformWindowDelegate> delegate_;
   raw_ptr<WaylandConnection> connection_;
   raw_ptr<WaylandWindow> parent_window_ = nullptr;
-  // TODO(crbug.com/329705709): Rename to `child_popup_`.
-  raw_ptr<WaylandWindow> child_window_ = nullptr;
+  raw_ptr<WaylandPopup> child_popup_ = nullptr;
 
   // `active_bubble_` represents the WaylandBubble that should take activation
   // when this WaylandWindow has activation from wayland server. It can be set
@@ -709,6 +707,17 @@ class WaylandWindow : public PlatformWindow,
   // process with the appropriate viz sequence number, ack_configure request
   // with |serial| will be sent to the Wayland compositor if needed.
   base::circular_deque<StateRequest> in_flight_requests_;
+
+  // Until all tests work properly with full asynchronicity, we latch
+  // immediately based on the value of `UseTestConfigForPlatformWindows()`.
+  // However, some tests require synchronisation with the wayland server, so
+  // we also provide this flag for turning on asynchronous latching.
+  // Eventually when all tests work asynchronously, we should remove this
+  // and the code to latch immediately based on
+  // `UseTestConfigForPlatformWindows()`.
+  bool latch_immediately_for_testing_ = true;
+  int64_t latest_applied_viz_seq_for_testing_ = -1;
+  int64_t latest_latched_viz_seq_for_testing_ = -1;
 
   // AcceleratedWidget for this window. This will be unique even over time.
   gfx::AcceleratedWidget accelerated_widget_;

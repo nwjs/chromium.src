@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">ເຫຼືອງພາສເທວ</translation>
 <translation id="1056898198331236512">ຄໍາເຕືອນ</translation>
 <translation id="1059913517121127803">ບໍ່ສາມາດເລີ່ມສະແກນໄດ້</translation>
+<translation id="1061864016440983342">ໃຊ້ໂດຍບໍ່ໃຊ້ສະຖານທີ່</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> ຈາກ <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">ກວດເຫັນ Firewall</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">ການຕັ້ງຄ່າເພີ່ມເຕີມ</translation>
 <translation id="2082932131694554252">ປຸ່ມແປ້ນພິມທີ່ກຳນົດແລ້ວ</translation>
 <translation id="2085089206770112532">ຫຼຸດຄວາມສະຫວ່າງການສະແດງຜົນ</translation>
+<translation id="2086091080968010660">ການປ່ຽນແປງຕາມເວລາອາດບໍ່ຖືກຕ້ອງ. ເປີດສິດເຂົ້າເຖິງສະຖານທີ່ຂອງລະບົບໃນການຕັ້ງຄ່າ.</translation>
 <translation id="2102231663024125441">ການແກ້ໄຂຂໍ້ຄວາມ</translation>
 <translation id="2105810540595158374">ອຸປະກອນແມ່ນມືເກມ.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, ເວີຊັນ <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">ແກ້ໄຂລາຍລະອຽດ APN</translation>
 <translation id="2195732836444333448">ຕອນນີ້ຮອດຂີດຈຳກັດແລ້ວ. ກະລຸນາກັບມາໃໝ່ໃນໄວໆນີ້.</translation>
 <translation id="2201758491318984023">ລົດຖີບ</translation>
-<translation id="2203222757805818543">ກຳນົດເວລາປັດຈຸບັນແມ່ນ <ph name="SUNRISE" /> - <ph name="SUNSET" />. ເພື່ອອັບເດດກຳນົດເວລາຂອງໂໝດມືດໂດຍອັດຕະໂນມັດ, ໃຫ້ <ph name="BEGIN_LINK" />ເປີດການເຂົ້າເຖິງສະຖານທີ່<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">ນ້ຳພຸຮ້ອນ</translation>
 <translation id="2203642483788377106">ໜ້າຜາ</translation>
 <translation id="2208388655216963643">ອິມເພຣສຊັນນິສຕ໌</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">ໃຊ້ການຕັ້ງຄ່າເລີ່ມຕົ້ນ</translation>
 <translation id="2286454467119466181">ງ່າຍ</translation>
 <translation id="2287186687001756809">ບໍ່ມີຮູບທີ່ສາມາດໃຊ້ໄດ້. ເພື່ອເພີ່ມຮູບ, ກະລຸນາເຂົ້າໄປ <ph name="LINK" /></translation>
+<translation id="2294577623958216786">ກຳນົດເວລາປັດຈຸບັນແມ່ນ <ph name="SUNRISE" />-<ph name="SUNSET" />. ເພື່ອອັບເດດກຳນົດເວລາຕາເວັນຕົກ ແລະ ຕາເວັນຂຶ້ນໂດຍອັດຕະໂນມັດ, ໃຫ້ເປີດສິດເຂົ້າເຖິງສະຖານທີ່ຂອງລະບົບ.</translation>
 <translation id="2305172810646967500">ດຳ</translation>
 <translation id="2307344026739914387">ໃຊ້ຄູ່ກະແຈປັດຈຸບັນ</translation>
 <translation id="2308243864813041101">ຖອດປລັກສາຍ USB <ph name="DEVICE_NAME" /> ຄືນໃໝ່ເພື່ອສືບຕໍ່ຂັ້ນຕອນການອັບເດດ</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">ເນີນຊາຍ</translation>
 <translation id="2619761439309613843">ການໂຫຼດຂໍ້ມູນໃໝ່ປະຈຳວັນ</translation>
 <translation id="2620436844016719705">ລະ​ບົບ</translation>
+<translation id="2637303424821734920">ປິດ - ເພື່ອສະແດງສະພາບອາກາດໃນທ້ອງຖິ່ນ, ໃຫ້ <ph name="BEGIN_LINK" />ເປີດສິດເຂົ້າເຖິງສະຖານທີ່ຂອງລະບົບ<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">ຮູບການເຂົ້າສູ່ລະບົບ</translation>
 <translation id="2640549051766135490">ເລືອກອະລະບໍ້າ <ph name="TITLE" /> <ph name="DESC" /> ແລ້ວ</translation>
 <translation id="2645380101799517405">ການຄວບຄຸມ</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">ພາບພື້ນຫຼັງ</translation>
 <translation id="3027578600144895987">ປິດກ້ອງຖ່າຍຮູບ</translation>
 <translation id="3031560714565892478">ອຸປະກອນແມ່ນກ້ອງຖ່າຍວິດີໂອ.</translation>
+<translation id="3051968340259309715">ເຊິ່ງຈະເຮັດໃຫ້ບໍລິການລະບົບສາມາດໃຊ້ຄວາມຖືກຕ້ອງຂອງສະຖານທີ່ເພື່ອລະບຸສະຖານທີ່ຂອງທ່ານໄດ້. ຄວາມຖືກຕ້ອງຂອງສະຖານທີ່ຈະໃຊ້ຂໍ້ມູນກ່ຽວກັບສັນຍານໄຮ້ສາຍ ເຊັ່ນ: ຈຸດເຂົ້າເຖິງ Wi-Fi, ເສົາເຄືອຂ່າຍມືຖື ແລະ GPS, ຕະຫຼອດຈົນຮອດຂໍ້ມູນເຊັນເຊີຂອງອຸປະກອນ ເຊັ່ນ: ຕົວວັດແທກຄວາມເລັ່ງ ແລະ ຕົວວັດແທກການໝຸນຮອບ, ເພື່ອປະເມີນສະຖານທີ່ຂອງອຸປະກອນ. ທ່ານສາມາດປິດສະຖານທີ່ໄດ້ໃນ ການຕັ້ງຄ່າ &gt; ຄວາມເປັນສ່ວນຕົວ ແລະ ຄວາມປອດໄພ &gt; ການຄວບຄຸມຄວາມເປັນສ່ວນຕົວ &gt; ສິດເຂົ້າເຖິງສະຖານທີ່. <ph name="LINK_BEGIN" />ສຶກສາເພີ່ມເຕີມ<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">ຈຸດສິ້ນສຸດ</translation>
 <translation id="3060579846059757016">ໂຄງຮ່າງ</translation>
+<translation id="3061850252076394168">ເປີດການນຳໃຊ້ຄຸນສົມບັດເລືອກເພື່ອເວົ້າ</translation>
 <translation id="3069085583900247081">ທົດສອບບໍ່ສຳເລັດ</translation>
 <translation id="3078740164268491126">ຕາ​ຕະ​ລາງ</translation>
 <translation id="3081652522083185657">ແຈ້ງ</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">ແກ້ໄຂບັນຫາໂຮສທັງໝົດບໍ່ສຳເລັດ</translation>
 <translation id="4593212453765072419">ຈຳເປັນຕ້ອງພິສູດຢືນຢັນພຣັອກຊີ</translation>
 <translation id="4609350030397390689">ແປ້ນພິມຫຼຸດຄວາມສະຫວ່າງ</translation>
-<translation id="4617553623719764431">ສະພາບອາກາດບໍ່ສະແດງເນື່ອງຈາກບໍ່ຮູ້ສະຖານທີ່ຂອງທ່ານ. ເພື່ອສະແດງສະພາບອາກາດທ້ອງຖິ່ນ, ໃຫ້ <ph name="BEGIN_LINK" />ເປີດສິດເຂົ້າເຖິງສະຖານທີ່<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> ຈາກທັງໝົດ <ph name="TOTAL_PAGE_NUMBER" />. ກົດ Enter ເພື່ອຍົກເລີກວຽກພິມ.</translation>
 <translation id="463791356324567266">ກຳລັງຍົກເລີກການສະແກນ...</translation>
 <translation id="4646949265910132906">ການເຊື່ອມຕໍ່ WiFi ທີ່ປອດໄພ</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">ເອີ້ນໃຊ້</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">ໜ້າ</translation>
+<translation id="4989542687859782284">ບໍ່ສາມາດໃຊ້ໄດ້</translation>
 <translation id="4999333166442584738">ເຊື່ອງລາຍງານ</translation>
 <translation id="500920857929044050">ຢຸດການທົດສອບ</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">ຄວາມແຈ້ງຂອງແປ້ນພິມ</translation>
 <translation id="6412715219990689313">ແປ້ນພິມໃນຕົວ</translation>
 <translation id="6417265370957905582">ຜູ້ຊ່ວຍ Google</translation>
+<translation id="6419454453018688975">ເປີດສິດເຂົ້າເຖິງສະຖານທີ່ຂອງລະບົບ</translation>
 <translation id="6423239382391657905">ເປີດVPN</translation>
-<translation id="6438073885402882007">ການດຳເນີນການນີ້ຈະຊ່ວຍໃຫ້ບໍລິການລະບົບທີ່ມີການອະນຸຍາດດັ່ງກ່າວໃຊ້ສະຖານທີ່ຂອງທ່ານໄດ້. ສະຖານທີ່ອາດໃຊ້ຂໍ້ມູນຈາກແຫຼ່ງທີ່ມາຕ່າງໆ ເຊັ່ນ: Wi‑Fi, ເຄືອຂ່າຍມືຖື ແລະ ເຊັນເຊີເພື່ອຊ່ວຍຄາດຄະເນສະຖານທີ່ຂອງອຸປະກອນຂອງທ່ານ. <ph name="LINK_BEGIN" />ສຶກສາເພີ່ມເຕີມ<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">ອ່ອນ (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">ໄປຫາການຕັ້ງຄ່າບັນຊີ</translation>
 <translation id="6462978824459367242">ເປີດການນຳໃຊ້ປຸ່ມເພີ່ມ APN ແລ້ວ</translation>

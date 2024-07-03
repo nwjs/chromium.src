@@ -4,6 +4,7 @@
 
 import '../strings.m.js';
 import './header.js';
+import './loading_state.js';
 import './new_column_selector.js';
 import './product_selector.js';
 import './table.js';
@@ -28,6 +29,11 @@ interface AggregatedProductData {
   spec: ProductSpecificationsProduct|null;
 }
 
+interface LoadingState {
+  loading: boolean;
+  urlCount: number;
+}
+
 function aggregateProductDataByClusterId(
     infos: ProductInfo[], specs: ProductSpecificationsProduct[]):
     Record<string, AggregatedProductData> {
@@ -44,6 +50,7 @@ function aggregateProductDataByClusterId(
 export interface ProductSpecificationsElement {
   $: {
     header: HeaderElement,
+    loading: HTMLElement,
     productSelector: ProductSelectorElement,
     summaryTable: TableElement,
   };
@@ -60,6 +67,7 @@ export class ProductSpecificationsElement extends PolymerElement {
 
   static get properties() {
     return {
+      loadingState_: Object,
       setName_: String,
 
       showEmptyState_: {
@@ -78,6 +86,8 @@ export class ProductSpecificationsElement extends PolymerElement {
     };
   }
 
+  private minLoadingAnimationMs_: number = 500;
+  private loadingState_: LoadingState = {loading: false, urlCount: 0};
   private setName_: string;
   private showEmptyState_: boolean;
   private specsTable_: {columns: TableColumn[], rows: TableRow[]};
@@ -85,6 +95,7 @@ export class ProductSpecificationsElement extends PolymerElement {
   private shoppingApi_: BrowserProxy = BrowserProxyImpl.getInstance();
   private callbackRouter_: PageCallbackRouter;
   private listenerIds_: number[] = [];
+  private id_: Uuid|null = null;
 
   constructor() {
     super();
@@ -105,6 +116,7 @@ export class ProductSpecificationsElement extends PolymerElement {
     const params = new URLSearchParams(router.getCurrentQuery());
     const idParam = params.get('id');
     if (idParam) {
+      this.id_ = {value: idParam};
       const {set} = await this.shoppingApi_.getProductSpecificationsSetByUuid(
           {value: idParam});
       if (set) {
@@ -126,12 +138,12 @@ export class ProductSpecificationsElement extends PolymerElement {
       return;
     }
 
-    // TODO(b/338427523): Add UI for choosing the name.
     const setName = 'Product specs';
     this.setName_ = setName;
     const {createdSet} = await this.shoppingApi_.addProductSpecificationsSet(
         setName, urls.map(url => ({url})));
     if (createdSet) {
+      this.id_ = createdSet.uuid;
       window.history.replaceState(
           undefined, '', '?id=' + createdSet.uuid.value);
     }
@@ -139,32 +151,62 @@ export class ProductSpecificationsElement extends PolymerElement {
     this.populateTable_(urls);
   }
 
+  resetMinLoadingAnimationMsForTesting(newValue = 0) {
+    this.minLoadingAnimationMs_ = newValue;
+  }
+
   private async populateTable_(urls: string[]) {
-    const {productSpecs} =
-        await this.shoppingApi_.getProductSpecificationsForUrls(
-            urls.map(url => ({url})));
+    const start = Date.now();
+    this.showEmptyState_ = false;
+    this.loadingState_ = {loading: true, urlCount: urls.length};
 
+    let aggregatedDatas: Record<string, AggregatedProductData> = {};
     const rows: TableRow[] = [];
-    productSpecs.productDimensionMap.forEach((value: string, key: bigint) => {
-      rows.push({
-        title: value,
-        values: productSpecs.products.map(
-            (p: ProductSpecificationsProduct) =>
-                p.productDimensionValues.get(key)!.join(',')),
+    if (urls.length) {
+      const {productSpecs} =
+          await this.shoppingApi_.getProductSpecificationsForUrls(
+              urls.map(url => ({url})));
+      productSpecs.productDimensionMap.forEach((title: string, key: bigint) => {
+        const descriptions: string[] = [];
+        const summaries: string[] = [];
+        productSpecs.products.forEach(
+            (product: ProductSpecificationsProduct) => {
+              const value = product.productDimensionValues.get(key);
+              descriptions.push(
+                  (value?.specificationDescriptions || [])
+                      .flatMap(description => description.options)
+                      .flatMap(option => option.descriptions)
+                      .map(descText => descText.text)
+                      .join(', ') ||
+                  '');
+              summaries.push(
+                  (value?.summary || [])
+                      .map(summary => summary?.text || '')
+                      ?.join(' ') ||
+                  '');
+            });
+        rows.push({title, descriptions, summaries});
       });
-    });
+      const infos = await this.getInfoForUrls_(urls);
+      aggregatedDatas =
+          aggregateProductDataByClusterId(infos, productSpecs.products);
+    }
 
-    const infos = await this.getInfoForUrls_(urls);
-    const aggregatedDatas =
-        aggregateProductDataByClusterId(infos, productSpecs.products);
+    // Enforce a minimum amount of time in the loading state to avoid it
+    // appearing like an unintentional flash.
+    const delta = Date.now() - start;
+    if (delta < this.minLoadingAnimationMs_) {
+      await new Promise(
+          res => setTimeout(res, this.minLoadingAnimationMs_ - delta));
+    }
+
     this.specsTable_ = {
       columns:
           Object.values(aggregatedDatas).map((data: AggregatedProductData) => {
             return {
               selectedItem: {
                 title: data.spec ? data.spec.title : '',
-                // TODO(b/335637140): Replace with actual URL once available.
-                url: 'https://example.com',
+                url: data.info.productUrl.url,
                 imageUrl: data.info.imageUrl.url,
               },
             };
@@ -172,6 +214,7 @@ export class ProductSpecificationsElement extends PolymerElement {
       rows,
     };
     this.showEmptyState_ = this.specsTable_.columns.length === 0;
+    this.loadingState_ = {loading: false, urlCount: 0};
   }
 
   override disconnectedCallback() {
@@ -190,33 +233,77 @@ export class ProductSpecificationsElement extends PolymerElement {
     return infos;
   }
 
+  private showTable_(): boolean {
+    return !this.loadingState_.loading && !this.showEmptyState_;
+  }
+
+  private addToNewGroup_() {
+    // TODO(b/330345730): Plumb through mojom
+  }
+
+  private deleteSet_() {
+    if (this.id_) {
+      this.shoppingApi_.deleteProductSpecificationsSet(this.id_);
+    }
+  }
+
+  private updateSetName_(e: CustomEvent<{name: string}>) {
+    if (this.id_) {
+      this.shoppingApi_.setNameForProductSpecificationsSet(
+          this.id_, e.detail.name);
+    }
+  }
+
+  private seeAllSets_() {
+    // TODO(b/330345730): Plumb through mojom
+  }
+
   private onUrlAdd_(e: CustomEvent<{url: string}>) {
     const urls = this.getTableUrls_();
     urls.push(e.detail.url);
+    // TODO(b/330345730): Plumb through mojom instead of calling populateTable
+    // directly. Then, onSetUpdated should handle the table change.
     this.populateTable_(urls);
   }
 
   private onUrlChange_(e: CustomEvent<{url: string, index: number}>) {
     const urls = this.getTableUrls_();
     urls[e.detail.index] = e.detail.url;
+    // TODO(b/330345730): Plumb through mojom instead of calling populateTable
+    // directly. Then, onSetUpdated should handle the table change.
+    this.populateTable_(urls);
+  }
+
+  private onUrlRemove_(e: CustomEvent<{index: number}>) {
+    const urls = this.getTableUrls_();
+    urls.splice(e.detail.index, 1);
+    // TODO(b/330345730): Plumb through mojom instead of calling populateTable
+    // directly. Then, onSetUpdated should handle the table change.
     this.populateTable_(urls);
   }
 
   private getTableUrls_(): string[] {
-    // Until b/335637140 is resolved, these will all be the same placeholder
-    // URL and the table will not update as expected.
     return this.specsTable_.columns.map(
         (column: TableColumn) => column.selectedItem.url);
   }
 
-  private onSetUpdated_(_: ProductSpecificationsSet) {
-    // TODO(b:333378234): If the update is for the currently shown set, apply
-    //                    the updates.
+  private onSetUpdated_(set: ProductSpecificationsSet) {
+    if (set.uuid.value !== this.id_?.value) {
+      return;
+    }
+    this.setName_ = set.name;
+    this.populateTable_(set.urls.map(url => url.url));
   }
 
-  private onSetRemoved_(_: Uuid) {
-    // TODO(b:333378234): If the UUID is for the shown set, clear the UI or
-    //                    refresh to load the zero-state.
+  private onSetRemoved_(id: Uuid) {
+    if (id.value !== this.id_?.value) {
+      return;
+    }
+    this.id_ = null;
+    this.specsTable_ = {
+      columns: [],
+      rows: [],
+    };
   }
 }
 

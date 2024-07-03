@@ -9,6 +9,7 @@
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/trace_event/trace_event.h"
+#include "services/webnn/dml/buffer_impl_dml.h"
 #include "services/webnn/dml/command_queue.h"
 #include "services/webnn/dml/error.h"
 #include "services/webnn/dml/utils.h"
@@ -89,6 +90,7 @@ HRESULT CommandRecorder::CloseAndExecute() {
 }
 
 HRESULT CommandRecorder::Close() {
+  TRACE_EVENT0("gpu", "dml::CommandRecorder::Close");
   CHECK(is_open_);
   RETURN_IF_FAILED(command_list_->Close());
   is_open_ = false;
@@ -136,6 +138,13 @@ void CommandRecorder::CopyBufferRegion(
   // command has been executed by GPU.
   command_resources_.push_back(std::move(dst_buffer));
   command_resources_.push_back(std::move(src_buffer));
+}
+
+void CommandRecorder::RecordDispatch(IDMLDispatchable* dispatchable,
+                                     IDMLBindingTable* binding_table) {
+  TRACE_EVENT0("gpu", "dml::CommandRecorder::RecordDispatch");
+  command_recorder_->RecordDispatch(command_list_.Get(), dispatchable,
+                                    binding_table);
 }
 
 HRESULT CommandRecorder::InitializeOperator(
@@ -243,8 +252,7 @@ HRESULT CommandRecorder::InitializeOperator(
   // DirectML may remove the device if invalid bindings are provided.
   RETURN_IF_FAILED(dml_device_->GetDeviceRemovedReason());
 
-  command_recorder_->RecordDispatch(command_list_.Get(), initializer.Get(),
-                                    binding_table.Get());
+  RecordDispatch(initializer.Get(), binding_table.Get());
 
   // The operator initializer owns GPU resources, it should be kept alive until
   // the dispatch using it have completed execution on the GPU.
@@ -371,9 +379,7 @@ HRESULT CommandRecorder::ExecuteOperator(
     command_resources_.push_back(output_resource);
   }
 
-  // Dispatch the execution of the compiled operator.
-  command_recorder_->RecordDispatch(
-      command_list_.Get(), compiled_operator.Get(), binding_table.Get());
+  RecordDispatch(compiled_operator.Get(), binding_table.Get());
 
   // The operator owns GPU resources, it should be kept alive until the dispatch
   // using it have completed execution on the GPU.
@@ -386,6 +392,10 @@ HRESULT CommandRecorder::ExecuteOperator(
   command_resources_.push_back(std::move(descriptor_heap));
 
   return S_OK;
+}
+
+void CommandRecorder::OnBufferAccessed(BufferImplDml* buffer) {
+  buffer->SetLastSubmissionFenceValue(command_queue_->GetPendingFenceValue());
 }
 
 }  // namespace webnn::dml

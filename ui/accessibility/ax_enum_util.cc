@@ -326,6 +326,8 @@ const char* ToString(ax::mojom::Role role) {
       return "graphicsSymbol";
     case ax::mojom::Role::kGrid:
       return "grid";
+    case ax::mojom::Role::kGridCell:
+      return "gridCell";
     case ax::mojom::Role::kGroup:
       return "group";
     case ax::mojom::Role::kHeader:
@@ -756,6 +758,8 @@ ax::mojom::Role StringToRole(const std::string& role) {
     return ax::mojom::Role::kGraphicsSymbol;
   } else if (role == "kGrid") {
     return ax::mojom::Role::kGrid;
+  } else if (role == "kGridCell") {
+    return ax::mojom::Role::kGridCell;
   } else if (role == "kGroup") {
     return ax::mojom::Role::kGroup;
   } else if (role == "kHeader") {
@@ -993,7 +997,7 @@ ax::mojom::Role StringToRole(const std::string& role) {
   }
 
   // We should never pass in an invalid role.
-  NOTREACHED() << "Invalid role was provided: " << role;
+  NOTREACHED_IN_MIGRATION() << "Invalid role was provided: " << role;
   return ax::mojom::Role::kUnknown;
 }
 
@@ -1084,7 +1088,7 @@ ax::mojom::State StringToState(const std::string& str) {
   }
 
   // We should never pass in an invalid state.
-  NOTREACHED() << "An invalid state was provided: " << str;
+  NOTREACHED_IN_MIGRATION() << "An invalid state was provided: " << str;
   return ax::mojom::State::kNone;
 }
 
@@ -1297,6 +1301,8 @@ const char* ToString(ax::mojom::StringAttribute string_attribute) {
       return "doDefaultLabel";
     case ax::mojom::StringAttribute::kFontFamily:
       return "fontFamily";
+    case ax::mojom::StringAttribute::kHtmlId:
+      return "htmlId";
     case ax::mojom::StringAttribute::kHtmlTag:
       return "htmlTag";
     case ax::mojom::StringAttribute::kImageAnnotation:
@@ -1380,6 +1386,8 @@ ax::mojom::StringAttribute StringToStringAttribute(
     return ax::mojom::StringAttribute::kDoDefaultLabel;
   } else if (string_attribute == "kFontFamily") {
     return ax::mojom::StringAttribute::kFontFamily;
+  } else if (string_attribute == "kHtmlId") {
+    return ax::mojom::StringAttribute::kHtmlId;
   } else if (string_attribute == "kHtmlTag") {
     return ax::mojom::StringAttribute::kHtmlTag;
   } else if (string_attribute == "kImageAnnotation") {
@@ -1419,8 +1427,8 @@ ax::mojom::StringAttribute StringToStringAttribute(
   } else if (string_attribute == "kVirtualContent") {
     return ax::mojom::StringAttribute::kVirtualContent;
   } else {
-    NOTREACHED() << "An invalid StringAttribute was provided: "
-                 << string_attribute;
+    NOTREACHED_IN_MIGRATION()
+        << "An invalid StringAttribute was provided: " << string_attribute;
     return ax::mojom::StringAttribute::kNone;
   }
 }
@@ -1699,7 +1707,8 @@ ax::mojom::IntAttribute StringToIntAttribute(const std::string& int_attribute) {
     return ax::mojom::IntAttribute::kAriaNotificationPriorityDeprecated;
   }
 
-  NOTREACHED() << "An invalid IntAttribute was provided: " << int_attribute;
+  NOTREACHED_IN_MIGRATION()
+      << "An invalid IntAttribute was provided: " << int_attribute;
   return ax::mojom::IntAttribute::kNone;
 }
 
@@ -1828,7 +1837,8 @@ ax::mojom::BoolAttribute StringToBoolAttribute(
   } else if (bool_attribute == "kLongClickable") {
     return ax::mojom::BoolAttribute::kLongClickable;
   } else {
-    NOTREACHED() << "An invalid BoolAttribute was provided: " << bool_attribute;
+    NOTREACHED_IN_MIGRATION()
+        << "An invalid BoolAttribute was provided: " << bool_attribute;
     return ax::mojom::BoolAttribute::kNone;
   }
 }

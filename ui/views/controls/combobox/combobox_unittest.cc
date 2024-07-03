@@ -14,7 +14,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_enums.mojom.h"
@@ -137,7 +136,7 @@ class VectorComboboxModel : public ui::ComboboxModel {
   }
 
  private:
-  size_t default_index_ = 0;
+  std::optional<size_t> default_index_ = std::nullopt;
   const raw_ptr<std::vector<std::string>> values_;
 };
 
@@ -218,7 +217,8 @@ class ComboboxTest : public ViewsTestBase {
 
     widget_ = std::make_unique<Widget>();
     Widget::InitParams params =
-        CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+        CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                     Widget::InitParams::TYPE_WINDOW_FRAMELESS);
     params.bounds = gfx::Rect(200, 200, 200, 200);
     widget_->Init(std::move(params));
     View* container = widget_->SetContentsView(std::make_unique<View>());
@@ -348,7 +348,8 @@ TEST_F(ComboboxTest, DisabilityTest) {
 
   widget_ = std::make_unique<Widget>();
   Widget::InitParams params =
-      CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.bounds = gfx::Rect(100, 100, 100, 100);
   widget_->Init(std::move(params));
   View* container = widget_->SetContentsView(std::make_unique<View>());
@@ -359,8 +360,6 @@ TEST_F(ComboboxTest, DisabilityTest) {
 // Ensure the border on the combobox is set correctly when Enabled state
 // changes.
 TEST_F(ComboboxTest, DisabledBorderTest) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kChromeRefresh2023);
   InitCombobox(nullptr);
   ASSERT_TRUE(combobox()->GetEnabled());
   ASSERT_NE(combobox()->GetBorder(), nullptr);
@@ -895,7 +894,8 @@ TEST_F(ComboboxTest, SetTooltipTextNotifiesAccessibilityEvent) {
                                 ax::mojom::Role::kButton));
   EXPECT_EQ(1, counter.GetCount(ax::mojom::Event::kTextChanged,
                                 ax::mojom::Role::kComboBoxSelect));
-  EXPECT_EQ(test_tooltip_text, combobox()->GetAccessibleName());
+  EXPECT_EQ(test_tooltip_text,
+            combobox()->GetViewAccessibility().GetCachedName());
   ui::AXNodeData data;
   combobox()->GetViewAccessibility().GetAccessibleNodeData(&data);
   const std::string& name =

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "net/cert/x509_util.h"
 
 #include <string.h>
@@ -268,7 +273,7 @@ bool GetTLSServerEndPointChannelBinding(const X509Certificate& certificate,
       // Legacy digests are not supported, and
       // `GetTlsServerEndpointDigestAlgorithm` internally maps MD5 and SHA-1 to
       // SHA-256.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
 
     case bssl::DigestAlgorithm::Sha256:
@@ -488,7 +493,7 @@ base::span<const uint8_t> CryptoBufferAsSpan(const CRYPTO_BUFFER* buffer) {
 scoped_refptr<X509Certificate> CreateX509CertificateFromBuffers(
     const STACK_OF(CRYPTO_BUFFER) * buffers) {
   if (sk_CRYPTO_BUFFER_num(buffers) == 0) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
 

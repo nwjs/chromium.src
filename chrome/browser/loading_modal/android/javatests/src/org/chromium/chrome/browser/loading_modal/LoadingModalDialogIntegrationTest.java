@@ -79,7 +79,6 @@ public class LoadingModalDialogIntegrationTest {
     public static void setupSuite() {
         sActivityTestRule.launchActivity(null);
         sActivity = runOnUiThreadBlockingNoException(() -> sActivityTestRule.getActivity());
-        Looper.prepare();
     }
 
     @Before

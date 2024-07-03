@@ -122,7 +122,6 @@ class GraphInfoBuilder final {
   //  std::optional<uint64_t> bias_operand_id;
   //  uint32_t axis = 1;
   //  float epsilon = 1e-5;
-  //  std::optional<Activation> activation;
   // };
   template <typename BatchNormalizationAttributes>
   void BuildBatchNormalization(uint64_t input_operand_id,
@@ -141,11 +140,6 @@ class GraphInfoBuilder final {
     batch_normalization->bias_operand_id = attributes.bias_operand_id;
     batch_normalization->axis = attributes.axis;
     batch_normalization->epsilon = attributes.epsilon;
-
-    if (attributes.activation.has_value()) {
-      batch_normalization->activation =
-          CreateActivation(attributes.activation.value());
-    }
 
     graph_info_->operations.push_back(mojom::Operation::NewBatchNormalization(
         std::move(batch_normalization)));
@@ -166,9 +160,7 @@ class GraphInfoBuilder final {
   //   std::vector<uint32_t> strides;
   //   std::vector<uint32_t> dilations;
   //   uint32_t groups;
-  //   mojom::InputOperandLayout input_layout;
   //   std::optional<uint64_t> bias_operand_id,
-  //   std::optional<Activation> activation;
   // };
   template <typename Conv2dAttributes>
   void BuildConv2d(mojom::Conv2d::Kind type,
@@ -197,12 +189,7 @@ class GraphInfoBuilder final {
     conv2d->dilations =
         mojom::Size2d::New(attributes.dilations[0], attributes.dilations[1]);
     conv2d->groups = attributes.groups;
-    conv2d->input_layout = attributes.input_layout;
     conv2d->bias_operand_id = bias_operand_id;
-
-    if (attributes.activation.has_value()) {
-      conv2d->activation = CreateActivation(attributes.activation.value());
-    }
 
     graph_info_->operations.push_back(
         mojom::Operation::NewConv2d(std::move(conv2d)));

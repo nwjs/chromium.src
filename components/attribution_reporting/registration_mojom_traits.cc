@@ -14,6 +14,7 @@
 #include "base/containers/flat_set.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
+#include "components/attribution_reporting/aggregatable_debug_reporting_config.h"
 #include "components/attribution_reporting/aggregatable_dedup_key.h"
 #include "components/attribution_reporting/aggregatable_trigger_config.h"
 #include "components/attribution_reporting/aggregatable_trigger_data.h"
@@ -56,7 +57,7 @@ bool StructTraits<attribution_reporting::mojom::SuitableOriginDataView,
     return false;
   }
 
-  *out = std::move(*suitable_origin);
+  *out = *std::move(suitable_origin);
   return true;
 }
 
@@ -76,7 +77,7 @@ bool StructTraits<attribution_reporting::mojom::FilterDataDataView,
     return false;
   }
 
-  *out = std::move(*filter_data);
+  *out = *std::move(filter_data);
   return true;
 }
 
@@ -121,7 +122,7 @@ bool StructTraits<attribution_reporting::mojom::AggregationKeysDataView,
     return false;
   }
 
-  *out = std::move(*aggregation_keys);
+  *out = *std::move(aggregation_keys);
   return true;
 }
 
@@ -141,7 +142,7 @@ bool StructTraits<attribution_reporting::mojom::DestinationSetDataView,
     return false;
   }
 
-  *out = std::move(*destination_set);
+  *out = *std::move(destination_set);
   return true;
 }
 
@@ -166,7 +167,7 @@ bool StructTraits<attribution_reporting::mojom::EventReportWindowsDataView,
     return false;
   }
 
-  *out = std::move(*event_report_windows);
+  *out = *std::move(event_report_windows);
   return true;
 }
 
@@ -205,7 +206,86 @@ bool StructTraits<attribution_reporting::mojom::TriggerSpecsDataView,
     return false;
   }
 
-  *out = std::move(*result);
+  *out = *std::move(result);
+  return true;
+}
+
+// static
+bool StructTraits<
+    attribution_reporting::mojom::
+        AggregatableDebugReportingContributionDataView,
+    attribution_reporting::AggregatableDebugReportingContribution>::
+    Read(attribution_reporting::mojom::
+             AggregatableDebugReportingContributionDataView data,
+         attribution_reporting::AggregatableDebugReportingContribution* out) {
+  absl::uint128 key_piece;
+  if (!data.ReadKeyPiece(&key_piece)) {
+    return false;
+  }
+
+  std::optional<attribution_reporting::AggregatableDebugReportingContribution>
+      contribution =
+          attribution_reporting::AggregatableDebugReportingContribution::Create(
+              key_piece, data.value());
+  if (!contribution.has_value()) {
+    return false;
+  }
+
+  *out = *std::move(contribution);
+  return true;
+}
+
+// static
+bool StructTraits<
+    attribution_reporting::mojom::AggregatableDebugReportingConfigDataView,
+    attribution_reporting::AggregatableDebugReportingConfig>::
+    Read(attribution_reporting::mojom::AggregatableDebugReportingConfigDataView
+             data,
+         attribution_reporting::AggregatableDebugReportingConfig* out) {
+  absl::uint128 key_piece;
+  if (!data.ReadKeyPiece(&key_piece)) {
+    return false;
+  }
+
+  attribution_reporting::AggregatableDebugReportingConfig::DebugData debug_data;
+  if (!data.ReadDebugData(&debug_data)) {
+    return false;
+  }
+
+  std::optional<attribution_reporting::SuitableOrigin>
+      aggregation_coordinator_origin;
+  if (!data.ReadAggregationCoordinatorOrigin(&aggregation_coordinator_origin)) {
+    return false;
+  }
+
+  *out = attribution_reporting::AggregatableDebugReportingConfig(
+      key_piece, std::move(debug_data),
+      std::move(aggregation_coordinator_origin));
+  return true;
+}
+
+// static
+bool StructTraits<
+    attribution_reporting::mojom::
+        SourceAggregatableDebugReportingConfigDataView,
+    attribution_reporting::SourceAggregatableDebugReportingConfig>::
+    Read(attribution_reporting::mojom::
+             SourceAggregatableDebugReportingConfigDataView data,
+         attribution_reporting::SourceAggregatableDebugReportingConfig* out) {
+  attribution_reporting::AggregatableDebugReportingConfig config;
+  if (!data.ReadConfig(&config)) {
+    return false;
+  }
+
+  std::optional<attribution_reporting::SourceAggregatableDebugReportingConfig>
+      source_config =
+          attribution_reporting::SourceAggregatableDebugReportingConfig::Create(
+              data.budget(), std::move(config));
+  if (!source_config.has_value()) {
+    return false;
+  }
+
+  *out = *std::move(source_config);
   return true;
 }
 
@@ -244,6 +324,11 @@ bool StructTraits<attribution_reporting::mojom::SourceRegistrationDataView,
   }
 
   if (!out->event_level_epsilon.SetIfValid(data.event_level_epsilon())) {
+    return false;
+  }
+
+  if (!data.ReadAggregatableDebugReportingConfig(
+          &out->aggregatable_debug_reporting_config)) {
     return false;
   }
 
@@ -305,7 +390,7 @@ bool StructTraits<attribution_reporting::mojom::AggregatableTriggerDataDataView,
     return false;
   }
 
-  *out = std::move(*aggregatable_trigger_data);
+  *out = *std::move(aggregatable_trigger_data);
   return true;
 }
 
@@ -342,7 +427,7 @@ bool StructTraits<attribution_reporting::mojom::AggregatableValuesDataView,
     return false;
   }
 
-  *out = std::move(*aggregatable_values);
+  *out = *std::move(aggregatable_values);
   return true;
 }
 
@@ -389,7 +474,12 @@ bool StructTraits<attribution_reporting::mojom::TriggerRegistrationDataView,
   if (!aggregatable_trigger_config.has_value()) {
     return false;
   }
-  out->aggregatable_trigger_config = std::move(*aggregatable_trigger_config);
+  out->aggregatable_trigger_config = *std::move(aggregatable_trigger_config);
+
+  if (!data.ReadAggregatableDebugReportingConfig(
+          &out->aggregatable_debug_reporting_config)) {
+    return false;
+  }
 
   out->debug_key = data.debug_key();
   out->debug_reporting = data.debug_reporting();

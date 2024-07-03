@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">galben pastelat</translation>
 <translation id="1056898198331236512">Avertisment</translation>
 <translation id="1059913517121127803">Nu s-a putut începe scanarea</translation>
+<translation id="1061864016440983342">Folosește fără locație</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> din <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">S-a detectat un firewall</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Mai multe setări</translation>
 <translation id="2082932131694554252">Tasta de pe tastatură atribuită</translation>
 <translation id="2085089206770112532">Reducerea luminozității ecranului</translation>
+<translation id="2086091080968010660">Este posibil ca modificările în funcție de oră să nu fie precise. Activează accesul la locația sistemului în setări.</translation>
 <translation id="2102231663024125441">Editarea textului</translation>
 <translation id="2105810540595158374">Dispozitivul este un controler de jocuri.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versiunea <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Modifică detaliile APN</translation>
 <translation id="2195732836444333448">La capacitate maximă. Revino în curând.</translation>
 <translation id="2201758491318984023">bicicletă</translation>
-<translation id="2203222757805818543">Programul actual este setat la <ph name="SUNRISE" /> – <ph name="SUNSET" />. Pentru a actualiza automat programul modului întunecat, <ph name="BEGIN_LINK" />activează accesul la locație<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">izvor termal</translation>
 <translation id="2203642483788377106">stâncă</translation>
 <translation id="2208388655216963643">impresionist</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Restabilește valorile prestabilite</translation>
 <translation id="2286454467119466181">Simplă</translation>
 <translation id="2287186687001756809">Nicio imagine disponibilă. Pentru a adăuga fotografii, accesează <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Programul actual este setat la <ph name="SUNRISE" /> – <ph name="SUNSET" />. Pentru a actualiza automat programul pentru apus și răsărit, activează accesul sistemului la locație.</translation>
 <translation id="2305172810646967500">negru</translation>
 <translation id="2307344026739914387">Folosește perechea de chei actuală</translation>
 <translation id="2308243864813041101">Deconectează cablul USB pentru <ph name="DEVICE_NAME" /> pentru a continua procesul de actualizare</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">dună de nisip</translation>
 <translation id="2619761439309613843">Actualizare zilnică</translation>
 <translation id="2620436844016719705">Sistem</translation>
+<translation id="2637303424821734920">DEZACTIVAT – Pentru a afișa condițiile meteo locale, <ph name="BEGIN_LINK" />activează accesul la locație al sistemului<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Imagine de autentificare</translation>
 <translation id="2640549051766135490">S-a selectat albumul <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Comenzi</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Fundal</translation>
 <translation id="3027578600144895987">Închide camera foto</translation>
 <translation id="3031560714565892478">Dispozitivul este o cameră video.</translation>
+<translation id="3051968340259309715">Astfel, serviciile de sistem pot să folosească Precizia locației pentru a-ți determina locația. Precizia locației folosește informațiile despre semnalele wireless, cum ar fi punctele de acces Wi-Fi, turnurile de telefonie mobilă și GPS-ul, împreună cu datele de la senzorii dispozitivului, cum ar fi accelerometrul și giroscopul, pentru a estima locația dispozitivului. Poți dezactiva locația în Setări &gt; Confidențialitate și securitate &gt; Opțiuni de confidențialitate &gt; Accesul la locație. <ph name="LINK_BEGIN" />Află mai multe<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Punct final</translation>
 <translation id="3060579846059757016">Scheme</translation>
+<translation id="3061850252076394168">activează Selectează și ascultă</translation>
 <translation id="3069085583900247081">Testul nu a reușit</translation>
 <translation id="3078740164268491126">tabel</translation>
 <translation id="3081652522083185657">luminoasă</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Nu s-au putut rezolva toate gazdele</translation>
 <translation id="4593212453765072419">Este necesară autentificarea la serverul proxy</translation>
 <translation id="4609350030397390689">Reducerea luminozității tastaturii</translation>
-<translation id="4617553623719764431">Informațiile despre vreme nu sunt afișate deoarece serviciul nu are acces la locația ta. Pentru a afișa condițiile meteo locale, <ph name="BEGIN_LINK" />activează accesul la locație<ph name="END_LINK" />.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> din <ph name="TOTAL_PAGE_NUMBER" />. Apasă pe Enter pentru a anula sarcina de printare.</translation>
 <translation id="463791356324567266">Se anulează scanarea...</translation>
 <translation id="4646949265910132906">Conexiune Wi-Fi securizată</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Rulează</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Pagini</translation>
+<translation id="4989542687859782284">Indisponibile</translation>
 <translation id="4999333166442584738">Ascunde raportul</translation>
 <translation id="500920857929044050">Oprește testul</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">luminozitatea tastaturii</translation>
 <translation id="6412715219990689313">Tastatură integrată</translation>
 <translation id="6417265370957905582">Asistent Google</translation>
+<translation id="6419454453018688975">Activează accesul la locația sistemului</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Astfel, serviciile de sistem au permisiunea de a-ți folosi locația. Locația poate folosi surse precum Wi-Fi, rețele mobile și senzori pentru a ajuta la estimarea locației dispozitivului. <ph name="LINK_BEGIN" />Află mai multe<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Slabă (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Accesează setările contului</translation>
 <translation id="6462978824459367242">Butonul Adaugă un APN este activat</translation>

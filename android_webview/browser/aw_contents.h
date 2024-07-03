@@ -20,6 +20,7 @@
 #include "android_webview/browser/permission/permission_callback.h"
 #include "android_webview/browser/permission/permission_request_handler_client.h"
 #include "android_webview/browser/renderer_host/aw_render_view_host_ext.h"
+#include "android_webview/browser/safe_browsing/aw_safe_browsing_allowlist_manager.h"
 #include "android_webview/browser/safe_browsing/aw_safe_browsing_ui_manager.h"
 #include "base/android/jni_weak_ref.h"
 #include "base/android/scoped_java_ref.h"
@@ -61,7 +62,8 @@ class AwContents : public FindHelper::Listener,
                    public AwRenderProcessGoneDelegate,
                    public content::WebContentsObserver,
                    public AwSafeBrowsingUIManager::UIManagerClient,
-                   public VisibilityMetricsLogger::Client {
+                   public VisibilityMetricsLogger::Client,
+                   public AwSafeBrowsingAllowlistSetObserver {
  public:
   // Returns the AwContents instance associated with |web_contents|, or NULL.
   static AwContents* FromWebContents(content::WebContents* web_contents);
@@ -194,7 +196,9 @@ class AwContents : public FindHelper::Listener,
   std::vector<jni_zero::ScopedJavaLocalRef<jobject>>
   GetDocumentStartupJavascripts(JNIEnv* env);
 
-  void FlushBackForwardCache(JNIEnv* env);
+  void FlushBackForwardCache(JNIEnv* env, jint reason);
+
+  void CancelAllPrerendering(JNIEnv* env);
 
   bool GetViewTreeForceDarkState() { return view_tree_force_dark_state_; }
 
@@ -317,6 +321,9 @@ class AwContents : public FindHelper::Listener,
   // AwRenderProcessGoneDelegate overrides
   RenderProcessGoneResult OnRenderProcessGone(int child_process_id,
                                               bool crashed) override;
+
+  // AwSafeBrowsingAllowlistSetObserver overrides
+  void OnSafeBrowsingAllowListSet() override;
 
  private:
   // Geolocation API support

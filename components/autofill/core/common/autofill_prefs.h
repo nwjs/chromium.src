@@ -45,6 +45,12 @@ inline constexpr char kAutofillIbanEnabled[] = "autofill.iban_enabled";
 // was run. This routine will be run once per version.
 inline constexpr char kAutofillLastVersionDeduped[] =
     "autofill.last_version_deduped";
+// To simplify the rollout of AutofillSilentlyRemoveQuasiDuplicates,
+// deduplication can be run a second time per milestone for users enrolled in
+// the experiment. This pref tracks whether deduplication was run a second time.
+// TODO(b/325450676): Remove after the rollout finished.
+inline constexpr char kAutofillRanQuasiDuplicateExtraDeduplication[] =
+    "autofill.ran_quasi_duplicate_extra_deduplication";
 // Integer that is set to the last version where disused addresses were
 // deleted. This deletion will be run once per version.
 inline constexpr char kAutofillLastVersionDisusedAddressesDeleted[] =
@@ -74,13 +80,20 @@ inline constexpr char kAutofillStatesDataDir[] = "autofill.states_data_dir";
 // metadata for randomized uploads. The value of this pref is a string.
 inline constexpr char kAutofillUploadEncodingSeed[] =
     "autofill.upload_encoding_seed";
-// Dictionary pref used to track which form signature uploads have been
+// Dictionary pref used to track which form signature vote uploads have been
 // performed. Each entry in the dictionary maps a form signature (reduced
-// via a 10-bit modulus) to a integer bit-field where each bit denotes whether
-// or not a given upload event has occurred.
-inline constexpr char kAutofillUploadEvents[] = "autofill.upload_events";
+// via a 10-bit modulus) to an integer bit-field where each bit denotes whether
+// or not a given vote upload event has occurred.
+inline constexpr char kAutofillVoteUploadEvents[] = "autofill.upload_events";
+// Dictionary pref used to track which form signature metadata uploads have been
+// performed. Each entry in the dictionary maps a form signature (reduced
+// via a 10-bit modulus) to an integer flag that denotes whether or not a given
+// metadata upload event has occurred.
+// Throttling is done for both Autofill and Password Manager metadata uploads.
+inline constexpr char kAutofillMetadataUploadEvents[] =
+    "autofill.metadata_upload_events";
 // The timestamp (seconds since the Epoch UTC) for when the the upload event
-// pref was last reset.
+// prefs was last reset.
 inline constexpr char kAutofillUploadEventsLastResetTimestamp[] =
     "autofill.upload_events_last_reset_timestamp";
 // Integer that is set to the last major version where the Autocomplete
@@ -113,9 +126,11 @@ inline constexpr char
 // filling.
 inline constexpr char kAutofillUsingVirtualViewStructure[] =
     "autofill.using_virtual_view_structure";
-#endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_ANDROID)
+// Boolean set by the `ThirdPartyPasswordManagersAllowed` policy. Defaults to
+// true which allows users to set the `kAutofillUsingVirtualViewStructure` pref.
+// If set to false, user can only use the built-in password manager.
+inline constexpr char kAutofillThirdPartyPasswordManagersAllowed[] =
+    "autofill.third_party_password_managers_allowed";
 inline constexpr char kFacilitatedPaymentsPix[] = "facilitated_payments.pix";
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -149,10 +164,6 @@ void SetAutofillPaymentMethodsEnabled(PrefService* prefs, bool enabled);
 bool HasSeenIban(const PrefService* prefs);
 
 void SetAutofillHasSeenIban(PrefService* prefs);
-
-bool IsAutofillIbanEnabled(const PrefService* prefs);
-
-void SetAutofillIbanEnabled(PrefService* prefs, bool enabled);
 
 bool IsAutofillManaged(const PrefService* prefs);
 

@@ -308,7 +308,7 @@ void RecordNegotiatedHttpDatagramSupport(quic::HttpDatagramSupport support) {
       negotiated = NegotiatedHttpDatagramVersion::kRfc;
       break;
     case quic::HttpDatagramSupport::kRfcAndDraft04:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
   base::UmaHistogramEnumeration(
@@ -405,7 +405,7 @@ DedicatedWebTransportHttp3Client::~DedicatedWebTransportHttp3Client() {
 void DedicatedWebTransportHttp3Client::Connect() {
   if (state_ != WebTransportState::NEW ||
       next_connect_state_ != CONNECT_STATE_NONE) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -481,7 +481,7 @@ void DedicatedWebTransportHttp3Client::DoLoop(int rv) {
         rv = DoConfirmConnection();
         break;
       default:
-        NOTREACHED() << "Invalid state reached: " << connect_state;
+        NOTREACHED_IN_MIGRATION() << "Invalid state reached: " << connect_state;
         rv = ERR_FAILED;
         break;
     }
@@ -587,8 +587,8 @@ int DedicatedWebTransportHttp3Client::DoConnect() {
 void DedicatedWebTransportHttp3Client::CreateConnection() {
   // Delete the objects in the same order they would be normally deleted by the
   // destructor.
-  packet_reader_ = nullptr;
   session_ = nullptr;
+  packet_reader_ = nullptr;
 
   IPEndPoint server_address =
       *resolve_host_request_->GetAddressResults()->begin();
@@ -815,7 +815,7 @@ void DedicatedWebTransportHttp3Client::TransitionToState(
       break;
 
     default:
-      NOTREACHED() << "Invalid state reached: " << next_state;
+      NOTREACHED_IN_MIGRATION() << "Invalid state reached: " << next_state;
       break;
   }
 }

@@ -39,6 +39,7 @@ namespace ash {
 
 class Combobox;
 class CounterExpandButton;
+class GlanceablesContentsScrollView;
 class GlanceablesListFooterView;
 class GlanceablesProgressBarView;
 struct GlanceablesClassroomAssignment;
@@ -77,6 +78,10 @@ class ASH_EXPORT GlanceablesClassroomStudentView
   // views::ViewObserver:
   void OnViewFocused(views::View* view) override;
 
+  // GlanceablesTimeManagementBubbleView:
+  bool IsExpanded() const override;
+  int GetCollapsedStatePreferredHeight() const override;
+
   // Invalidates any pending assignments requests. Called when the
   // glanceables bubble widget starts closing to avoid unnecessary UI updates.
   void CancelUpdates();
@@ -85,9 +90,12 @@ class ASH_EXPORT GlanceablesClassroomStudentView
   void CreateElevatedBackground();
 
   void SetExpandState(bool is_expanded);
-  bool is_expanded() const { return is_expanded_; }
 
  private:
+  // Triggers classroom bubble resize animation to new preferred size, if an
+  // animation is required.
+  void AnimateResize();
+
   // Toggles `is_expanded_` and updates the layout.
   void ToggleExpandState();
 
@@ -124,6 +132,7 @@ class ASH_EXPORT GlanceablesClassroomStudentView
   // This is a simple label that copies the label style on `combo_box_view_` so
   // that it can visually replace it when `combo_box_view_` is hidden.
   raw_ptr<views::Label> combobox_replacement_label_ = nullptr;
+  raw_ptr<GlanceablesContentsScrollView> content_scroll_view_ = nullptr;
   raw_ptr<views::FlexLayoutView> body_container_ = nullptr;
   raw_ptr<views::BoxLayoutView> list_container_view_ = nullptr;
   raw_ptr<GlanceablesListFooterView> list_footer_view_ = nullptr;
@@ -153,9 +162,6 @@ class ASH_EXPORT GlanceablesClassroomStudentView
   // The number of times that the selected list has changed during the lifetime
   // of this view.
   int selected_list_change_count_ = 0;
-
-  // If true, always sets `list_footer_view_` to invisible.
-  bool force_hide_footer_view_ = false;
 
   // The currently selected assignment list.
   StudentAssignmentsListType selected_list_type_ =

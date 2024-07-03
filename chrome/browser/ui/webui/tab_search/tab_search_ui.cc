@@ -77,10 +77,8 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"createGroups", IDS_TAB_ORGANIZATION_CREATE_GROUPS},
       {"dismiss", IDS_TAB_ORGANIZATION_DISMISS},
       {"editAriaLabel", IDS_TAB_ORGANIZATION_EDIT_ARIA_LABEL},
-      {"failureBodyGeneric",
-       IDS_TAB_ORGANIZATION_FAILURE_BODY_GENERIC},
-      {"failureBodyGrouping",
-       IDS_TAB_ORGANIZATION_FAILURE_BODY_GROUPING},
+      {"failureBodyGeneric", IDS_TAB_ORGANIZATION_FAILURE_BODY_GENERIC},
+      {"failureBodyGrouping", IDS_TAB_ORGANIZATION_FAILURE_BODY_GROUPING},
       {"failureTitleGeneric", IDS_TAB_ORGANIZATION_FAILURE_TITLE_GENERIC},
       {"failureTitleGrouping", IDS_TAB_ORGANIZATION_FAILURE_TITLE_GROUPING},
       {"inProgressTitle", IDS_TAB_ORGANIZATION_IN_PROGRESS_TITLE},
@@ -121,6 +119,8 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"notStartedTitle", IDS_TAB_ORGANIZATION_NOT_STARTED_TITLE},
       {"notStartedTitleFRE", IDS_TAB_ORGANIZATION_NOT_STARTED_TITLE_FRE},
       {"rejectAriaLabel", IDS_TAB_ORGANIZATION_REJECT_ARIA_LABEL},
+      {"successMissingActiveTabTitle",
+       IDS_TAB_ORGANIZATION_SUCCESS_MISSING_ACTIVE_TAB_TITLE},
       {"successTitle", IDS_TAB_ORGANIZATION_SUCCESS_TITLE},
       {"successTitleSingle", IDS_TAB_ORGANIZATION_SUCCESS_TITLE_SINGLE},
       {"successTitleMulti", IDS_TAB_ORGANIZATION_SUCCESS_TITLE_MULTI},
@@ -139,27 +139,6 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
   source->AddLocalizedStrings(kStrings);
   source->AddBoolean("useRipples", views::PlatformStyle::kUseRipples);
 
-  // Add the configuration parameters for fuzzy search.
-  source->AddBoolean("useFuzzySearch", base::FeatureList::IsEnabled(
-                                           features::kTabSearchFuzzySearch));
-
-  source->AddBoolean("searchIgnoreLocation",
-                     features::kTabSearchSearchIgnoreLocation.Get());
-  source->AddInteger("searchDistance",
-                     features::kTabSearchSearchDistance.Get());
-  source->AddDouble(
-      "searchThreshold",
-      std::clamp<double>(features::kTabSearchSearchThreshold.Get(),
-                         features::kTabSearchSearchThresholdMin,
-                         features::kTabSearchSearchThresholdMax));
-  source->AddDouble("searchTitleWeight", features::kTabSearchTitleWeight.Get());
-  source->AddDouble("searchHostnameWeight",
-                    features::kTabSearchHostnameWeight.Get());
-  source->AddDouble("searchGroupTitleWeight",
-                    features::kTabSearchGroupTitleWeight.Get());
-
-  source->AddBoolean("moveActiveTabToBottom",
-                     features::kTabSearchMoveActiveTabToBottom.Get());
   source->AddLocalizedString("close", IDS_CLOSE);
 
   source->AddInteger(
@@ -247,6 +226,10 @@ void TabSearchUI::CreatePageHandler(
   // per instance of the TabSearchUI.
   page_handler_ = std::make_unique<TabSearchPageHandler>(
       std::move(receiver), std::move(page), web_ui(), this, &metrics_reporter_);
+
+  if (!page_handler_creation_callback_.is_null()) {
+    std::move(page_handler_creation_callback_).Run();
+  }
 }
 
 bool TabSearchUI::ShowTabOrganizationFRE() {

@@ -299,7 +299,7 @@ const std::vector<FieldValue> kDefaultAddress{
       return fields;
     }
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return fields;
 }
 
@@ -875,8 +875,7 @@ const char AutofillInteractiveTestBase::kTestUrlPath[] =
 
 class AutofillInteractiveTest : public AutofillInteractiveTestBase {
  protected:
-  AutofillInteractiveTest()
-      : feature_list_(features::kAutofillEnableSelectList) {}
+  AutofillInteractiveTest() = default;
   ~AutofillInteractiveTest() override = default;
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -888,9 +887,6 @@ class AutofillInteractiveTest : public AutofillInteractiveTestBase {
     command_line->AppendSwitchASCII("enable-blink-features",
                                     "HTMLSelectListElement");
   }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 class AutofillInteractiveTestWithHistogramTester
@@ -963,48 +959,6 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, FillHiddenSelect) {
   EXPECT_EQ(kDefaultAddressValues.state_short, GetFieldValueById("state"));
 }
 
-// AutofillInteractiveTest subclass which disables autofilling <selectlist>.
-class AutofillInteractiveDisableAutofillSelectListTest
-    : public AutofillInteractiveTest {
- protected:
-  AutofillInteractiveDisableAutofillSelectListTest() {
-    feature_list_.InitAndDisableFeature(features::kAutofillEnableSelectList);
-  }
-  ~AutofillInteractiveDisableAutofillSelectListTest() override = default;
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// Test that the <selectlist> is not filled if the <selectlist> autofilling
-// feature is disabled.
-IN_PROC_BROWSER_TEST_F(AutofillInteractiveDisableAutofillSelectListTest,
-                       DisableSelectListAutofilling) {
-  const char kFormWithSelectListString[] = R"(
-    <!-- Disable extra network request for /favicon.ico -->
-    <link rel="icon" href="data:,">
-    <form action="https://www.example.com/" method="POST" id="shipping">
-      <label for="firstname">First name:</label>
-      <input type="text" id="firstname" autocomplete="given-name"><br>
-      <label for="state">State:</label>
-      <selectlist id="state" autocomplete="address-level1">
-        <option value="" selected="yes">--</option>
-        <option value="CA">California</option>
-        <option value="TX">Texas</option>
-      </selectlist>
-    </form>
-    )";
-
-  CreateTestProfile();
-  SetTestUrlResponse(kFormWithSelectListString);
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetTestUrl()));
-
-  ASSERT_TRUE(AutofillFlow(GetElementById("firstname"), this));
-  EXPECT_THAT(GetFormValues(),
-              ValuesAre({{"firstname", kDefaultAddressValues.first_name},
-                         {"state", ""}}));
-}
-
 class AutofillInteractiveTest_PrefillFormAndFill
     : public AutofillInteractiveTest {
  public:
@@ -1028,8 +982,10 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, BasicUndoAutofill) {
                                 kEmptyAddress, {"firstname", "M"}))}));
   EXPECT_THAT(GetFormValues(), ValuesAre(kDefaultAddress));
 
-  ASSERT_TRUE(
-      AutofillFlow(GetElementById("firstname"), this, {.target_index = 1}));
+  ASSERT_TRUE(AutofillFlow(GetElementById("firstname"), this,
+                           {.expect_previews = false,
+                            .show_method = ShowMethod::ByClick(),
+                            .target_index = 1}));
 
   std::vector<FieldValue> expected_values = kEmptyAddress;
   expected_values[0].value = "M";
@@ -2389,7 +2345,11 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestBase, AllAutocomplete) {
   EXPECT_EQ("Austin", GetFieldValueById("city"));
   EXPECT_EQ("Initech", GetFieldValueById("company"));
   EXPECT_EQ("red.swingline@initech.com", GetFieldValueById("email"));
-  EXPECT_EQ("5125551234", GetFieldValueById("phone"));
+  EXPECT_EQ(
+      base::FeatureList::IsEnabled(features::kAutofillInferCountryCallingCode)
+          ? "15125551234"
+          : "5125551234",
+      GetFieldValueById("phone"));
 }
 
 // Test that an 'onchange' event is not fired when a <selectlist> preview
@@ -2496,7 +2456,7 @@ class AutofillInteractiveFencedFrameTest
         return cross_frame;
       }
     }
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 
  private:
@@ -2670,7 +2630,11 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestDynamicForm,
   EXPECT_EQ("Austin", GetFieldValueById("city_form1"));
   EXPECT_EQ("Initech", GetFieldValueById("company_form1"));
   EXPECT_EQ("red.swingline@initech.com", GetFieldValueById("email_form1"));
-  EXPECT_EQ("5125551234", GetFieldValueById("phone_form1"));
+  EXPECT_EQ(
+      base::FeatureList::IsEnabled(features::kAutofillInferCountryCallingCode)
+          ? "15125551234"
+          : "5125551234",
+      GetFieldValueById("phone_form1"));
 }
 
 IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestDynamicForm,
@@ -2691,7 +2655,11 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestDynamicForm,
   EXPECT_EQ("Austin", GetFieldValueById("city_form1"));
   EXPECT_EQ("Initech", GetFieldValueById("company_form1"));
   EXPECT_EQ("red.swingline@initech.com", GetFieldValueById("email_form1"));
-  EXPECT_EQ("5125551234", GetFieldValueById("phone_form1"));
+  EXPECT_EQ(
+      base::FeatureList::IsEnabled(features::kAutofillInferCountryCallingCode)
+          ? "15125551234"
+          : "5125551234",
+      GetFieldValueById("phone_form1"));
 
   refill = ListenForRefill("firstname_form2");
   ASSERT_TRUE(AutofillFlow(GetElementById("firstname_form2"), this));
@@ -2704,7 +2672,11 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestDynamicForm,
   EXPECT_EQ("Austin", GetFieldValueById("city_form2"));
   EXPECT_EQ("Initech", GetFieldValueById("company_form2"));
   EXPECT_EQ("red.swingline@initech.com", GetFieldValueById("email_form2"));
-  EXPECT_EQ("5125551234", GetFieldValueById("phone_form2"));
+  EXPECT_EQ(
+      base::FeatureList::IsEnabled(features::kAutofillInferCountryCallingCode)
+          ? "15125551234"
+          : "5125551234",
+      GetFieldValueById("phone_form2"));
 }
 
 // Test that forms that dynamically change a second time do not get filled.
@@ -3140,7 +3112,11 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestDynamicForm,
   EXPECT_EQ("Austin", GetFieldValueById("city_form1"));
   EXPECT_EQ("Initech", GetFieldValueById("company_form1"));
   EXPECT_EQ("red.swingline@initech.com", GetFieldValueById("email_form1"));
-  EXPECT_EQ("5125551234", GetFieldValueById("phone_form1"));
+  EXPECT_EQ(
+      base::FeatureList::IsEnabled(features::kAutofillInferCountryCallingCode)
+          ? "15125551234"
+          : "5125551234",
+      GetFieldValueById("phone_form1"));
 }
 
 // Test that we can Autofill dynamically changing selects that have options
@@ -3189,7 +3165,11 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestDynamicForm,
   EXPECT_EQ("Initech", GetFieldValueById("company_syntheticform1"));
   EXPECT_EQ("red.swingline@initech.com",
             GetFieldValueById("email_syntheticform1"));
-  EXPECT_EQ("5125551234", GetFieldValueById("phone_syntheticform1"));
+  EXPECT_EQ(
+      base::FeatureList::IsEnabled(features::kAutofillInferCountryCallingCode)
+          ? "15125551234"
+          : "5125551234",
+      GetFieldValueById("phone_syntheticform1"));
 }
 
 // Test that we can Autofill dynamically synthetic forms when the select options

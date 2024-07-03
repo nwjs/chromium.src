@@ -1,0 +1,14 @@
+{% macro declare_enum(name, enum) -%}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(transparent)]
+pub struct {{name}}(pub i32);
+
+impl {{name}} {
+{%- for field in enum.fields %}
+    #[allow(non_upper_case_globals)]
+    pub const r#{{field.name}}: Self = Self({{field.numeric_value}});
+{%- endfor %}
+}
+
+{%- endmacro -%}

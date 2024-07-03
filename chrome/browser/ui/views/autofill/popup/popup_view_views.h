@@ -19,7 +19,7 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_search_bar_view.h"
 #include "components/autofill/core/common/aliases.h"
-#include "content/public/common/input/native_web_keyboard_event.h"
+#include "components/input/native_web_keyboard_event.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -54,14 +54,6 @@ class ExpandablePopupParentView {
   virtual void OnMouseExitedInChildren() = 0;
 };
 
-struct PopupViewSearchBarConfig {
-  // This setting controls the search bar's visibility. If set to 'false',
-  // the search bar won't be displayed, and other settings become irrelevant.
-  bool enabled = false;
-  std::u16string placeholder;
-  std::u16string no_results_message;
-};
-
 // Views implementation for the autofill and password suggestion.
 class PopupViewViews : public PopupBaseView,
                        public AutofillPopupView,
@@ -92,9 +84,12 @@ class PopupViewViews : public PopupBaseView,
                  base::WeakPtr<ExpandablePopupParentView> parent,
                  views::Widget* parent_widget);
 
-  // Constructor for creating root level popups.
-  explicit PopupViewViews(base::WeakPtr<AutofillPopupController> controller,
-                          PopupViewSearchBarConfig search_bar_config = {});
+  // Constructor for creating root level popups. Providing `std::nullopt` to
+  // the `search_bar_config` results in creating a popup without a search bar.
+  explicit PopupViewViews(
+      base::WeakPtr<AutofillPopupController> controller,
+      std::optional<const AutofillPopupView::SearchBarConfig>
+          search_bar_config = std::nullopt);
   PopupViewViews(const PopupViewViews&) = delete;
   PopupViewViews& operator=(const PopupViewViews&) = delete;
   ~PopupViewViews() override;
@@ -125,6 +120,8 @@ class PopupViewViews : public PopupBaseView,
   base::WeakPtr<AutofillPopupView> GetWeakPtr() override;
 
   // PopupBaseView:
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override;
   void OnWidgetVisibilityChanged(views::Widget* widget, bool visible) override;
 
   // PopupSearchBarView::Delegate:
@@ -207,11 +204,10 @@ class PopupViewViews : public PopupBaseView,
   // Reacts to key events under the assumption that the currently shown popup
   // contains Compose content.
   bool HandleKeyPressEventForCompose(
-      const content::NativeWebKeyboardEvent& event);
+      const input::NativeWebKeyboardEvent& event);
 
   // AutofillPopupView:
-  bool HandleKeyPressEvent(
-      const content::NativeWebKeyboardEvent& event) override;
+  bool HandleKeyPressEvent(const input::NativeWebKeyboardEvent& event) override;
   void OnSuggestionsChanged() override;
 
   // PopupBaseView:
@@ -235,11 +231,6 @@ class PopupViewViews : public PopupBaseView,
       AutoselectFirstSuggestion autoselect_first_suggestion =
           AutoselectFirstSuggestion(false));
 
-  // Returns true when fields `is_acceptable` and `apply_style_deactivated` are
-  // false for the suggestion as it indicates that the suggestion is a manual
-  // fallback suggestion.
-  bool CanOpenSubPopupSuggestion(const Suggestion& suggestion);
-
   // Attempts to select the content cell of the row with the currently open
   // sub-popup. This closes the sub-popup and has the effect of going one menu
   // level up. Returns whether this was successful.
@@ -259,7 +250,8 @@ class PopupViewViews : public PopupBaseView,
   std::optional<size_t> row_with_open_sub_popup_;
 
   std::vector<RowPointer> rows_;
-  const PopupViewSearchBarConfig search_bar_config_;
+  const std::optional<const AutofillPopupView::SearchBarConfig>
+      search_bar_config_;
   raw_ptr<PopupSearchBarView> search_bar_ = nullptr;
   raw_ptr<views::BoxLayoutView> suggestions_container_ = nullptr;
   raw_ptr<views::ScrollView> scroll_view_ = nullptr;

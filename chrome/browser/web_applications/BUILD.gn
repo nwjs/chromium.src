@@ -88,6 +88,8 @@ source_set("web_applications") {
     "generated_icon_fix_util.h",
     "install_bounce_metric.cc",
     "install_bounce_metric.h",
+    "install_state.cc",
+    "install_state.h",
     "isolated_web_apps/check_isolated_web_app_bundle_installability_command.cc",
     "isolated_web_apps/check_isolated_web_app_bundle_installability_command.h",
     "isolated_web_apps/chrome_content_browser_client_isolated_web_apps_part.cc",
@@ -226,8 +228,6 @@ source_set("web_applications") {
     "os_integration/web_app_run_on_os_login.h",
     "os_integration/web_app_shortcut.cc",
     "os_integration/web_app_shortcut.h",
-    "os_integration/web_app_shortcut_manager.cc",
-    "os_integration/web_app_shortcut_manager.h",
     "os_integration/web_app_shortcuts_menu.cc",
     "os_integration/web_app_shortcuts_menu.h",
     "os_integration/web_app_uninstallation_via_os_settings_registration.cc",
@@ -353,14 +353,14 @@ source_set("web_applications") {
       "isolated_web_apps/policy/isolated_web_app_policy_manager.h",
       "migrations/adobe_express_oem_to_default_migration.cc",
       "migrations/adobe_express_oem_to_default_migration.h",
+      "migrations/migrate_preinstalls_to_aps.cc",
+      "migrations/migrate_preinstalls_to_aps.h",
       "os_integration/web_app_run_on_os_login_chromeos.cc",
       "os_integration/web_app_shortcut_chromeos.cc",
       "web_app_run_on_os_login_manager.cc",
       "web_app_run_on_os_login_manager.h",
     ]
-  }
-
-  if (!is_chromeos) {
+  } else {
     sources += [
       "jobs/link_capturing.cc",
       "jobs/link_capturing.h",
@@ -446,6 +446,7 @@ source_set("web_applications") {
     "//chrome/browser/favicon",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/shortcuts",
+    "//chrome/browser/sync:factories",
     "//chrome/common",
     "//chrome/common:chrome_features",
     "//chrome/common:non_code_constants",
@@ -453,6 +454,7 @@ source_set("web_applications") {
     "//components/browsing_data/content",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/browser:cookie_settings",
+    "//components/crx_file",
     "//components/custom_handlers",
     "//components/device_event_log",
     "//components/keep_alive_registry:keep_alive_registry",
@@ -494,9 +496,6 @@ source_set("web_applications") {
     "//url",
   ]
 
-  # TODO(crbug.com/40775647): Clean up this legacy crx dependency.
-  deps += [ "//components/crx_file" ]
-
   if (is_chrome_branded) {
     sources += [
       "preinstalled_web_apps/gmail.cc",
@@ -515,12 +514,12 @@ source_set("web_applications") {
 
     if (is_chromeos) {
       sources += [
-        "//chrome/browser/resources/preinstalled_web_apps/internal/container.cc",
-        "//chrome/browser/resources/preinstalled_web_apps/internal/container.h",
         "preinstalled_web_apps/app_mall.cc",
         "preinstalled_web_apps/app_mall.h",
         "preinstalled_web_apps/calculator.cc",
         "preinstalled_web_apps/calculator.h",
+        "preinstalled_web_apps/container.cc",
+        "preinstalled_web_apps/container.h",
         "preinstalled_web_apps/google_calendar.cc",
         "preinstalled_web_apps/google_calendar.h",
         "preinstalled_web_apps/google_chat.cc",
@@ -645,8 +644,6 @@ source_set("web_applications_test_support") {
     "test/fake_os_integration_manager.h",
     "test/fake_web_app_database_factory.cc",
     "test/fake_web_app_database_factory.h",
-    "test/fake_web_app_file_handler_manager.cc",
-    "test/fake_web_app_file_handler_manager.h",
     "test/fake_web_app_origin_association_manager.cc",
     "test/fake_web_app_origin_association_manager.h",
     "test/fake_web_app_provider.cc",
@@ -699,7 +696,6 @@ source_set("web_applications_test_support") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
     "//components/base32",
-    "//components/crx_file:crx_file",
     "//components/keyed_service/content",
     "//components/services/app_service",
     "//components/sync:test_support",
@@ -759,6 +755,7 @@ test("web_application_fuzztests") {
   deps = [
     ":web_applications",
     ":web_applications_test_support",
+    "//base/test:fuzztest_support",
     "//chrome/test:test_support",
     "//components/webapps/common:common",
     "//third_party/fuzztest:fuzztest_gtest_main",
@@ -822,12 +819,12 @@ source_set("web_applications_unit_tests") {
     "jobs/install_placeholder_job_unittest.cc",
     "locks/web_app_lock_manager_unittest.cc",
     "os_integration/file_handling_sub_manager_unittest.cc",
+    "os_integration/file_handling_utils_unittest.cc",
     "os_integration/protocol_handling_sub_manager_unittest.cc",
     "os_integration/run_on_os_login_sub_manager_unittest.cc",
     "os_integration/shortcut_menu_handling_sub_manager_unittest.cc",
     "os_integration/shortcut_sub_manager_unittest.cc",
     "os_integration/uninstallation_via_os_settings_sub_manager_unittest.cc",
-    "os_integration/web_app_file_handler_manager_unittest.cc",
     "os_integration/web_app_protocol_handler_manager_unittest.cc",
     "os_integration/web_app_shortcut_unittest.cc",
     "policy/pre_redirection_url_observer_unittest.cc",
@@ -873,9 +870,9 @@ source_set("web_applications_unit_tests") {
     sources += [
       "app_shim_registry_mac_unittest.cc",
       "os_integration/icns_encoder_unittest.cc",
+      "os_integration/shortcuts_versioning_mac_unittest.cc",
       "os_integration/web_app_run_on_os_login_mac_unittest.mm",
       "os_integration/web_app_shortcut_mac_unittest.mm",
-      "os_integration/web_app_shortcut_manager_mac_unittest.cc",
     ]
   }
 
@@ -898,9 +895,7 @@ source_set("web_applications_unit_tests") {
       "os_integration/web_app_run_on_os_login_chromeos_unittest.cc",
       "web_app_run_on_os_login_manager_unittest.cc",
     ]
-  }
-
-  if (!is_chromeos) {
+  } else {
     sources += [ "jobs/link_capturing_unittest.cc" ]
   }
 
@@ -1032,6 +1027,7 @@ source_set("web_applications_browser_tests") {
     sources += [
       "commands/install_app_from_verified_manifest_command_browsertest.cc",
       "migrations/adobe_express_oem_to_default_migration_browsertest.cc",
+      "migrations/migrate_preinstalls_to_aps_browsertest.cc",
       "web_app_run_on_os_login_manager_browsertest.cc",
 
       # TODO(crbug.com/40274058): Support automatic IWA updates on other

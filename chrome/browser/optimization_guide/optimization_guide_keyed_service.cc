@@ -85,6 +85,7 @@
 
 namespace {
 
+using ::optimization_guide::ModelExecutionFeaturesController;
 using ::optimization_guide::OnDeviceModelComponentStateManager;
 using ::optimization_guide::OnDeviceModelPerformanceClass;
 
@@ -435,9 +436,15 @@ void OptimizationGuideKeyedService::Initialize() {
             on_device_component_manager_->GetWeakPtr());
       }
 
+      auto* variations_service = g_browser_process->variations_service();
+      auto dogfood_status =
+          variations_service && variations_service->IsLikelyDogfoodClient()
+              ? ModelExecutionFeaturesController::DogfoodStatus::DOGFOOD
+              : ModelExecutionFeaturesController::DogfoodStatus::NON_DOGFOOD;
       model_execution_features_controller_ = std::make_unique<
           optimization_guide::ModelExecutionFeaturesController>(
-          profile->GetPrefs(), IdentityManagerFactory::GetForProfile(profile));
+          profile->GetPrefs(), IdentityManagerFactory::GetForProfile(profile),
+          dogfood_status);
 
       // Don't create logs uploader service when feature is disabled. All the
       // logs upload get route through this service which exists one per
@@ -631,6 +638,35 @@ void OptimizationGuideKeyedService::ExecuteModel(
   model_execution_manager_->ExecuteModel(feature, request_metadata,
                                          /*log_ai_data_request=*/nullptr,
                                          std::move(callback));
+}
+
+void OptimizationGuideKeyedService::AddOnDeviceModelAvailabilityChangeObserver(
+    optimization_guide::ModelBasedCapabilityKey feature,
+    optimization_guide::OnDeviceModelAvailabilityObserver* observer) {
+  if (!on_device_component_manager_) {
+    return;
+  }
+  auto service_controller = GetOnDeviceModelServiceController(
+      on_device_component_manager_->GetWeakPtr());
+  if (service_controller) {
+    service_controller->AddOnDeviceModelAvailabilityChangeObserver(feature,
+                                                                   observer);
+  }
+}
+
+void OptimizationGuideKeyedService::
+    RemoveOnDeviceModelAvailabilityChangeObserver(
+        optimization_guide::ModelBasedCapabilityKey feature,
+        optimization_guide::OnDeviceModelAvailabilityObserver* observer) {
+  if (!on_device_component_manager_) {
+    return;
+  }
+  auto service_controller = GetOnDeviceModelServiceController(
+      on_device_component_manager_->GetWeakPtr());
+  if (service_controller) {
+    service_controller->RemoveOnDeviceModelAvailabilityChangeObserver(feature,
+                                                                      observer);
+  }
 }
 
 void OptimizationGuideKeyedService::UploadModelQualityLogs(

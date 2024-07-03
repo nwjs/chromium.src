@@ -22,7 +22,7 @@ public class TabResumptionModuleEnablement {
 
     static class LocalTab {
         static boolean isFeatureEnabled() {
-            return HomeModulesMetricsUtils.HOME_MODULES_COMBINE_TABS.getValue();
+            return HomeModulesMetricsUtils.TAB_RESUMPTION_COMBINE_TABS.getValue();
         }
 
         static boolean isAllowedByConfig() {
@@ -59,11 +59,20 @@ public class TabResumptionModuleEnablement {
             return SyncServiceFactory.getForProfile(profile).hasKeepEverythingSynced();
         }
 
+        static boolean isV2Enabled() {
+            return ChromeFeatureList.isEnabled(ChromeFeatureList.VISITED_URL_RANKING_SERVICE)
+                    && TabResumptionModuleUtils.TAB_RESUMPTION_V2.getValue();
+        }
+
+        static boolean isV2EnabledWithLocalTabs() {
+            return isV2Enabled()
+                    && TabResumptionModuleUtils.TAB_RESUMPTION_FETCH_LOCAL_TABS_BACKEND.getValue();
+        }
+
         static boolean shouldMakeProvider(Profile profile) {
             return isFeatureEnabled()
                     && isAllowedByConfig()
-                    && isSignedIn(profile)
-                    && isSyncEnabled(profile);
+                    && (isV2Enabled() || (isSignedIn(profile) && isSyncEnabled(profile)));
         }
     }
 

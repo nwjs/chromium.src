@@ -5,6 +5,7 @@
 #include "media/gpu/windows/d3d11_video_decoder.h"
 
 #include <d3d11_4.h>
+
 #include <memory>
 #include <utility>
 
@@ -42,6 +43,7 @@
 #include "media/gpu/windows/d3d12_video_decoder_wrapper.h"
 #include "media/gpu/windows/supported_profile_helpers.h"
 #include "media/media_buildflags.h"
+#include "ui/gfx/color_space.h"
 #include "ui/gfx/hdr_metadata.h"
 #include "ui/gl/gl_angle_util_win.h"
 #include "ui/gl/gl_switches.h"
@@ -136,8 +138,7 @@ D3D11VideoDecoder::D3D11VideoDecoder(
       system_hdr_enabled_(system_hdr_enabled),
       use_shared_handle_(
           base::FeatureList::IsEnabled(kD3D12VideoDecoder) ||
-          base::FeatureList::IsEnabled(kD3D11VideoDecoderUseSharedHandle) ||
-          gpu_preferences.gr_context_type != gpu::GrContextType::kGL) {
+          base::FeatureList::IsEnabled(kD3D11VideoDecoderUseSharedHandle)) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(media_log_);
 }
@@ -903,10 +904,10 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
     picture_color_space = config_.color_space_info().ToGfxColorSpace();
   }
 
-  MailboxHolderArray mailbox_holders;
+  gpu::MailboxHolder mailbox_holders[VideoFrame::kMaxPlanes];
   gfx::ColorSpace output_color_space;
   D3D11Status result = picture_buffer->ProcessTexture(
-      picture_color_space, &mailbox_holders, &output_color_space);
+      picture_color_space, &mailbox_holders[0], &output_color_space);
   if (!result.is_ok()) {
     NotifyError(std::move(result).AddHere());
     return false;
@@ -947,10 +948,15 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
   // video. As a result, we should not allow overlay for non-NV12/P010 formats
   // which may cause chroma downsampling when blitting into the back buffer.
   // See https://crbugs.com/331679628 for more details.
+  //
+  // For the GBR matrix, VP isn't able to handle the correct color conversion,
+  // so the current workaround is to disable overlay and let viz handle the
+  // conversion. See https://crbug.com/343014700.
   if (!config_.is_encrypted()) {
     frame->metadata().allow_overlay =
-        texture_selector_->OutputDXGIFormat() == DXGI_FORMAT_P010 ||
-        texture_selector_->OutputDXGIFormat() == DXGI_FORMAT_NV12;
+        picture_color_space.GetMatrixID() != gfx::ColorSpace::MatrixID::GBR &&
+        (texture_selector_->OutputDXGIFormat() == DXGI_FORMAT_P010 ||
+         texture_selector_->OutputDXGIFormat() == DXGI_FORMAT_NV12);
   }
   frame->metadata().power_efficient = true;
 
@@ -962,10 +968,8 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
                                                     : config_.hdr_metadata());
   }
 
-  if (IsMultiPlaneFormatForHardwareVideoEnabled()) {
-    frame->set_shared_image_format_type(
-        SharedImageFormatType::kSharedImageFormat);
-  }
+  frame->set_shared_image_format_type(
+      SharedImageFormatType::kSharedImageFormat);
 
   frame->metadata().is_webgpu_compatible = use_shared_handle_;
 

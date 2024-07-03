@@ -13,10 +13,12 @@
 #include <utility>
 #include <vector>
 
+#include "ash/constants/ash_features.h"
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/dcheck_is_on.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/number_formatting.h"
@@ -88,10 +90,12 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chrome/browser/ash/crosapi/browser_util.h"
 #include "chrome/browser/ash/crosapi/crosapi_ash.h"
 #include "chrome/browser/ash/crosapi/crosapi_manager.h"
 #include "chrome/browser/ash/crosapi/local_printer_ash.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
+#include "chrome/browser/ui/webui/print_preview/extension_printer_handler_adapter_ash.h"
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "chrome/common/chrome_paths_lacros.h"
 #include "chromeos/lacros/lacros_service.h"
@@ -428,7 +432,7 @@ bool NWPrintGetCustomPrinting() {
 
 void NWPrintSetOptions(const base::Value::Dict* dict, WebContents* web_contents) {
   *g_nw_print_options = dict->Clone();
-  absl::optional<bool> silent_printing = (*g_nw_print_options).FindBool("silent");
+  std::optional<bool> silent_printing = (*g_nw_print_options).FindBool("silent");
   if (silent_printing && web_contents)
     web_contents->set_silent_printing(*silent_printing);
 }
@@ -727,25 +731,25 @@ void PrintPreviewHandler::HandleGetPreview(const base::Value::List& args) {
   if (dict) {
     base::Value::Dict* media_size_value = dict->FindDict(printing::kSettingMediaSize);
     base::Value::Dict* custom_margins = dict->FindDict(printing::kSettingMarginsCustom);
-    absl::optional<bool> display_header_footer;
+    std::optional<bool> display_header_footer;
 
     if (media_size_value && media_size_value->empty())
       settings.Set(printing::kSettingMediaSize, media_size_value->Clone());
     display_header_footer = (*g_nw_print_options).FindBool(printing::kSettingHeaderFooterEnabled);
     if (display_header_footer)
       settings.Set(printing::kSettingHeaderFooterEnabled, *display_header_footer);
-    absl::optional<bool> landscape = (*g_nw_print_options).FindBool(printing::kSettingLandscape);
+    std::optional<bool> landscape = (*g_nw_print_options).FindBool(printing::kSettingLandscape);
     if (landscape)
       settings.Set(printing::kSettingLandscape, *landscape);
-    absl::optional<bool> backgrounds = (*g_nw_print_options).FindBool(printing::kSettingShouldPrintBackgrounds);
+    std::optional<bool> backgrounds = (*g_nw_print_options).FindBool(printing::kSettingShouldPrintBackgrounds);
     if (backgrounds)
       settings.Set(printing::kSettingShouldPrintBackgrounds, *backgrounds);
-    absl::optional<int> margins_type = dict->FindInt(printing::kSettingMarginsType);
+    std::optional<int> margins_type = dict->FindInt(printing::kSettingMarginsType);
     if (margins_type)
       settings.Set(printing::kSettingMarginsType, *margins_type);
     if (custom_margins && !custom_margins->empty())
       settings.Set(printing::kSettingMarginsCustom, custom_margins->Clone());
-    absl::optional<int> scale = dict->FindInt(printing::kSettingScaleFactor);
+    std::optional<int> scale = dict->FindInt(printing::kSettingScaleFactor);
     if (scale)
       settings.Set(printing::kSettingScaleFactor, *scale);
     std::string* str = dict->FindString("footerString");
@@ -804,7 +808,7 @@ void PrintPreviewHandler::HandleDoPrint(const base::Value::List& args) {
       changed = true;
       settings.Set(printing::kSettingPageRange, page_range_array->Clone());
     }
-    absl::optional<int> copies = dict->FindInt(printing::kSettingCopies);
+    std::optional<int> copies = dict->FindInt(printing::kSettingCopies);
     if (copies) {
       changed = true;
       settings.Set(printing::kSettingCopies, *copies);
@@ -1264,6 +1268,18 @@ void PrintPreviewHandler::ClearInitiatorDetails() {
 PrinterHandler* PrintPreviewHandler::GetPrinterHandler(
     mojom::PrinterType printer_type) {
   if (printer_type == mojom::PrinterType::kExtension) {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    // When Lacros is enabled, uses the ExtensionPrinterHandlerAdapterAsh to
+    // talk to Lacros's extension printers.
+    if (ash::features::IsLacrosExtensionPrintingEnabled() &&
+        crosapi::browser_util::IsLacrosEnabled()) {
+      if (!extension_printer_handler_adapter_) {
+        extension_printer_handler_adapter_ =
+            std::make_unique<ExtensionPrinterHandlerAdapterAsh>();
+      }
+      return extension_printer_handler_adapter_.get();
+    }
+#endif
     if (!extension_printer_handler_) {
       extension_printer_handler_ = PrinterHandler::CreateForExtensionPrinters(
           Profile::FromWebUI(web_ui()));

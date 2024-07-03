@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import {assertNotReached} from '../assert.js';
-import {SupportedWifiSecurityType} from '../barcode_chip.js';
 import {SessionBehavior} from '../memory_usage.js';
 import {
   BarcodeContentType,
@@ -14,9 +13,11 @@ import {
   IntentResultType,
   LaunchType,
   LowStorageActionType,
+  OcrEventType,
   RecordType,
   ShutterType,
 } from '../metrics.js';
+import {SupportedWifiSecurityType} from '../scanner_chip.js';
 import {State} from '../state.js';
 import {
   AspectRatioSet,
@@ -409,4 +410,19 @@ export function convertSessionBehaviorToMojo(sessionBehavior: number): number {
     mojoBehaviors |= mojoType.UserBehavior.kRecordTimelapseVideo;
   }
   return mojoBehaviors;
+}
+
+/**
+ * Converts the OCR event type to the mojo enum to be used in metrics.
+ */
+export function convertOcrEventTypeToMojo(ocrEventType: OcrEventType):
+    mojoType.OcrEventType {
+  switch (ocrEventType) {
+    case OcrEventType.COPY_TEXT:
+      return mojoType.OcrEventType.kCopyText;
+    case OcrEventType.TEXT_DETECTED:
+      return mojoType.OcrEventType.kTextDetected;
+    default:
+      assertNotReached();
+  }
 }

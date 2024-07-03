@@ -22,7 +22,8 @@ inline constexpr const char kMinPrioritySql[] =
 // property is only guaranteed because of the use of AUTOINCREMENT on the
 // source_id column, which prevents reuse upon row deletion.
 inline constexpr const char kGetMatchingSourcesSql[] =
-    "SELECT I.source_id,I.num_attributions,I.aggregatable_budget_consumed "
+    "SELECT I.source_id,I.num_attributions,"
+    "I.num_aggregatable_attribution_reports "
     "FROM sources I "
     "JOIN source_destinations D "
     "ON D.source_id=I.source_id AND D.destination_site=? "
@@ -123,8 +124,9 @@ inline constexpr const char kSetReportTimeSql[] =
   prefix "priority,"                           \
   prefix "debug_key,"                          \
   prefix "num_attributions,"                   \
-  prefix "aggregatable_budget_consumed,"       \
-  prefix "num_aggregatable_reports,"           \
+  prefix "remaining_aggregatable_attribution_budget," \
+  prefix "num_aggregatable_attribution_reports," \
+  prefix "remaining_aggregatable_debug_budget," \
   prefix "aggregatable_source,"                \
   prefix "filter_data,"                        \
   prefix "event_level_active,"                 \
@@ -256,6 +258,24 @@ inline constexpr const char kDeleteRateLimitsBySourceIdSql[] =
     "DELETE FROM rate_limits WHERE source_id=?";
 
 #undef RATE_LIMIT_SOURCE_CONDITION
+
+inline constexpr const char kAggregatableDebugReportAllowedForRateLimitSql[] =
+    "SELECT reporting_site,consumed_budget "
+    "FROM aggregatable_debug_rate_limits "
+    "WHERE context_site=? AND time>?";
+
+inline constexpr const char kDeleteExpiredAggregatableDebugRateLimitsSql[] =
+    "DELETE FROM aggregatable_debug_rate_limits "
+    "WHERE time<=?";
+
+inline constexpr const char kSelectAggregatableDebugRateLimitsForDeletionSql[] =
+    "SELECT id,reporting_origin "
+    "FROM aggregatable_debug_rate_limits "
+    "WHERE time BETWEEN ?1 AND ?2";
+
+inline constexpr const char kDeleteAggregatableDebugRateLimitRangeSql[] =
+    "DELETE FROM aggregatable_debug_rate_limits "
+    "WHERE time BETWEEN ?1 AND ?2";
 
 }  // namespace content::attribution_queries
 

@@ -64,6 +64,10 @@ std::string GetPrefNameFromSuggestionType(BirchSuggestionType type) {
       return prefs::kBirchUseFileSuggest;
     case BirchSuggestionType::kTab:
       return prefs::kBirchUseRecentTabs;
+    case BirchSuggestionType::kLastActive:
+      return prefs::kBirchUseLastActive;
+    case BirchSuggestionType::kMostVisited:
+      return prefs::kBirchUseMostVisited;
     case BirchSuggestionType::kExplore:
     case BirchSuggestionType::kUndefined:
       NOTREACHED_NORETURN();
@@ -87,7 +91,8 @@ BirchBarController::BirchBarController(bool from_pine_service)
   for (const auto& suggestion_pref :
        {prefs::kBirchUseCalendar, prefs::kBirchUseWeather,
         prefs::kBirchUseFileSuggest, prefs::kBirchUseRecentTabs,
-        prefs::kBirchUseReleaseNotes}) {
+        prefs::kBirchUseLastActive, prefs::kBirchUseMostVisited,
+        prefs::kBirchUseSelfShare, prefs::kBirchUseReleaseNotes}) {
     customize_suggestions_pref_registrar_.Add(
         suggestion_pref,
         base::BindRepeating(
@@ -104,7 +109,7 @@ BirchBarController::BirchBarController(bool from_pine_service)
 BirchBarController::~BirchBarController() {
   // Avoid dangling pointers to our `items_`.
   for (auto& bar_view : bar_views_) {
-    bar_view->Shutdown();
+    bar_view->ShutdownChips();
   }
 }
 
@@ -125,11 +130,8 @@ void BirchBarController::RegisterBar(BirchBarView* bar_view) {
   bar_views_.emplace_back(bar_view);
 
   // Directly initialize the bar view if data fetching is done.
-  if (!birch_model_observer_.IsObserving() && !data_fetch_in_progress_) {
+  if (!IsDataLoading()) {
     InitBarWithItems(bar_view, items_);
-  } else if (from_pine_service_) {
-    // Perform loading animation at the beginning of pine section.
-    bar_view->Loading();
   }
 }
 
@@ -200,6 +202,23 @@ bool BirchBarController::GetShowSuggestionType(BirchSuggestionType type) const {
       GetPrefNameFromSuggestionType(type));
 }
 
+bool BirchBarController::IsDataLoading() const {
+  return birch_model_observer_.IsObserving() || data_fetch_in_progress_;
+}
+
+void BirchBarController::ToggleTemperatureUnits() {
+  // Toggle the preference.
+  auto* pref_service = GetPrefService();
+  bool current_value = pref_service->GetBoolean(prefs::kBirchUseCelsius);
+  pref_service->SetBoolean(prefs::kBirchUseCelsius, !current_value);
+
+  // Refresh the suggestion chips.
+  for (auto& bar_view : bar_views_) {
+    bar_view->SetState(BirchBarView::State::kReloading);
+  }
+  MaybeFetchDataFromModel();
+}
+
 void BirchBarController::ExecuteCommand(int command_id, int event_flags) {
   if (command_id ==
       base::to_underlying(BirchBarContextMenuModel::CommandId::kReset)) {
@@ -210,7 +229,8 @@ void BirchBarController::ExecuteCommand(int command_id, int event_flags) {
           &hold_data_request_on_suggestion_pref_change_, true);
       for (const auto& pref_name :
            {prefs::kBirchUseWeather, prefs::kBirchUseCalendar,
-            prefs::kBirchUseFileSuggest, prefs::kBirchUseRecentTabs}) {
+            prefs::kBirchUseFileSuggest, prefs::kBirchUseRecentTabs,
+            prefs::kBirchUseLastActive, prefs::kBirchUseMostVisited}) {
         auto* pref_service = GetPrefService();
         suggestion_pref_changed |= !pref_service->GetBoolean(pref_name);
         pref_service->SetBoolean(pref_name, true);
@@ -309,9 +329,10 @@ void BirchBarController::OnShowSuggestionsPrefChanged() {
   for (auto& root : Shell::GetAllRootWindows()) {
     auto* overview_grid = overview_session->GetGridWithRootWindow(root);
     if (show) {
+      MaybeFetchDataFromModel();
       overview_grid->MaybeInitBirchBarWidget(/*by_user=*/true);
     } else {
-      overview_grid->DestroyBirchBarWidget(/*by_user=*/true);
+      overview_grid->ShutdownBirchBarWidgetByUser();
     }
   }
 }
@@ -322,7 +343,7 @@ void BirchBarController::OnCustomizeSuggestionsPrefChanged() {
   }
 
   for (auto& bar_view : bar_views_) {
-    bar_view->Reloading();
+    bar_view->SetState(BirchBarView::State::kReloading);
   }
 
   MaybeFetchDataFromModel();

@@ -15,11 +15,13 @@
 #include "base/notreached.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/trace_event/trace_event.h"
+#include "base/types/optional_ref.h"
 #include "build/chromeos_buildflags.h"
 #include "cc/base/completion_event.h"
 #include "cc/base/devtools_instrumentation.h"
 #include "cc/benchmarks/benchmark_instrumentation.h"
 #include "cc/input/browser_controls_offset_manager.h"
+#include "cc/input/browser_controls_offset_tags_info.h"
 #include "cc/metrics/compositor_timing_history.h"
 #include "cc/paint/paint_worklet_layer_painter.h"
 #include "cc/resources/ui_resource_manager.h"
@@ -123,6 +125,14 @@ void SingleThreadProxy::SetVisible(bool visible) {
   host_impl_->SetVisible(visible);
   if (scheduler_on_impl_thread_)
     scheduler_on_impl_thread_->SetVisible(host_impl_->visible());
+}
+
+void SingleThreadProxy::SetShouldWarmUp() {
+  DCHECK(task_runner_provider_->IsMainThread());
+  DebugScopedSetImplThread impl(task_runner_provider_);
+  if (scheduler_on_impl_thread_) {
+    scheduler_on_impl_thread_->SetShouldWarmUp();
+  }
 }
 
 void SingleThreadProxy::RequestNewLayerTreeFrameSink() {
@@ -451,6 +461,13 @@ void SingleThreadProxy::Stop() {
   layer_tree_host_ = nullptr;
 }
 
+void SingleThreadProxy::QueueImageDecode(int request_id,
+                                         const PaintImage& image) {
+  DCHECK(task_runner_provider_->IsMainThread());
+  DebugScopedSetImplThread impl(task_runner_provider_);
+  host_impl_->QueueImageDecode(request_id, image);
+}
+
 void SingleThreadProxy::SetMutator(std::unique_ptr<LayerTreeMutator> mutator) {
   DCHECK(task_runner_provider_->IsMainThread());
   DebugScopedSetImplThread impl(task_runner_provider_);
@@ -459,7 +476,7 @@ void SingleThreadProxy::SetMutator(std::unique_ptr<LayerTreeMutator> mutator) {
 
 void SingleThreadProxy::SetPaintWorkletLayerPainter(
     std::unique_ptr<PaintWorkletLayerPainter> painter) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void SingleThreadProxy::OnCanDrawStateChanged(bool can_draw) {
@@ -628,7 +645,8 @@ void SingleThreadProxy::DidReceiveCompositorFrameAckOnImplThread() {
 void SingleThreadProxy::OnDrawForLayerTreeFrameSink(
     bool resourceless_software_draw,
     bool skip_draw) {
-  NOTREACHED() << "Implemented by ThreadProxy for synchronous compositor.";
+  NOTREACHED_IN_MIGRATION()
+      << "Implemented by ThreadProxy for synchronous compositor.";
 }
 
 void SingleThreadProxy::NeedsImplSideInvalidation(
@@ -641,16 +659,24 @@ void SingleThreadProxy::NeedsImplSideInvalidation(
   }
 }
 
-void SingleThreadProxy::NotifyImageDecodeRequestFinished() {
+void SingleThreadProxy::NotifyImageDecodeRequestFinished(
+    int request_id,
+    bool decode_succeeded) {
   DCHECK(!task_runner_provider_->HasImplThread() ||
          task_runner_provider_->IsImplThread());
-  // If we don't have a scheduler, then just issue the callbacks here.
-  // Otherwise, schedule a commit.
-  if (!scheduler_on_impl_thread_) {
+  if (base::FeatureList::IsEnabled(
+          features::kSendExplicitDecodeRequestsImmediately)) {
     DebugScopedSetMainThread main_thread(task_runner_provider_);
-    IssueImageDecodeFinishedCallbacks();
+    layer_tree_host_->NotifyImageDecodeFinished(request_id, decode_succeeded);
   } else {
-    SetNeedsCommitOnImplThread();
+    // If we don't have a scheduler, then just issue the callbacks here.
+    // Otherwise, schedule a commit.
+    if (!scheduler_on_impl_thread_) {
+      DebugScopedSetMainThread main_thread(task_runner_provider_);
+      IssueImageDecodeFinishedCallbacks();
+    } else {
+      SetNeedsCommitOnImplThread();
+    }
   }
 }
 
@@ -694,7 +720,7 @@ void SingleThreadProxy::NotifyAnimationWorkletStateChange(
 void SingleThreadProxy::NotifyPaintWorkletStateChange(
     Scheduler::PaintWorkletState state) {
   // Off-Thread PaintWorklet is only supported on the threaded compositor.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void SingleThreadProxy::NotifyThroughputTrackerResults(
@@ -876,14 +902,12 @@ DrawResult SingleThreadProxy::DoComposite(LayerTreeHostImpl::FrameData* frame) {
     draw_result = host_impl_->PrepareToDraw(frame);
     draw_frame = draw_result == DrawResult::kSuccess;
     if (draw_frame) {
-      if (std::optional<LayerTreeHostImpl::SubmitInfo> submit_info =
+      if (std::optional<SubmitInfo> submit_info =
               host_impl_->DrawLayers(frame)) {
         if (scheduler_on_impl_thread_) {
           // Drawing implies we submitted a frame to the LayerTreeFrameSink.
           scheduler_on_impl_thread_->DidSubmitCompositorFrame(
-              frame->frame_token, submit_info->time,
-              std::move(submit_info->events_metrics),
-              frame->has_missing_content);
+              submit_info.value());
         }
         single_thread_client_->DidSubmitCompositorFrame();
       }
@@ -941,13 +965,13 @@ void SingleThreadProxy::SetHasActiveThreadedScroll(bool is_scrolling) {
   // `scheduler_on_impl_thread_` when properly created with
   // `single_thread_proxy_scheduler`.
   if (scheduler_on_impl_thread_) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 }
 void SingleThreadProxy::SetWaitingForScrollEvent(
     bool waiting_for_scroll_event) {
   if (scheduler_on_impl_thread_) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -973,11 +997,12 @@ double SingleThreadProxy::GetPercentDroppedFrames() const {
 void SingleThreadProxy::UpdateBrowserControlsState(
     BrowserControlsState constraints,
     BrowserControlsState current,
-    bool animate) {
+    bool animate,
+    base::optional_ref<const BrowserControlsOffsetTagsInfo> offset_tags_info) {
   DCHECK(task_runner_provider_->IsMainThread());
   DebugScopedSetImplThread impl(task_runner_provider_);
   host_impl_->browser_controls_manager()->UpdateBrowserControlsState(
-      constraints, current, animate);
+      constraints, current, animate, offset_tags_info);
 }
 
 bool SingleThreadProxy::WillBeginImplFrame(const viz::BeginFrameArgs& args) {
@@ -1015,6 +1040,10 @@ void SingleThreadProxy::ScheduledActionSendBeginMainFrame(
 void SingleThreadProxy::FrameIntervalUpdated(base::TimeDelta interval) {
   DebugScopedSetImplThread impl(task_runner_provider_);
   single_thread_client_->FrameIntervalUpdated(interval);
+}
+
+void SingleThreadProxy::OnBeginImplFrameDeadline() {
+  host_impl_->OnBeginImplFrameDeadline();
 }
 
 void SingleThreadProxy::SendBeginMainFrameNotExpectedSoon() {
@@ -1185,8 +1214,12 @@ DrawResult SingleThreadProxy::ScheduledActionDrawIfPossible() {
 }
 
 DrawResult SingleThreadProxy::ScheduledActionDrawForced() {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return DrawResult::kInvalidResult;
+}
+
+void SingleThreadProxy::ScheduledActionUpdateDisplayTree() {
+  NOTREACHED_NORETURN();
 }
 
 void SingleThreadProxy::ScheduledActionCommit() {
@@ -1236,7 +1269,7 @@ void SingleThreadProxy::ScheduledActionInvalidateLayerTreeFrameSink(
     bool needs_redraw) {
   // This is an Android WebView codepath, which only uses multi-thread
   // compositor. So this should not occur in single-thread mode.
-  NOTREACHED() << "Android Webview use-case, so multi-thread only";
+  NOTREACHED_IN_MIGRATION() << "Android Webview use-case, so multi-thread only";
 }
 
 void SingleThreadProxy::ScheduledActionPerformImplSideInvalidation() {

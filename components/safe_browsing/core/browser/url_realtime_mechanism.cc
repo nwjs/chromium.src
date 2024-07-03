@@ -67,11 +67,21 @@ UrlRealTimeMechanism::StartCheckInternal() {
 
   bool check_allowlist = can_check_db_ && can_check_high_confidence_allowlist_;
   if (check_allowlist) {
-    database_manager_->CheckUrlForHighConfidenceAllowlist(
-        url_, "RT",
-        base::BindOnce(
-            &UrlRealTimeMechanism::OnCheckUrlForHighConfidenceAllowlist,
-            weak_factory_.GetWeakPtr()));
+    std::optional<
+        SafeBrowsingDatabaseManager::HighConfidenceAllowlistCheckLoggingDetails>
+        logging_details = database_manager_->CheckUrlForHighConfidenceAllowlist(
+            url_,
+            base::BindOnce(
+                &UrlRealTimeMechanism::OnCheckUrlForHighConfidenceAllowlist,
+                weak_factory_.GetWeakPtr()));
+    if (logging_details.has_value()) {
+      base::UmaHistogramBoolean(
+          "SafeBrowsing.RT.AllStoresAvailable",
+          logging_details.value().were_all_stores_available);
+      base::UmaHistogramBoolean(
+          "SafeBrowsing.RT.AllowlistSizeTooSmall",
+          logging_details.value().was_allowlist_size_too_small);
+    }
   } else {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
@@ -81,7 +91,7 @@ UrlRealTimeMechanism::StartCheckInternal() {
   }
 
   return StartCheckResult(
-      /*is_safe_synchronously=*/false);
+      /*is_safe_synchronously=*/false, /*threat_source=*/std::nullopt);
 }
 
 void UrlRealTimeMechanism::OnCheckUrlForHighConfidenceAllowlist(
@@ -202,23 +212,20 @@ void UrlRealTimeMechanism::OnLookupResponse(
 
 void UrlRealTimeMechanism::PerformHashBasedCheck(const GURL& url) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  bool is_safe_synchronously = false;
+  StartCheckResult result(/*is_safe_synchronously=*/false, std::nullopt);
   if (can_check_db_) {
     hash_database_mechanism_ = std::make_unique<DatabaseManagerMechanism>(
         url, threat_types_, database_manager_,
         CheckBrowseUrlType::kHashDatabase);
-    is_safe_synchronously =
-        hash_database_mechanism_
-            ->StartCheck(base::BindOnce(
-                &UrlRealTimeMechanism::OnHashDatabaseCompleteCheckResult,
-                weak_factory_.GetWeakPtr()))
-            .is_safe_synchronously;
+    result = hash_database_mechanism_->StartCheck(
+        base::BindOnce(&UrlRealTimeMechanism::OnHashDatabaseCompleteCheckResult,
+                       weak_factory_.GetWeakPtr()));
   }
-  if (is_safe_synchronously || !can_check_db_) {
+  if (result.is_safe_synchronously || !can_check_db_) {
     // No match found in the database, so conclude this is safe.
-    OnHashDatabaseCompleteCheckResultInternal(SBThreatType::SB_THREAT_TYPE_SAFE,
-                                              ThreatMetadata(),
-                                              /*threat_source=*/std::nullopt);
+    OnHashDatabaseCompleteCheckResultInternal(
+        SBThreatType::SB_THREAT_TYPE_SAFE, ThreatMetadata(),
+        /*threat_source=*/result.threat_source);
     // NOTE: Calling OnHashDatabaseCompleteCheckResultInternal results in the
     // synchronous destruction of this object, so there is nothing safe to do
     // here but return.

@@ -4,10 +4,14 @@
 
 #include "content/browser/navigation_transitions/back_forward_transition_animation_manager_android.h"
 
+#include "content/browser/navigation_transitions/back_forward_transition_animator.h"
 #include "content/browser/renderer_host/navigation_controller_impl.h"
 #include "content/browser/renderer_host/navigation_transitions/navigation_entry_screenshot.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_contents/web_contents_view_android.h"
+#include "content/public/browser/back_forward_transition_animation_manager.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/web_contents_delegate.h"
 
 namespace content {
 
@@ -15,6 +19,8 @@ namespace {
 
 using NavigationDirection =
     BackForwardTransitionAnimationManager::NavigationDirection;
+
+using AnimationStage = BackForwardTransitionAnimationManager::AnimationStage;
 using SwipeEdge = ui::BackGestureEventSwipeEdge;
 
 bool ShouldSkipDefaultNavTransitionForPendingUX(
@@ -77,11 +83,17 @@ void BackForwardTransitionAnimationManagerAndroid::OnGestureStarted(
       << "The embedder should only delegate the history navigation task "
          "to this manager if there is a destination entry.";
 
+  // Each previous gesture should finished with `OnGestureCancelled()` or
+  // `OnGestureInvoked()`. In both cases we reset `destination_entry_index_` to
+  // -1.
+  CHECK_EQ(destination_entry_index_, -1);
+  destination_entry_index_ = *index;
+
   if (animator_) {
     // It's possible for a user to start a second gesture when the first gesture
-    // is still on-going (aka "chained back"). For now, abort the previous
-    // animation (impl's dtor will reset the layer's position and reclaim all
-    // the resources).
+    // animation is still on-going (aka "chained back"). For now, abort the
+    // previous animation (impl's dtor will reset the layer's position and
+    // reclaim all the resources).
     //
     // TODO(crbug.com/40261105): We need a proper UX to support this.
     animator_.reset();
@@ -91,10 +103,6 @@ void BackForwardTransitionAnimationManagerAndroid::OnGestureStarted(
       ShouldSkipDefaultNavTransition(
           web_contents_view_android_->GetNativeView()->GetPhysicalBackingSize(),
           destination_entry)) {
-    CHECK(!destination_entry_index_.has_value());
-    // Cache the index here so that when `OnGestureInvoked()` is called this
-    // animation manager knows which navigation entry to navigate to.
-    destination_entry_index_ = index;
     return;
   }
 
@@ -102,6 +110,7 @@ void BackForwardTransitionAnimationManagerAndroid::OnGestureStarted(
   animator_ = animator_factory_->Create(
       web_contents_view_android_.get(), navigation_controller_.get(), gesture,
       navigation_direction, destination_entry->GetUniqueID(), this);
+  OnAnimationStageChanged();
 }
 
 void BackForwardTransitionAnimationManagerAndroid::OnGestureProgressed(
@@ -112,26 +121,46 @@ void BackForwardTransitionAnimationManagerAndroid::OnGestureProgressed(
 }
 
 void BackForwardTransitionAnimationManagerAndroid::OnGestureCancelled() {
+  CHECK_NE(destination_entry_index_, -1);
   if (animator_) {
     animator_->OnGestureCancelled();
   }
-  destination_entry_index_.reset();
+  destination_entry_index_ = -1;
 }
 
 void BackForwardTransitionAnimationManagerAndroid::OnGestureInvoked() {
+  CHECK_NE(destination_entry_index_, -1);
   if (animator_) {
-    CHECK(!destination_entry_index_.has_value());
     animator_->OnGestureInvoked();
   } else {
-    CHECK(destination_entry_index_.has_value());
-    navigation_controller_->GoToIndex(*destination_entry_index_);
-    destination_entry_index_.reset();
+    navigation_controller_->GoToIndex(destination_entry_index_);
   }
+  destination_entry_index_ = -1;
+}
+
+void BackForwardTransitionAnimationManagerAndroid::
+    OnContentForNavigationEntryShown() {
+  if (animator_) {
+    animator_->OnContentForNavigationEntryShown();
+  }
+}
+
+AnimationStage
+BackForwardTransitionAnimationManagerAndroid::GetCurrentAnimationStage() {
+  return animator_ ? animator_->GetCurrentAnimationStage()
+                   : AnimationStage::kNone;
+}
+
+void BackForwardTransitionAnimationManagerAndroid::OnAnimationStageChanged() {
+  web_contents_view_android()
+      ->web_contents()
+      ->GetDelegate()
+      ->DidBackForwardTransitionAnimationChange();
 }
 
 void BackForwardTransitionAnimationManagerAndroid::
     OnDidNavigatePrimaryMainFramePreCommit(
-        const NavigationRequest& navigation_request,
+        NavigationRequest* navigation_request,
         RenderFrameHostImpl* old_host,
         RenderFrameHostImpl* new_host) {
   if (animator_) {
@@ -151,6 +180,7 @@ void BackForwardTransitionAnimationManagerAndroid::
     SynchronouslyDestroyAnimator() {
   CHECK(animator_);
   animator_.reset();
+  OnAnimationStageChanged();
 }
 
 }  // namespace content

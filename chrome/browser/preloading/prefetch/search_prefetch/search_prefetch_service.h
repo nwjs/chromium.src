@@ -43,12 +43,15 @@ struct ResourceRequest;
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
+//
 // Any updates to this class need to be propagated to enums.xml.
-
+//
 // If you change this, please follow the process in
-// go/preloading-dashboard-updates to update the mapping reflected in
-// dashboard, or if you are not a Googler, please file an FYI bug on
-// https://crbug.new with component Internals>Preload.
+// go/preloading-dashboard-updates to update the mapping reflected in dashboard,
+// or if you are not a Googler, please file an FYI bug on https://crbug.new with
+// component Internals>Preload.
+//
+// LINT.IfChange
 enum class SearchPrefetchEligibilityReason {
   // The prefetch was started.
   kPrefetchStarted = 0,
@@ -71,10 +74,19 @@ enum class SearchPrefetchEligibilityReason {
   kThrottled = 8,
   kMaxValue = kThrottled,
 };
+// LINT.ThenChange()
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
+//
 // Any updates to this class need to be propagated to enums.xml.
+//
+// If you change this, please follow the process in
+// go/preloading-dashboard-updates to update the mapping reflected in dashboard,
+// or if you are not a Googler, please file an FYI bug on https://crbug.new with
+// component Internals>Preload.
+//
+// LINT.IfChange
 enum class SearchPrefetchServingReason {
   // The prefetch was started.
   kServed = 0,
@@ -102,10 +114,15 @@ enum class SearchPrefetchServingReason {
   kRequestInFlightNotReady = 11,
   kMaxValue = kRequestInFlightNotReady,
 };
+// LINT.ThenChange()
 
 class SearchPrefetchService : public KeyedService,
                               public TemplateURLServiceObserver {
  public:
+#if BUILDFLAG(IS_ANDROID)
+  void SetIsTest();
+#endif
+
   struct SearchPrefetchServingReasonRecorder;
   explicit SearchPrefetchService(Profile* profile);
   ~SearchPrefetchService() override;
@@ -169,6 +186,12 @@ class SearchPrefetchService : public KeyedService,
   // Reports the status of a prefetch for a given search suggestion URL.
   std::optional<SearchPrefetchStatus> GetSearchPrefetchStatusForTesting(
       const GURL& canonical_search_url);
+
+  // Given the canonical_search_url, returns the corresponding url that is sent
+  // to the network.
+  // TODO(crbug.com/345275145): Prerender should not rely on this to get the
+  // real url. Refactor the test code and then remove this method.
+  GURL GetRealPrefetchUrlForTesting(const GURL& canonical_search_url);
 
   // Calls |LoadFromPrefs()|.
   bool LoadFromPrefsForTesting();

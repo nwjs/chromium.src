@@ -21,15 +21,13 @@ import android.view.View;
 import org.hamcrest.Matcher;
 
 import org.chromium.base.test.transit.Elements;
-import org.chromium.base.test.transit.Facility;
-import org.chromium.base.test.transit.Trip;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.base.test.util.ViewActionOnDescendant;
+import org.chromium.chrome.browser.hub.HubFieldTrial;
 import org.chromium.chrome.browser.hub.HubToolbarView;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridView;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
 
 /** The base station for Hub tab switcher stations. */
@@ -45,6 +43,12 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
                     allOf(
                             withId(R.id.toolbar_action_button),
                             isDescendantOfA(instanceOf(HubToolbarView.class))));
+
+    public static final ViewElement FLOATING_NEW_TAB_BUTTON =
+            sharedViewElement(
+                    allOf(
+                            withId(R.id.host_action_button),
+                            isDescendantOfA(HubBaseStation.HUB_PANE_HOST.getViewMatcher())));
 
     public static final Matcher<View> TAB_CLOSE_BUTTON =
             allOf(
@@ -65,12 +69,8 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
 
     private final boolean mIsIncognito;
 
-    /**
-     * @param chromeTabbedActivityTestRule The activity rule under test.
-     */
-    public HubTabSwitcherBaseStation(
-            ChromeTabbedActivityTestRule chromeTabbedActivityTestRule, boolean isIncognito) {
-        super(chromeTabbedActivityTestRule);
+    public HubTabSwitcherBaseStation(boolean isIncognito) {
+        super();
         mIsIncognito = isIncognito;
     }
 
@@ -78,8 +78,12 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
     public void declareElements(Elements.Builder elements) {
         super.declareElements(elements);
 
-        elements.declareView(TOOLBAR_NEW_TAB_BUTTON);
+        elements.declareView(getNewTabButtonViewElement());
         elements.declareView(TAB_LIST_RECYCLER_VIEW);
+    }
+
+    public boolean isIncognito() {
+        return mIsIncognito;
     }
 
     /**
@@ -92,7 +96,7 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
 
         HubTabSwitcherAppMenuFacility menu = new HubTabSwitcherAppMenuFacility(this, mIsIncognito);
 
-        return Facility.enterSync(menu, () -> HUB_MENU_BUTTON.perform(click()));
+        return enterFacilitySync(menu, () -> HUB_MENU_BUTTON.perform(click()));
     }
 
     /**
@@ -104,14 +108,12 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
 
         PageStation destination =
                 PageStation.newPageStationBuilder()
-                        .withActivityTestRule(mChromeTabbedActivityTestRule)
                         .withIncognito(mIsIncognito)
                         .withIsOpeningTabs(0)
                         .withIsSelectingTabs(1)
                         .build();
 
-        return Trip.travelSync(
-                this,
+        return travelToSync(
                 destination,
                 () -> {
                     ViewActionOnDescendant.performOnRecyclerViewNthItemDescendant(
@@ -126,8 +128,7 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
      */
     public <T extends HubTabSwitcherBaseStation> T closeTabAtIndex(
             int index, Class<T> expectedDestination) {
-        TabModelSelector tabModelSelector =
-                mChromeTabbedActivityTestRule.getActivity().getTabModelSelector();
+        TabModelSelector tabModelSelector = mActivityElement.get().getTabModelSelector();
 
         // By default stay in the same tab switcher state, unless closing the last incognito tab.
         boolean landInIncognitoSwitcher = false;
@@ -145,11 +146,9 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
                         HubStationUtils.createHubStation(
                                 landInIncognitoSwitcher
                                         ? PaneId.INCOGNITO_TAB_SWITCHER
-                                        : PaneId.TAB_SWITCHER,
-                                mChromeTabbedActivityTestRule));
+                                        : PaneId.TAB_SWITCHER));
 
-        return Trip.travelSync(
-                this,
+        return travelToSync(
                 tabSwitcher,
                 () -> {
                     ViewActionOnDescendant.performOnRecyclerViewNthItemDescendant(
@@ -166,11 +165,34 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
 
         PageStation page =
                 PageStation.newPageStationBuilder()
-                        .withActivityTestRule(mChromeTabbedActivityTestRule)
                         .withIncognito(mIsIncognito)
                         .withIsOpeningTabs(1)
                         .withIsSelectingTabs(1)
                         .build();
-        return Trip.travelSync(this, page, () -> TOOLBAR_NEW_TAB_BUTTON.perform(click()));
+
+        return travelToSync(page, () -> getNewTabButtonViewElement().perform(click()));
+    }
+
+    private ViewElement getNewTabButtonViewElement() {
+        if (HubFieldTrial.usesFloatActionButton()) {
+            return FLOATING_NEW_TAB_BUTTON;
+        } else {
+            return TOOLBAR_NEW_TAB_BUTTON;
+        }
+    }
+
+    /**
+     * Returns to the previous tab via the back button.
+     *
+     * @return the {@link PageStation} that Hub returned to.
+     */
+    public PageStation leaveHubToPreviousTabViaBack() {
+        PageStation destination =
+                PageStation.newPageStationBuilder()
+                        .withIsOpeningTabs(0)
+                        .withIsSelectingTabs(1)
+                        .withIncognito(mIsIncognito)
+                        .build();
+        return leaveHubToPreviousTabViaBack(destination);
     }
 }

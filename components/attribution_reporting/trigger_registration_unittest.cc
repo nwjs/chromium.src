@@ -12,16 +12,20 @@
 #include "base/functional/function_ref.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/values_test_util.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "base/values.h"
 #include "components/aggregation_service/aggregation_coordinator_utils.h"
+#include "components/attribution_reporting/aggregatable_debug_reporting_config.h"
 #include "components/attribution_reporting/aggregatable_dedup_key.h"
 #include "components/attribution_reporting/aggregatable_trigger_config.h"
 #include "components/attribution_reporting/aggregatable_trigger_data.h"
 #include "components/attribution_reporting/aggregatable_values.h"
+#include "components/attribution_reporting/debug_types.mojom.h"
 #include "components/attribution_reporting/event_trigger_data.h"
+#include "components/attribution_reporting/features.h"
 #include "components/attribution_reporting/filters.h"
 #include "components/attribution_reporting/source_registration_time_config.mojom.h"
 #include "components/attribution_reporting/suitable_origin.h"
@@ -85,7 +89,9 @@ TEST(TriggerRegistrationTest, Parse) {
               Field(&TriggerRegistration::aggregation_coordinator_origin,
                     std::nullopt),
               Field(&TriggerRegistration::aggregatable_trigger_config,
-                    AggregatableTriggerConfig()))),
+                    AggregatableTriggerConfig()),
+              Field(&TriggerRegistration::aggregatable_debug_reporting_config,
+                    AggregatableDebugReportingConfig()))),
       },
       {
           "filters_valid",
@@ -307,7 +313,10 @@ TEST(TriggerRegistrationTest, ToJson) {
           TriggerRegistration(),
           R"json({
             "aggregatable_source_registration_time": "exclude",
-            "debug_reporting": false
+            "debug_reporting": false,
+            "aggregatable_debug_reporting": {
+              "key_piece": "0x0"
+            }
           })json",
       },
       {
@@ -327,6 +336,14 @@ TEST(TriggerRegistrationTest, ToJson) {
             r.aggregatable_trigger_config = *AggregatableTriggerConfig::Create(
                 SourceRegistrationTimeConfig::kExclude,
                 /*trigger_context_id=*/"123");
+            r.aggregatable_debug_reporting_config =
+                AggregatableDebugReportingConfig(
+                    /*key_piece=*/1,
+                    /*debug_data=*/
+                    {{mojom::DebugDataType::kTriggerNoMatchingSource,
+                      *AggregatableDebugReportingContribution::Create(
+                          /*key_piece=*/10, /*value=*/12)}},
+                    /*aggregation_coordinator_origin=*/std::nullopt);
           }),
           R"json({
             "aggregatable_source_registration_time": "exclude",
@@ -338,7 +355,17 @@ TEST(TriggerRegistrationTest, ToJson) {
             "event_trigger_data": [{"priority":"0","trigger_data":"0"}],
             "filters": [{"b": []}],
             "not_filters": [{"c": [], "_lookback_window": 2}],
-            "trigger_context_id": "123"
+            "trigger_context_id": "123",
+            "aggregatable_debug_reporting": {
+              "key_piece": "0x1",
+              "debug_data": [
+                {
+                  "types": ["trigger-no-matching-source"],
+                  "key_piece": "0xa",
+                  "value": 12
+                }
+              ]
+            }
           })json",
       },
   };
@@ -409,7 +436,10 @@ TEST(TriggerRegistrationTest, SerializeAggregationCoordinator) {
           TriggerRegistration(),
           R"json({
             "aggregatable_source_registration_time": "exclude",
-            "debug_reporting": false
+            "debug_reporting": false,
+            "aggregatable_debug_reporting": {
+              "key_piece": "0x0"
+            }
           })json",
       },
       {
@@ -420,7 +450,10 @@ TEST(TriggerRegistrationTest, SerializeAggregationCoordinator) {
           R"json({
             "aggregatable_source_registration_time": "exclude",
             "aggregation_coordinator_origin": "https://a.test",
-            "debug_reporting": false
+            "debug_reporting": false,
+            "aggregatable_debug_reporting": {
+              "key_piece": "0x0"
+            }
           })json",
       },
   };
@@ -428,6 +461,46 @@ TEST(TriggerRegistrationTest, SerializeAggregationCoordinator) {
   for (const auto& test_case : kTestCases) {
     EXPECT_THAT(test_case.input.ToJson(),
                 base::test::IsJson(test_case.expected_json));
+  }
+}
+
+TEST(TriggerRegistrationTest, ParseAggregatableDebugReportingConfig) {
+  const struct {
+    const char* desc;
+    const char* json;
+    ::testing::Matcher<
+        base::expected<TriggerRegistration, TriggerRegistrationError>>
+        matches;
+  } kTestCases[] = {
+      {
+          "valid",
+          R"json({
+            "aggregatable_debug_reporting": {
+              "key_piece": "0x2"
+            }
+          })json",
+          ValueIs(
+              Field(&TriggerRegistration::aggregatable_debug_reporting_config,
+                    Field(&AggregatableDebugReportingConfig::key_piece, 2))),
+      },
+      {
+          "invalid",
+          R"json({
+            "aggregatable_debug_reporting": ""
+          })json",
+          ValueIs(
+              Field(&TriggerRegistration::aggregatable_debug_reporting_config,
+                    AggregatableDebugReportingConfig())),
+      },
+  };
+
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAttributionAggregatableDebugReporting);
+
+  for (const auto& test_case : kTestCases) {
+    SCOPED_TRACE(test_case.desc);
+
+    EXPECT_THAT(TriggerRegistration::Parse(test_case.json), test_case.matches);
   }
 }
 

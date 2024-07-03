@@ -175,10 +175,11 @@ class AdHeuristicTPCDBrowserTestBase
         "*");
     EXPECT_EQ(metadata.metadata_entries_size(), 1);
     MockComponentInstallation(metadata);
-    EXPECT_EQ(CookieSettingsFactory::GetForProfile(browser()->profile())
-                  ->GetCookieSetting(third_party_url, first_party_url,
-                                     net::CookieSettingOverrides()),
-              ContentSetting::CONTENT_SETTING_ALLOW);
+    EXPECT_EQ(
+        CookieSettingsFactory::GetForProfile(browser()->profile())
+            ->GetCookieSetting(third_party_url, net::SiteForCookies(),
+                               first_party_url, net::CookieSettingOverrides()),
+        ContentSetting::CONTENT_SETTING_ALLOW);
   }
 
   void SetHeuristicsGrant(const GURL& third_party_url,
@@ -186,10 +187,11 @@ class AdHeuristicTPCDBrowserTestBase
     CookieSettingsFactory::GetForProfile(browser()->profile())
         ->SetTemporaryCookieGrantForHeuristic(third_party_url, first_party_url,
                                               base::Seconds(60));
-    EXPECT_EQ(CookieSettingsFactory::GetForProfile(browser()->profile())
-                  ->GetCookieSetting(third_party_url, first_party_url,
-                                     net::CookieSettingOverrides()),
-              ContentSetting::CONTENT_SETTING_ALLOW);
+    EXPECT_EQ(
+        CookieSettingsFactory::GetForProfile(browser()->profile())
+            ->GetCookieSetting(third_party_url, net::SiteForCookies(),
+                               first_party_url, net::CookieSettingOverrides()),
+        ContentSetting::CONTENT_SETTING_ALLOW);
   }
 
   void SetTopLevelTrialGrant(const GURL& third_party_url,
@@ -213,10 +215,11 @@ class AdHeuristicTPCDBrowserTestBase
                                  ContentSettingsType::TOP_LEVEL_TPCD_TRIAL),
                              base::NullCallback());
 
-    EXPECT_EQ(CookieSettingsFactory::GetForProfile(browser()->profile())
-                  ->GetCookieSetting(third_party_url, first_party_url,
-                                     net::CookieSettingOverrides()),
-              ContentSetting::CONTENT_SETTING_ALLOW);
+    EXPECT_EQ(
+        CookieSettingsFactory::GetForProfile(browser()->profile())
+            ->GetCookieSetting(third_party_url, net::SiteForCookies(),
+                               first_party_url, net::CookieSettingOverrides()),
+        ContentSetting::CONTENT_SETTING_ALLOW);
   }
 
   void Verify3PCookieAccessAllowed(
@@ -498,10 +501,10 @@ IN_PROC_BROWSER_TEST_F(AdHeuristicTPCDBrowserTestTrialGrant, CookieAllowed) {
   GURL third_party_url = https_server()->GetURL("b.test", "/");
   GURL first_party_url = https_server()->GetURL("a.test", "/");
   tpcd::trial::TpcdTrialServiceFactory::GetForProfile(browser()->profile())
-      ->Update3pcdTrialSettingsForTesting(url::Origin::Create(third_party_url),
-                                          first_party_url.spec(),
-                                          /*match_subdomains=*/false,
-                                          /*enabled=*/true);
+      ->Update3pcdTrialSettingsForTesting(OriginTrialStatusChangeDetails(
+          url::Origin::Create(third_party_url), first_party_url.spec(),
+          /*match_subdomains=*/false,
+          /*enabled=*/true, /*source_id=*/std::nullopt));
 
   Verify3PCookieAccessAllowed(register_response.get());
 }
@@ -546,10 +549,10 @@ IN_PROC_BROWSER_TEST_F(AdHeuristicTPCDBrowserTestSkipTrialGrant,
   GURL third_party_url = https_server()->GetURL("b.test", "/");
   GURL first_party_url = https_server()->GetURL("a.test", "/");
   tpcd::trial::TpcdTrialServiceFactory::GetForProfile(browser()->profile())
-      ->Update3pcdTrialSettingsForTesting(url::Origin::Create(third_party_url),
-                                          first_party_url.spec(),
-                                          /*match_subdomains=*/false,
-                                          /*enabled=*/true);
+      ->Update3pcdTrialSettingsForTesting(OriginTrialStatusChangeDetails(
+          url::Origin::Create(third_party_url), first_party_url.spec(),
+          /*match_subdomains=*/false,
+          /*enabled=*/true, /*source_id=*/std::nullopt));
 
   VerifyAdCookieAccessBlocked(register_response.get(), register_response2.get(),
                               /*metadata_count=*/0, /*heuristics_count=*/0,

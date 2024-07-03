@@ -5,9 +5,7 @@
 package org.chromium.chrome.browser.tab_group_sync;
 
 import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
-import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withParent;
 
@@ -18,7 +16,6 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.c
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.enterTabSwitcher;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.mergeAllNormalTabsToAGroup;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyTabSwitcherCardCount;
-import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
@@ -130,7 +127,7 @@ public class TabGroupSyncIntegrationTest {
     private static final String TAB_TITLE_3 = "Title Of More Awesomeness";
     private static final String TAB_TITLE_4 = "iframe test";
 
-    private static final String NEW_TAB_TITLE = "New tab";
+    private static final String NEW_TAB_TITLE = TabGroupSyncUtils.NEW_TAB_TITLE;
     public static final String NEW_TAB_URL = UrlConstants.NTP_NON_NATIVE_URL;
 
     // Create individual tabs
@@ -292,7 +289,6 @@ public class TabGroupSyncIntegrationTest {
         verifyTabSwitcherCardCount(cta, 2);
         // Create a tab group.
         mergeAllNormalTabsToAGroup(cta);
-        verifyGroupVisualDataDialogOpenedAndDismiss(cta);
         verifyTabSwitcherCardCount(cta, 1);
 
         verifyFirstCardTitle("2 tabs");
@@ -329,10 +325,13 @@ public class TabGroupSyncIntegrationTest {
     }
 
     private void verifyTitleAndUrlForTab(TabInfo expectedTab, TabInfo actualTab) {
-        boolean isNtpUrl = TabGroupSyncUtils.isNtpOrAboutBlankUrl(expectedTab.url);
+        boolean isNtpUrl = TabGroupSyncUtils.isNtpOrAboutBlankUrl(new GURL(expectedTab.url));
         if (isNtpUrl) {
-            Assert.assertTrue(TabGroupSyncUtils.isNtpOrAboutBlankUrl(actualTab.url));
             Assert.assertTrue(
+                    "URL is not NTP",
+                    TabGroupSyncUtils.isNtpOrAboutBlankUrl(new GURL(actualTab.url)));
+            Assert.assertTrue(
+                    "Title is not new tab",
                     NEW_TAB_TITLE.equals(actualTab.title) || "about:blank".equals(actualTab.title));
         } else {
             Assert.assertEquals(expectedTab.url, actualTab.url);
@@ -414,25 +413,6 @@ public class TabGroupSyncIntegrationTest {
                                                     mSyncTestRule.getActivity(), color, false)),
                                     drawable.getColor());
                         });
-    }
-
-    private void verifyGroupVisualDataDialogOpenedAndDismiss(ChromeTabbedActivity cta) {
-        // Verify that the modal dialog is now showing.
-        verifyModalDialogShowingAnimationCompleteInTabSwitcher();
-        // Verify the visual data dialog exists.
-        onViewWaiting(
-                        withId(org.chromium.chrome.test.R.id.visual_data_dialog_layout),
-                        /* checkRootDialog= */ true)
-                .check(matches(isDisplayed()));
-        // TODO(shaktisahu): Do we need to wait till keyboard is showing? Currently fails waiting.
-        // Wait until the keyboard is showing.
-        // KeyboardVisibilityDelegate delegate = KeyboardVisibilityDelegate.getInstance();
-        // CriteriaHelper.pollUiThread(
-        //     () -> delegate.isKeyboardShowing(cta, cta.getCompositorViewHolderForTesting()));
-        // Dismiss the tab group visual data dialog.
-        dismissAllModalDialogs();
-        // Verify that the modal dialog is now hidden.
-        verifyModalDialogHidingAnimationCompleteInTabSwitcher();
     }
 
     private void verifyModalDialogShowingAnimationCompleteInTabSwitcher() {
@@ -651,7 +631,7 @@ public class TabGroupSyncIntegrationTest {
         TabGroupModelFilter filter = getTabGroupFilter();
         int groupId = getTabGroupAt(index);
         String actualTitle = filter.getTabGroupTitle(groupId);
-        int actualColor = filter.getTabGroupColor(groupId);
+        int actualColor = filter.getTabGroupColorWithFallback(groupId);
         List<Tab> tabs = filter.getRelatedTabList(groupId);
 
         // Assert group details

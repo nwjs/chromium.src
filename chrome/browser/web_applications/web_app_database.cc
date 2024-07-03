@@ -120,7 +120,7 @@ WebAppProto::CaptureLinks CaptureLinksToProto(
     blink::mojom::CaptureLinks capture_links) {
   switch (capture_links) {
     case blink::mojom::CaptureLinks::kUndefined:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       [[fallthrough]];
     case blink::mojom::CaptureLinks::kNone:
       return WebAppProto_CaptureLinks_NONE;
@@ -254,7 +254,7 @@ WebAppFileHandlerProto::LaunchType LaunchTypeToProto(
 WebAppManagement::Type ProtoToWebAppManagement(WebAppManagementProto type) {
   switch (type) {
     case WebAppManagementProto::WEBAPPMANAGEMENT_UNSPECIFIED:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       [[fallthrough]];
     case WebAppManagementProto::SYSTEM:
       return WebAppManagement::Type::kSystem;
@@ -1758,37 +1758,21 @@ void WebAppDatabase::OnDatabaseOpened(
   }
 
   store_ = std::move(store);
-  store_->ReadAllData(base::BindOnce(&WebAppDatabase::OnAllDataRead,
-                                     weak_ptr_factory_.GetWeakPtr(),
-                                     std::move(callback)));
+  store_->ReadAllDataAndMetadata(
+      base::BindOnce(&WebAppDatabase::OnAllDataAndMetadataRead,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
 
-void WebAppDatabase::OnAllDataRead(
+void WebAppDatabase::OnAllDataAndMetadataRead(
     RegistryOpenedCallback callback,
     const std::optional<syncer::ModelError>& error,
-    std::unique_ptr<syncer::ModelTypeStore::RecordList> data_records) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (error) {
-    error_callback_.Run(*error);
-    DLOG(ERROR) << "WebApps LevelDB data read error: " << error->ToString();
-    return;
-  }
-
-  store_->ReadAllMetadata(base::BindOnce(
-      &WebAppDatabase::OnAllMetadataRead, weak_ptr_factory_.GetWeakPtr(),
-      std::move(data_records), std::move(callback)));
-}
-
-void WebAppDatabase::OnAllMetadataRead(
     std::unique_ptr<syncer::ModelTypeStore::RecordList> data_records,
-    RegistryOpenedCallback callback,
-    const std::optional<syncer::ModelError>& error,
     std::unique_ptr<syncer::MetadataBatch> metadata_batch) {
   TRACE_EVENT0("ui", "WebAppDatabase::OnAllMetadataRead");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (error) {
     error_callback_.Run(*error);
-    DLOG(ERROR) << "WebApps LevelDB metadata read error: " << error->ToString();
+    DLOG(ERROR) << "WebApps LevelDB read error: " << error->ToString();
     return;
   }
 
@@ -1873,7 +1857,7 @@ WebAppProto::DisplayMode ToWebAppProtoDisplayMode(DisplayMode display_mode) {
     case DisplayMode::kMinimalUi:
       return WebAppProto::MINIMAL_UI;
     case DisplayMode::kUndefined:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       [[fallthrough]];
     case DisplayMode::kStandalone:
       return WebAppProto::STANDALONE;

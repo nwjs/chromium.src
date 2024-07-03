@@ -1005,6 +1005,12 @@ void AddDeviceAudioStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_AUDIO_INPUT_MUTE_BUTTON_ARIA_LABEL_NOT_MUTED},
       {"audioInputNoiseCancellationTitle",
        IDS_SETTINGS_AUDIO_INPUT_NOISE_CANCELLATION_TITLE},
+      {"audioInputStyleTransferTitle",
+       IDS_SETTINGS_AUDIO_INPUT_STYLE_TRANSFER_TITLE},
+      {"audioInputStyleTransferBadge",
+       IDS_SETTINGS_AUDIO_INPUT_STYLE_TRANSFER_BADGE},
+      {"audioInputStyleTransferDescription",
+       IDS_SETTINGS_AUDIO_INPUT_STYLE_TRANSFER_DESCRIPTION},
       {"audioInputTitle", IDS_SETTINGS_AUDIO_INPUT_TITLE},
       {"audioMutedByPolicyTooltip", IDS_SETTINGS_AUDIO_MUTED_BY_POLICY_TOOLTIP},
       {"audioMutedExternallyTooltip",
@@ -1177,6 +1183,9 @@ void DeviceSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
   html_source->AddBoolean(
       "enableF11AndF12KeyShortcuts",
       base::FeatureList::IsEnabled(::features::kSupportF11AndF12KeyShortcuts));
+
+  html_source->AddBoolean("enableWelcomeExperience",
+                          ash::features::IsWelcomeExperienceEnabled());
 
   AddDevicePointersStrings(html_source);
   AddDeviceGraphicsTabletStrings(html_source);
@@ -1696,9 +1705,7 @@ void DeviceSection::AddDevicePointersStrings(
       {"mouseSpeed", IDS_SETTINGS_MOUSE_SPEED_LABEL},
       {"cursorSpeed", IDS_SETTINGS_CURSOR_SPEED_LABEL},
       {"pointingStickSpeed", IDS_SETTINGS_POINTING_STICK_SPEED_LABEL},
-      {"mouseSwapButtonsLabel",
-       kIsRevampEnabled ? IDS_OS_SETTINGS_REVAMP_MOUSE_SWAP_BUTTONS_LABEL
-                        : IDS_SETTINGS_MOUSE_SWAP_BUTTONS_LABEL},
+      {"mouseSwapButtonsLabel", IDS_SETTINGS_MOUSE_SWAP_BUTTONS_LABEL},
       {"mouseCursor", IDS_SETTINGS_MOUSE_CURSOR_LABEL},
       {"mouseScrolling", IDS_SETTINGS_MOUSE_SCROLLING_LABEL},
       {"pointingStickPrimaryButton",

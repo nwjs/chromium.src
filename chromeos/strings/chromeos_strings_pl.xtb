@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastelowy żółty</translation>
 <translation id="1056898198331236512">Ostrzeżenie</translation>
 <translation id="1059913517121127803">Nie udało się rozpocząć skanowania</translation>
+<translation id="1061864016440983342">Używaj bez lokalizacji</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> z <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">wykryto zaporę sieciową</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Więcej ustawień</translation>
 <translation id="2082932131694554252">Przypisany klawisz klawiatury</translation>
 <translation id="2085089206770112532">Zmniejsz jasność wyświetlacza</translation>
+<translation id="2086091080968010660">Zmiany oparte na czasie mogą być niedokładne. Włącz dostęp systemu do lokalizacji w ustawieniach.</translation>
 <translation id="2102231663024125441">Edytowanie tekstu</translation>
 <translation id="2105810540595158374">Urządzenie to kontroler do gier.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, wersja <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Edytuj szczegóły punktu APN</translation>
 <translation id="2195732836444333448">Usługa zajęta. Spróbuj ponownie wkrótce.</translation>
 <translation id="2201758491318984023">roweru</translation>
-<translation id="2203222757805818543">Bieżący harmonogram jest ustawiony na <ph name="SUNRISE" />–<ph name="SUNSET" />. Aby automatycznie aktualizować harmonogram trybu ciemnego, <ph name="BEGIN_LINK" />włącz dostęp do lokalizacji<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">gorące źródło</translation>
 <translation id="2203642483788377106">klif</translation>
 <translation id="2208388655216963643">impresjonistycznym</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Przywróć domyślne</translation>
 <translation id="2286454467119466181">Prosty</translation>
 <translation id="2287186687001756809">Brak dostępnych obrazów. Aby dodać zdjęcia, wejdź na <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Bieżący harmonogram jest ustawiony na <ph name="SUNRISE" />–<ph name="SUNSET" />. Aby automatycznie aktualizować godziny zachodu i wschodu słońca, włącz w systemie dostęp do lokalizacji.</translation>
 <translation id="2305172810646967500">czarnym</translation>
 <translation id="2307344026739914387">Użyj bieżącej pary kluczy</translation>
 <translation id="2308243864813041101">Aby kontynuować proces aktualizacji, odłącz kabel USB urządzenia <ph name="DEVICE_NAME" /></translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">wydmy</translation>
 <translation id="2619761439309613843">Codziennie nowa</translation>
 <translation id="2620436844016719705">System</translation>
+<translation id="2637303424821734920">WYŁĄCZONA – aby wyświetlać lokalną pogodę, <ph name="BEGIN_LINK" />włącz dostęp do lokalizacji w systemie<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Obraz użytkownika</translation>
 <translation id="2640549051766135490">Wybrano album <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Elementy sterujące</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Tło</translation>
 <translation id="3027578600144895987">Zamknij kamerę</translation>
 <translation id="3031560714565892478">Urządzenie to kamera wideo.</translation>
+<translation id="3051968340259309715">Pozwoli to usługom systemowym na określanie Twojej lokalizacji przy użyciu Dokładności lokalizacji. Dokładność lokalizacji używa danych o sygnałach bezprzewodowych pochodzących np. z punktów dostępu do Wi-Fi, masztów sieci komórkowych i GPS-a, a także danych z czujników urządzenia takich jak akcelerometr i żyroskop. Pozwala to określać w przybliżeniu lokalizację urządzenia Możesz wyłączyć lokalizację, klikając Ustawienia &gt; Prywatność i bezpieczeństwo &gt; Ustawienia prywatności &gt; Dostęp do lokalizacji. <ph name="LINK_BEGIN" />Więcej informacji<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Punkt końcowy</translation>
 <translation id="3060579846059757016">Kontury</translation>
+<translation id="3061850252076394168">Włącz funkcję Przeczytaj na głos</translation>
 <translation id="3069085583900247081">Niepowodzenie testu</translation>
 <translation id="3078740164268491126">tabela</translation>
 <translation id="3081652522083185657">jasnym</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Nie udało się znaleźć wszystkich hostów</translation>
 <translation id="4593212453765072419">Wymagane uwierzytelnienie na serwerze proxy</translation>
 <translation id="4609350030397390689">Zmniejsz jasność klawiatury</translation>
-<translation id="4617553623719764431">Pogoda nie jest wyświetlana, ponieważ ta funkcja nie zna Twojej lokalizacji. Aby wyświetlać lokalną pogodę, <ph name="BEGIN_LINK" />włącz Dostęp do lokalizacji<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> z <ph name="TOTAL_PAGE_NUMBER" />. Naciśnij Enter, by anulować zadanie drukowania.</translation>
 <translation id="463791356324567266">Anuluję skanowanie…</translation>
 <translation id="4646949265910132906">Bezpieczne połączenie z Wi-Fi</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Uruchom</translation>
 <translation id="4987769320337599931">Zapora sieciowa</translation>
 <translation id="4988526792673242964">Strony</translation>
+<translation id="4989542687859782284">Niedostępne</translation>
 <translation id="4999333166442584738">Ukryj raport</translation>
 <translation id="500920857929044050">Zatrzymaj test</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">jasność klawiatury</translation>
 <translation id="6412715219990689313">Klawiatura wbudowana</translation>
 <translation id="6417265370957905582">Asystent Google</translation>
+<translation id="6419454453018688975">Włącz w systemie dostęp do lokalizacji</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Pozwoli to usługom systemowym z tym uprawnieniem na korzystanie z Twojej lokalizacji. Lokalizacja może używać takich źródeł jak Wi-Fi, sieci komórkowe i czujniki, aby łatwiej określać lokalizację urządzenia. <ph name="LINK_BEGIN" />Więcej informacji<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Słaba (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Otwórz ustawienia konta</translation>
 <translation id="6462978824459367242">Przycisk Dodaj APN jest teraz włączony</translation>

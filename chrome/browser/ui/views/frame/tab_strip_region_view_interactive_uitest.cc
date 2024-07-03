@@ -93,15 +93,8 @@ IN_PROC_BROWSER_TEST_F(TabStripRegionViewBrowserTest, TestForwardFocus) {
   move_forward_over_tab(tab_2);
   EXPECT_TRUE(new_tab_button()->HasFocus());
 
-#if !BUILDFLAG(IS_WIN)
   press_right();
   EXPECT_TRUE(tab_search_button()->HasFocus());
-#else
-  if (features::IsChromeRefresh2023()) {
-    press_right();
-    EXPECT_TRUE(tab_search_button()->HasFocus());
-  }
-#endif
 
   // Focus should cycle back around to tab_0.
   press_right();
@@ -136,15 +129,8 @@ IN_PROC_BROWSER_TEST_F(TabStripRegionViewBrowserTest, TestReverseFocus) {
   EXPECT_TRUE(tab_0->HasFocus());
 
   // Pressing left should immediately cycle back around to the last button.
-#if !BUILDFLAG(IS_WIN)
   press_left();
   EXPECT_TRUE(tab_search_button()->HasFocus());
-#else
-  if (features::IsChromeRefresh2023()) {
-    press_left();
-    EXPECT_TRUE(tab_search_button()->HasFocus());
-  }
-#endif
 
   press_left();
   EXPECT_TRUE(new_tab_button()->HasFocus());
@@ -201,33 +187,22 @@ IN_PROC_BROWSER_TEST_F(TabStripRegionViewBrowserTest, TestBeginEndFocus) {
 
 IN_PROC_BROWSER_TEST_F(TabStripRegionViewBrowserTest,
                        TestSearchContainerIsEndAligned) {
-  if (WindowFrameUtil::IsWindowsTabSearchCaptionButtonEnabled(browser())) {
-    EXPECT_EQ(tab_search_container(), nullptr);
-  } else {
-    if (TabSearchBubbleHost::ShouldTabSearchRenderBeforeTabStrip()) {
-      // The TabSearchContainer is calculated as controls padding away from the
-      // first tab (not including bottom corner radius)
-      const int tab_search_container_expected_end =
-          tab_strip_region_view()->GetTabStripContainerForTesting()->x() +
-          TabStyle::Get()->GetBottomCornerRadius() -
-          GetLayoutConstant(TAB_STRIP_PADDING);
+  if (TabSearchBubbleHost::ShouldTabSearchRenderBeforeTabStrip()) {
+    // The TabSearchContainer is calculated as controls padding away from the
+    // first tab (not including bottom corner radius)
+    const int tab_search_container_expected_end =
+        tab_strip_region_view()->GetTabStripContainerForTesting()->x() +
+        TabStyle::Get()->GetBottomCornerRadius() -
+        GetLayoutConstant(TAB_STRIP_PADDING);
 
-      EXPECT_EQ(tab_search_container()->bounds().right(),
-                tab_search_container_expected_end);
-    } else {
-      if (features::IsChromeRefresh2023()) {
-        const int tab_search_container_expected_end =
-            tab_strip_region_view()->GetLocalBounds().right() -
-            GetLayoutConstant(TAB_STRIP_PADDING);
-        EXPECT_EQ(tab_search_container()->bounds().right(),
-                  tab_search_container_expected_end);
-      } else {
-        const int tab_search_container_expected_end =
-            tab_strip_region_view()->GetLocalBounds().right() -
-            GetLayoutConstant(TABSTRIP_REGION_VIEW_CONTROL_PADDING);
-        EXPECT_EQ(tab_search_container()->bounds().right(),
-                  tab_search_container_expected_end);
-      }
-    }
+    EXPECT_EQ(tab_search_container()->bounds().right(),
+              tab_search_container_expected_end);
+    return;
   }
+
+  const int tab_search_container_expected_end =
+      tab_strip_region_view()->GetLocalBounds().right() -
+      GetLayoutConstant(TAB_STRIP_PADDING);
+  EXPECT_EQ(tab_search_container()->bounds().right(),
+            tab_search_container_expected_end);
 }

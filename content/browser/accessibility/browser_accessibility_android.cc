@@ -258,7 +258,7 @@ bool BrowserAccessibilityAndroid::IsEnabled() const {
       return false;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return true;
 }
 
@@ -567,9 +567,11 @@ bool BrowserAccessibilityAndroid::IsLeaf() const {
   if (ui::IsLink(GetRole()))
     return false;
 
-  // For Android only, tab-panels are never leaves. We do this to temporarily
-  // get around the gap for aria-labelledby in the Android API. See b/241526393.
-  if (GetRole() == ax::mojom::Role::kTabPanel) {
+  // For Android only, tab-panels and tab-lists are never leaves. We do this to
+  // temporarily get around the gap for aria-labelledby in the Android API.
+  // See b/241526393.
+  if (GetRole() == ax::mojom::Role::kTabPanel ||
+      GetRole() == ax::mojom::Role::kTabList) {
     return false;
   }
 
@@ -629,6 +631,7 @@ bool BrowserAccessibilityAndroid::IsLeafConsideringChildren() const {
 
     if (child->GetRole() == ax::mojom::Role::kTable ||
         child->GetRole() == ax::mojom::Role::kCell ||
+        child->GetRole() == ax::mojom::Role::kGridCell ||
         child->GetRole() == ax::mojom::Role::kRow ||
         child->GetRole() == ax::mojom::Role::kLayoutTable ||
         child->GetRole() == ax::mojom::Role::kLayoutTableCell ||
@@ -737,8 +740,9 @@ std::u16string BrowserAccessibilityAndroid::GetSubstringTextContentUTF16(
         break;
 
       case ax::mojom::ImageAnnotationStatus::kAnnotationSucceeded:
-        text =
-            GetString16Attribute(ax::mojom::StringAttribute::kImageAnnotation);
+        AppendTextToString(
+            GetString16Attribute(ax::mojom::StringAttribute::kImageAnnotation),
+            &text);
         break;
 
       case ax::mojom::ImageAnnotationStatus::kNone:
@@ -1447,7 +1451,7 @@ bool BrowserAccessibilityAndroid::Scroll(int direction,
       x = std::clamp(x_initial + page_x, x_min, x_max);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   manager()->SetScrollOffset(*this, gfx::Point(x, y));
@@ -1710,7 +1714,7 @@ void BrowserAccessibilityAndroid::GetGranularityBoundaries(
       GetWordBoundaries(starts, ends, offset);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 

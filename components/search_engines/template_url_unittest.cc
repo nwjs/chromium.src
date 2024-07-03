@@ -15,9 +15,11 @@
 #include "base/i18n/case_conversion.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/with_feature_override.h"
 #include "components/google/core/common/google_util.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/search_engines_switches.h"
@@ -343,6 +345,108 @@ TEST_F(TemplateURLTest, ImageURLWithGetShouldNotCrash) {
   EXPECT_EQ("http://foo/?q=X&t=dummy-image-thumbnail", result.spec());
 }
 
+TEST_F(TemplateURLTest, ParsePlayStoreDefinitions) {
+  // *** *** *** *** WARNING *** *** *** ***
+  //
+  // Do not remove elements from the list below.
+  //
+  // This test validates that the TemplateURL definitions served by Play Store
+  // can be processed and understood by Chrome.
+  //
+  // The list of parameters listed below reflects parameters found in Play Store
+  // configuration file. The only valid reason for modifying this list is if the
+  // Play Store configuration was updated to include *new* parameters.
+  //
+  // As long as the PlayStore TemplateURL definitions shadow internal templates
+  // this list should never drop elements.
+  //
+  // *** *** *** *** WARNING *** *** *** ***
+  //
+  // Extracted from search_engine_chrome_metadata using:
+  // sed -n 's/[^{]*\({[^}]*}\)[^{]*/"\1",\n/gp' | sort | uniq
+  // LINT.IfChange
+  std::set<std::string> recognized_params{{
+      "{google:RLZ}",
+      "{google:assistedQueryStats}",
+      "{google:baseSearchByImageURL}",
+      "{google:baseSuggestURL}",
+      "{google:baseURL}",
+      "{google:contextualSearchContextData}",
+      "{google:contextualSearchVersion}",
+      "{google:currentPageUrl}",
+      "{google:cursorPosition}",
+      "{google:iOSSearchLanguage}",
+      "{google:imageOriginalHeight}",
+      "{google:imageOriginalWidth}",
+      "{google:imageSearchSource}",
+      "{google:imageThumbnailBase64}",
+      "{google:imageThumbnail}",
+      "{google:imageURL}",
+      "{google:inputType}",
+      "{google:omniboxFocusType}",
+      "{google:originalQueryForSuggestion}",
+      "{google:pageClassification}",
+      "{google:pathWildcard}",
+      "{google:prefetchQuery}",
+      "{google:processedImageDimensions}",
+      "{google:searchClient}",
+      "{google:searchFieldtrialParameter}",
+      "{google:searchVersion}",
+      "{google:sessionToken}",
+      "{google:sourceId}",
+      "{google:suggestAPIKeyParameter}",
+      "{google:suggestClient}",
+      "{google:suggestRid}",
+      "{imageTranslateSourceLocale}",
+      "{imageTranslateTargetLocale}",
+      "{inputEncoding}",
+      "{language}",
+      "{searchTerms}",
+      "{yandex:searchPath}",
+  }};
+  // LINT.ThenChange(//googledata/experiments/play/features/gateway/http/setupandupdate/tests/chrome_template_url_parameters_validations.gcl)
+
+  // Basic confirmation check; if this fails, it's possible the logic below
+  // needs updating.
+  EXPECT_EQ(0, SEARCH_ENGINE_OTHER);
+  EXPECT_NE(0, SEARCH_ENGINE_GOOGLE);
+
+  for (const auto& reference : recognized_params) {
+    TemplateURLData data;
+    data.SetURL(reference);
+    TemplateURL url(data);
+    TemplateURLRef::Replacements replacements;
+
+    {
+      // External:
+      data.prepopulate_id = SEARCH_ENGINE_OTHER;
+      std::string result = reference;
+
+      EXPECT_TRUE(url.url_ref().ParseParameter(0, reference.length() - 1,
+                                               &result, &replacements));
+
+      // Verifying `replacements` is moot: if substitution is not available,
+      // replacement won't be made. Instead, verify if resulting URL has been
+      // modified.
+      EXPECT_NE(result, reference);
+    }
+
+    {
+      // Internal:
+      data.prepopulate_id = SEARCH_ENGINE_GOOGLE;
+      std::string result = reference;
+
+      EXPECT_TRUE(url.url_ref().ParseParameter(0, reference.length() - 1,
+                                               &result, &replacements));
+
+      // Verifying `replacements` is moot: if substitution is not available,
+      // replacement won't be made. Instead, verify if resulting URL has been
+      // modified.
+      EXPECT_NE(result, reference);
+    }
+  }
+}
+
 // Test that setting the prepopulate ID from TemplateURL causes the stored
 // TemplateURLRef to handle parsing the URL parameters differently.
 TEST_F(TemplateURLTest, SetPrepopulatedAndParse) {
@@ -661,8 +765,45 @@ TEST_F(TemplateURLTest, ReplaceSearchTermsMultipleEncodings) {
 }
 
 // Tests replacing searchbox stats (gs_lcrp) in various scenarios.
-TEST_F(TemplateURLTest, ReplaceSearchboxStats) {
+class TemplateURLPrefetchSourceTest
+    : public TemplateURLTest,
+      public ::testing::WithParamInterface<std::tuple<bool, bool>> {
+ public:
+  TemplateURLPrefetchSourceTest() {
+    if (std::get<0>(GetParam())) {
+      feature_list_.InitAndEnableFeature({switches::kPrefetchParameterFix});
+    } else {
+      feature_list_.InitAndDisableFeature({switches::kPrefetchParameterFix});
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    TemplateURLPrefetchSourceTest,
+    ::testing::Combine(testing::Bool(), testing::Bool()),
+    [](const testing::TestParamInfo<std::tuple<bool, bool>>& info) {
+      return base::StringPrintf(
+          "%s_%s",
+          std::get<0>(info.param) ? "prefetch_param_fix_enabled"
+                                  : "prefetch_param_fix_disabled",
+          std::get<1>(info.param) ? "is_prefetch_request"
+                                  : "not_prefetch_request");
+    });
+
+TEST_P(TemplateURLPrefetchSourceTest, ReplaceSearchboxStats) {
   base::HistogramTester histogram_tester;
+
+  bool prefetch_parameter_fix_feature_enabled = std::get<0>(GetParam());
+  bool is_prefetch_request = std::get<1>(GetParam());
+  std::string prefetch_param_value = is_prefetch_request ? "test" : "";
+  std::string prefetch_param_pair =
+      (prefetch_parameter_fix_feature_enabled && is_prefetch_request)
+          ? "pf=test&"
+          : "";
 
   omnibox::metrics::ChromeSearchboxStats searchbox_stats;
   searchbox_stats.set_client_name("chrome");
@@ -678,15 +819,15 @@ TEST_F(TemplateURLTest, ReplaceSearchboxStats) {
       // HTTPS and non-empty gs_lcrp: Success.
       {u"foo", searchbox_stats, "https://foo/",
        "{google:baseURL}?q={searchTerms}&{google:assistedQueryStats}",
-       "https://foo/?q=foo&gs_lcrp=EgZjaHJvbWWwAgE&"},
+       "https://foo/?q=foo&gs_lcrp=EgZjaHJvbWWwAgE&" + prefetch_param_pair},
       // Non-Google HTTPS and non-empty gs_lcrp: Success.
       {u"foo", searchbox_stats, "https://bar/",
        "https://foo/?q={searchTerms}&{google:assistedQueryStats}",
-       "https://foo/?q=foo&gs_lcrp=EgZjaHJvbWWwAgE&"},
+       "https://foo/?q=foo&gs_lcrp=EgZjaHJvbWWwAgE&" + prefetch_param_pair},
       // No HTTPS: Failure.
       {u"foo", searchbox_stats, "http://foo/",
        "{google:baseURL}?q={searchTerms}&{google:assistedQueryStats}",
-       "http://foo/?q=foo&"},
+       "http://foo/?q=foo&" + prefetch_param_pair},
       // No {google:assistedQueryStats}: Failure.
       {u"foo", searchbox_stats, "https://foo/",
        "{google:baseURL}?q={searchTerms}", "https://foo/?q=foo"},
@@ -700,6 +841,7 @@ TEST_F(TemplateURLTest, ReplaceSearchboxStats) {
     ASSERT_TRUE(url.url_ref().SupportsReplacement(search_terms_data_));
     TemplateURLRef::SearchTermsArgs search_terms_args(entry.search_term);
     search_terms_args.searchbox_stats.MergeFrom(entry.searchbox_stats);
+    search_terms_args.prefetch_param = prefetch_param_value;
     search_terms_data_.set_google_base_url(entry.base_url);
     GURL result(url.url_ref().ReplaceSearchTerms(search_terms_args,
                                                  search_terms_data_));
@@ -808,19 +950,37 @@ TEST_F(TemplateURLTest, ReplaceOmniboxFocusType) {
   }
 }
 
-// Tests replacing prefetch source (&pf=).
-TEST_F(TemplateURLTest, ReplaceIsPrefetch) {
+class TemplateURLOnePrefetchSourceTest : public base::test::WithFeatureOverride,
+                                         public TemplateURLTest {
+ public:
+  TemplateURLOnePrefetchSourceTest()
+      : base::test::WithFeatureOverride(switches::kPrefetchParameterFix) {}
+};
+INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(TemplateURLOnePrefetchSourceTest);
+// Tests replacing prefetch param (&pf=) with assistedQueryStats.
+TEST_P(TemplateURLOnePrefetchSourceTest, ReplaceIsPrefetch) {
   struct TestData {
     const std::u16string search_term;
     std::string prefetch_param;
     const std::string url;
     const std::string expected_result;
   } test_data[] = {
-      {u"foo", "", "{google:baseURL}?{searchTerms}&{google:prefetchSource}",
-       "http://www.google.com/?foo&"},
-      {u"foo", "cs", "{google:baseURL}?{searchTerms}&{google:prefetchSource}",
+      // Only one of the component works.
+      {u"foo", "cs",
+       "{google:baseURL}?{searchTerms}&{google:assistedQueryStats}{google:"
+       "prefetchSource}",
        "http://www.google.com/?foo&pf=cs&"},
-      {u"foo", "op", "{google:baseURL}?{searchTerms}&{google:prefetchSource}",
+      {u"foo", "",
+       "{google:baseURL}?{searchTerms}&{google:assistedQueryStats}{google:"
+       "prefetchSource}",
+       "http://www.google.com/?foo&"},
+      {u"foo", "cs",
+       "{google:baseURL}?{searchTerms}&{google:assistedQueryStats}{google:"
+       "prefetchSource}",
+       "http://www.google.com/?foo&pf=cs&"},
+      {u"foo", "op",
+       "{google:baseURL}?{searchTerms}&{google:assistedQueryStats}{google:"
+       "prefetchSource}",
        "http://www.google.com/?foo&pf=op&"},
   };
   TemplateURLData data;
@@ -897,6 +1057,42 @@ TEST_F(TemplateURLTest, PlayAPIAttribution) {
     EXPECT_EQ(entry.output, result.spec());
   }
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+// Tests appending attribution parameter to queries originating from search
+// engines chosen in the search engine choice screen.
+TEST_F(TemplateURLTest, ChoiceScreenAttribution) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list
+      .InitWithFeatures(/*enabled_features=*/
+                        {switches::kSearchEngineChoiceAttribution,
+                         switches::kSearchEngineChoiceTrigger},
+                        /*disabled_features=*/{});
+
+  const struct TestData {
+    const char* url;
+    std::u16string terms;
+    bool search_engine_chosen_in_choice_screen;
+    const char* output;
+  } test_data[] = {
+      {"http://foo/?q={searchTerms}", u"bar", false, "http://foo/?q=bar"},
+      {"http://foo/?q={searchTerms}", u"bar", true,
+       "http://foo/?q=bar&chrome_dse_attribution=1"}};
+  TemplateURLData data;
+  for (const auto& entry : test_data) {
+    data.SetURL(entry.url);
+    TemplateURL url(data);
+    search_terms_data_.set_search_engine_chosen_in_choice_screen(
+        entry.search_engine_chosen_in_choice_screen);
+    EXPECT_TRUE(url.url_ref().IsValid(search_terms_data_));
+    ASSERT_TRUE(url.url_ref().SupportsReplacement(search_terms_data_));
+    GURL result(url.url_ref().ReplaceSearchTerms(
+        TemplateURLRef::SearchTermsArgs(entry.terms), search_terms_data_));
+    ASSERT_TRUE(result.is_valid());
+    EXPECT_EQ(entry.output, result.spec());
+  }
+}
+#endif
 
 TEST_F(TemplateURLTest, Suggestions) {
   struct TestData {

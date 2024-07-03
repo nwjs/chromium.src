@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">պաստելային դեղին</translation>
 <translation id="1056898198331236512">Զգուշացում</translation>
 <translation id="1059913517121127803">Չհաջողվեց սկսել սկանավորումը</translation>
+<translation id="1061864016440983342">Օգտագործել առանց տեղորոշման</translation>
 <translation id="1062823486781306604"><ph name="INDEX" />/<ph name="COUNT" />, <ph name="NAME" />։</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Հայտնաբերվել է հրապատ</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Այլ կարգավորումներ</translation>
 <translation id="2082932131694554252">Նշանակված ստեղն</translation>
 <translation id="2085089206770112532">Էկրանի պայծառության նվազեցում</translation>
+<translation id="2086091080968010660">Ժամանակի հիման վրա փոփոխությունները կարող են ճշգրիտ չլինել։ Միացրեք համակարգի տեղորոշման թույլտվությունը կարգավորումներում։</translation>
 <translation id="2102231663024125441">Տեքստի խմբագրում</translation>
 <translation id="2105810540595158374">Սարքը խաղային վահանակ է։</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, տարբերակ <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN-ի տվյալների փոփոխում</translation>
 <translation id="2195732836444333448">Սերվերում չկան բավականաչափ ռեսուրսներ։ Վերադարձեք քիչ անց։</translation>
 <translation id="2201758491318984023">հեծանիվ</translation>
-<translation id="2203222757805818543">Ընթացիկ ժամանակացույցը՝ <ph name="SUNRISE" /> – <ph name="SUNSET" />։ Մուգ թեմայի ժամանակացույցն ավտոմատ թարմացնելու համար <ph name="BEGIN_LINK" />միացրեք տեղորոշման թույլտվությունը<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">հանքային տաք աղբյուր</translation>
 <translation id="2203642483788377106">քարափ</translation>
 <translation id="2208388655216963643">իմպրեսիոնիստական</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Վերականգնել կանխադրված կարգավորումները</translation>
 <translation id="2286454467119466181">Պարզեցված</translation>
 <translation id="2287186687001756809">Ոչ մի պատկեր չկա։ Լուսանկարներ ավելացնելու համար անցեք <ph name="LINK" />։</translation>
+<translation id="2294577623958216786">Ընթացիկ ժամանակացույցը՝ <ph name="SUNRISE" /> – <ph name="SUNSET" />։ Արևածագի և մայրամուտի ժամանակացույցն ավտոմատ թարմացնելու համար միացրեք տեղորոշման թույլտվությունը։</translation>
 <translation id="2305172810646967500">սև</translation>
 <translation id="2307344026739914387">Օգտագործել ընթացիկ բանալիների զույգը</translation>
 <translation id="2308243864813041101">Թարմացումը շարունակելու համար անջատեք USB մալուխը <ph name="DEVICE_NAME" /> սարքից</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">ավազաթումբ</translation>
 <translation id="2619761439309613843">Ամենօրյա թարմացում</translation>
 <translation id="2620436844016719705">Համակարգ</translation>
+<translation id="2637303424821734920">Անջատված է – Տեղական եղանակը ցուցադրելու համար <ph name="BEGIN_LINK" />միացրեք համակարգի տեղորոշման թույլտվությունը<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Մուտքի պատկեր</translation>
 <translation id="2640549051766135490">Ընտրվել է «<ph name="TITLE" />» (<ph name="DESC" />) ալբոմը</translation>
 <translation id="2645380101799517405">Կարգավորումներ</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Ֆոն</translation>
 <translation id="3027578600144895987">Փակել տեսախցիկը</translation>
 <translation id="3031560714565892478">Սարքը տեսախցիկ է։</translation>
+<translation id="3051968340259309715">Սա թույլ է տալիս համակարգային ծառայություններին տեղորոշման ճշգրտության միջոցով որոշել ձեր գտնվելու վայրը։ Տեղորոշման ճշգրտությունը օգտագործում է անլար ազդանշանների (օր․՝ Wi‑Fi-ի մուտքի կետերի, բջջային ցանցի աշտարակների և GPS-ի) մասին տեղեկությունները, ինչպես նաև սարքի սենսորների (օր․՝ արագացման չափիչի և դիրքորոշիչի) տվյալները՝ սարքի տեղադրությունն ավելի ճշգրիտ որոշելու համար։ Տեղորոշումն անջատելու համար անցեք Կարգավորումներ &gt; Գաղտնիություն և անվտանգություն &gt; Գաղտնիության կարգավորումներ &gt; Տեղորոշման թույլտվություն։ <ph name="LINK_BEGIN" />Իմանալ ավելին<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> մԱ</translation>
 <translation id="3056720590588772262">Վերջնակետ</translation>
 <translation id="3060579846059757016">Հիմնական կետեր</translation>
+<translation id="3061850252076394168">միացնել «Ընտրեք և լսեք» գործառույթը</translation>
 <translation id="3069085583900247081">Փորձարկումը ձախողվեց</translation>
 <translation id="3078740164268491126">աղյուսակ</translation>
 <translation id="3081652522083185657">բաց</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Չհաջողվեց կապ հաստատել բոլոր խնամորդների հետ</translation>
 <translation id="4593212453765072419">Պահանջվում է պրոքսի սերվերի նույնականացում</translation>
 <translation id="4609350030397390689">Ստեղնաշարի պայծառության նվազեցում</translation>
-<translation id="4617553623719764431">Եղանակը չի ցուցադրվում, քանի որ ձեր գտնվելու վայրն անհայտ է։ Տեղական եղանակի ցուցադրման համար <ph name="BEGIN_LINK" />միացրեք տեղորոշման թույլտվությունը<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" />։ Հպեք Enter՝ տպումը չեղարկելու համար։</translation>
 <translation id="463791356324567266">Սկանավորումը չեղարկվում է...</translation>
 <translation id="4646949265910132906">Ապահով Wi-Fi կապ</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Գործարկել</translation>
 <translation id="4987769320337599931">Հրապատ</translation>
 <translation id="4988526792673242964">Էջեր</translation>
+<translation id="4989542687859782284">Անհասանելի է</translation>
 <translation id="4999333166442584738">Թաքցնել հաշվետվությունը</translation>
 <translation id="500920857929044050">Դադարեցնել փորձարկումը</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">ստեղնաշարի պայծառություն</translation>
 <translation id="6412715219990689313">Ներկառուցված ստեղնաշար</translation>
 <translation id="6417265370957905582">Google Օգնական</translation>
+<translation id="6419454453018688975">Միացնել համակարգի տեղորոշման թույլտվությունը</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Սա թույլ է տալիս համակարգային ծառայություններին օգտագործել ձեր տեղադրության տվյալները։ Ձեր սարքի տեղադրությունը որոշելու համար տեղորոշման ծառայությունն օգտագործում է տարբեր աղբյուրներ, օրինակ՝ Wi‑Fi, բջջային ցանցեր և տվիչներ։ <ph name="LINK_BEGIN" />Իմանալ ավելին<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Թույլ (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Անցնել հաշվի կարգավորումներ</translation>
 <translation id="6462978824459367242">«Ավելացնել APN» կոճակը միացված է</translation>

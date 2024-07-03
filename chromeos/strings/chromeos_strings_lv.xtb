@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pasteļdzeltenā</translation>
 <translation id="1056898198331236512">Brīdinājums</translation>
 <translation id="1059913517121127803">Nevarēja sākt skenēšanu.</translation>
+<translation id="1061864016440983342">Izmantot bez atrašanās vietas</translation>
 <translation id="1062823486781306604"><ph name="NAME" />: <ph name="INDEX" />. no <ph name="COUNT" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Konstatēts ugunsmūris</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Vairāk iestatījumu</translation>
 <translation id="2082932131694554252">Piešķirtais tastatūras taustiņš</translation>
 <translation id="2085089206770112532">Samazināt displeja spilgtumu</translation>
+<translation id="2086091080968010660">Uz laiku balstītās izmaiņas var nebūt precīzas. Iestatījumos ieslēdziet sistēmas piekļuvi atrašanās vietas datiem.</translation>
 <translation id="2102231663024125441">Teksta rediģēšana</translation>
 <translation id="2105810540595158374">Ierīce ir spēļu vadāmierīce.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versija <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN informācijas rediģēšana</translation>
 <translation id="2195732836444333448">Šobrīd funkcija ir pārslogota. Atgriezieties pēc brīža!</translation>
 <translation id="2201758491318984023">velosipēds</translation>
-<translation id="2203222757805818543">Pašreizējais grafiks ir iestatīts no plkst. <ph name="SUNRISE" /> līdz <ph name="SUNSET" />. Lai automātiski atjauninātu tumšā režīma grafiku, <ph name="BEGIN_LINK" />ieslēdziet piekļuvi atrašanās vietai<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">karstais avots</translation>
 <translation id="2203642483788377106">klints</translation>
 <translation id="2208388655216963643">impresionisms</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Atjaunot noklusējuma iestatījumus</translation>
 <translation id="2286454467119466181">Vienkārša</translation>
 <translation id="2287186687001756809">Nav pieejams neviens attēls. Lai pievienotu fotoattēlus, pārejiet uz vietni <ph name="LINK" />.</translation>
+<translation id="2294577623958216786">Pašreizējais grafiks: <ph name="SUNRISE" />–<ph name="SUNSET" />. Lai automātiski atjauninātu saulrieta un saullēkta grafiku, ieslēdziet sistēmas piekļuvi atrašanās vietas datiem.</translation>
 <translation id="2305172810646967500">melnā krāsā</translation>
 <translation id="2307344026739914387">Izmantot pašreizējo atslēgu pāri</translation>
 <translation id="2308243864813041101">Lai turpinātu atjaunināšanas procesu, atvienojiet ierīces (<ph name="DEVICE_NAME" />) USB vadu.</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">smilšu kāpa</translation>
 <translation id="2619761439309613843">Nomainīt katru dienu</translation>
 <translation id="2620436844016719705">Sistēma</translation>
+<translation id="2637303424821734920">IZSLĒGTS — lai rādītu vietējo laikapstākļu prognozi, <ph name="BEGIN_LINK" />ieslēdziet sistēmas piekļuvi atrašanās vietai<ph name="END_LINK" />.</translation>
 <translation id="2638662041295312666">Pierakstīšanās attēls</translation>
 <translation id="2640549051766135490">Atlasīts albums <ph name="TITLE" />: <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Vadīklas</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Fons</translation>
 <translation id="3027578600144895987">Aizvērt kameru</translation>
 <translation id="3031560714565892478">Ierīce ir videokamera.</translation>
+<translation id="3051968340259309715">Tādējādi atļausiet sistēmas pakalpojumiem izmantot atrašanās vietas precizitāti, lai noteiktu jūsu atrašanās vietu. Lietojot iestatījumu “Atrašanās vietas precizitāte”, informācija par bezvadu signāliem (piemēram, Wi-Fi piekļuves punkti, mobilā tīkla torņi un GPS, kā arī ierīces sensoru dati, tostarp no akselerometra un žiroskopa) tiek izmantota, lai noteiktu ierīces atrašanās vietu. Varat izslēgt atrašanās vietas noteikšanu sadaļā Iestatījumi &gt; Konfidencialitāte un drošība &gt; Konfidencialitātes vadīklas &gt; Piekļuve atrašanās vietai. <ph name="LINK_BEGIN" />Uzziniet vairāk.<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Beigu punkts</translation>
 <translation id="3060579846059757016">Struktūras</translation>
+<translation id="3061850252076394168">iespējot funkciju “Atlasīt, lai izrunātu”</translation>
 <translation id="3069085583900247081">Testēšana neizdevās</translation>
 <translation id="3078740164268491126">tabula</translation>
 <translation id="3081652522083185657">gaišs</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Neizdevās atrisināt visu saimniekdatoru nosaukumus</translation>
 <translation id="4593212453765072419">Nepieciešama starpniekservera autentifikācija</translation>
 <translation id="4609350030397390689">Samazināt tastatūras spilgtumu</translation>
-<translation id="4617553623719764431">Laikapstākļu prognoze netiek rādīta, jo nav zināma jūsu atrašanās vieta. Lai rādītu vietējo laikapstākļu prognozi, <ph name="BEGIN_LINK" />ieslēdziet piekļuvi atrašanās vietai<ph name="END_LINK" />.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />: <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> no <ph name="TOTAL_PAGE_NUMBER" /> lapas(-ām). Lai atceltu drukas uzdevumu, nospiediet taustiņu Enter.</translation>
 <translation id="463791356324567266">Notiek skenēšanas atcelšana…</translation>
 <translation id="4646949265910132906">Drošs Wi-Fi savienojums</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Izpildīt</translation>
 <translation id="4987769320337599931">Ugunsmūris</translation>
 <translation id="4988526792673242964">Lapas</translation>
+<translation id="4989542687859782284">Nav pieejami</translation>
 <translation id="4999333166442584738">Paslēpt pārskatu</translation>
 <translation id="500920857929044050">Apturēt pārbaudi</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">tastatūras spilgtums</translation>
 <translation id="6412715219990689313">Iebūvētā tastatūra</translation>
 <translation id="6417265370957905582">Google asistents</translation>
+<translation id="6419454453018688975">Ieslēgt sistēmas piekļuvi atrašanās vietas datiem</translation>
 <translation id="6423239382391657905">Atvērt VPN</translation>
-<translation id="6438073885402882007">Tādējādi sistēmas pakalpojumi, kuriem ir piešķirta atļauja, var izmantot jūsu atrašanās vietu. Lai noteiktu jūsu ierīces atrašanās vietu, var tikt izmantoti tādi avoti kā Wi-Fi, mobilie tīkli un sensori. <ph name="LINK_BEGIN" />Uzzināt vairāk<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Vājš (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Pāriet uz konta iestatījumiem</translation>
 <translation id="6462978824459367242">APN pievienošanas poga tagad ir iespējota</translation>

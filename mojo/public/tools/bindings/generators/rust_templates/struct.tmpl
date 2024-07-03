@@ -1,0 +1,33 @@
+{% from "enum.tmpl" import declare_enum -%}
+
+{% macro declare_struct(name, struct) -%}
+
+#[derive(Debug)]
+pub struct {{name}} {
+{%- for field in struct.fields %}
+    pub r#{{field.name}}: {{field.kind|rust_field_type}},
+{%- endfor %}
+}
+
+{%- set packed_fields = struct.packed.packed_fields %}
+
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub struct {{name}}_Data {
+    pub _header: bindings::data::StructHeader,
+{%- for field in struct.packed|get_rust_data_fields%}
+    pub r#{{field.name}}: {{field.type}},
+{%- endfor %}
+}
+
+// Ensure that the Rust type's size is the same as mojo's.
+static_assertions::assert_eq_size!(
+    [u8; {{struct.versions[-1].num_bytes}}],
+    {{name}}_Data,
+);
+
+{%- for enum in struct.enums %}
+{{declare_enum(name + "_" + enum.name, enum)}}
+{%- endfor %}
+
+{%- endmacro -%}

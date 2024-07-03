@@ -793,11 +793,11 @@ void HotseatWidget::Initialize(aura::Window* container, Shelf* shelf) {
   DCHECK(shelf);
   shelf_ = shelf;
   views::Widget::InitParams params(
+      views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.name = "HotseatWidget";
   params.delegate = delegate_view_.get();
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.parent = container;
   params.layer_type = ui::LAYER_NOT_DRAWN;
   Init(std::move(params));
@@ -931,7 +931,7 @@ int HotseatWidget::CalculateHotseatYInScreen(
           ShelfConfig::Get()->hotseat_bottom_padding() + hotseat_size;
       break;
     case HotseatState::kNone:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   const int target_shelf_size =
       shelf_->shelf_widget()->GetTargetBounds().size().height();
@@ -1373,7 +1373,7 @@ void HotseatWidget::StartHotseatTransitionAnimation(
       break;
     case StateTransition::kHiddenAndExtended:
     case StateTransition::kOther:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   auto* sequence =

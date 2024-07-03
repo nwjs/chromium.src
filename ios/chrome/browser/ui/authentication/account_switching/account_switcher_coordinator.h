@@ -12,6 +12,10 @@
 // Coordinator to display the fast account switcher view controller.
 @interface AccountSwitcherCoordinator : ChromeCoordinator
 
+// Clicked view, used to anchor the menu to it when using
+// UIModalPresentationPopover mode.
+@property(nonatomic, strong) UIView* anchorView;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_UI_AUTHENTICATION_ACCOUNT_SWITCHING_ACCOUNT_SWITCHER_COORDINATOR_H_

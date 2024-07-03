@@ -528,20 +528,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Renderer.PossibleSynchronizedScroll2" enum="BooleanSuccess"
-    expires_after="2024-06-30">
-  <owner>vollick@chromium.org</owner>
-  <owner>flackr@chromium.org</owner>
-  <summary>
-    Counts the number of times we estimate that a page (whose main frame is the
-    outermost main frame) is attempting to synchronously make updates in
-    response to scroll (eg, to implement a JavaScript-based parallax effect). We
-    make this estimation based on a heuristic that checks that we a) have a
-    scroll handler, b) have accessed scroll position, and c) have made an update
-    (and this update can be realized by scheduling rAF).
-  </summary>
-</histogram>
-
 <histogram name="Renderer.Preload.UnusedResource" enum="BooleanSuccess"
     expires_after="2024-10-13">
   <owner>iclelland@chromium.org</owner>
@@ -557,7 +543,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Preload.UnusedResource2{Trigger}" enum="ResourceType"
-    expires_after="2024-09-29">
+    expires_after="2024-12-01">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -586,7 +572,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.ProcessLifetime3{RendererHostedContentType}"
-    units="ms" expires_after="2023-02-28">
+    units="ms" expires_after="2024-12-01">
   <owner>fdoray@chromium.org</owner>
   <owner>olivierli@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
@@ -650,7 +636,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RendererScheduler.RendererMainThreadLoad5" units="%"
-    expires_after="2024-09-29">
+    expires_after="2024-12-01">
   <owner>altimin@chromium.org</owner>
   <summary>
     Renderer main thread load (percentage of time spent in tasks), reported in

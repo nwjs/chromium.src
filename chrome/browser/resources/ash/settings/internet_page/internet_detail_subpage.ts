@@ -278,6 +278,14 @@ export class SettingsInternetDetailPageElement extends
         },
       },
 
+      isTrafficCountersForWifiTestingEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.valueExists('trafficCountersForWifiTesting') &&
+              loadTimeData.getBoolean('trafficCountersForWifiTesting');
+        },
+      },
+
       /**
        * Tracks whether traffic counter info should be shown.
        */
@@ -321,11 +329,13 @@ export class SettingsInternetDetailPageElement extends
         },
       },
 
-      isApnRevampAndPoliciesEnabled_: {
+      isApnRevampAndAllowApnModificationPolicyEnabled_: {
         type: Boolean,
         value() {
-          return loadTimeData.valueExists('isApnRevampAndPoliciesEnabled') &&
-              loadTimeData.getBoolean('isApnRevampAndPoliciesEnabled');
+          return loadTimeData.valueExists(
+                     'isApnRevampAndAllowApnModificationPolicyEnabled') &&
+              loadTimeData.getBoolean(
+                  'isApnRevampAndAllowApnModificationPolicyEnabled');
         },
       },
 
@@ -416,10 +426,11 @@ export class SettingsInternetDetailPageElement extends
   private suppressTextMessagesOverride_: boolean;
   private isCellularCarrierLockEnabled_: boolean;
   private isPasspointSettingsEnabled_: boolean;
-  private isApnRevampAndPoliciesEnabled_: boolean;
+  private isApnRevampAndAllowApnModificationPolicyEnabled_: boolean;
   private isRevampWayfindingEnabled_: boolean;
   private isSecondaryUser_: boolean;
   private isTrafficCountersEnabled_: boolean;
+  private isTrafficCountersForWifiTestingEnabled_: boolean;
   private isWifiSyncEnabled_: boolean;
   private managedProperties_: ManagedProperties|undefined;
   private meteredOverride_: boolean;
@@ -1237,6 +1248,10 @@ export class SettingsInternetDetailPageElement extends
         managedProperties.type === NetworkType.kTether;
   }
 
+  private isWiFi_(managedProperties: ManagedProperties|undefined): boolean {
+    return !!managedProperties && managedProperties.type === NetworkType.kWiFi;
+  }
+
   private isWireGuard_(managedProperties: ManagedProperties|
                        undefined): boolean {
     if (!managedProperties) {
@@ -1283,7 +1298,7 @@ export class SettingsInternetDetailPageElement extends
   }
 
   private isApnManaged_(globalPolicy: GlobalPolicy|undefined): boolean {
-    if (!this.isApnRevampAndPoliciesEnabled_) {
+    if (!this.isApnRevampAndAllowApnModificationPolicyEnabled_) {
       return false;
     }
     if (!globalPolicy) {
@@ -2216,10 +2231,15 @@ export class SettingsInternetDetailPageElement extends
     if (!this.isTrafficCountersEnabled_) {
       return false;
     }
-    const connectedToCellular = !!managedProperties && this.guid !== '' &&
-        this.isCellular_(managedProperties) &&
-        this.isConnectedState_(managedProperties);
-    if (!connectedToCellular) {
+    if (!managedProperties || this.guid === '') {
+      return false;
+    }
+    if (!this.isCellular_(managedProperties) &&
+        !(this.isWiFi_(managedProperties) &&
+          this.isTrafficCountersForWifiTestingEnabled_)) {
+      return false;
+    }
+    if (!this.isConnectedState_(managedProperties)) {
       return false;
     }
 

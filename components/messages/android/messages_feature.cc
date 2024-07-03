@@ -8,7 +8,9 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/no_destructor.h"
-#include "components/messages/android/jni_headers/MessageFeatureMap_jni.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "components/messages/android/feature_flags_jni_headers/MessageFeatureMap_jni.h"
 
 namespace messages {
 

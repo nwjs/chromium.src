@@ -89,6 +89,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/transform_util.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/bounds_animator.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/controls/button/button.h"
@@ -374,7 +375,7 @@ ShelfView::ShelfView(ShelfModel* model,
   announcement_view_ = new views::View();
   AddChildView(announcement_view_.get());
 
-  SetAccessibleRole(ax::mojom::Role::kToolbar);
+  GetViewAccessibility().SetRole(ax::mojom::Role::kToolbar);
 }
 
 ShelfView::~ShelfView() {
@@ -789,7 +790,7 @@ void ShelfView::ButtonPressed(views::Button* sender,
       break;
 
     case TYPE_UNDEFINED:
-      NOTREACHED() << "ShelfItemType must be set.";
+      NOTREACHED_IN_MIGRATION() << "ShelfItemType must be set.";
       break;
   }
 
@@ -1061,7 +1062,7 @@ void ShelfView::UpdateButton(ShelfAppButton* button, const ShelfItem& item) {
   button->SetMainAndMaybeHostBadgeImage(item.image, item.has_placeholder_icon,
                                         item.badge_image);
   button->SetNotificationBadgeColor(item.notification_badge_color);
-  button->SetAccessibleName(item.accessible_name);
+  button->GetViewAccessibility().SetName(item.accessible_name);
   button->SchedulePaint();
 }
 
@@ -1934,7 +1935,7 @@ bool ShelfView::SameDragType(ShelfItemType typea, ShelfItemType typeb) const {
   if (IsPinnedShelfItemType(typea) && IsPinnedShelfItemType(typeb))
     return true;
   if (typea == TYPE_UNDEFINED || typeb == TYPE_UNDEFINED) {
-    NOTREACHED() << "ShelfItemType must be set.";
+    NOTREACHED_IN_MIGRATION() << "ShelfItemType must be set.";
     return false;
   }
   // Running app or dialog.

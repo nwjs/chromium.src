@@ -2,8 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/memory/raw_ptr.h"
-#include "base/memory/raw_ptr_exclusion.h"
+#include "base/memory/stack_allocated.h"
 #include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
@@ -87,12 +86,13 @@ class WebAppTabStripBrowserTest : public WebAppBrowserTestBase {
   }
 
   struct App {
+    STACK_ALLOCATED();
+
+   public:
     webapps::AppId id;
-    raw_ptr<Browser> browser;
-    raw_ptr<BrowserView> browser_view;
-    // This field is not a raw_ptr<> because of missing |.get()| in
-    // not-rewritten platform specific code.
-    RAW_PTR_EXCLUSION content::WebContents* web_contents;
+    Browser* browser;
+    BrowserView* browser_view;
+    content::WebContents* web_contents;
   };
 
   App InstallAndLaunch() {
@@ -330,9 +330,9 @@ IN_PROC_BROWSER_TEST_F(WebAppTabStripBrowserTest, NewTabUrl) {
 IN_PROC_BROWSER_TEST_F(WebAppTabStripBrowserTest, NonTabbedWebApp) {
   Profile* profile = browser()->profile();
 
-  auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
+  auto web_app_info = web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+      embedded_test_server()->GetURL(kAppPath));
   web_app_info->title = u"Test app";
-  web_app_info->start_url = embedded_test_server()->GetURL(kAppPath);
   webapps::AppId app_id = test::InstallWebApp(profile, std::move(web_app_info));
 
   Browser* app_browser = web_app::LaunchWebAppBrowser(profile, app_id);

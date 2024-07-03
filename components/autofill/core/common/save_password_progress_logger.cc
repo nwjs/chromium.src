@@ -46,7 +46,7 @@ std::string FormSignatureToDebugString(FormSignature form_signature) {
 void SavePasswordProgressLogger::LogFormData(
     SavePasswordProgressLogger::StringID label,
     const FormData& form_data) {
-  CHECK(!form_data.url.is_empty());
+  CHECK(!form_data.url().is_empty());
   std::string message = GetStringFromID(label) + ": {\n";
   message += GetStringFromID(STRING_FORM_SIGNATURE) + ": " +
              FormSignatureToDebugString(CalculateFormSignature(form_data)) +
@@ -56,18 +56,19 @@ void SavePasswordProgressLogger::LogFormData(
       FormSignatureToDebugString(CalculateAlternativeFormSignature(form_data)) +
       "\n";
   message +=
-      GetStringFromID(STRING_ORIGIN) + ": " + ScrubURL(form_data.url) + "\n";
-  message +=
-      GetStringFromID(STRING_ACTION) + ": " + ScrubURL(form_data.action) + "\n";
-  if (form_data.main_frame_origin.GetURL().is_valid())
+      GetStringFromID(STRING_ORIGIN) + ": " + ScrubURL(form_data.url()) + "\n";
+  message += GetStringFromID(STRING_ACTION) + ": " +
+             ScrubURL(form_data.action()) + "\n";
+  if (form_data.main_frame_origin().GetURL().is_valid()) {
     message += GetStringFromID(STRING_MAIN_FRAME_ORIGIN) + ": " +
-               ScrubURL(form_data.main_frame_origin.GetURL()) + "\n";
+               ScrubURL(form_data.main_frame_origin().GetURL()) + "\n";
+  }
   message += GetStringFromID(STRING_FORM_NAME) + ": " +
-             ScrubElementID(form_data.name) + "\n";
+             ScrubElementID(form_data.name()) + "\n";
 
-  if (!form_data.renderer_id.is_null()) {
+  if (!form_data.renderer_id().is_null()) {
     message +=
-        "Form renderer id: " + NumberToString(form_data.renderer_id.value()) +
+        "Form renderer id: " + NumberToString(form_data.renderer_id().value()) +
         "\n";
   }
 
@@ -427,6 +428,8 @@ std::string SavePasswordProgressLogger::GetStringFromID(
       return "Leak detection failed: network error";
     case STRING_LEAK_DETECTION_QUOTA_LIMIT:
       return "Leak detection failed: quota limit";
+    case STRING_LEAK_DETECTION_URL_BLOCKED:
+      return "Leak detection disabled by SafeBrowsingAllowlistDomains policy";
     case SavePasswordProgressLogger::
         STRING_PASSWORD_REQUIREMENTS_VOTE_FOR_LETTER:
       return "Uploading password requirements vote for using letters";
@@ -453,11 +456,16 @@ std::string SavePasswordProgressLogger::GetStringFromID(
       return "Possible username is used";
     case STRING_POSSIBLE_USERNAME_NOT_USED:
       return "Possible username is not used";
+    case STRING_SAVING_BLOCKLISTED_EXPLICITLY:
+      return "Saving on this domain is explicitly blocklisted";
+    case STRING_SAVING_BLOCKLISTED_BY_SMART_BUBBLE:
+      return "Saving on this domain is blocklisted by the smart bubble";
     case SavePasswordProgressLogger::STRING_INVALID:
       return "INVALID";
       // Intentionally no default: clause here -- all IDs need to get covered.
   }
-  NOTREACHED();  // Win compilers don't believe this is unreachable.
+  NOTREACHED_IN_MIGRATION();  // Win compilers don't believe this is
+                              // unreachable.
   return std::string();
 }
 

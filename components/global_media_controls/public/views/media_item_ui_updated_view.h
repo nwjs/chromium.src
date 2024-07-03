@@ -8,6 +8,8 @@
 #include "components/global_media_controls/public/media_item_ui.h"
 #include "components/global_media_controls/public/views/media_action_button.h"
 #include "components/global_media_controls/public/views/media_item_ui_device_selector.h"
+#include "components/global_media_controls/public/views/media_item_ui_footer.h"
+#include "components/global_media_controls/public/views/media_progress_view.h"
 #include "components/media_message_center/media_notification_view.h"
 #include "components/media_message_center/notification_theme.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -29,7 +31,6 @@ class Label;
 namespace global_media_controls {
 
 class MediaItemUIObserver;
-class MediaProgressView;
 
 // MediaItemUIUpdatedView holds the media information and playback controls for
 // a media session or cast session. This will be displayed within
@@ -46,15 +47,19 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIUpdatedView
       const std::string& id,
       base::WeakPtr<media_message_center::MediaNotificationItem> item,
       media_message_center::MediaColorTheme media_color_theme,
-      std::unique_ptr<MediaItemUIDeviceSelector> device_selector_view);
+      std::unique_ptr<MediaItemUIDeviceSelector> device_selector_view,
+      std::unique_ptr<MediaItemUIFooter> footer_view);
   MediaItemUIUpdatedView(const MediaItemUIUpdatedView&) = delete;
   MediaItemUIUpdatedView& operator=(const MediaItemUIUpdatedView&) = delete;
   ~MediaItemUIUpdatedView() override;
 
   // views::View:
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override;
   void AddedToWidget() override;
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
   bool OnKeyPressed(const ui::KeyEvent& event) override;
+  bool OnMousePressed(const ui::MouseEvent& event) override;
 
   // MediaItemUI:
   void AddObserver(MediaItemUIObserver* observer) override;
@@ -83,16 +88,24 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIUpdatedView
   void UpdateDeviceSelectorVisibility(bool visible) override;
   void UpdateDeviceSelectorAvailability(bool has_devices) override;
 
+  // MediaItemUIUpdatedView:
+  void UpdateDeviceSelectorView(
+      std::unique_ptr<MediaItemUIDeviceSelector> device_selector_view);
+  void UpdateFooterView(std::unique_ptr<MediaItemUIFooter> footer_view);
+
   // Helper functions for testing:
   views::ImageView* GetArtworkViewForTesting();
   views::Label* GetSourceLabelForTesting();
   views::Label* GetTitleLabelForTesting();
   views::Label* GetArtistLabelForTesting();
+  views::Label* GetCurrentTimestampLabelForTesting();
+  views::Label* GetDurationTimestampLabelForTesting();
   MediaActionButton* GetMediaActionButtonForTesting(
       media_session::mojom::MediaSessionAction action);
   MediaProgressView* GetProgressViewForTesting();
   MediaActionButton* GetStartCastingButtonForTesting();
   MediaItemUIDeviceSelector* GetDeviceSelectorForTesting();
+  MediaItemUIFooter* GetFooterForTesting();
 
  private:
   MediaActionButton* CreateMediaActionButton(views::View* parent,
@@ -107,13 +120,27 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIUpdatedView
   // actions are enabled.
   void UpdateMediaActionButtonsVisibility();
 
-  // Callback for the user dragging the progress view. A playing media should be
-  // temporarily paused when the user is dragging the progress line.
-  void OnProgressDragging(bool pause);
+  // Update the visibility of timestamp labels. They are visible only when the
+  // user is dragging the progress view.
+  void UpdateTimestampLabelsVisibility();
+
+  // Callback for when the user starts or ends dragging the progress view.
+  void OnProgressDragStateChange(DragState drag_state);
+
+  // Callback for when the user starts or ends dragging the progress view, and
+  // the media is playing before dragging starts. The media should be
+  // temporarily paused when the dragging starts, and resumed when the dragging
+  // ends.
+  void OnPlaybackStateChangeForProgressDrag(
+      PlaybackStateChangeForDragging change);
 
   // Callback for when the media progress view wants to update the progress
   // position.
   void SeekTo(double seek_progress);
+
+  // Callback for when the media progress view wants to inform the current
+  // progress position.
+  void OnProgressViewUpdateProgress(base::TimeDelta current_timestamp);
 
   // Callback for when the start casting button is toggled by user.
   void StartCastingButtonPressed();
@@ -123,6 +150,9 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIUpdatedView
 
   // Whether the media is currently in picture-in-picture.
   bool in_picture_in_picture_ = false;
+
+  // Whether the user is currently dragging the progress view.
+  DragState drag_state_ = DragState::kDragEnded;
 
   // Set of enabled media session actions that are used to decide media action
   // button visibilities.
@@ -136,6 +166,8 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIUpdatedView
   raw_ptr<views::Label> source_label_ = nullptr;
   raw_ptr<views::Label> title_label_ = nullptr;
   raw_ptr<views::Label> artist_label_ = nullptr;
+  raw_ptr<views::Label> current_timestamp_label_ = nullptr;
+  raw_ptr<views::Label> duration_timestamp_label_ = nullptr;
 
   raw_ptr<MediaProgressView> progress_view_ = nullptr;
   std::vector<MediaActionButton*> media_action_buttons_;
@@ -148,6 +180,7 @@ class COMPONENT_EXPORT(GLOBAL_MEDIA_CONTROLS) MediaItemUIUpdatedView
   base::WeakPtr<media_message_center::MediaNotificationItem> item_;
   media_message_center::MediaColorTheme media_color_theme_;
   raw_ptr<MediaItemUIDeviceSelector> device_selector_view_ = nullptr;
+  raw_ptr<MediaItemUIFooter> footer_view_ = nullptr;
 };
 
 }  // namespace global_media_controls

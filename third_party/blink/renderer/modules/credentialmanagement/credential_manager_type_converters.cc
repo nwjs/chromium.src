@@ -166,7 +166,7 @@ TypeConverter<blink::Credential*, CredentialInfoPtr>::Convert(
     case CredentialType::EMPTY:
       return nullptr;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nullptr;
 }
 
@@ -296,7 +296,7 @@ PublicKeyCredentialType TypeConverter<PublicKeyCredentialType, String>::Convert(
     const String& type) {
   if (type == "public-key")
     return PublicKeyCredentialType::PUBLIC_KEY;
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return PublicKeyCredentialType::PUBLIC_KEY;
 }
 
@@ -331,7 +331,7 @@ String TypeConverter<String, AuthenticatorTransport>::Convert(
     return "hybrid";
   if (transport == AuthenticatorTransport::INTERNAL)
     return "internal";
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "usb";
 }
 
@@ -855,6 +855,10 @@ TypeConverter<IdentityProviderRequestOptionsPtr,
   if (blink::RuntimeEnabledFeatures::FedCmIdPRegistrationEnabled() &&
       options.configURL() == "any") {
     mojo_options->config->use_registered_config_urls = true;
+    // We only set the `type` if `configURL` is 'any'.
+    if (options.hasType()) {
+      mojo_options->config->type = options.type();
+    }
   } else {
     mojo_options->config->config_url = blink::KURL(options.configURL());
   }

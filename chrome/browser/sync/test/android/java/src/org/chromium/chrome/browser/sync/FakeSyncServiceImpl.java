@@ -37,7 +37,6 @@ public class FakeSyncServiceImpl implements SyncService {
     private boolean mTrustedVaultRecoverabilityDegraded;
     private boolean mEncryptEverythingEnabled;
     private boolean mRequiresClientUpgrade;
-    private boolean mCanSyncFeatureStart;
     @GoogleServiceAuthError.State private int mAuthError;
 
     public FakeSyncServiceImpl() {
@@ -148,21 +147,6 @@ public class FakeSyncServiceImpl implements SyncService {
     public boolean isEncryptEverythingEnabled() {
         ThreadUtils.assertOnUiThread();
         return mEncryptEverythingEnabled;
-    }
-
-    @Override
-    public boolean canSyncFeatureStart() {
-        ThreadUtils.assertOnUiThread();
-        return mCanSyncFeatureStart;
-    }
-
-    @AnyThread
-    public void setCanSyncFeatureStart(boolean canSyncFeatureStart) {
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mCanSyncFeatureStart = canSyncFeatureStart;
-                    notifySyncStateChanged();
-                });
     }
 
     @Override
@@ -342,6 +326,11 @@ public class FakeSyncServiceImpl implements SyncService {
     @Override
     public boolean isSyncingUnencryptedUrls() {
         return mDelegate.isSyncingUnencryptedUrls();
+    }
+
+    @Override
+    public long getNativeSyncServiceAndroidBridge() {
+        return mDelegate.getNativeSyncServiceAndroidBridge();
     }
 
     @Override

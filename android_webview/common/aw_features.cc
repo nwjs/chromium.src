@@ -73,17 +73,11 @@ BASE_FEATURE(kWebViewDisplayCutout,
              "WebViewDisplayCutout",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enable the WebView Media Integrity API.
-// This feature requires `kWebViewInjectPlatformJsApis` to be enabled as well.
-BASE_FEATURE(kWebViewMediaIntegrityApi,
-             "WebViewMediaIntegrityApi",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enable the WebView Media Integrity API as a Blink extension.
 // This feature requires `kWebViewMediaIntegrityApi` to be disabled.
 BASE_FEATURE(kWebViewMediaIntegrityApiBlinkExtension,
              "WebViewMediaIntegrityApiBlinkExtension",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, passive mixed content (Audio/Video/Image subresources loaded
 // over HTTP on HTTPS sites) will be autoupgraded to HTTPS, and the load will be
@@ -104,11 +98,6 @@ BASE_FEATURE(kWebViewMuteAudio,
 // origin; strip them from the request if a cross-origin redirect occurs.
 BASE_FEATURE(kWebViewExtraHeadersSameOriginOnly,
              "WebViewExtraHeadersSameOriginOnly",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enable the new Java/JS Bridge code path with mojo implementation.
-BASE_FEATURE(kWebViewJavaJsBridgeMojo,
-             "WebViewJavaJsBridgeMojo",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Whether to record size of the embedding app's data directory to the UMA
@@ -158,11 +147,6 @@ BASE_FEATURE(kWebViewUseMetricsUploadServiceOnlySdkRuntime,
              "WebViewUseMetricsUploadServiceOnlySdkRuntime",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables prerender2 on WebView (https://crbug.com/1517472).
-BASE_FEATURE(kWebViewPrerender2,
-             "WebViewPrerender2",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Propagate Android's network change notification signals to the networking
 // stack. This only propagates the following notifications:
 // * OnNetworkConnected
@@ -199,20 +183,9 @@ BASE_FEATURE(kWebViewXRequestedWithHeaderControl,
 const base::FeatureParam<int> kWebViewXRequestedWithHeaderMode{
     &kWebViewXRequestedWithHeaderControl, "WebViewXRequestedWithHeaderMode", 0};
 
-// Control whether WebView will attempt to read the XRW header allow-list from
-// the manifest.
-BASE_FEATURE(kWebViewXRequestedWithHeaderManifestAllowList,
-             "WebViewXRequestedWithHeaderManifestAllowList",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // This enables image drage out for Webview.
 BASE_FEATURE(kWebViewImageDrag,
              "WebViewImageDrag",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables injection of platform-specific JavaScript APIs.
-BASE_FEATURE(kWebViewInjectPlatformJsApis,
-             "WebViewInjectPlatformJsApis",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled zoom picker is invoked on every kGestureScrollUpdate consumed ack,
@@ -220,6 +193,24 @@ BASE_FEATURE(kWebViewInjectPlatformJsApis,
 // end plus the usual delay in hiding.
 BASE_FEATURE(kWebViewInvokeZoomPickerOnGSU,
              "WebViewInvokeZoomPickerOnGSU",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Whether to use WebView's own Context for resource related lookups.
+BASE_FEATURE(kWebViewSeparateResourceContext,
+             "WebViewSeparateResourceContext",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// This flag is used in conjunction with kWebViewSeparateResourceContext. That
+// flag needs to be accessed before finch is initialized. We're using prefs to
+// cache the feature flag value and read it. However, this will lead to a slight
+// disparity between reported enablement of the feature and actual enablement.
+// As a result, our metrics may skew. To compensate, 100% of WebView population
+// will override this flag with the actual value of
+// kWebViewSeparateResourceContext so that the metrics from this feature are
+// completely accurate to the experiment group membership decision made at
+// runtime.
+BASE_FEATURE(kWebViewSeparateResourceContextMetrics,
+             "WebViewSeparateResourceContextMetrics",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Whether to use initial network state during initialization to speed up
@@ -241,7 +232,7 @@ BASE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel,
 // This enables WebView crashes.
 BASE_FEATURE(kWebViewEnableCrash,
              "WebViewEnableCrash",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the built-in DNS resolver (Async DNS) on WebView.
 BASE_FEATURE(kWebViewAsyncDns,
@@ -252,6 +243,16 @@ BASE_FEATURE(kWebViewAsyncDns,
 BASE_FEATURE(kWebViewPreloadClasses,
              "WebViewPreloadClasses",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled TYPE_SCROLLED accessibility events are sent every 100ms when user
+// is scrolling irrespective of GestureScrollUpdate being consumed or not.
+// If disabled events are sent on GSU consumed ack.
+// Planning to keep it as kill switch in case we need to revert back to old
+// default behavior.
+// TODO(b/328601354): Cleanup after the change has been in stable for some time.
+BASE_FEATURE(kWebViewDoNotSendAccessibilityEventsOnGSU,
+             "WebViewDoNotSendAccessibilityEventsOnGSU",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Creates a spare renderer on browser context creation.
 BASE_FEATURE(kCreateSpareRendererOnBrowserContextCreation,

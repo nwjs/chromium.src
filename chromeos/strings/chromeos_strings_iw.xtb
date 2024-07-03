@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">בצבע צהוב פסטל</translation>
 <translation id="1056898198331236512">אזהרה</translation>
 <translation id="1059913517121127803">לא ניתן היה להתחיל את הסריקה</translation>
+<translation id="1061864016440983342">שימוש ללא מיקום</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> מתוך <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">זוהתה חומת אש</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">הגדרות נוספות</translation>
 <translation id="2082932131694554252">מקש המקלדת שהוקצה</translation>
 <translation id="2085089206770112532">הפחתת הבהירות של התצוגה</translation>
+<translation id="2086091080968010660">יכול להיות ששינויים שמבוססים על זמן לא יהיו מדויקים. צריך להפעיל את הגישה למיקום בהגדרות המערכת.</translation>
 <translation id="2102231663024125441">עריכת טקסט</translation>
 <translation id="2105810540595158374">המכשיר הוא שלט לגיימינג.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, גרסה <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">‏עריכת פרטי ה-APN</translation>
 <translation id="2195732836444333448">יש עומס גדול מהרגיל. אפשר לנסות שוב בעוד כמה דקות.</translation>
 <translation id="2201758491318984023">אופניים</translation>
-<translation id="2203222757805818543">התזמון הנוכחי מוגדר לשעות <ph name="SUNRISE" /> עד <ph name="SUNSET" />. כדי שהתזמון של המצב הכהה יתעדכן אוטומטית, צריך <ph name="BEGIN_LINK" />להפעיל את הגישה למיקום<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">מעיין חם</translation>
 <translation id="2203642483788377106">צוק</translation>
 <translation id="2208388655216963643">אימפרסיוניסטי</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">שחזור ברירות המחדל</translation>
 <translation id="2286454467119466181">פשוט</translation>
 <translation id="2287186687001756809">אין תמונה זמינה. כדי להוסיף תמונה, צריך לעבור אל <ph name="LINK" /></translation>
+<translation id="2294577623958216786">לוח הזמנים הנוכחי מוגדר ל-<ph name="SUNRISE" />-<ph name="SUNSET" />. כדי לעדכן באופן אוטומטי את לוחות הזמנים של השקיעה והזריחה, צריך להפעיל את הגישה למיקום בהגדרות המערכת.</translation>
 <translation id="2305172810646967500">שחור</translation>
 <translation id="2307344026739914387">שימוש בזוג המפתחות הנוכחי</translation>
 <translation id="2308243864813041101">‏כדי להמשיך בתהליך העדכון, צריך לנתק את כבל ה-USB של <ph name="DEVICE_NAME" /></translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">דיונה</translation>
 <translation id="2619761439309613843">רענון יומי</translation>
 <translation id="2620436844016719705">מערכת</translation>
+<translation id="2637303424821734920">מושבת – כדי להציג את מזג האוויר המקומי צריך <ph name="BEGIN_LINK" />להפעיל את הגישה למיקום בהגדרות המערכת<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">תמונת המשתמש</translation>
 <translation id="2640549051766135490">האלבום <ph name="TITLE" /> <ph name="DESC" /> נבחר</translation>
 <translation id="2645380101799517405">אמצעי בקרה</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">רקע</translation>
 <translation id="3027578600144895987">סגירת המצלמה</translation>
 <translation id="3031560714565892478">המכשיר הוא מצלמת וידאו.</translation>
+<translation id="3051968340259309715">‏האישור מאפשר לשירותי המערכת להשתמש בהגדרה 'קביעת מיקום יותר מדויקת' כדי לקבוע את המיקום שלך. כשההגדרה 'קביעת מיקום יותר מדויקת' מופעלת, המידע על אותות אלחוטיים, כמו נקודות גישה ל-Wi-Fi, אנטנות סלולריות ו-GPS, וגם נתוני חיישנים מהמכשיר, כמו מד התאוצה והג'ירוסקופ, משמשים כדי לקבוע את המיקום של המכשיר. אפשר להשבית את שיתוף המיקום ב'הגדרות' &gt; 'פרטיות ואבטחה' &gt; 'אמצעי בקרה על פרטיות' &gt; 'גישה למיקום'. <ph name="LINK_BEGIN" />מידע נוסף<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801">mA<ph name="CURRENT_VALUE" /></translation>
 <translation id="3056720590588772262">‏נקודת קצה (endpoint)</translation>
 <translation id="3060579846059757016">נקודות עיקריות</translation>
+<translation id="3061850252076394168">הפעלת התכונה 'הקראה'</translation>
 <translation id="3069085583900247081">הבדיקה נכשלה</translation>
 <translation id="3078740164268491126">טבלה</translation>
 <translation id="3081652522083185657">בהיר</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">לא ניתן היה להתאים את הנתונים של כל המארחים</translation>
 <translation id="4593212453765072419">‏יש צורך באימות שרת ה-proxy</translation>
 <translation id="4609350030397390689">הפחתת הבהירות של המקלדת</translation>
-<translation id="4617553623719764431">מזג האוויר לא מוצג כי המיקום שלך לא ידוע. כדי לראות את מזג האוויר המקומי, <ph name="BEGIN_LINK" />צריך להפעיל את הגישה למיקום<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576">‏<ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> מתוך <ph name="TOTAL_PAGE_NUMBER" />. ניתן להקיש על Enter כדי לבטל את משימת ההדפסה.</translation>
 <translation id="463791356324567266">הסריקה מתבטלת...</translation>
 <translation id="4646949265910132906">‏חיבור Wi-Fi מאובטח</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">הרצה</translation>
 <translation id="4987769320337599931">חומת אש</translation>
 <translation id="4988526792673242964">דפים</translation>
+<translation id="4989542687859782284">לא זמין</translation>
 <translation id="4999333166442584738">הסתרת הדוח</translation>
 <translation id="500920857929044050">הפסקת הבדיקה</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">בהירות המקלדת</translation>
 <translation id="6412715219990689313">מקלדת מובנית</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
+<translation id="6419454453018688975">צריך להפעיל את הגישה למיקום בהגדרות המערכת</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">‏הפעולה הזו מאפשרת לשירותי מערכת שקיבלו הרשאה להשתמש במיקום שלך. שירות המיקום משתמש במקורות כמו Wi‑Fi, רשתות סלולריות וחיישנים כדי לעזור בהערכת המיקום של המכשיר שלך. <ph name="LINK_BEGIN" />מידע נוסף<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">חלש (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">מעבר אל הגדרות החשבון</translation>
 <translation id="6462978824459367242">‏הלחצן 'הוספת ה-APN' מופעל עכשיו</translation>
@@ -1093,7 +1098,7 @@
 <translation id="7118522231018231199">‏חשוב לבחור נקודות APN שסופקו על ידי ספק הסלולר או האדמין. בחירת ה-APN תשבית את כל נקודות ה-APN בהתאמה אישית. נקודות APN לא תקינות עלולות לשבש את החיבור לרשת הסלולרית.</translation>
 <translation id="7119389851461848805">הפעלה</translation>
 <translation id="7129287270910503851">נתוני השימוש בחבילת הגלישה יאופסו מדי חודש ביום הזה</translation>
-<translation id="7130438335435247835">‏שם נקודת גישה (APN)</translation>
+<translation id="7130438335435247835">‏שם נקודת הגישה (APN)</translation>
 <translation id="7134436342991564651">{0,plural, =1{שרת שמות}one{שרתי שמות}two{שרתי שמות}other{שרתי שמות}}</translation>
 <translation id="7135814714616751706">חיפוש מקשי קיצור</translation>
 <translation id="7143207342074048698">מתבצע חיבור</translation>
@@ -1157,7 +1162,7 @@
 <translation id="7415801143053185905">‏משך זמן ההמתנה ל-HTTP ארוך מאוד</translation>
 <translation id="7425037327577270384">עזרה בכתיבה</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
-<translation id="7438298994385592770">‏לא ניתן להשבית או להסיר את ה-APN הזה. צריך לוודא שפריטי ה-APN ב<ph name="ATTACH" /> שהופעלו הושבתו או הוסרו.</translation>
+<translation id="7438298994385592770">‏לא ניתן להשבית או להסיר את ה-APN הזה. צריך להשבית או להסיר את פריטי ה-APN שהופעלו מסוג '<ph name="ATTACH" />'.</translation>
 <translation id="7458970041932198923">כדי לראות ולהגדיר דמויות, צריך להתחבר לרשת ולטעון מחדש את הדף.</translation>
 <translation id="7469648432129124067">זוהה פורטל</translation>
 <translation id="7481312909269577407">קדימה</translation>

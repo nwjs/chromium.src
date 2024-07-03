@@ -97,7 +97,7 @@ This collects each top-level device metric type. For example,
 </variants>
 
 <histogram name="Cras.A2dp100msFailureOverStream" units="units"
-    expires_after="2024-09-22">
+    expires_after="2024-11-24">
   <owner>hychao@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -108,7 +108,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.A2dp20msFailureOverStream" units="units"
-    expires_after="2024-09-22">
+    expires_after="2024-11-24">
   <owner>hychao@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -261,7 +261,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.DeviceOpenStatus.Input{Device}"
-    enum="CrasDeviceOpenStatus" expires_after="2024-09-15">
+    enum="CrasDeviceOpenStatus" expires_after="2024-11-17">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -271,7 +271,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.DeviceOpenStatus.Output{Device}"
-    enum="CrasDeviceOpenStatus" expires_after="2024-09-15">
+    enum="CrasDeviceOpenStatus" expires_after="2024-11-17">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -450,7 +450,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.ForceRespectUiGains" enum="BooleanEnabled"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>eddyhsu@chromium.org</owner>
   <owner>chromeos-audio-sw@google.com</owner>
   <summary>
@@ -502,6 +502,17 @@ This collects each top-level device metric type. For example,
   <summary>
     For each SCO connection record the returned event. The event indicates if
     the setup of the connection is successful or not.
+  </summary>
+</histogram>
+
+<histogram name="Cras.HfpTelephonyEvent" enum="CrasHfpTelephonyEvent"
+    expires_after="2025-06-01">
+  <owner>whalechang@google.com</owner>
+  <owner>chromeos-audio@google.com</owner>
+  <summary>
+    Record the Bluetooth hfp telephony event when CRAS receives the event from
+    Floss. This is for tracking how users interact with the Bluetooth telephony
+    feature.
   </summary>
 </histogram>
 
@@ -575,7 +586,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.InputGainChanged" enum="AudioSettingsChangeSource"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>eddyhsu@chromium.org</owner>
   <owner>chromeos-audio-sw@google.com</owner>
   <summary>
@@ -1032,7 +1043,7 @@ This collects each top-level device metric type. For example,
 
 <histogram
     name="Cras.StreamRuntimeWithMinimum{Duration}{Direction}{ClientType}{StreamType}"
-    units="seconds" expires_after="2024-09-08">
+    units="seconds" expires_after="2024-11-10">
   <owner>pteerapong@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>

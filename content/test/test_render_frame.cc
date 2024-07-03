@@ -127,7 +127,8 @@ class MockFrameHost : public mojom::FrameHost {
   void SetContextCreated(bool) override {}
   void CreateNewWindow(mojom::CreateNewWindowParamsPtr,
                        CreateNewWindowCallback) override {
-    NOTREACHED() << "We should never dispatch to the service side signature.";
+    NOTREACHED_IN_MIGRATION()
+        << "We should never dispatch to the service side signature.";
   }
 
   bool CreateNewWindow(mojom::CreateNewWindowParamsPtr params,

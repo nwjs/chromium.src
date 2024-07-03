@@ -48,7 +48,7 @@ namespace syncable_prefs_ids {
 // tools/metrics/histograms/metadata/sync/enums.xml. When removing an unused
 // enumerator, comment it out here, making it clear the value was previously
 // used, and add "(obsolete)" to the corresponding entry in enums.xml.
-// LINT.IfChange(SyncablePref)
+// LINT.IfChange(ChromeSyncablePref)
 enum {
   // Starts with 100000 to avoid clash with prefs listed in
   // common_syncable_prefs_database.cc and
@@ -94,7 +94,7 @@ enum {
   // kAccessibilityGreyscaleAmount = 100038,  // deprecated
   // kAccessibilityHueRotationAmount = 100039,  // deprecated
   // kAccessibilitySaturationAmount = 100040,  // deprecated
-  kAccessibilityScreenMagnifierCenterFocus = 100041,
+  // kAccessibilityScreenMagnifierCenterFocus = 100041,  // deprecated
   kAccessibilityScreenMagnifierFocusFollowingEnabled = 100042,
   kAccessibilityScreenMagnifierMouseFollowingMode = 100043,
   kAccessibilitySelectToSpeakBackgroundShading = 100044,
@@ -198,7 +198,7 @@ enum {
   kTabDiscardingExceptions = 100141,
   kAccessibilityImageLabelsEnabled = 100142,
   kAccessibilityImageLabelsOptInAccepted = 100143,
-  kAccessibilityPdfOcrAlwaysActive = 100144,
+  // kAccessibilityPdfOcrAlwaysActive = 100144,(deprecated)
   // kApplyPageColorsOnlyOnIncreasedContrast = 100145, (no longer synced)
   kDefaultCharset = 100146,
   kDefaultTasksByMimeType = 100147,
@@ -301,7 +301,7 @@ enum {
   kReadAloudSpeed = 100243,
   kReadAloudHighlightingEnabled = 100244,
   kHttpsFirstModeIncognito = 100245,
-  kAccessibilityReadAnythingOmniboxIconLabelShownCount = 100246,
+  // kAccessibilityReadAnythingOmniboxIconLabelShownCount = 100246, (deprecated)
   kApplicationLocale = 100247,
   kListenToThisPageEnabled = 100248,
   kIpProtectionEnabled = 100249,
@@ -337,6 +337,15 @@ enum {
   kAccessibilityReadAnythingLanguagesEnabled = 100278,
   kKeyboardDefaultSplitModifierSettings = 100279,
   kDisplayAmbientLightSensorLastEnabled = 100280,
+  kAccessibilityMainNodeAnnotationsEnabled = 100281,
+  kSyncableVersionedWallpaperInfo = 100282,
+  kFocusModeSelectedTask = 100283,
+  kFocusModeSoundSection = 100284,
+  kAccessibilityFaceGazeActionsEnabled = 100285,
+  kAccessibilityFaceGazeCursorControlEnabled = 100286,
+  kAccessibilityFaceGazeAdjustSpeedSeparately = 100287,
+  kKeyboardAmbientLightSensorLastEnabled = 100288,
+  kAccessibilityReadAnythingImagesEnabled = 100289,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -344,7 +353,7 @@ enum {
   // guidance and escalation path in case anything is unclear.
   // ^^^^^ IMPORTANT! ^^^^^
 };
-// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncablePref)
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:ChromeSyncablePref)
 }  // namespace syncable_prefs_ids
 
 // Non-iOS specific list of syncable preferences.
@@ -429,12 +438,12 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kAccessibilityReadAnythingHighlightColor,
       syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
-    {prefs::kAccessibilityReadAnythingOmniboxIconLabelShownCount,
-     {syncable_prefs_ids::kAccessibilityReadAnythingOmniboxIconLabelShownCount,
-      syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone}},
     {prefs::kAccessibilityReadAnythingLinksEnabled,
      {syncable_prefs_ids::kAccessibilityReadAnythingLinksEnabled,
+      syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {prefs::kAccessibilityReadAnythingImagesEnabled,
+     {syncable_prefs_ids::kAccessibilityReadAnythingImagesEnabled,
       syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kAccessibilityReadAnythingLanguagesEnabled,
@@ -582,10 +591,6 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kAccessibilityFloatingMenuPosition,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
-    {ash::prefs::kAccessibilityScreenMagnifierCenterFocus,
-     {syncable_prefs_ids::kAccessibilityScreenMagnifierCenterFocus,
-      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kAccessibilityScreenMagnifierFocusFollowingEnabled,
      {syncable_prefs_ids::kAccessibilityScreenMagnifierFocusFollowingEnabled,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
@@ -712,6 +717,14 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kFocusModeSessionDuration,
      {syncable_prefs_ids::kFocusModeSessionDuration, syncer::OS_PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kFocusModeSelectedTask,
+     {syncable_prefs_ids::kFocusModeSelectedTask, syncer::OS_PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kFocusModeSoundSection,
+     {syncable_prefs_ids::kFocusModeSoundSection, syncer::OS_PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kKeyboardDefaultChromeOSSettings,
@@ -1124,6 +1137,18 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kAccessibilityFaceGazeGesturesToConfidence,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kMergeableDict}},
+    {ash::prefs::kAccessibilityFaceGazeActionsEnabled,
+     {syncable_prefs_ids::kAccessibilityFaceGazeActionsEnabled,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kAccessibilityFaceGazeCursorControlEnabled,
+     {syncable_prefs_ids::kAccessibilityFaceGazeCursorControlEnabled,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kAccessibilityFaceGazeAdjustSpeedSeparately,
+     {syncable_prefs_ids::kAccessibilityFaceGazeAdjustSpeedSeparately,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
     {prefs::kShelfContainerAppPinRolls,
      {syncable_prefs_ids::kShelfContainerAppPinRolls, syncer::OS_PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
@@ -1134,6 +1159,14 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kDisplayAmbientLightSensorLastEnabled,
      {syncable_prefs_ids::kDisplayAmbientLightSensorLastEnabled,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kKeyboardAmbientLightSensorLastEnabled,
+     {syncable_prefs_ids::kKeyboardAmbientLightSensorLastEnabled,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kSyncableVersionedWallpaperInfo,
+     {syncable_prefs_ids::kSyncableVersionedWallpaperInfo,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1153,9 +1186,9 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kAccessibilityImageLabelsOptInAccepted,
       syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
-    {prefs::kAccessibilityPdfOcrAlwaysActive,
-     {syncable_prefs_ids::kAccessibilityPdfOcrAlwaysActive, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
+    {prefs::kAccessibilityMainNodeAnnotationsEnabled,
+     {syncable_prefs_ids::kAccessibilityMainNodeAnnotationsEnabled,
+      syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kBrowserColorScheme,
      {syncable_prefs_ids::kBrowserColorScheme, syncer::PREFERENCES,

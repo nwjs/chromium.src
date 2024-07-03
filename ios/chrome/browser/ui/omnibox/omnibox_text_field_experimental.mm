@@ -123,7 +123,7 @@ NSString* const kOmniboxFadeAnimationKey = @"OmniboxFadeAnimation";
 }
 
 - (instancetype)initWithCoder:(nonnull NSCoder*)aDecoder {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return nil;
 }
 
@@ -1030,7 +1030,7 @@ NSString* const kOmniboxFadeAnimationKey = @"OmniboxFadeAnimation";
     // TODO(crbug.com/330964534): Remove DUMP_WILL_BE_CHECK after investigating
     // crash.
     if (!self.endOfDocument || !self.beginningOfDocument) {
-      DUMP_WILL_BE_NOTREACHED_NORETURN()
+      DUMP_WILL_BE_NOTREACHED()
           << "autocomplete length: " << autocompleteLength
           << " text length: " << text.length << " has text position: "
           << (self.beginningOfDocument || self.endOfDocument);

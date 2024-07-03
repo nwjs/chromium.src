@@ -13,9 +13,7 @@
 #include "base/functional/bind.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/android/chrome_jni_headers/UsbChooserDialog_jni.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_android.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/common/url_constants.h"
 #include "components/permissions/permission_util.h"
@@ -26,6 +24,9 @@
 #include "device/vr/buildflags/buildflags.h"
 #include "ui/android/window_android.h"
 #include "url/gurl.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "chrome/android/chrome_jni_headers/UsbChooserDialog_jni.h"
 
 namespace {
 
@@ -89,7 +90,7 @@ UsbChooserDialogAndroid::CreateInternal(
   DCHECK(profile);
 
   base::android::ScopedJavaLocalRef<jobject> j_profile_android =
-      ProfileAndroid::FromProfile(profile)->GetJavaObject();
+      profile->GetJavaObject();
   DCHECK(!j_profile_android.is_null());
 
   auto dialog = std::make_unique<UsbChooserDialogAndroid>(std::move(controller),
@@ -155,15 +156,15 @@ void UsbChooserDialogAndroid::OnOptionRemoved(size_t index) {
 }
 
 void UsbChooserDialogAndroid::OnOptionUpdated(size_t index) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void UsbChooserDialogAndroid::OnAdapterEnabledChanged(bool enabled) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void UsbChooserDialogAndroid::OnRefreshStateChanged(bool refreshing) {
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 void UsbChooserDialogAndroid::OnItemSelected(

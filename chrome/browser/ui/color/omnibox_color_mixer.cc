@@ -60,6 +60,8 @@ void ApplyCR2023OmniboxIconColors(ui::ColorMixer& mixer,
                                   const ui::ColorProviderKey& key) {
   mixer[kColorPageActionIconHover] = {ui::kColorSysStateHoverOnSubtle};
   mixer[kColorPageInfoBackground] = {ui::kColorSysBaseContainerElevated};
+  mixer[kColorPageInfoLensOverlayBackground] = {ui::kColorSysTonalContainer};
+  mixer[kColorPageInfoLensOverlayForeground] = {ui::kColorSysOnTonalContainer};
   mixer[kColorPageInfoIconHover] = {ui::kColorSysStateHoverDimBlendProtection};
   mixer[kColorPageInfoIconPressed] = {ui::kColorSysStateRippleNeutralOnSubtle};
   mixer[kColorPageActionIcon] = {ui::kColorSysOnSurfaceSubtle};
@@ -125,7 +127,7 @@ void ApplyCR2023OmniboxExpandedStateColors(ui::ColorMixer& mixer,
       ui::kColorSysStateRippleNeutralOnSubtle};
 
   // Update starter pack icon color.
-  mixer[kColorOmniboxResultsStarterPackIcon] = {ui::kColorSysPrimary};
+  mixer[kColorOmniboxResultsStarterPackIcon] = {ui::kColorSysOnTonalContainer};
 }
 
 // Apply fallback Omnibox color mappings for CR2023 clients who are not eligible
@@ -386,6 +388,11 @@ void AddOmniboxColorMixer(ui::ColorProvider* provider,
   // location bar icon colors.
   mixer[kColorPageInfoBackground] = {kColorToolbar};
   mixer[kColorPageInfoBackgroundTonal] = {ui::kColorSysTonalContainer};
+  // TODO(crbug.com/345521958): Remove these and fix the PageInfoBackground
+  // colors above. The definitions in this section need to handle CWS custom
+  // themes and the GM3 definitions above.
+  mixer[kColorPageInfoLensOverlayBackground] = {kColorToolbar};
+  mixer[kColorPageInfoLensOverlayForeground] = {kColorOmniboxText};
   // Literal constants are `kOmniboxOpacityHovered` and
   // `kOmniboxOpacitySelected`. This is so that we can more cleanly use the
   // colors in the inkdrop instead of handling themes and non-themes separately

@@ -7,6 +7,7 @@
 #import <memory>
 #import <ostream>
 
+#import "base/check.h"
 #import "base/check_op.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
@@ -88,9 +89,6 @@ void MoveTabToBrowser(web::WebStateID tab_id,
   BrowserAndIndex tab_info = FindBrowserAndIndex(tab_id, browsers);
 
   if (!tab_info.browser) {
-    DUMP_WILL_BE_NOTREACHED_NORETURN()
-        << "Either the tab_id is incorrect, or the user is attempting "
-           "to move a tab across profiles (incognito <-> regular)";
     return;
   }
   MoveTabFromBrowserToBrowser(tab_info.browser, tab_info.tab_index,
@@ -144,10 +142,17 @@ void MoveTabGroupToBrowser(const TabGroup* source_tab_group,
   }
 
   if (!source_browser) {
-    DUMP_WILL_BE_NOTREACHED_NORETURN()
+    DUMP_WILL_BE_NOTREACHED()
         << "Either the 'source_tab_group' is incorrect, or the user is "
            "attempting to move a tab group across profiles (incognito <-> "
            "regular)";
+    return;
+  }
+
+  if (source_browser == destination_browser) {
+    // This is a reorder operation within the same WebStateList.
+    destination_browser->GetWebStateList()->MoveGroup(
+        source_tab_group, destination_tab_group_index);
     return;
   }
 
@@ -167,21 +172,38 @@ void MoveTabGroupToBrowser(const TabGroup* source_tab_group,
       source_tab_group->visual_data());
 
   // Move tabs to the new browser.
+  int moved_tab_count = 0;
+  size_t source_group_count =
+      source_browser->GetWebStateList()->GetGroups().size();
   for (int destination_index_offset = 0; destination_index_offset < tab_count;
        destination_index_offset++) {
-    CHECK_EQ(source_web_state_list->GetGroupOfWebStateAt(
-                 source_web_state_start_index),
-             source_tab_group);
+    if (!source_web_state_list->ContainsIndex(source_web_state_start_index)) {
+      // `source_web_state_start_index` should have been a valid index at all
+      // times during the loop.
+      base::debug::DumpWithoutCrashing();
+      break;
+    }
+    if (source_web_state_list->GetGroupOfWebStateAt(
+            source_web_state_start_index) != source_tab_group) {
+      // The group of the tab to move does not match.
+      base::debug::DumpWithoutCrashing();
+      break;
+    }
     MoveTabFromBrowserToBrowser(
         source_browser, source_web_state_start_index, destination_browser,
         destination_tab_group_index + destination_index_offset);
+    moved_tab_count++;
   }
 
   // Create the new group.
   const TabGroup* destination_tab_group =
       destination_browser->GetWebStateList()->CreateGroup(
-          TabGroupRange(destination_tab_group_index, tab_count).AsSet(),
+          TabGroupRange(destination_tab_group_index, moved_tab_count).AsSet(),
           destination_visual_data);
   CHECK(destination_browser->GetWebStateList()->ContainsGroup(
       destination_tab_group));
+  // Check that the source browser has one less group.
+  CHECK_EQ(source_group_count,
+           source_browser->GetWebStateList()->GetGroups().size() + 1,
+           base::NotFatalUntil::M128);
 }

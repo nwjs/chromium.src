@@ -6,15 +6,14 @@
 
 #include "ash/api/tasks/tasks_types.h"
 #include "ash/resources/vector_icons/vector_icons.h"
-#include "ash/strings/grit/ash_strings.h"
 #include "base/containers/adapters.h"
 #include "base/i18n/rtl.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/linear_gradient.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/label_button.h"
@@ -54,13 +53,12 @@ void SetupChip(views::LabelButton* chip, bool first) {
   chip->SetLabelStyle(views::style::STYLE_BODY_3_MEDIUM);
   chip->SetMinSize(gfx::Size(0, kChipHeight));
   chip->SetMaxSize(gfx::Size(kChipMaxWidth, kChipHeight));
-  chip->SetAccessibleName(l10n_util::GetStringFUTF16(
-      IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_CHIP_ACCESSIBLE_NAME,
-      chip->GetText()));
   views::FocusRing::Get(chip)->SetColorId(cros_tokens::kCrosSysFocusRing);
-  views::InstallRoundRectHighlightPathGenerator(chip, gfx::Insets(1),
+  // Remove the padding between the focus ring and the `chip`.
+  views::InstallRoundRectHighlightPathGenerator(chip, gfx::Insets(4),
                                                 kChipCornerRadius);
   chip->SetNotifyEnterExitOnChild(true);
+  chip->GetViewAccessibility().SetName(chip->GetText());
   chip->SetTooltipText(chip->GetText());
 }
 
@@ -165,6 +163,10 @@ void FocusModeChipCarousel::SetTasks(const std::vector<FocusModeTask>& tasks) {
   // Populate a maximum of `kMaxTasks` tasks.
   const size_t num_tasks = std::min(tasks.size(), kMaxTasks);
   for (size_t i = 0; i < num_tasks; i++) {
+    // Skip empty task.
+    if (tasks[i].title.empty()) {
+      continue;
+    }
     views::LabelButton* chip =
         scroll_contents_->AddChildView(std::make_unique<views::LabelButton>(
             base::BindRepeating(on_chip_pressed_, tasks[i]),

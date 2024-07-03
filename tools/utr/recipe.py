@@ -34,23 +34,25 @@ _DEFAULT_RBE_PROJECT = 'rbe-chrome-untrusted'
 RerunOption = namedtuple('RerunOption', ['prompt', 'properties'])
 
 
-def check_rdb_auth():
-  """Checks that the user is logged in with resultdb."""
-  rdb_path = shutil.which('rdb')
-  if not rdb_path:
-    logging.error("'rdb' binary not found. Is depot_tools not on PATH?")
+def check_luci_context_auth():
+  """Checks that the user is logged in with luci-auth context."""
+  luci_auth_path = shutil.which('luci-auth')
+  if not luci_auth_path:
+    logging.error("'luci-auth' binary not found. Is depot_tools not on PATH?")
     return False
-  cmd = [rdb_path, 'auth-info']
+  cmd = [luci_auth_path, 'info', '-scopes-context']
   try:
-    p = subprocess.run(cmd,
-                       stdout=subprocess.PIPE,
-                       stderr=subprocess.STDOUT,
-                       text=True,
-                       check=True)
-  except subprocess.CalledProcessError:
-    logging.error('No rdb auth available:')
-    logging.error(p.stdout.strip())
-    logging.error("Please run 'rdb auth-login' to authenticate")
+    subprocess.run(cmd,
+                   stdout=subprocess.PIPE,
+                   stderr=subprocess.STDOUT,
+                   text=True,
+                   check=True)
+  except subprocess.CalledProcessError as e:
+    logging.error('luci-auth context auth unavailable:')
+    logging.error(e.output.strip())
+    logging.error(
+        "Please run 'luci-auth login -scopes-context' to authenticate, "
+        'preferring your @google.com account if you have one.')
     return False
   return True
 
@@ -96,7 +98,8 @@ class LegacyRunner:
                skip_test,
                skip_prompts,
                build_dir=None,
-               additional_test_args=None):
+               additional_test_args=None,
+               reuse_task=None):
     """Constructor for LegacyRunner
 
     Args:
@@ -112,6 +115,7 @@ class LegacyRunner:
       build_dir: pathlib.Path to the build dir to build in. Will use the UTR's
           default otherwise if needed.
       additional_test_args: List of additional args to pass to the tests.
+      reuse_task: String of a swarming task to reuse.
     """
     self._recipes_py = recipes_py
     self._skip_prompts = skip_prompts
@@ -155,6 +159,9 @@ class LegacyRunner:
     elif skip_test:
       mode = 'RUN_TYPE_COMPILE'
     input_props['run_type'] = mode
+
+    if reuse_task:
+      input_props['reuse_swarming_task'] = reuse_task
 
     # Need to pretend we're an actual build for various builder look-ups in
     # the recipe.
@@ -226,6 +233,9 @@ class LegacyRunner:
       rerun_props_path = pathlib.Path(tmp_dir).joinpath('rerun_props.json')
       input_props['output_properties_file'] = str(rerun_props_path)
       cmd = [
+          'luci-auth',
+          'context',
+          '--',
           'rdb',
           'stream',
           '-new',

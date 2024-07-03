@@ -64,7 +64,8 @@ class GPU_GLES2_EXPORT D3DImageBacking final
       const GLFormatCaps& gl_format_caps,
       GLenum texture_target,
       size_t array_slice,
-      size_t plane_index);
+      size_t plane_index,
+      bool use_update_subresource1 = false);
 
   static std::unique_ptr<D3DImageBacking> CreateFromSwapChainBuffer(
       const Mailbox& mailbox,
@@ -78,18 +79,6 @@ class GPU_GLES2_EXPORT D3DImageBacking final
       Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain,
       const GLFormatCaps& gl_format_caps,
       bool is_back_buffer);
-
-  // Helper used by D3D11VideoDecoder to create backings directly.
-  static std::vector<std::unique_ptr<SharedImageBacking>>
-  CreateFromVideoTexture(
-      base::span<const Mailbox> mailboxes,
-      DXGI_FORMAT dxgi_format,
-      const gfx::Size& size,
-      uint32_t usage,
-      unsigned array_slice,
-      const GLFormatCaps& gl_format_caps,
-      Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture,
-      scoped_refptr<DXGISharedHandleState> dxgi_shared_handle_state);
 
   D3DImageBacking(const D3DImageBacking&) = delete;
   D3DImageBacking& operator=(const D3DImageBacking&) = delete;
@@ -121,6 +110,7 @@ class GPU_GLES2_EXPORT D3DImageBacking final
   wgpu::Texture BeginAccessDawn(const wgpu::Device& device,
                                 wgpu::BackendType backend_type,
                                 wgpu::TextureUsage usage,
+                                wgpu::TextureUsage internal_usage,
                                 std::vector<wgpu::TextureFormat> view_formats);
   void EndAccessDawn(const wgpu::Device& device, wgpu::Texture texture);
 
@@ -139,6 +129,8 @@ class GPU_GLES2_EXPORT D3DImageBacking final
   Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture_for_testing() const {
     return d3d11_texture_;
   }
+
+  bool has_staging_texture() const { return !!staging_texture_; }
 
   // Holds a gles2::TexturePassthrough and corresponding egl image.
   class GLTextureHolder : public base::RefCounted<GLTextureHolder> {
@@ -236,7 +228,8 @@ class GPU_GLES2_EXPORT D3DImageBacking final
                   size_t array_slice = 0u,
                   size_t plane_index = 0u,
                   Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain = nullptr,
-                  bool is_back_buffer = false);
+                  bool is_back_buffer = false,
+                  bool use_update_subresource1 = false);
 
   bool use_fence_synchronization() const {
     // Fences are needed if we're sharing between devices and there's no keyed
@@ -308,6 +301,9 @@ class GPU_GLES2_EXPORT D3DImageBacking final
 
   // Set if this backing corresponds to the back buffer of |swap_chain_|.
   const bool is_back_buffer_;
+
+  // True if using UpdateSubresource1() in UploadFromMemory() is allowed.
+  const bool use_update_subresource1_;
 
   // Staging texture used for copy to/from shared memory GMB.
   Microsoft::WRL::ComPtr<ID3D11Texture2D> staging_texture_;

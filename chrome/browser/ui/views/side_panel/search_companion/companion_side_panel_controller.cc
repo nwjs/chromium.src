@@ -11,8 +11,8 @@
 #include "chrome/browser/companion/core/utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/side_panel/companion/companion_tab_helper.h"
-#include "chrome/browser/ui/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/views/side_panel/companion/companion_tab_helper.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/companion_side_panel_web_view.h"
@@ -65,13 +65,8 @@ void CompanionSidePanelController::CreateAndRegisterEntry() {
     return;
   }
 
-  auto* coordinator =
-      SearchCompanionSidePanelCoordinator::GetOrCreateForBrowser(browser);
-
   auto entry = std::make_unique<SidePanelEntry>(
-      SidePanelEntry::Id::kSearchCompanion, coordinator->name(),
-      ui::ImageModel::FromVectorIcon(coordinator->icon(), ui::kColorIcon,
-                                     /*icon_size=*/16),
+      SidePanelEntry::Id::kSearchCompanion,
       base::BindRepeating(
           &companion::CompanionSidePanelController::CreateCompanionWebView,
           base::Unretained(this)),
@@ -168,14 +163,6 @@ void CompanionSidePanelController::OnEntryShown(SidePanelEntry* entry) {
     base::RecordAction(
         base::UserMetricsAction("LensUnifiedSidePanel.LensEntryShown"));
   }
-
-  Browser* browser = chrome::FindBrowserWithTab(web_contents_);
-  if (!browser) {
-    return;
-  }
-  auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  SearchCompanionSidePanelCoordinator::SetAccessibleNameForToolbarButton(
-      browser_view, /*is_open=*/true);
 }
 
 void CompanionSidePanelController::OnEntryHidden(SidePanelEntry* entry) {
@@ -185,14 +172,6 @@ void CompanionSidePanelController::OnEntryHidden(SidePanelEntry* entry) {
     base::RecordAction(
         base::UserMetricsAction("LensUnifiedSidePanel.LensEntryHidden"));
   }
-
-  Browser* browser = chrome::FindBrowserWithTab(web_contents_);
-  if (!browser) {
-    return;
-  }
-  auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  SearchCompanionSidePanelCoordinator::SetAccessibleNameForToolbarButton(
-      browser_view, /*is_open=*/false);
 }
 
 void CompanionSidePanelController::AddObserver() {

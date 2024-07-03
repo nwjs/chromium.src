@@ -12,12 +12,14 @@
 #include "ash/ash_export.h"
 #include "ash/picker/metrics/picker_feature_usage_metrics.h"
 #include "ash/picker/metrics/picker_session_metrics.h"
+#include "ash/picker/picker_asset_fetcher_impl_delegate.h"
 #include "ash/picker/views/picker_view_delegate.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
+#include "ui/base/emoji/emoji_panel_helper.h"
 #include "ui/views/widget/unique_widget_ptr.h"
 #include "ui/views/widget/widget_observer.h"
 
@@ -37,9 +39,9 @@ class PickerSearchController;
 class PickerSearchResult;
 
 // Controls a Picker widget.
-class ASH_EXPORT PickerController
-    : public PickerViewDelegate,
-      public views::WidgetObserver {
+class ASH_EXPORT PickerController : public PickerViewDelegate,
+                                    public views::WidgetObserver,
+                                    public PickerAssetFetcherImplDelegate {
  public:
   PickerController();
   PickerController(const PickerController&) = delete;
@@ -75,7 +77,7 @@ class ASH_EXPORT PickerController
 
   // PickerViewDelegate:
   std::vector<PickerCategory> GetAvailableCategories() override;
-  bool ShouldShowSuggestedResults() override;
+  std::vector<PickerCategory> GetRecentResultsCategories() override;
   void GetResultsForCategory(PickerCategory category,
                              SearchResultsCallback callback) override;
   void TransformSelectedText(PickerCategory category) override;
@@ -93,16 +95,30 @@ class ASH_EXPORT PickerController
       SuggestedEditorResultsCallback callback) override;
   PickerAssetFetcher* GetAssetFetcher() override;
   PickerSessionMetrics& GetSessionMetrics() override;
+  PickerActionType GetActionForResult(
+      const PickerSearchResult& result) override;
+  std::vector<std::string> GetRecentEmoji(
+      ui::EmojiPickerCategory category) override;
+  std::vector<std::string> GetPlaceholderEmojis() override;
 
   // views:WidgetObserver:
   void OnWidgetDestroying(views::Widget* widget) override;
+
+  // PickerAssetFetcherImplDelegate:
+  scoped_refptr<network::SharedURLLoaderFactory> GetSharedURLLoaderFactory()
+      override;
+  void FetchFileThumbnail(const base::FilePath& path,
+                          const gfx::Size& size,
+                          FetchFileThumbnailCallback callback) override;
 
   // Disables the feature key checking. Only works in tests.
   static void DisableFeatureKeyCheckForTesting();
 
  private:
-  // Gets the SharedURLLoaderFactory to use for network requests.
-  scoped_refptr<network::SharedURLLoaderFactory> GetSharedURLLoaderFactory();
+  void ShowWidget(base::TimeTicks trigger_event_timestamp);
+  void CloseWidget();
+  void UpdateRecentEmoji(ui::EmojiPickerCategory category,
+                         std::u16string_view text);
 
   raw_ptr<PickerClient> client_ = nullptr;
   std::unique_ptr<PickerModel> model_;
@@ -132,4 +148,4 @@ class ASH_EXPORT PickerController
 
 }  // namespace ash
 
-#endif
+#endif  // ASH_PICKER_PICKER_CONTROLLER_H_

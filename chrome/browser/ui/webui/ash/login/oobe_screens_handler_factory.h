@@ -34,29 +34,39 @@ class OobeScreensHandlerFactory
 
  private:
   // screens_factory::mojom::ScreensFactory:
-  void CreateDrivePinningScreenHandler(
-      mojo::PendingRemote<screens_common::mojom::DrivePinningPage> page,
-      mojo::PendingReceiver<screens_common::mojom::DrivePinningPageHandler>
+  void EstablishAppDownloadingScreenPipe(
+      mojo::PendingReceiver<screens_common::mojom::AppDownloadingPageHandler>
           receiver) override;
-  void CreateGestureNavigationPageHandler(
+
+  void EstablishDrivePinningScreenPipe(
+      mojo::PendingReceiver<screens_common::mojom::DrivePinningPageHandler>
+          receiver,
+      EstablishDrivePinningScreenPipeCallback callback) override;
+
+  void EstablishGestureNavigationScreenPipe(
       mojo::PendingReceiver<screens_common::mojom::GestureNavigationPageHandler>
           receiver) override;
 
-  void CreateGaiaInfoScreenHandler(
-      mojo::PendingRemote<screens_common::mojom::GaiaInfoPage> page,
+  void EstablishGaiaInfoScreenPipe(
       mojo::PendingReceiver<screens_common::mojom::GaiaInfoPageHandler>
-          receiver) override;
+          receiver,
+      EstablishGaiaInfoScreenPipeCallback callback) override;
 
-  void CreateConsumerUpdatePageHandler(
-      mojo::PendingRemote<screens_oobe::mojom::ConsumerUpdatePage> page,
+  void EstablishConsumerUpdateScreenPipe(
       mojo::PendingReceiver<screens_oobe::mojom::ConsumerUpdatePageHandler>
-          handler) override;
+          handler,
+      EstablishConsumerUpdateScreenPipeCallback callback) override;
 
-  void CreatePackagedLicensePageHandler(
+  void EstablishPackagedLicenseScreenPipe(
       mojo::PendingReceiver<screens_oobe::mojom::PackagedLicensePageHandler>
           receiver) override;
 
-  void CreateLocalDataLossWarningPageHandler(
+  void EstablishArcVmDataMigrationScreenPipe(
+      mojo::PendingReceiver<screens_login::mojom::ArcVmDataMigrationPageHandler>
+          receiver,
+      EstablishArcVmDataMigrationScreenPipeCallback callback) override;
+
+  void EstablishLocalDataLossWarningScreenPipe(
       mojo::PendingReceiver<
           screens_osauth::mojom::LocalDataLossWarningPageHandler> receiver)
       override;

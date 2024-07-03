@@ -71,47 +71,6 @@ size_t NumPlanes(DXGI_FORMAT dxgi_format) {
   }
 }
 
-viz::SharedImageFormat VideoPlaneFormat(DXGI_FORMAT dxgi_format, size_t plane) {
-  DCHECK_LT(plane, NumPlanes(dxgi_format));
-  viz::SharedImageFormat format;
-  switch (dxgi_format) {
-    case DXGI_FORMAT_NV12:
-      // Y plane is accessed as R8 and UV plane is accessed as R8G8 in D3D.
-      return plane == 0 ? viz::SinglePlaneFormat::kR_8
-                        : viz::SinglePlaneFormat::kRG_88;
-    case DXGI_FORMAT_P010:
-      // Y plane is accessed as R16 and UV plane is accessed as R16G16 in D3D.
-      return plane == 0 ? viz::SinglePlaneFormat::kR_16
-                        : viz::SinglePlaneFormat::kRG_1616;
-    case DXGI_FORMAT_B8G8R8A8_UNORM:
-      return viz::SinglePlaneFormat::kBGRA_8888;
-    case DXGI_FORMAT_R10G10B10A2_UNORM:
-      return viz::SinglePlaneFormat::kRGBA_1010102;
-    case DXGI_FORMAT_R16G16B16A16_FLOAT:
-      return viz::SinglePlaneFormat::kRGBA_F16;
-    default:
-      NOTREACHED_NORETURN() << "Unsupported DXGI video format: " << dxgi_format;
-  }
-}
-
-gfx::Size VideoPlaneSize(DXGI_FORMAT dxgi_format,
-                         const gfx::Size& size,
-                         size_t plane) {
-  DCHECK_LT(plane, NumPlanes(dxgi_format));
-  switch (dxgi_format) {
-    case DXGI_FORMAT_NV12:
-    case DXGI_FORMAT_P010:
-      // Y plane is full size and UV plane is accessed as half size in D3D.
-      return plane == 0 ? size : gfx::Size(size.width() / 2, size.height() / 2);
-    case DXGI_FORMAT_B8G8R8A8_UNORM:
-    case DXGI_FORMAT_R10G10B10A2_UNORM:
-    case DXGI_FORMAT_R16G16B16A16_FLOAT:
-      return size;
-    default:
-      NOTREACHED_NORETURN() << "Unsupported DXGI video format: " << dxgi_format;
-  }
-}
-
 // `row_bytes` is the number of bytes that need to be copied in each row, which
 // can be smaller than `source_stride` or `dest_stride`.
 void CopyPlane(const uint8_t* source_memory,
@@ -135,6 +94,25 @@ bool BindEGLImageToTexture(GLenum texture_target, void* egl_image) {
                << ui::GetLastEGLErrorString();
     return false;
   }
+  return true;
+}
+
+bool CanUseUpdateSubresource(const std::vector<SkPixmap>& pixmaps) {
+  if (pixmaps.size() == 1u) {
+    return true;
+  }
+
+  const uint8_t* addr = static_cast<const uint8_t*>(pixmaps[0].addr());
+  size_t plane_offset = pixmaps[0].computeByteSize();
+  for (size_t i = 1; i < pixmaps.size(); ++i) {
+    // UpdateSubresource() cannot update planes individually, so the planes'
+    // data has to be packed in one memory block.
+    if (static_cast<const uint8_t*>(pixmaps[i].addr()) != addr + plane_offset) {
+      return false;
+    }
+    plane_offset += pixmaps[i].computeByteSize();
+  }
+
   return true;
 }
 
@@ -274,7 +252,8 @@ std::unique_ptr<D3DImageBacking> D3DImageBacking::Create(
     const GLFormatCaps& gl_format_caps,
     GLenum texture_target,
     size_t array_slice,
-    size_t plane_index) {
+    size_t plane_index,
+    bool use_update_subresource1) {
   const bool has_webgpu_usage = !!(usage & (SHARED_IMAGE_USAGE_WEBGPU_READ |
                                             SHARED_IMAGE_USAGE_WEBGPU_WRITE));
   // DXGI shared handle is required for WebGPU/Dawn/D3D12 interop.
@@ -283,65 +262,9 @@ std::unique_ptr<D3DImageBacking> D3DImageBacking::Create(
       mailbox, format, size, color_space, surface_origin, alpha_type, usage,
       std::move(debug_label), std::move(d3d11_texture),
       std::move(dxgi_shared_handle_state), gl_format_caps, texture_target,
-      array_slice, plane_index));
+      array_slice, plane_index, /*swap_chain=*/nullptr,
+      /*is_back_buffer=*/false, use_update_subresource1));
   return backing;
-}
-
-// static
-std::vector<std::unique_ptr<SharedImageBacking>>
-D3DImageBacking::CreateFromVideoTexture(
-    base::span<const Mailbox> mailboxes,
-    DXGI_FORMAT dxgi_format,
-    const gfx::Size& size,
-    uint32_t usage,
-    unsigned array_slice,
-    const GLFormatCaps& gl_format_caps,
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture,
-    scoped_refptr<DXGISharedHandleState> dxgi_shared_handle_state) {
-  CHECK(d3d11_texture);
-  CHECK_EQ(mailboxes.size(), NumPlanes(dxgi_format));
-
-  // DXGI shared handle is required for WebGPU/Dawn/D3D12 interop.
-  const bool has_webgpu_usage = usage & (SHARED_IMAGE_USAGE_WEBGPU_READ |
-                                         SHARED_IMAGE_USAGE_WEBGPU_WRITE);
-  CHECK(!has_webgpu_usage || dxgi_shared_handle_state);
-
-  std::vector<std::unique_ptr<SharedImageBacking>> shared_images(
-      NumPlanes(dxgi_format));
-  for (size_t plane_index = 0; plane_index < shared_images.size();
-       plane_index++) {
-    const auto& mailbox = mailboxes[plane_index];
-
-    const auto plane_format = VideoPlaneFormat(dxgi_format, plane_index);
-    const auto plane_size = VideoPlaneSize(dxgi_format, size, plane_index);
-
-    // Shared image does not need to store the colorspace since it is already
-    // stored on the VideoFrame which is provided upon presenting the overlay.
-    // To prevent the developer from mistakenly using it, provide the invalid
-    // value from default-construction.
-    constexpr gfx::ColorSpace kInvalidColorSpace;
-
-    // The target must be GL_TEXTURE_EXTERNAL_OES as the texture is not created
-    // with D3D11_BIND_RENDER_TARGET bind flag and so it cannot be bound to the
-    // framebuffer. To prevent Skia trying to bind it for read pixels, we need
-    // it to be GL_TEXTURE_EXTERNAL_OES.
-    constexpr GLenum kTextureTarget = GL_TEXTURE_EXTERNAL_OES;
-
-    // Do not cache GL textures in the backing since it's owned by the video
-    // decoder, and there could be no GL context to MakeCurrent in the
-    // destructor.
-    shared_images[plane_index] = base::WrapUnique(new D3DImageBacking(
-        mailbox, plane_format, plane_size, kInvalidColorSpace,
-        kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType, usage, "VideoTexture",
-        d3d11_texture, dxgi_shared_handle_state, gl_format_caps, kTextureTarget,
-        array_slice, plane_index));
-    if (!shared_images[plane_index])
-      return {};
-
-    shared_images[plane_index]->SetCleared();
-  }
-
-  return shared_images;
 }
 
 D3DImageBacking::D3DImageBacking(
@@ -360,7 +283,8 @@ D3DImageBacking::D3DImageBacking(
     size_t array_slice,
     size_t plane_index,
     Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain,
-    bool is_back_buffer)
+    bool is_back_buffer,
+    bool use_update_subresource1)
     : ClearTrackingSharedImageBacking(mailbox,
                                       format,
                                       size,
@@ -379,6 +303,7 @@ D3DImageBacking::D3DImageBacking(
       plane_index_(plane_index),
       swap_chain_(std::move(swap_chain)),
       is_back_buffer_(is_back_buffer),
+      use_update_subresource1_(use_update_subresource1),
       angle_d3d11_device_(gl::QueryD3D11DeviceObjectFromANGLE()) {
   if (d3d11_texture_) {
     d3d11_texture_->GetDevice(&texture_d3d11_device_);
@@ -438,6 +363,21 @@ void D3DImageBacking::Update(std::unique_ptr<gfx::GpuFence> in_fence) {
 bool D3DImageBacking::UploadFromMemory(const std::vector<SkPixmap>& pixmaps) {
   DCHECK_EQ(pixmaps.size(), static_cast<size_t>(format().NumberOfPlanes()));
 
+  if (use_update_subresource1_ && CanUseUpdateSubresource(pixmaps)) {
+    CHECK(texture_d3d11_device_);
+    Microsoft::WRL::ComPtr<ID3D11DeviceContext> device_context;
+    Microsoft::WRL::ComPtr<ID3D11DeviceContext1> device_context_1;
+    texture_d3d11_device_->GetImmediateContext(&device_context);
+    device_context.As(&device_context_1);
+
+    device_context_1->UpdateSubresource1(
+        d3d11_texture_.Get(), /*DstSubresource=*/0, /*pDstBox=*/nullptr,
+        pixmaps[0].addr(), pixmaps[0].rowBytes(), /*SrcDepthPitch=*/0,
+        D3D11_COPY_DISCARD);
+
+    return true;
+  }
+
   ID3D11Texture2D* staging_texture = GetOrCreateStagingTexture();
   if (!staging_texture) {
     return false;
@@ -449,7 +389,7 @@ bool D3DImageBacking::UploadFromMemory(const std::vector<SkPixmap>& pixmaps) {
 
   D3D11_MAPPED_SUBRESOURCE mapped_resource = {};
   HRESULT hr = device_context->Map(staging_texture, 0, D3D11_MAP_WRITE, 0,
-                                    &mapped_resource);
+                                   &mapped_resource);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to map texture for write. hr=" << std::hex << hr;
     return false;
@@ -477,6 +417,7 @@ bool D3DImageBacking::UploadFromMemory(const std::vector<SkPixmap>& pixmaps) {
 
   device_context->Unmap(staging_texture, 0);
   device_context->CopyResource(d3d11_texture_.Get(), staging_texture);
+
   return true;
 }
 
@@ -716,6 +657,7 @@ wgpu::Texture D3DImageBacking::BeginAccessDawn(
     const wgpu::Device& device,
     wgpu::BackendType backend_type,
     wgpu::TextureUsage wgpu_usage,
+    wgpu::TextureUsage wgpu_internal_usage,
     std::vector<wgpu::TextureFormat> view_formats) {
   const bool write_access = wgpu_usage & (wgpu::TextureUsage::CopyDst |
                                           wgpu::TextureUsage::StorageBinding |
@@ -768,8 +710,8 @@ wgpu::Texture D3DImageBacking::BeginAccessDawn(
   desc.signaledValues = signaled_values.data();
   desc.nextInChain = &swapchain_begin_state;
 
-  wgpu::Texture texture =
-      CreateDawnSharedTexture(shared_texture_memory, wgpu_usage, view_formats);
+  wgpu::Texture texture = CreateDawnSharedTexture(
+      shared_texture_memory, wgpu_usage, wgpu_internal_usage, view_formats);
   if (!texture || !shared_texture_memory.BeginAccess(texture, &desc)) {
     LOG(ERROR) << "Failed to begin access and produce WGPUTexture";
     return nullptr;
@@ -835,7 +777,9 @@ void D3DImageBacking::EndAccessDawn(const wgpu::Device& device,
     if (shared_texture_memory.IsDeviceLost()) {
       // Erase from cache if external image is invalid i.e. device was lost.
       dawn_signaled_fences_map_.erase(device.Get());
-      dxgi_shared_handle_state_->EraseDawnSharedTextureMemory(device.Get());
+      if (dxgi_shared_handle_state_) {
+        dxgi_shared_handle_state_->EraseDawnSharedTextureMemory(device.Get());
+      }
     }
 
     EndAccessCommon(signaled_fences);

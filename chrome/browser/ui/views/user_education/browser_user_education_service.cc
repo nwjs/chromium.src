@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/performance_controls/performance_controls_metrics.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
@@ -39,13 +40,16 @@
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/compose/core/browser/compose_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_features.h"
 #include "components/safe_browsing/core/common/safebrowsing_referral_methods.h"
+#include "components/saved_tab_groups/features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/user_education/common/feature_promo_handle.h"
 #include "components/user_education/common/feature_promo_registry.h"
@@ -110,20 +114,23 @@ class ScopedSavedTabGroupTutorialState
     : public user_education::ScopedTutorialState {
  public:
   explicit ScopedSavedTabGroupTutorialState(ui::ElementContext ctx)
-      : user_education::ScopedTutorialState(ctx),
-        browser_(chrome::FindBrowserWithUiElementContext(ctx)) {
-    CHECK(browser_);
+      : user_education::ScopedTutorialState(ctx) {
+    auto* browser = chrome::FindBrowserWithUiElementContext(ctx);
+    CHECK(browser);
+    browser_ = browser->AsWeakPtr();
     browser_->SetForceShowBookmarkBarFlag(
         Browser::ForceShowBookmarkBarFlag::kTabGroupsTutorialActive);
   }
 
   ~ScopedSavedTabGroupTutorialState() override {
-    browser_->ClearForceShowBookmarkBarFlag(
-        Browser::ForceShowBookmarkBarFlag::kTabGroupsTutorialActive);
+    if (browser_ && !browser_->IsBrowserClosing()) {
+      browser_->ClearForceShowBookmarkBarFlag(
+          Browser::ForceShowBookmarkBarFlag::kTabGroupsTutorialActive);
+    }
   }
 
  private:
-  raw_ptr<Browser> browser_;
+  base::WeakPtr<Browser> browser_;
 };
 
 bool HasTabGroups(const BrowserView* browser_view) {
@@ -486,45 +493,29 @@ void MaybeRegisterChromeFeaturePromos(
                     .SetBubbleArrow(HelpBubbleArrow::kTopRight)));
 
   // kIPHPowerBookmarksSidePanelFeature:
-  if (features::IsSidePanelPinningEnabled()) {
-    registry.RegisterFeature(std::move(
-        FeaturePromoSpecification::CreateForSnoozePromo(
-            feature_engagement::kIPHPowerBookmarksSidePanelFeature,
-            kToolbarAppMenuButtonElementId,
-            IDS_POWER_BOOKMARKS_SIDE_PANEL_PROMO_PINNING)
-            .SetHighlightedMenuItem(
-                BookmarkSubMenuModel::kShowBookmarkSidePanelItem)
-            .SetMetadata(121, "emshack@chromium.org",
-                         "Triggered when a bookmark is added from the "
-                         "bookmark page action in omnibox.")));
-  } else {
-    registry.RegisterFeature(FeaturePromoSpecification::CreateForSnoozePromo(
-        feature_engagement::kIPHPowerBookmarksSidePanelFeature,
-        kToolbarSidePanelButtonElementId,
-        IDS_POWER_BOOKMARKS_SIDE_PANEL_PROMO));
-  }
+  registry.RegisterFeature(
+      std::move(FeaturePromoSpecification::CreateForSnoozePromo(
+                    feature_engagement::kIPHPowerBookmarksSidePanelFeature,
+                    kToolbarAppMenuButtonElementId,
+                    IDS_POWER_BOOKMARKS_SIDE_PANEL_PROMO_PINNING)
+                    .SetHighlightedMenuItem(
+                        BookmarkSubMenuModel::kShowBookmarkSidePanelItem)
+                    .SetMetadata(121, "emshack@chromium.org",
+                                 "Triggered when a bookmark is added from the "
+                                 "bookmark page action in omnibox.")));
 
   // kIPHCompanionSidePanelFeature:
-  if (features::IsSidePanelPinningEnabled()) {
-    registry.RegisterFeature(std::move(
-        FeaturePromoSpecification::CreateForToastPromo(
-            feature_engagement::kIPHCompanionSidePanelFeature,
-            kToolbarAppMenuButtonElementId,
-            IDS_SIDE_PANEL_COMPANION_PROMO_PINNING,
-            IDS_SIDE_PANEL_COMPANION_PROMO_SCREEN_READER,
-            FeaturePromoSpecification::AcceleratorInfo())
-            .SetHighlightedMenuItem(AppMenuModel::kShowSearchCompanion)
-            .SetMetadata(
-                115, "corising@chromium.org",
-                "Triggered to encourage users to try out the CSC feature.")));
-  } else {
-    registry.RegisterFeature(FeaturePromoSpecification::CreateForToastPromo(
-        feature_engagement::kIPHCompanionSidePanelFeature,
-        kSidePanelCompanionToolbarButtonElementId,
-        IDS_SIDE_PANEL_COMPANION_PROMO,
-        IDS_SIDE_PANEL_COMPANION_PROMO_SCREEN_READER,
-        FeaturePromoSpecification::AcceleratorInfo()));
-  }
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHCompanionSidePanelFeature,
+          kToolbarAppMenuButtonElementId,
+          IDS_SIDE_PANEL_COMPANION_PROMO_PINNING,
+          IDS_SIDE_PANEL_COMPANION_PROMO_SCREEN_READER,
+          FeaturePromoSpecification::AcceleratorInfo())
+          .SetHighlightedMenuItem(AppMenuModel::kShowSearchCompanion)
+          .SetMetadata(
+              115, "corising@chromium.org",
+              "Triggered to encourage users to try out the CSC feature.")));
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
   // kIPHSwitchProfileFeature:
@@ -562,7 +553,7 @@ void MaybeRegisterChromeFeaturePromos(
           feature_engagement::
               kIPHExplicitBrowserSigninPreferenceRememberedFeature,
           kToolbarAvatarButtonElementId,
-          IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_IPH_TEXT_SIGNIN,
+          IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_IPH_TEXT_SIGNIN_REMINDER,
           IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_IPH_SETTINGS_BUTTON,
           base::BindRepeating([](ui::ElementContext ctx,
                                  user_education::FeaturePromoHandle
@@ -575,7 +566,7 @@ void MaybeRegisterChromeFeaturePromos(
             params.bubble_anchor_id = kToolbarAvatarButtonElementId;
             params.bubble_arrow = user_education::HelpBubbleArrow::kTopRight;
             params.bubble_text = l10n_util::GetStringUTF16(
-                IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_IPH_TEXT_SIGNIN);
+                IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_IPH_TEXT_SIGNIN_REMINDER);
             ShowPromoInPage::Start(browser, std::move(params));
             chrome::ShowSettingsSubPage(browser, chrome::kSyncSetupSubPage);
             base::RecordAction(
@@ -585,7 +576,8 @@ void MaybeRegisterChromeFeaturePromos(
           .SetPromoSubtype(user_education::FeaturePromoSpecification::
                                PromoSubtype::kKeyedNotice)
           .SetBubbleTitleText(
-              IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_IPH_TITLE_SIGNIN)
+              IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_IPH_TITLE_SIGNIN_REMINDER)
+          .SetBubbleIcon(&vector_icons::kCelebrationIcon)
           .SetCustomActionIsDefault(false)));
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH) && !BUILDFLAG(IS_CHROMEOS_LACROS)
 
@@ -614,19 +606,13 @@ void MaybeRegisterChromeFeaturePromos(
               IDS_COOKIE_CONTROLS_PROMO_CLOSE_BUTTON_TEXT)));
 
   // kIPHReadingListDiscoveryFeature:
-  if (features::IsSidePanelPinningEnabled()) {
-    registry.RegisterFeature(
-        std::move(FeaturePromoSpecification::CreateForLegacyPromo(
-                      &feature_engagement::kIPHReadingListDiscoveryFeature,
-                      kToolbarAppMenuButtonElementId,
-                      IDS_READING_LIST_DISCOVERY_PROMO_PINNING)
-                      .SetHighlightedMenuItem(
-                          ReadingListSubMenuModel::kReadingListMenuShowUI)));
-  } else {
-    registry.RegisterFeature(FeaturePromoSpecification::CreateForLegacyPromo(
-        &feature_engagement::kIPHReadingListDiscoveryFeature,
-        kToolbarSidePanelButtonElementId, IDS_READING_LIST_DISCOVERY_PROMO));
-  }
+  registry.RegisterFeature(
+      std::move(FeaturePromoSpecification::CreateForLegacyPromo(
+                    &feature_engagement::kIPHReadingListDiscoveryFeature,
+                    kToolbarAppMenuButtonElementId,
+                    IDS_READING_LIST_DISCOVERY_PROMO_PINNING)
+                    .SetHighlightedMenuItem(
+                        ReadingListSubMenuModel::kReadingListMenuShowUI)));
 
   // kIPHReadingListEntryPointFeature:
   registry.RegisterFeature(FeaturePromoSpecification::CreateForSnoozePromo(
@@ -634,105 +620,135 @@ void MaybeRegisterChromeFeaturePromos(
       kBookmarkStarViewElementId, IDS_READING_LIST_ENTRY_POINT_PROMO));
 
   // kIPHReadingListInSidePanelFeature:
-  if (features::IsSidePanelPinningEnabled()) {
-    registry.RegisterFeature(
-        std::move(FeaturePromoSpecification::CreateForLegacyPromo(
-                      &feature_engagement::kIPHReadingListInSidePanelFeature,
-                      kToolbarAppMenuButtonElementId,
-                      IDS_READING_LIST_IN_SIDE_PANEL_PROMO_PINNING)
-                      .SetHighlightedMenuItem(
-                          BookmarkSubMenuModel::kReadingListMenuItem)));
-  } else {
-    registry.RegisterFeature(FeaturePromoSpecification::CreateForLegacyPromo(
-        &feature_engagement::kIPHReadingListInSidePanelFeature,
-        kToolbarSidePanelButtonElementId,
-        IDS_READING_LIST_IN_SIDE_PANEL_PROMO));
-  }
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForLegacyPromo(
+          &feature_engagement::kIPHReadingListInSidePanelFeature,
+          kToolbarAppMenuButtonElementId,
+          IDS_READING_LIST_IN_SIDE_PANEL_PROMO_PINNING)
+          .SetHighlightedMenuItem(BookmarkSubMenuModel::kReadingListMenuItem)));
 
   // kIPHReadingModeSidePanelFeature:
-  if (features::IsSidePanelPinningEnabled()) {
-    registry.RegisterFeature(std::move(
-        FeaturePromoSpecification::CreateForSnoozePromo(
-            feature_engagement::kIPHReadingModeSidePanelFeature,
-            kToolbarAppMenuButtonElementId,
-            IDS_READING_MODE_SIDE_PANEL_PROMO_PINNING)
-            .SetHighlightedMenuItem(ToolsMenuModel::kReadingModeMenuItem)
-            .SetMetadata(115, "jocelyntran@chromium.org",
-                         "Triggered to encourage users to try out the reading "
-                         "mode feature.")));
-  } else {
-    registry.RegisterFeature(FeaturePromoSpecification::CreateForSnoozePromo(
-        feature_engagement::kIPHReadingModeSidePanelFeature,
-        kToolbarSidePanelButtonElementId, IDS_READING_MODE_SIDE_PANEL_PROMO));
-  }
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForSnoozePromo(
+          feature_engagement::kIPHReadingModeSidePanelFeature,
+          kToolbarAppMenuButtonElementId,
+          IDS_READING_MODE_SIDE_PANEL_PROMO_PINNING)
+          .SetHighlightedMenuItem(ToolsMenuModel::kReadingModeMenuItem)
+          .SetMetadata(115, "jocelyntran@chromium.org",
+                       "Triggered to encourage users to try out the reading "
+                       "mode feature.")));
 
-  if (features::IsSidePanelPinningEnabled()) {
-    // kIPHSidePanelGenericMenuFeature:
-    registry.RegisterFeature(std::move(
-        FeaturePromoSpecification::CreateForToastPromo(
-            feature_engagement::kIPHSidePanelGenericMenuFeature,
-            kToolbarAppMenuButtonElementId, IDS_SIDE_PANEL_GENERIC_MENU_IPH,
-            IDS_SIDE_PANEL_GENERIC_MENU_IPH_SCREENREADER,
-            FeaturePromoSpecification::AcceleratorInfo())
-            .SetBubbleArrow(HelpBubbleArrow::kTopRight)
-            .SetMetadata(121, "corising@chromium.org",
-                         "Triggered on startup for discovery of "
-                         "side panel entry points in app menu.")));
+  // kIPHSidePanelGenericMenuFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHSidePanelGenericMenuFeature,
+          kToolbarAppMenuButtonElementId, IDS_SIDE_PANEL_GENERIC_MENU_IPH,
+          IDS_SIDE_PANEL_GENERIC_MENU_IPH_SCREENREADER,
+          FeaturePromoSpecification::AcceleratorInfo())
+          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
+          .SetMetadata(121, "corising@chromium.org",
+                       "Triggered on startup for discovery of "
+                       "side panel entry points in app menu.")));
 
-    // kIPHSidePanelGenericPinnableFeature:
-    registry.RegisterFeature(std::move(
-        FeaturePromoSpecification::CreateForToastPromo(
-            feature_engagement::kIPHSidePanelGenericPinnableFeature,
-            kSidePanelPinButtonElementId, IDS_SIDE_PANEL_GENERIC_PINNABLE_IPH,
-            IDS_SIDE_PANEL_GENERIC_PINNABLE_IPH_SCREENREADER,
-            FeaturePromoSpecification::AcceleratorInfo())
-            .SetBubbleArrow(HelpBubbleArrow::kTopRight)
-            .SetMetadata(121, "corising@chromium.org",
-                         "Triggered when a pinnable side panel is opened.")));
+  // kIPHSidePanelGenericPinnableFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHSidePanelGenericPinnableFeature,
+          kSidePanelPinButtonElementId, IDS_SIDE_PANEL_GENERIC_PINNABLE_IPH,
+          IDS_SIDE_PANEL_GENERIC_PINNABLE_IPH_SCREENREADER,
+          FeaturePromoSpecification::AcceleratorInfo())
+          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
+          .SetMetadata(121, "corising@chromium.org",
+                       "Triggered when a pinnable side panel is opened.")));
 
-    // kIPHSidePanelLensOverlayPinnableFeature:
-    registry.RegisterFeature(std::move(
-        FeaturePromoSpecification::CreateForToastPromo(
-            feature_engagement::kIPHSidePanelLensOverlayPinnableFeature,
-            kSidePanelPinButtonElementId,
-            IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_IPH,
-            IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_IPH_SCREENREADER,
-            FeaturePromoSpecification::AcceleratorInfo())
-            .SetBubbleArrow(HelpBubbleArrow::kRightCenter)
-            .SetMetadata(126, "dfried@chromium.org, jdonnelly@google.com",
-                         "Triggered when a pinnable lens overlay side panel is "
-                         "opened.")));
+  // kIPHSidePanelLensOverlayPinnableFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHSidePanelLensOverlayPinnableFeature,
+          kSidePanelPinButtonElementId,
+          IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_IPH,
+          IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_IPH_SCREENREADER,
+          FeaturePromoSpecification::AcceleratorInfo())
+          .SetBubbleArrow(HelpBubbleArrow::kRightCenter)
+          .SetMetadata(126, "dfried@chromium.org, jdonnelly@google.com",
+                       "Triggered when a pinnable lens overlay side panel is "
+                       "opened.")));
 
-    // kIPHSidePanelLensOverlayPinnableFeature:
-    registry.RegisterFeature(std::move(
-        FeaturePromoSpecification::CreateForToastPromo(
-            feature_engagement::kIPHSidePanelLensOverlayPinnableFollowupFeature,
-            kPinnedActionToolbarButtonElementId,
-            IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_FOLLOWUP_IPH,
-            IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_FOLLOWUP_IPH_SCREENREADER,
-            FeaturePromoSpecification::AcceleratorInfo())
-            .SetBubbleArrow(HelpBubbleArrow::kTopRight)
-            .SetBubbleIcon(&vector_icons::kCelebrationIcon)
-            .SetMetadata(
-                126, "dfried@chromium.org, jdonnelly@google.com",
-                "Triggered when the lens overlay side panel is pinned.")
-            .SetAnchorElementFilter(base::BindRepeating(
-                [](const ui::ElementTracker::ElementList& elements)
-                    -> ui::TrackedElement* {
-                  // Locate the action button associated with the Lens Overlay
-                  // feature. The button must be present in the Actions
-                  // container in the toolbar.
-                  for (auto* element : elements) {
-                    auto* const button =
-                        views::AsViewClass<PinnedActionToolbarButton>(
-                            element->AsA<views::TrackedElementViews>()->view());
-                    if (button && button->GetActionId() ==
-                                      kActionSidePanelShowLensOverlayResults) {
-                      return element;
-                    }
+  // kIPHSidePanelLensOverlayPinnableFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHSidePanelLensOverlayPinnableFollowupFeature,
+          kPinnedActionToolbarButtonElementId,
+          IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_FOLLOWUP_IPH,
+          IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_FOLLOWUP_IPH_SCREENREADER,
+          FeaturePromoSpecification::AcceleratorInfo())
+          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
+          .SetBubbleIcon(&vector_icons::kCelebrationIcon)
+          .SetMetadata(126, "dfried@chromium.org, jdonnelly@google.com",
+                       "Triggered when the lens overlay side panel is pinned.")
+          .SetAnchorElementFilter(base::BindRepeating(
+              [](const ui::ElementTracker::ElementList& elements)
+                  -> ui::TrackedElement* {
+                // Locate the action button associated with the Lens Overlay
+                // feature. The button must be present in the Actions
+                // container in the toolbar.
+                for (auto* element : elements) {
+                  auto* const button =
+                      views::AsViewClass<PinnedActionToolbarButton>(
+                          element->AsA<views::TrackedElementViews>()->view());
+                  if (button && button->GetActionId() ==
+                                    kActionSidePanelShowLensOverlayResults) {
+                    return element;
                   }
-                  return nullptr;
-                }))));
+                }
+                return nullptr;
+              }))));
+
+  if (tab_groups::IsTabGroupsSaveV2Enabled()) {
+    registry.RegisterFeature(std::move(
+        FeaturePromoSpecification::CreateForToastPromo(
+            feature_engagement::kIPHTabGroupsSaveV2CloseGroupFeature,
+            kToolbarAppMenuButtonElementId,
+            IDS_SAVED_TAB_GROUPS_V2_INTRO_IPH_APP_MENU_NOT_SYNCED_BODY,
+            IDS_SAVED_TAB_GROUPS_V2_INTRO_DEFAULT_BODY_A11Y,
+            FeaturePromoSpecification::AcceleratorInfo())
+            .SetBubbleArrow(HelpBubbleArrow::kTopRight)
+            .SetAnchorElementFilter(
+                base::BindRepeating(&tab_groups::SavedTabGroupUtils::
+                                        GetAnchorElementForTabGroupsV2IPH))
+            .SetMetadata(127, "dpenning@chromium.org",
+                         "triggered on startup when the saved tab groups are "
+                         "defaulted to saved for the first time.")));
+
+    registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForCustomAction(
+            feature_engagement::kIPHTabGroupsSaveV2IntroFeature,
+            kToolbarAppMenuButtonElementId,
+            IDS_WILDCARD,  // Replaced by caller with the correct IDS string.
+            IDS_LEARN_MORE,
+            base::BindRepeating(
+                [](ui::ElementContext ctx,
+                   user_education::FeaturePromoHandle promo_handle) {
+                  auto* browser = chrome::FindBrowserWithUiElementContext(ctx);
+                  if (!browser) {
+                    return;
+                  }
+
+                  const GURL learn_more_link{chrome::kTabGroupsLearnMoreURL};
+                  NavigateParams params(browser->profile(), learn_more_link,
+                                        ui::PAGE_TRANSITION_LINK);
+                  params.disposition =
+                      WindowOpenDisposition::NEW_FOREGROUND_TAB;
+                  params.browser = browser;
+                  Navigate(&params);
+                }))
+            .SetBubbleArrow(HelpBubbleArrow::kTopRight)
+            .SetAnchorElementFilter(
+                base::BindRepeating(&tab_groups::SavedTabGroupUtils::
+                                        GetAnchorElementForTabGroupsV2IPH))
+            .SetMetadata(127, "dpenning@chromium.org",
+                         "triggered on startup when the saved tab groups are "
+                         "defaulted to saved for the first time.")));
   }
 
   // kIPHTabOrganizationSuccessFeature:
@@ -927,7 +943,8 @@ void MaybeRegisterChromeFeaturePromos(
                 ShowPromoInPage::Start(browser, std::move(params));
               }))
           .SetAnchorElementFilter(base::BindRepeating(
-              [](const ui::ElementTracker::ElementList& elements) {
+              [](const ui::ElementTracker::ElementList& elements)
+                  -> ui::TrackedElement* {
                 for (auto* element : elements) {
                   auto* tab_icon = views::AsViewClass<TabIcon>(
                       element->AsA<views::TrackedElementViews>()->view());
@@ -935,7 +952,7 @@ void MaybeRegisterChromeFeaturePromos(
                     return element;
                   }
                 }
-                return (ui::TrackedElement*)(nullptr);
+                return nullptr;
               }))
           .SetCustomActionDismissText(IDS_PROMO_DISMISS_BUTTON)
           .SetBubbleTitleText(IDS_DISCARD_RING_PROMO_TITLE)
@@ -944,14 +961,12 @@ void MaybeRegisterChromeFeaturePromos(
                        "Triggered when a tab is discarded.")));
 
   // kIPHPriceTrackingInSidePanelFeature;
-  if (!features::IsSidePanelPinningEnabled()) {
-    registry.RegisterFeature(std::move(
-        FeaturePromoSpecification::CreateForLegacyPromo(
-            &feature_engagement::kIPHPriceTrackingInSidePanelFeature,
-            kToolbarSidePanelButtonElementId, IDS_PRICE_TRACKING_SIDE_PANEL_IPH)
-            .SetMetadata(120, "yuezhanggg@chromium.org",
-                         "Triggered when a price tracking is enabled.")));
-  }
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForLegacyPromo(
+          &feature_engagement::kIPHPriceTrackingInSidePanelFeature,
+          kToolbarSidePanelButtonElementId, IDS_PRICE_TRACKING_SIDE_PANEL_IPH)
+          .SetMetadata(120, "yuezhanggg@chromium.org",
+                       "Triggered when a price tracking is enabled.")));
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // kIPHDownloadEsbPromoFeature:
@@ -1340,6 +1355,8 @@ void MaybeRegisterChromeTutorials(
   }
 }
 
+// Note: If you add a badge here, be sure to add the name of the corresponding
+// feature to tools/metrics/histograms/metadata/user_education/histograms.xml
 void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
   if (registry.IsFeatureRegistered(
           user_education::features::kNewBadgeTestFeature)) {
@@ -1361,6 +1378,20 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
       lens::features::kLensOverlay,
       user_education::Metadata(126, "jdonnelly@google.com, dfried@google.com",
                                "Shown in app and web context menus.")));
+
+  registry.RegisterFeature(user_education::NewBadgeSpecification(
+      features::kTabOrganization,
+      user_education::Metadata(
+          126, "emshack@chromium.org",
+          "Shown in app menu when TabOrganizationAppMenuItem is enabled.")));
+
+  registry.RegisterFeature(user_education::NewBadgeSpecification(
+      autofill::features::kAutofillForUnclassifiedFieldsAvailable,
+      user_education::Metadata(
+          125, "vidhanj@google.com",
+          "Shown in the autofill section of the context menu for address and "
+          "credit card autofill entries when autofill for unclassified fields "
+          "is enabled.")));
 }
 
 std::unique_ptr<BrowserFeaturePromoController> CreateUserEducationResources(

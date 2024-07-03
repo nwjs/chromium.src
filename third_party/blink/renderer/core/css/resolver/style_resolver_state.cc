@@ -229,8 +229,9 @@ void StyleResolverState::LoadPendingResources() {
     }
   }
 
-  if (StyleBuilder().StyleType() == kPseudoIdTargetText) {
-    // Do not load any resources for ::target-text since that could leak text
+  if (StyleBuilder().StyleType() == kPseudoIdSearchText ||
+      StyleBuilder().StyleType() == kPseudoIdTargetText) {
+    // Do not load any resources for these pseudos, since that could leak text
     // content to external stylesheets.
     return;
   }
@@ -271,6 +272,28 @@ void StyleResolverState::SetWritingMode(WritingMode new_writing_mode) {
   StyleBuilder().SetWritingMode(new_writing_mode);
   UpdateLengthConversionData();
   font_builder_.DidChangeWritingMode();
+}
+
+void StyleResolverState::SetTextSizeAdjust(
+    TextSizeAdjust new_text_size_adjust) {
+  if (StyleBuilder().GetTextSizeAdjust() == new_text_size_adjust) {
+    return;
+  }
+
+  if (!new_text_size_adjust.IsAuto()) {
+    GetDocument().CountUse(WebFeature::kTextSizeAdjustNotAuto);
+    if (new_text_size_adjust.Multiplier() != 1.f) {
+      GetDocument().CountUse(WebFeature::kTextSizeAdjustPercentNot100);
+    }
+  }
+
+  StyleBuilder().SetTextSizeAdjust(new_text_size_adjust);
+  // When `TextSizeAdjustImprovements` is enabled, text-size-adjust affects
+  // font-size during style building.
+  if (RuntimeEnabledFeatures::TextSizeAdjustImprovementsEnabled()) {
+    UpdateLengthConversionData();
+    font_builder_.DidChangeTextSizeAdjust();
+  }
 }
 
 void StyleResolverState::SetTextOrientation(ETextOrientation text_orientation) {

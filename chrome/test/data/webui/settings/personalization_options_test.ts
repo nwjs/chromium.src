@@ -8,7 +8,7 @@ import 'chrome://settings/lazy_load.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {SettingsPersonalizationOptionsElement} from 'chrome://settings/lazy_load.js';
 import type {CrLinkRowElement, PrivacyPageVisibility, SettingsPrefsElement} from 'chrome://settings/settings.js';
-import {CrSettingsPrefs, loadTimeData, PrivacyPageBrowserProxyImpl, Router, routes, SignedInState, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
+import {CrSettingsPrefs, loadTimeData, PrivacyPageBrowserProxyImpl, resetRouterForTesting, Router, routes, SignedInState, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {isChildVisible, isVisible} from 'chrome://webui-test/test_util.js';
 // <if expr="not is_chromeos">
@@ -119,7 +119,7 @@ suite('AllBuilds', function() {
 
   // <if expr="not is_chromeos">
   test('chromeSigninUserChoiceAvailableInitialization', async function() {
-    assertFalse(isVisible(testElement.$.chromeSigninUserChoiceRadioGroup));
+    assertFalse(isVisible(testElement.$.chromeSigninUserChoiceSelection));
 
     const infoResponse = {
       shouldShowSettings: true,
@@ -130,7 +130,7 @@ suite('AllBuilds', function() {
 
     buildTestElement();  // Rebuild the element simulating a fresh start.
     await syncBrowserProxy.whenCalled('getChromeSigninUserChoiceInfo');
-    assertTrue(isVisible(testElement.$.chromeSigninUserChoiceRadioGroup));
+    assertTrue(isVisible(testElement.$.chromeSigninUserChoiceSelection));
     const descriptionText =
         testElement.shadowRoot!.querySelector(
                                    '#chromeSigninChoiceDescription')!.innerHTML;
@@ -147,7 +147,7 @@ suite('AllBuilds', function() {
 
     buildTestElement();  // Rebuild the element simulating a fresh start.
     await syncBrowserProxy.whenCalled('getChromeSigninUserChoiceInfo');
-    assertTrue(isVisible(testElement.$.chromeSigninUserChoiceRadioGroup));
+    assertTrue(isVisible(testElement.$.chromeSigninUserChoiceSelection));
 
     // New response to return should not show.
     const infoResponse_hide = {
@@ -158,12 +158,12 @@ suite('AllBuilds', function() {
 
     webUIListenerCallback(
         'chrome-signin-user-choice-info-change', infoResponse_hide);
-    assertFalse(isVisible(testElement.$.chromeSigninUserChoiceRadioGroup));
+    assertFalse(isVisible(testElement.$.chromeSigninUserChoiceSelection));
 
     // Original response to return should show again.
     webUIListenerCallback(
         'chrome-signin-user-choice-info-change', infoResponse);
-    assertTrue(isVisible(testElement.$.chromeSigninUserChoiceRadioGroup));
+    assertTrue(isVisible(testElement.$.chromeSigninUserChoiceSelection));
   });
 
   test('chromeSigninUserChoiceUpdatedExternally', async function() {
@@ -176,17 +176,18 @@ suite('AllBuilds', function() {
 
     buildTestElement();  // Rebuild the element simulating a fresh start.
     await syncBrowserProxy.whenCalled('getChromeSigninUserChoiceInfo');
-    assertTrue(isVisible(testElement.$.chromeSigninUserChoiceRadioGroup));
+    assertTrue(isVisible(testElement.$.chromeSigninUserChoiceSelection));
 
     // `ChromeSigninUserChoice.NO_CHOICE` leads to no value set.
     assertEquals(
-        testElement.$.chromeSigninUserChoiceRadioGroup.selected, undefined);
+        Number(testElement.$.chromeSigninUserChoiceSelection.value),
+        ChromeSigninUserChoice.NO_CHOICE);
 
     infoResponse.choice = ChromeSigninUserChoice.SIGNIN;
     webUIListenerCallback(
         'chrome-signin-user-choice-info-change', infoResponse);
     assertEquals(
-        Number(testElement.$.chromeSigninUserChoiceRadioGroup.selected),
+        Number(testElement.$.chromeSigninUserChoiceSelection.value),
         ChromeSigninUserChoice.SIGNIN);
   });
 
@@ -371,6 +372,15 @@ suite('AllBuilds', function() {
     pageContentRow.click();
     assertEquals(routes.PAGE_CONTENT, Router.getInstance().getCurrentRoute());
   });
+
+  test('historySearchRow', () => {
+    const historySearchRow =
+        testElement.shadowRoot!.querySelector<HTMLElement>('#historySearchRow');
+    assertTrue(!!historySearchRow);
+    assertTrue(isVisible(historySearchRow));
+    historySearchRow.click();
+    assertEquals(routes.HISTORY_SEARCH, Router.getInstance().getCurrentRoute());
+  });
 });
 
 // TODO(crbug.com/40070860): Remove once crbug/1476887 launched.
@@ -399,6 +409,29 @@ suite('PageContentSettingOff', function() {
         isVisible(testElement.shadowRoot!.querySelector('#pageContentRow')));
   });
 });
+
+suite('HistorySearchSettingOff', function() {
+  let testElement: SettingsPersonalizationOptionsElement;
+
+  suiteSetup(function() {
+    loadTimeData.overrideValues({
+      enableHistorySearchSetting: false,
+    });
+    resetRouterForTesting();
+  });
+
+  setup(function() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    testElement = document.createElement('settings-personalization-options');
+    document.body.appendChild(testElement);
+    flush();
+  });
+
+  test('historySearchRowNotVisible', function() {
+    assertFalse(!!testElement.shadowRoot!.querySelector('#historySearchRow'));
+  });
+});
+
 
 // <if expr="_google_chrome">
 suite('OfficialBuild', function() {

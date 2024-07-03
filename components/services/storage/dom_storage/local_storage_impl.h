@@ -80,7 +80,7 @@ class LocalStorageImpl : public base::trace_event::MemoryDumpProvider,
   void DeleteStorage(const blink::StorageKey& storage_key,
                      DeleteStorageCallback callback) override;
   void CleanUpStorage(CleanUpStorageCallback callback) override;
-  void Flush(FlushCallback callback) override;
+  void Flush() override;
   void PurgeMemory() override;
   void ApplyPolicyUpdates(
       std::vector<mojom::StoragePolicyUpdatePtr> policy_updates) override;
@@ -129,8 +129,8 @@ class LocalStorageImpl : public base::trace_event::MemoryDumpProvider,
   // The (possibly delayed) implementation of GetUsage(). Can be called directly
   // from that function, or through |on_database_open_callbacks_|.
   void RetrieveStorageUsage(GetUsageCallback callback);
-  void OnGotMetaData(GetUsageCallback callback,
-                     std::vector<DomStorageDatabase::KeyValuePair> data);
+  void OnGotWriteMetaData(GetUsageCallback callback,
+                          std::vector<DomStorageDatabase::KeyValuePair> data);
 
   void OnGotStorageUsageForShutdown(
       std::vector<mojom::StorageUsageInfoPtr> usage);

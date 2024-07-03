@@ -10,9 +10,9 @@ import {COLOR_PROVIDER_CHANGED, ColorChangeUpdater} from '//resources/cr_compone
 import type {RectF} from '//resources/mojo/ui/gfx/geometry/mojom/geometry.mojom-webui.js';
 import {assertCast, MessagePipe} from '//system_apps/message_pipe.js';
 
-import type {OcrUntrustedPageHandlerRemote, PageMetadata} from './media_app_ui_untrusted.mojom-webui.js';
+import type {MahiUntrustedPageHandlerRemote, OcrUntrustedPageHandlerRemote, PageMetadata} from './media_app_ui_untrusted.mojom-webui.js';
 import {EditInPhotosMessage, FileContext, IsFileArcWritableMessage, IsFileArcWritableResponse, IsFileBrowserWritableMessage, IsFileBrowserWritableResponse, LoadFilesMessage, Message, OpenAllowedFileMessage, OpenAllowedFileResponse, OpenFilesWithPickerMessage, OverwriteFileMessage, OverwriteViaFilePickerResponse, RenameFileResponse, RenameResult, RequestSaveFileMessage, RequestSaveFileResponse, SaveAsMessage, SaveAsResponse} from './message_types.js';
-import {connectToOcrHandler, ocrCallbackRouter} from './mojo_api_bootstrap_untrusted.js';
+import {connectToMahiHandler, connectToOcrHandler, mahiCallbackRouter, ocrCallbackRouter} from './mojo_api_bootstrap_untrusted.js';
 import {loadPiex} from './piex_module_loader.js';
 
 /** A pipe through which we can send messages to the parent frame. */
@@ -23,6 +23,12 @@ const parentMessagePipe = new MessagePipe('chrome://media-app', window.parent);
  * know the name until the file is navigated to.
  */
 const PLACEHOLDER_BLOB = new Blob([]);
+
+/**
+ * On PDF loaded, try to get this byte size of text content to check whether
+ * this file contains text.
+ */
+const PDF_TEXT_CONTENT_PEEK_BYTE_SIZE = 100;
 
 /**
  * A file received from the privileged context, and decorated with IPC methods
@@ -278,6 +284,8 @@ parentMessagePipe.registerHandler(
 parentMessagePipe.sendMessage(Message.IFRAME_READY);
 
 let ocrUntrustedPageHandler: OcrUntrustedPageHandlerRemote;
+let mahiUntrustedPageHandler: MahiUntrustedPageHandlerRemote;
+
 ocrCallbackRouter.requestBitmap.addListener(async (requestedPageId: string) => {
   const app = getApp();
   if (app) {
@@ -288,8 +296,24 @@ ocrCallbackRouter.requestBitmap.addListener(async (requestedPageId: string) => {
 });
 ocrCallbackRouter.setViewport.addListener(
     (viewportBox: RectF) => void getApp()?.setViewport(viewportBox));
+ocrCallbackRouter.setPdfOcrEnabled.addListener(
+    (enabled: boolean) => void getApp()?.setPdfOcrEnabled(enabled));
 ocrCallbackRouter.onConnectionError.addListener(() => {
   console.warn('Calling MediaApp RequestBitmap() failed to return bitmap.');
+});
+
+mahiCallbackRouter.getPdfContent.addListener(async (limit: number) => {
+  const app = getApp();
+  if (app) {
+    const content = await app.getPdfContent(limit);
+    return {content};
+  }
+  return null;
+});
+mahiCallbackRouter.hidePdfContextMenu.addListener(
+    () => void getApp()?.hidePdfContextMenu());
+mahiCallbackRouter.onConnectionError.addListener(() => {
+  console.warn('Calling MediaApp GetPdfContent() failed to return content.');
 });
 
 /**
@@ -322,9 +346,19 @@ const DELEGATE: ClientApiDelegate = {
   },
   notifyCurrentFile(name?: string, type?: string) {
     parentMessagePipe.sendMessage(Message.NOTIFY_CURRENT_FILE, {name, type});
+  },
+  notifyFileOpened(name?: string, type?: string) {
+    // Close any existing pipes when opening a new file.
+    ocrUntrustedPageHandler?.$.close();
+    mahiUntrustedPageHandler?.$.close();
+
     if (type === 'application/pdf') {
       ocrUntrustedPageHandler = connectToOcrHandler();
+      mahiUntrustedPageHandler = connectToMahiHandler(name);
     }
+  },
+  notifyFilenameChanged(name: string) {
+    mahiUntrustedPageHandler?.onPdfFileNameUpdated(name);
   },
   async extractPreview(file: Blob) {
     try {
@@ -361,6 +395,29 @@ const DELEGATE: ClientApiDelegate = {
   },
   async viewportUpdated(viewportBox: RectF, scaleFactor: number) {
     await ocrUntrustedPageHandler?.viewportUpdated(viewportBox, scaleFactor);
+  },
+  async onPdfLoaded() {
+    let hasText = false;
+    const app = getApp();
+    if (app) {
+      const peekContent =
+          (await app.getPdfContent(PDF_TEXT_CONTENT_PEEK_BYTE_SIZE))
+              ?.toString() ??
+          '';
+      hasText = peekContent.trim() !== '';
+    }
+
+    if (!hasText) {
+      mahiUntrustedPageHandler?.$.close();
+    } else {
+      await mahiUntrustedPageHandler?.onPdfLoaded();
+    }
+  },
+  async onPdfContextMenuShow(anchor: RectF) {
+    await mahiUntrustedPageHandler?.onPdfContextMenuShow(anchor);
+  },
+  async onPdfContextMenuHide() {
+    await mahiUntrustedPageHandler?.onPdfContextMenuHide();
   },
 };
 

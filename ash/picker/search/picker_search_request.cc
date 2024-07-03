@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "ash/constants/ash_pref_names.h"
 #include "ash/picker/picker_clipboard_provider.h"
 #include "ash/picker/search/picker_category_search.h"
 #include "ash/picker/search/picker_date_search.h"
@@ -30,6 +31,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "chromeos/ash/components/emoji/emoji_search.h"
+#include "components/prefs/pref_service.h"
 
 namespace ash {
 
@@ -61,25 +63,20 @@ PickerSearchRequest::PickerSearchRequest(
       gif_search_debouncer_(kGifDebouncingDelay) {
   std::string utf8_query = base::UTF16ToUTF8(query);
 
-  // TODO: b/326166751 - Use `available_categories_` to decide what searches to
-  // do.
   if (!category.has_value() || (category == PickerCategory::kLinks ||
                                 category == PickerCategory::kLocalFiles ||
                                 category == PickerCategory::kDriveFiles)) {
+    // TODO: b/326166751 - Use `available_categories_` to decide what searches
+    // to do.
     cros_search_start_ = base::TimeTicks::Now();
     client_->StartCrosSearch(
         query, category,
         base::BindRepeating(&PickerSearchRequest::HandleCrosSearchResults,
                             weak_ptr_factory_.GetWeakPtr()));
-
-    if (!category.has_value() || category == PickerCategory::kDriveFiles) {
-      drive_search_timeout_timer_.Start(
-          FROM_HERE, kDriveSearchTimeout, this,
-          &PickerSearchRequest::OnDriveSearchTimeout);
-    }
   }
 
-  if (!category.has_value() || category == PickerCategory::kClipboard) {
+  if ((!category.has_value() || category == PickerCategory::kClipboard) &&
+      base::Contains(available_categories, PickerCategory::kClipboard)) {
     clipboard_provider_ = std::make_unique<PickerClipboardProvider>();
     clipboard_search_start_ = base::TimeTicks::Now();
     clipboard_provider_->FetchResults(
@@ -88,13 +85,15 @@ PickerSearchRequest::PickerSearchRequest(
         query);
   }
 
-  if (!category.has_value() || category == PickerCategory::kDatesTimes) {
+  if ((!category.has_value() || category == PickerCategory::kDatesTimes) &&
+      base::Contains(available_categories, PickerCategory::kDatesTimes)) {
     date_search_start_ = base::TimeTicks::Now();
     // Date results is currently synchronous.
     HandleDateSearchResults(PickerDateSearch(base::Time::Now(), query));
   }
 
-  if (!category.has_value() || category == PickerCategory::kUnitsMaths) {
+  if ((!category.has_value() || category == PickerCategory::kUnitsMaths) &&
+      base::Contains(available_categories, PickerCategory::kUnitsMaths)) {
     math_search_start_ = base::TimeTicks::Now();
     // Math results is currently synchronous.
     HandleMathSearchResults(PickerMathSearch(query));
@@ -102,13 +101,15 @@ PickerSearchRequest::PickerSearchRequest(
 
   // These searches do not have category-specific search.
   if (!category.has_value()) {
-    gif_search_debouncer_.RequestSearch(
-        base::BindOnce(&PickerSearchRequest::StartGifSearch,
-                       weak_ptr_factory_.GetWeakPtr(), utf8_query));
+    if (base::Contains(available_categories, PickerCategory::kExpressions)) {
+      gif_search_debouncer_.RequestSearch(
+          base::BindOnce(&PickerSearchRequest::StartGifSearch,
+                         weak_ptr_factory_.GetWeakPtr(), utf8_query));
 
-    emoji_search_start_ = base::TimeTicks::Now();
-    // Emoji search is currently synchronous.
-    HandleEmojiSearchResults(emoji_search_->SearchEmoji(utf8_query));
+      emoji_search_start_ = base::TimeTicks::Now();
+      // Emoji search is currently synchronous.
+      HandleEmojiSearchResults(emoji_search_->SearchEmoji(utf8_query));
+    }
 
     category_search_start_ = base::TimeTicks::Now();
     // Category results are currently synchronous.
@@ -199,10 +200,6 @@ void PickerSearchRequest::HandleCrosSearchResults(
       break;
     }
     case AppListSearchResultType::kDriveSearch: {
-      if (!drive_search_timeout_timer_.IsRunning()) {
-        return;
-      }
-
       if (cros_search_start_.has_value()) {
         base::TimeDelta elapsed = base::TimeTicks::Now() - *cros_search_start_;
         base::UmaHistogramTimes("Ash.Picker.Search.DriveProvider.QueryTime",
@@ -215,7 +212,6 @@ void PickerSearchRequest::HandleCrosSearchResults(
 
       HandleSearchSourceResults(PickerSearchSource::kDrive, std::move(results),
                                 /*has_more_results=*/files_to_remove > 0);
-      drive_search_timeout_timer_.Stop();
       break;
     }
     case AppListSearchResultType::kFileSearch: {
@@ -254,6 +250,15 @@ void PickerSearchRequest::HandleGifSearchResults(
                             /*has_more_results=*/true);
 }
 
+const base::Value::Dict* PickerSearchRequest::LoadEmojiVariantsFromPrefs() {
+  if (client_->GetPrefs() == nullptr) {
+    return nullptr;
+  }
+  return client_->GetPrefs()
+      ->GetDict(prefs::kEmojiPickerPreferences)
+      .FindDict("preferred_variants");
+}
+
 void PickerSearchRequest::HandleEmojiSearchResults(
     emoji::EmojiSearchResult results) {
   if (emoji_search_start_.has_value()) {
@@ -266,10 +271,20 @@ void PickerSearchRequest::HandleEmojiSearchResults(
   emoji_results.reserve(kMaxEmojiResults + kMaxSymbolResults +
                         kMaxEmoticonResults);
 
+  const base::Value::Dict* emoji_variants = LoadEmojiVariantsFromPrefs();
+
   for (const emoji::EmojiSearchEntry& result :
        FirstNOrLessElements(results.emojis, kMaxEmojiResults)) {
+    std::string emoji_string = result.emoji_string;
+    if (emoji_variants != nullptr) {
+      const std::string* variant_string =
+          emoji_variants->FindString(emoji_string);
+      if (variant_string != nullptr) {
+        emoji_string = *variant_string;
+      }
+    }
     emoji_results.push_back(
-        PickerSearchResult::Emoji(base::UTF8ToUTF16(result.emoji_string)));
+        PickerSearchResult::Emoji(base::UTF8ToUTF16(emoji_string)));
   }
   for (const emoji::EmojiSearchEntry& result :
        FirstNOrLessElements(results.symbols, kMaxSymbolResults)) {
@@ -349,11 +364,6 @@ void PickerSearchRequest::HandleEditorSearchResults(
 
   // Editor results are never truncated.
   HandleSearchSourceResults(source, std::move(results),
-                            /*has_more_results=*/false);
-}
-
-void PickerSearchRequest::OnDriveSearchTimeout() {
-  HandleSearchSourceResults(PickerSearchSource::kDrive, {},
                             /*has_more_results=*/false);
 }
 

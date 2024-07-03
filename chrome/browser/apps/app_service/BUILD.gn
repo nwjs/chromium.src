@@ -53,6 +53,7 @@ source_set("app_service") {
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources:app_icon_resources",
+    "//chrome/browser/sync",
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/web_applications",
     "//chrome/browser/web_applications/extensions",
@@ -379,7 +380,6 @@ source_set("unit_tests") {
       "promise_apps/promise_app_update_unittest.cc",
       "promise_apps/promise_app_wrapper_unittest.cc",
       "publishers/arc_apps_unittest.cc",
-      "publishers/browser_shortcuts_crosapi_publisher_unittest.cc",
       "publishers/bruschetta_apps_unittest.cc",
       "publishers/crostini_apps_unittest.cc",
       "publishers/guest_os_apps_unittest.cc",
@@ -440,6 +440,7 @@ source_set("test_support") {
 
   deps = [
     "//build:chromeos_buildflags",
+    "//chrome/browser/sync",
     "//chrome/test:test_support",
     "//components/services/app_service",
     "//skia",

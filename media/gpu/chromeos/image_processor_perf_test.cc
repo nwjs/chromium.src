@@ -955,7 +955,7 @@ TEST_P(VulkanImageProcessorPerfTest, Detile) {
         gfx::Size(test_image_size.width(),
                   test_image_size.height() * bpp_numerator / bpp_denom),
         VideoFrame::STORAGE_DMABUFS);
-    input_mailboxes[i] = gpu::Mailbox::GenerateForSharedImage();
+    input_mailboxes[i] = gpu::Mailbox::Generate();
     auto input_gmb = CreateGpuMemoryBufferHandle(input_frames[i].get());
     shared_image_factory.CreateSharedImage(
         input_mailboxes[i], format_nv12, input_frames[i]->coded_size(),
@@ -968,7 +968,7 @@ TEST_P(VulkanImageProcessorPerfTest, Detile) {
         out_video_format, test_coded_size, gfx::Rect(test_image_size),
         test_coded_size, kNullTimestamp,
         gfx::BufferUsage::SCANOUT_CPU_READ_WRITE);
-    output_mailboxes[i] = gpu::Mailbox::GenerateForSharedImage();
+    output_mailboxes[i] = gpu::Mailbox::Generate();
     auto output_gmb = CreateGpuMemoryBufferHandle(output_frames[i].get());
     shared_image_factory.CreateSharedImage(
         output_mailboxes[i], out_viz_format, test_coded_size,
@@ -987,11 +987,13 @@ TEST_P(VulkanImageProcessorPerfTest, Detile) {
     auto input_representation = shared_image_manager.ProduceVulkan(
         input_mailboxes[i % kNumberOfTestFrames], nullptr,
         vulkan_image_processor->GetVulkanDeviceQueue(),
-        vulkan_image_processor->GetVulkanImplementation());
+        vulkan_image_processor->GetVulkanImplementation(),
+        /*needs_detiling=*/true);
     auto output_representation = shared_image_manager.ProduceVulkan(
         output_mailboxes[i % kNumberOfTestFrames], nullptr,
         vulkan_image_processor->GetVulkanDeviceQueue(),
-        vulkan_image_processor->GetVulkanImplementation());
+        vulkan_image_processor->GetVulkanImplementation(),
+        /*needs_detiling=*/true);
 
     {
       std::vector<VkSemaphore> begin_semaphores;

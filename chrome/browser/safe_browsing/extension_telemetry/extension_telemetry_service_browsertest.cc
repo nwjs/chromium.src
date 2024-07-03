@@ -28,6 +28,7 @@
 #include "content/public/test/browser_test.h"
 #include "extensions/browser/extensions_test.h"
 #include "extensions/common/api/declarative_net_request/test_utils.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
 #include "extensions/test/test_extension_dir.h"
@@ -43,6 +44,7 @@ constexpr const char kExtensionVersion[] = "0.0.1";
 constexpr const char kExtensionContactedHost[] = "example.com";
 
 }  // namespace
+using JSCallStack = ExtensionTelemetryReportRequest_SignalInfo_JSCallStack;
 using CookiesGetAllInfo =
     ExtensionTelemetryReportRequest_SignalInfo_CookiesGetAllInfo;
 using DeclarativeNetRequestInfo =
@@ -72,7 +74,8 @@ class ExtensionTelemetryServiceBrowserTest
          kExtensionTelemetryReportHostsContactedViaWebSocket,
          kExtensionTelemetryTabsApiSignal,
          kExtensionTelemetryTabsApiSignalCaptureVisibleTab,
-         kExtensionTelemetryDeclarativeNetRequestActionSignal},
+         kExtensionTelemetryDeclarativeNetRequestActionSignal,
+         extensions_features::kIncludeJSCallStackInExtensionApiRequest},
         /*disabled_features=*/
         {kExtensionTelemetryInterceptRemoteHostsContactedInRenderer});
     CHECK(base::PathService::Get(chrome::DIR_TEST_DATA, &test_extension_dir_));
@@ -279,12 +282,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionTelemetryServiceBrowserTest,
       extension_report.signals()[0];
   const CookiesGetAllInfo& cookies_get_all_info = signal.cookies_get_all_info();
   ASSERT_EQ(cookies_get_all_info.get_all_args_info_size(), 1);
-  ASSERT_EQ(cookies_get_all_info.max_exceeded_args_count(),
-            static_cast<uint32_t>(0));
+  ASSERT_EQ(cookies_get_all_info.max_exceeded_args_count(), 0u);
 
   const GetAllArgsInfo& get_all_args_info =
       cookies_get_all_info.get_all_args_info(0);
-  EXPECT_EQ(get_all_args_info.count(), static_cast<uint32_t>(2));
+  EXPECT_EQ(get_all_args_info.count(), 2u);
   EXPECT_EQ(get_all_args_info.domain(), "cookies.com");
   EXPECT_EQ(get_all_args_info.name(), "test_basic_cookie");
   EXPECT_EQ(get_all_args_info.path(), "");
@@ -292,6 +294,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionTelemetryServiceBrowserTest,
   EXPECT_EQ(get_all_args_info.store_id(), "0");
   EXPECT_EQ(get_all_args_info.url(), "https://extensions.cookies.com/");
   EXPECT_FALSE(get_all_args_info.has_is_session());
+  // Check the JS call stack information.
+  ASSERT_EQ(get_all_args_info.js_callstacks_size(), 1);
+  const JSCallStack& callstack = get_all_args_info.js_callstacks(0);
+  ASSERT_GE(callstack.frames_size(), 1);
+  EXPECT_EQ(callstack.frames(0).script_name(), "/background.js");
+  EXPECT_EQ(callstack.frames(0).function_name(), "getCookies");
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionTelemetryServiceBrowserTest,
@@ -381,6 +389,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionTelemetryServiceBrowserTest,
     EXPECT_EQ(get_args_info.name(), "test_basic_cookie");
     EXPECT_EQ(get_args_info.store_id(), "0");
     EXPECT_EQ(get_args_info.url(), "https://extensions.cookies.com/");
+    // Check the JS call stack information.
+    ASSERT_EQ(get_args_info.js_callstacks_size(), 1);
+    const JSCallStack& callstack = get_args_info.js_callstacks(0);
+    ASSERT_GE(callstack.frames_size(), 1);
+    EXPECT_EQ(callstack.frames(0).script_name(), "/background.js");
+    EXPECT_EQ(callstack.frames(0).function_name(), "getCookies");
   }
 }
 
@@ -730,6 +744,18 @@ IN_PROC_BROWSER_TEST_F(ExtensionTelemetryServiceBrowserTest,
     EXPECT_EQ(call_details.method(), TabsApiInfo::CREATE);
     EXPECT_EQ(call_details.current_url(), "");
     EXPECT_EQ(call_details.new_url(), "http://www.google.com/");
+
+    // Check the JS call stack information.
+    EXPECT_EQ(call_details.js_callstacks_size(), 2);
+    const JSCallStack& callstack0 = call_details.js_callstacks(0);
+    ASSERT_GE(callstack0.frames_size(), 1);
+    EXPECT_EQ(callstack0.frames(0).script_name(), "/background.js");
+    EXPECT_EQ(callstack0.frames(0).function_name(), "tabOps");
+
+    const JSCallStack& callstack1 = call_details.js_callstacks(1);
+    ASSERT_GE(callstack1.frames_size(), 1);
+    EXPECT_EQ(callstack1.frames(0).script_name(), "/background.js");
+    EXPECT_EQ(callstack1.frames(0).function_name(), "tabOps");
   }
   {
     const TabsApiInfo::CallDetails& call_details =
@@ -738,6 +764,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionTelemetryServiceBrowserTest,
     EXPECT_EQ(call_details.method(), TabsApiInfo::UPDATE);
     EXPECT_EQ(call_details.current_url(), "http://www.google.com/");
     EXPECT_EQ(call_details.new_url(), "http://www.example.com/");
+    EXPECT_EQ(call_details.js_callstacks_size(), 1);
+
+    // Check the JS call stack information.
+    EXPECT_EQ(call_details.js_callstacks_size(), 1);
+    const JSCallStack& callstack = call_details.js_callstacks(0);
+    ASSERT_GE(callstack.frames_size(), 1);
+    EXPECT_EQ(callstack.frames(0).script_name(), "/background.js");
+    EXPECT_EQ(callstack.frames(0).function_name(), "tabOps");
   }
   {
     const TabsApiInfo::CallDetails& call_details =
@@ -746,6 +780,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionTelemetryServiceBrowserTest,
     EXPECT_EQ(call_details.method(), TabsApiInfo::REMOVE);
     EXPECT_EQ(call_details.current_url(), "http://www.example.com/");
     EXPECT_EQ(call_details.new_url(), "");
+    EXPECT_EQ(call_details.js_callstacks_size(), 1);
+
+    // Check the JS call stack information.
+    EXPECT_EQ(call_details.js_callstacks_size(), 1);
+    const JSCallStack& callstack = call_details.js_callstacks(0);
+    ASSERT_GE(callstack.frames_size(), 1);
+    EXPECT_EQ(callstack.frames(0).script_name(), "/background.js");
+    EXPECT_EQ(callstack.frames(0).function_name(), "tabOps");
   }
   {
     const TabsApiInfo::CallDetails& call_details =
@@ -754,6 +796,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionTelemetryServiceBrowserTest,
     EXPECT_EQ(call_details.method(), TabsApiInfo::CAPTURE_VISIBLE_TAB);
     EXPECT_EQ(call_details.current_url(), "http://www.google.com/");
     EXPECT_EQ(call_details.new_url(), "");
+
+    // Check the JS call stack information.
+    EXPECT_EQ(call_details.js_callstacks_size(), 1);
+    const JSCallStack& callstack = call_details.js_callstacks(0);
+    ASSERT_GE(callstack.frames_size(), 1);
+    EXPECT_EQ(callstack.frames(0).script_name(), "/background.js");
+    EXPECT_EQ(callstack.frames(0).function_name(), "<anonymous>");
   }
 }
 

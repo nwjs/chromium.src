@@ -75,6 +75,7 @@
 <translation id="2942241131342758843">लिंक उघडण्यासाठी, विजेटमध्ये शोधण्यासाठी आणि इतर ॲप्समध्ये पासवर्ड ऑटोफिल करण्यासाठी बाय डीफॉल्ट Chromium वापरा</translation>
 <translation id="2977470724722393594">Chromium अद्ययावत आहे</translation>
 <translation id="3044857325852340337">Chromium डेटा हटवला</translation>
+<translation id="3049211156275642309">Chromium सेट करणे पूर्ण करा</translation>
 <translation id="3078941082359356771">{COUNT,plural, =1{Chromium तुम्हाला नवीन टॅब पेज यावर या पॅकेजचा माग ठेवण्यात मदत करू शकते.}other{Chromium तुम्हाला नवीन टॅब पेज यावर या पॅकेजचा माग ठेवण्यात मदत करू शकते.}}</translation>
 <translation id="3102849287235003384">सर्व वेबसाइटवरील तुमच्या Google खाते मधून साइन आउट करण्यासाठी, <ph name="BEGIN_LINK" />Chromium मधून साइन आउट करणे<ph name="END_LINK" /> हे करा.</translation>
 <translation id="3219277919172823720">Chromium मध्ये आवाज वापरून शोधा</translation>
@@ -201,7 +202,6 @@
 <translation id="6433172051771630690">Chromium चा पुरेपूर वापर करण्यासाठी टिपा.</translation>
 <translation id="6502321914804101924">Chromium साइन आउट केले आहे</translation>
 <translation id="6563921047760808519"><ph name="BEGIN_LINK" />Chromium तुमचा डेटा खाजगी कसा ठेवते<ph name="END_LINK" /> याविषयी अधिक जाणून घ्या</translation>
-<translation id="6625409903340039086">Chromium आता तुमच्या व्यवस्थापित केलेल्या खात्यासाठी वापरकर्ता धोरणांना सपोर्ट करते</translation>
 <translation id="6728350288669261079">Chromium मध्ये सेटिंग्ज उघडते.</translation>
 <translation id="6752854822223394465">तुमची संस्था Chromium सेट करत आहे...</translation>
 <translation id="6794054469102824109">Chromium Dino गेम उघडते.</translation>
@@ -232,7 +232,6 @@
 <translation id="7395825497086981028"><ph name="EMAIL" /> साठी तुमचा पासवर्ड हा पासवर्ड व्यवस्थापक यामध्ये सेव्ह केला जाईल.</translation>
 <translation id="7400689562045506105">Chromium सर्वत्र वापरा</translation>
 <translation id="7523464085759699266">"तुम्ही Chromium बंद करता, तेव्हा गुप्त टॅब लॉक करा" हे सुरू करा.</translation>
-<translation id="7601597633134889942">साइटला भेट द्या आणि Chromium मेनूमध्ये फॉलो करा वर क्लिक करा</translation>
 <translation id="7674213385180944843">सेटिंग्ज &gt; गोपनीयता &gt; कॅमेरा &gt; Chromium उघडा आणि कॅमेरा सुरू करा.</translation>
 <translation id="7710137812207066069">Chromium मध्ये नवीन टॅब उघडते.</translation>
 <translation id="7747820849741499258">Chromium मध्ये शोधा</translation>
@@ -264,6 +263,7 @@
 <translation id="8386869251364507178">Chromium कृती</translation>
 <translation id="8409374867500149834">तुमच्याकडे हानीकारक वेबसाइटच्या विरोधात Chromium ची सर्वात मजबूत सुरक्षा आहे</translation>
 <translation id="8458950033462118672">तुम्ही Chromium ला तुमचे डीफॉल्ट ब्राउझर अ‍ॅप सेट करून त्यामध्ये आपोआप लिंक उघडू शकता.</translation>
+<translation id="8543509361021925846">{THRESHOLD,plural, =1{Chromium {THRESHOLD} मिनिटासाठी वापरले जात नाही, तेव्हा हे होते. तुम्ही साइन इन केले असताना फक्त या डिव्हाइसवर सेव्ह केलेला डेटा हटवला जाईल. यामध्ये इतिहास आणि पासवर्ड यांचा समावेश असू शकतो.}other{Chromium {THRESHOLD} मिनिटांसाठी वापरले जात नाही, तेव्हा हे होते. तुम्ही साइन इन केले असताना फक्त या डिव्हाइसवर सेव्ह केलेला डेटा हटवला जाईल. यामध्ये इतिहास आणि पासवर्ड यांचा समावेश असू शकतो.}}</translation>
 <translation id="858114650497379505">तुम्ही पासवर्ड व्यवस्थापक यामध्ये सेव्ह केलेले पासवर्ड तुमच्या iPhone वरील इतर अ‍ॅप्समध्ये वापरू शकता.</translation>
 <translation id="8586442755830160949">Copyright <ph name="YEAR" /> The Chromium लेखक. सर्व हक्क राखीव.</translation>
 <translation id="865600487977764604">तुम्ही साइन इन केलेले असते, तेव्हा तुम्हाला Chromium वर सुरक्षित ठेवतो आणि इतर Google अ‍ॅप्सवरील तुमच्या सुरक्षेमध्ये सुधारणा करण्यासाठी वापरला जाऊ शकतो.</translation>
@@ -274,6 +274,7 @@
 <translation id="8754966941001340678">Chromium वर्धित संरक्षणाची शिफारस करते</translation>
 <translation id="8759037115129007407">तुमच्या कुटुंबातील सदस्याला सध्या पासवर्ड मिळू शकत नाहीत. त्यांना Chromium अपडेट आणि त्यांचे पासवर्ड सिंक करण्यास सांगा. <ph name="BEGIN_LINK" />अधिक जाणून घ्या<ph name="END_LINK" /></translation>
 <translation id="8776843108004031667">हे खाते आणि कोणताही सेव्ह न केलेला डेटा Chromium मधून काढून टाकला जाईल.</translation>
+<translation id="8826789549860004832">तुमचा ब्राउझर सेट करणे पुढे सुरू ठेवून Chromium चा पुरेपूर वापर करा.</translation>
 <translation id="88376265765385899">Chromium बुकमार्क उघडते.</translation>
 <translation id="8860548555286245440">URLs ना Chromium मध्ये गुप्त मोड मध्ये उघडा</translation>
 <translation id="8866191443434488382">Chromium हे तुम्ही भेट दिलेल्या साइटवरील ट्रॅकिंग नंबर डिटेक्ट करेल आणि तुम्हाला नवीन टॅब पेजवर पॅकेजशी संबंधित अपडेट दाखवेल. हे वैशिष्ट्य पुरवण्यासाठी आणि सर्वांसाठी खरेदी वैशिष्ट्यांमध्ये सुधारणा करण्यासाठी पॅकेज ट्रॅकिंग नंबर व वेबसाइटचे नाव हे Chromium ला पाठवले जाईल. तुम्ही हे <ph name="BEGIN_LINK" />पॅकेज ट्रॅकिंग सेटिंग्ज<ph name="END_LINK" /> मध्ये कधीही अपडेट करू शकता.</translation>

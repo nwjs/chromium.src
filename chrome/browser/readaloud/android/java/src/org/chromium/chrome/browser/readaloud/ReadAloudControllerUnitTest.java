@@ -57,7 +57,7 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.base.test.util.UserActionTester;
-import org.chromium.chrome.browser.browser_controls.BrowserControlsSizer;
+import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.device.DeviceConditions;
 import org.chromium.chrome.browser.device.ShadowDeviceConditions;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -142,7 +142,7 @@ public class ReadAloudControllerUnitTest {
     @Mock private Extractor mExtractor;
     @Mock private Highlighter mHighlighter;
     @Mock private PlaybackListener.PhraseTiming mPhraseTiming;
-    @Mock private BrowserControlsSizer mBrowserControlsSizer;
+    @Mock private BottomControlsStacker mBottomControlsStacker;
     @Mock private LayoutManager mLayoutManager;
     @Mock private ReadAloudPrefs.Natives mReadAloudPrefsNatives;
     @Mock private ReadAloudFeatures.Natives mReadAloudFeaturesNatives;
@@ -267,7 +267,7 @@ public class ReadAloudControllerUnitTest {
                         mTabModelSelector.getModel(false),
                         mTabModelSelector.getModel(true),
                         mBottomSheetController,
-                        mBrowserControlsSizer,
+                        mBottomControlsStacker,
                         mLayoutManagerSupplier,
                         mActivityWindowAndroid,
                         mActivityLifecycleDispatcher);
@@ -499,7 +499,7 @@ public class ReadAloudControllerUnitTest {
 
     @Test
     public void testClosingTab() {
-        // Close a  tab before any playback starts - tests null checks
+        // Close a tab before any playback starts - tests null checks
         mController.getTabModelTabObserverforTests().willCloseTab(mTab);
 
         verify(mPlayerCoordinator, never()).dismissPlayers();
@@ -1418,28 +1418,6 @@ public class ReadAloudControllerUnitTest {
     }
 
     @Test
-    public void testPreviewVoice_metric() {
-        final String histogramName = ReadAloudMetrics.VOICE_PREVIEWED;
-
-        var histogram = HistogramWatcher.newSingleRecordWatcher(histogramName + "abc", true);
-
-        // Play tab.
-        requestAndStartPlayback();
-
-        reset(mPlaybackHooks);
-        // Preview a voice.
-        var voice = new PlaybackVoice("en", "abc", "");
-        doReturn(List.of(voice)).when(mPlaybackHooks).getVoicesFor(anyString());
-        doReturn(List.of(voice)).when(mPlaybackHooks).getPlaybackVoiceList(any());
-        mController.previewVoice(voice);
-        verify(mPlaybackHooks).createPlayback(any(), mPlaybackCallbackCaptor.capture());
-        Playback previewPlayback = Mockito.mock(Playback.class);
-        onPlaybackSuccess(previewPlayback);
-
-        histogram.assertExpected();
-    }
-
-    @Test
     public void testRestorePlaybackState_whileLoading() {
         // Request playback but don't succeed yet.
         mController.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
@@ -2296,7 +2274,7 @@ public class ReadAloudControllerUnitTest {
                         mTabModelSelector.getModel(false),
                         mTabModelSelector.getModel(true),
                         mBottomSheetController,
-                        mBrowserControlsSizer,
+                        mBottomControlsStacker,
                         mLayoutManagerSupplier,
                         mActivityWindowAndroid,
                         mActivityLifecycleDispatcher);
@@ -2532,16 +2510,61 @@ public class ReadAloudControllerUnitTest {
         verify(mHooksImpl, times(1))
                 .isPageReadable(eq(sTestGURL.getSpec()), mCallbackCaptor.capture());
         // if somehow an empty url sneaks into the readability maps
+        boolean failed = false;
         try {
             mCallbackCaptor.getValue().onSuccess("", true, true);
         } catch (AssertionError e) {
-
+            failed = true;
         }
+        assertTrue(failed);
         when(mTab.getUrl()).thenReturn(new GURL(""));
         // empty urls should not be returned as readable
         assertFalse(mController.isReadable(mTab));
     }
 
+    @Test
+    public void testMetricRecorded_EmptyUrlPlayback() {
+        final String histogramName = ReadAloudMetrics.EMPTY_URL_PLAYBACK;
+        var histogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        histogramName, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
+
+        mFakeTranslateBridge.setCurrentLanguage("en");
+        mTab.setGurlOverrideForTesting(new GURL(""));
+
+        boolean failed = false;
+        try {
+            mController.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
+        } catch (AssertionError e) {
+            failed = true;
+        }
+        assertTrue(failed);
+        histogram.assertExpected();
+    }
+
+    @Test
+    public void testMetricRecorded_EmptyUrlPlayback_RestoreState() {
+        final String histogramName = ReadAloudMetrics.EMPTY_URL_PLAYBACK;
+        var histogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        histogramName, ReadAloudController.Entrypoint.RESTORED_PLAYBACK);
+
+        mTab.setGurlOverrideForTesting(new GURL("https://en.wikipedia.org/wiki/Google"));
+        var data = Mockito.mock(PlaybackData.class);
+        ReadAloudController.RestoreState restoreState =
+                mController.new RestoreState(mTab, data, true, false, 0L);
+        mController.setStateToRestoreOnBringingToForegroundForTests(restoreState);
+        // for some reason the tab url goes null
+        mTab.setGurlOverrideForTesting(new GURL(""));
+        boolean failed = false;
+        try {
+            restoreState.restore();
+        } catch (AssertionError e) {
+            failed = true;
+        }
+        assertTrue(failed);
+        histogram.assertExpected();
+    }
 
     @Test
     public void testNoReadabilityUpdateAfterDestroy() {

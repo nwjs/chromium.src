@@ -22,14 +22,20 @@ source_set("mahi_ash") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "fake_mahi_browser_delegate_ash.cc",
+    "fake_mahi_browser_delegate_ash.h",
     "mahi_browser_delegate_ash_unittest.cc",
     "mahi_cache_manager_unittest.cc",
     "mahi_manager_impl_unittest.cc",
+    "media_app/mahi_media_app_client_unittest.cc",
   ]
   deps = [
     "//ash:test_support",
     "//base/test:test_support",
     "//chrome/browser/ash",
+    "//components/signin/public/identity_manager:test_support",
     "//content/test:test_support",
+    "//services/network:test_support",
+    "//ui/aura:test_support",
   ]
 }

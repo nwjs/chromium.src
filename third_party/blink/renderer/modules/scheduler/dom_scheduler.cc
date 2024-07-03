@@ -24,7 +24,9 @@
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_or_worker_scheduler.h"
+#include "third_party/blink/renderer/platform/scheduler/public/main_thread_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
+#include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/web_scheduling_priority.h"
 #include "third_party/blink/renderer/platform/scheduler/public/web_scheduling_queue_type.h"
 #include "third_party/blink/renderer/platform/scheduler/public/web_scheduling_task_queue.h"
@@ -82,7 +84,7 @@ ScriptPromise<IDLAny> DOMScheduler::postTask(
     // promise-returning functions to promise rejections.
     exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
                                       "Current window is detached");
-    return ScriptPromise<IDLAny>();
+    return EmptyPromise();
   }
 
   SchedulingState state = GetSchedulingStateFromOptions(
@@ -93,7 +95,7 @@ ScriptPromise<IDLAny> DOMScheduler::postTask(
   if (state.abort_source && state.abort_source->aborted()) {
     exception_state.RethrowV8Exception(
         state.abort_source->reason(script_state).V8ValueFor(script_state));
-    return ScriptPromise<IDLAny>();
+    return EmptyPromise();
   }
 
   auto* task_queue =
@@ -113,7 +115,7 @@ ScriptPromise<IDLUndefined> DOMScheduler::yield(
   if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
                                       "Current window is detached");
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   if (fixed_priority_continuation_queues_.empty()) {
@@ -162,7 +164,7 @@ ScriptPromise<IDLUndefined> DOMScheduler::yield(
   if (state.abort_source && state.abort_source->aborted()) {
     exception_state.RethrowV8Exception(
         state.abort_source->reason(script_state).V8ValueFor(script_state));
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   CHECK(state.priority_source);
@@ -177,29 +179,41 @@ ScriptPromise<IDLUndefined> DOMScheduler::yield(
 
 scheduler::TaskAttributionIdType DOMScheduler::taskId(
     ScriptState* script_state) {
-  auto* tracker =
-      scheduler::TaskAttributionTracker::From(script_state->GetIsolate());
-  if (!tracker) {
-    // Can happen when a feature flag disables TaskAttribution.
-    return 0;
+  // `tracker` will be null if TaskAttributionInfrastructureDisabledForTesting
+  // is enabled.
+  if (auto* tracker =
+          scheduler::TaskAttributionTracker::From(script_state->GetIsolate())) {
+    // `task_state` is null if there's nothing to propagate.
+    if (scheduler::TaskAttributionInfo* task_state = tracker->RunningTask()) {
+      return task_state->Id().value();
+    }
   }
-  scheduler::TaskAttributionInfo* task = tracker->RunningTask();
-  // task cannot be nullptr here, as a task has presumably already ran in order
-  // for this API call to be called.
-  DCHECK(task);
-  return task->Id().value();
+  return 0;
 }
 
 void DOMScheduler::setTaskId(ScriptState* script_state,
                              scheduler::TaskAttributionIdType task_id) {
   if (!scheduler::TaskAttributionTracker::From(script_state->GetIsolate())) {
-    // Can happen when a feature flag disables TaskAttribution.
+    // This will be null if TaskAttributionInfrastructureDisabledForTesting is
+    // enabled.
     return;
   }
-  auto* task_info = MakeGarbageCollected<TaskAttributionInfoImpl>(
+  auto* task_state = MakeGarbageCollected<TaskAttributionInfoImpl>(
       scheduler::TaskAttributionId(task_id),
       /*soft_navigation_context=*/nullptr);
-  ScriptWrappableTaskState::SetCurrent(script_state, task_info);
+  ScriptWrappableTaskState::SetCurrent(script_state, task_state);
+  auto* scheduler = ThreadScheduler::Current()->ToMainThreadScheduler();
+  // This test API is only available on the main thread.
+  CHECK(scheduler);
+  // Clear `task_state` at the end of the current task since there might not be
+  // a task scope on the stack to clear it.
+  scheduler->ExecuteAfterCurrentTaskForTesting(
+      WTF::BindOnce(
+          [](ScriptState* script_state) {
+            ScriptWrappableTaskState::SetCurrent(script_state, nullptr);
+          },
+          WrapPersistent(script_state)),
+      ExecuteAfterCurrentTaskRestricted{});
 }
 
 void DOMScheduler::CreateFixedPriorityTaskQueues(

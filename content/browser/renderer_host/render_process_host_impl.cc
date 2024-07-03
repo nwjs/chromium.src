@@ -8,6 +8,7 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 
 #include <algorithm>
+#include <atomic>
 #include <limits>
 #include <list>
 #include <map>
@@ -622,7 +623,7 @@ class SiteProcessCountTracker : public base::SupportsUserData::Data,
         // the field that this is happening. We need to figure out why some
         // RenderProcessHosts are not taken out of the map when they're
         // destroyed.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         continue;
       }
 
@@ -1167,6 +1168,10 @@ class RenderProcessHostImpl::IOThreadHostImpl : public mojom::ChildProcessHost {
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   }
 
+  void GetInterfacesForTesting(std::vector<std::string>& out) {
+    binders_->GetInterfacesForTesting(out);  // IN-TEST
+  }
+
  private:
   // mojom::ChildProcessHost implementation:
   void Ping(PingCallback callback) override { std::move(callback).Run(); }
@@ -1424,7 +1429,12 @@ RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
       flags |= RenderProcessFlags::kPdf;
     }
   }
-
+#if BUILDFLAG(IS_WIN)
+  if (site_instance && GetContentClient()->browser()->ShouldUseSkiaFontManager(
+                           site_instance->GetSiteURL())) {
+    flags |= RenderProcessFlags::kSkiaFontManager;
+  }
+#endif
   return new RenderProcessHostImpl(browser_context, storage_partition_impl,
                                    flags);
 }
@@ -1530,8 +1540,9 @@ void RenderProcessHostImpl::ShutDownInProcessRenderer() {
       return;
     }
     default:
-      NOTREACHED() << "There should be only one RenderProcessHost when running "
-                   << "in-process.";
+      NOTREACHED_IN_MIGRATION()
+          << "There should be only one RenderProcessHost when running "
+          << "in-process.";
   }
 }
 
@@ -1842,6 +1853,42 @@ void RenderProcessHostImpl::InitializeChannelProxy() {
   // We start the Channel in a paused state. It will be briefly unpaused again
   // in Init() if applicable, before process launch is initiated.
   channel_->Pause();
+
+  InitializeSharedMemoryRegionsOnceChannelIsUp();
+}
+
+void RenderProcessHostImpl::InitializeSharedMemoryRegionsOnceChannelIsUp() {
+  // It's possible for InitializeChannelProxy() to be called multiple times for
+  // the same host (e.g. from AgentSchedulingGroupHost::RenderProcessExited()).
+  // In that case, we only need to resend the read-only memory region.
+  if (!last_foreground_time_region_.IsValid()) {
+    static_assert(
+        std::atomic<base::TimeTicks>::is_always_lock_free,
+        "Atomically sharing TimeTicks across processes might be unsafe");
+
+    last_foreground_time_region_ = base::ReadOnlySharedMemoryRegion::Create(
+        sizeof(std::atomic<base::TimeTicks>));
+    CHECK(last_foreground_time_region_.IsValid());
+
+    // Placement new to initialize the std::atomic in place.
+    new (last_foreground_time_region_.mapping.memory())
+        std::atomic<base::TimeTicks>;
+    // Then initialized to the appropriate value. `std::memory_order_relaxed` is
+    // sufficient as reads on the renderer side will happen-after this per the
+    // ordering relationship implicitly established between this operation and
+    // the renderer via TransferSharedLastForegroundTime().
+    last_foreground_time_region_.mapping
+        .GetMemoryAs<std::atomic<base::TimeTicks>>()
+        ->store(priority_.is_background() ? base::TimeTicks()
+                                          : base::TimeTicks::Now(),
+                std::memory_order_relaxed);
+  }
+  CHECK(last_foreground_time_region_.IsValid());
+
+  // Duplicate the ReadOnlySharedMemoryRegion so it can be shared again if this
+  // host switches to hosting a new renderer.
+  renderer_interface_->TransferSharedLastForegroundTime(
+      last_foreground_time_region_.region.Duplicate());
 }
 
 void RenderProcessHostImpl::ResetChannelProxy() {
@@ -1894,10 +1941,11 @@ void RenderProcessHostImpl::BindIndexedDB(
     return;
   }
 
+  auto [state_checker, token] =
+      IndexedDBClientStateCheckerFactory::InitializePendingRemote(rfh_id);
   storage_partition_impl_->BindIndexedDB(
       storage::BucketLocator::ForDefaultBucket(storage_key),
-      IndexedDBClientStateCheckerFactory::InitializePendingRemote(rfh_id),
-      std::move(receiver));
+      std::move(state_checker), token, std::move(receiver));
 }
 
 void RenderProcessHostImpl::BindBucketManagerHost(
@@ -1957,6 +2005,7 @@ void RenderProcessHostImpl::BindFileBackedBlobFactory(
 
 void RenderProcessHostImpl::GetSandboxedFileSystemForBucket(
     const storage::BucketLocator& bucket,
+    const std::vector<std::string>& directory_path_components,
     blink::mojom::FileSystemAccessManager::GetSandboxedFileSystemCallback
         callback) {
   auto* manager = storage_partition_impl_->GetFileSystemAccessManager();
@@ -1968,7 +2017,7 @@ void RenderProcessHostImpl::GetSandboxedFileSystemForBucket(
           // This URL will be used for SafeBrowsing checks and for
           // the Quarantine Service.
           bucket.storage_key.origin().GetURL(), GetID()),
-      bucket, std::move(callback));
+      bucket, directory_path_components, std::move(callback));
 }
 
 void RenderProcessHostImpl::BindRestrictedCookieManagerForServiceWorker(
@@ -3159,14 +3208,11 @@ void RenderProcessHostImpl::RemoveExpectedNavigationToSite(
 
 // static
 void RenderProcessHostImpl::NotifySpareManagerAboutRecentlyUsedSiteInstance(
-    SiteInstance* site_instance,
-    bool ignore_delay) {
+    SiteInstance* site_instance) {
   SpareRenderProcessHostManager::GetInstance().PrepareForFutureRequests(
       site_instance->GetBrowserContext(),
-      ignore_delay
-          ? std::nullopt
-          : GetContentClient()->browser()->GetSpareRendererDelayForSiteURL(
-                site_instance->GetSiteURL()));
+      GetContentClient()->browser()->GetSpareRendererDelayForSiteURL(
+          site_instance->GetSiteURL()));
 }
 
 // static
@@ -3393,6 +3439,10 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
   command_line->AppendSwitchASCII(
       switches::kDeviceScaleFactor,
       base::NumberToString(display::win::GetDPIScale()));
+
+  if (!!(flags_ & RenderProcessFlags::kSkiaFontManager)) {
+    command_line->AppendSwitch(switches::kUseSkiaFontManager);
+  }
 #endif
 
   AppendCompositorCommandLineFlags(command_line);
@@ -3529,7 +3579,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kSkiaFontCacheLimitMb,
     switches::kSkiaResourceCacheLimitMb,
     switches::kTestType,
-    switches::kTimeZoneForTesting,
     switches::kTouchEventFeatureDetection,
     switches::kTraceToConsole,
     switches::kUseCmdDecoder,
@@ -4518,7 +4567,17 @@ bool RenderProcessHostImpl::IsSuitableHost(
     // where this case can happen is when the spare RenderProcessHost gets
     // used.
     CHECK(!host_has_web_ui_bindings);
-    CHECK(process_lock.is_invalid());
+    // TODO(crbug.com/40889283): This CHECK is failing in the wild, so set some
+    // crash keys to help figure out why.
+    if (!process_lock.is_invalid()) {
+      SCOPED_CRASH_KEY_STRING256("Bug40889283", "process_lock",
+                                 process_lock.ToString());
+      SCOPED_CRASH_KEY_STRING256("Bug40889283", "site_info",
+                                 site_info.GetDebugString());
+      CHECK(false) << "IsSuitableHost found a process that is marked as unused "
+                      "but has a valid process lock: "
+                   << process_lock;
+    }
   } else {
     // WebUI checks.
     bool url_is_for_web_ui =
@@ -5314,6 +5373,8 @@ void RenderProcessHostImpl::UpdateProcessPriority() {
     DCHECK(child_process_launcher_.get());
     DCHECK(!child_process_launcher_->IsStarting());
 #if BUILDFLAG(IS_ANDROID)
+    // TODO(339097516): Remove the following CHECK when the issue is fixed.
+    CHECK(child_process_launcher_->GetProcess().IsValid());
     child_process_launcher_->SetRenderProcessPriority(priority_);
 #elif BUILDFLAG(IS_MAC)
     if (base::FeatureList::IsEnabled(
@@ -5363,6 +5424,15 @@ void RenderProcessHostImpl::UpdateControllerServiceWorkerProcessPriority() {
 }
 
 void RenderProcessHostImpl::SendProcessStateToRenderer() {
+  // `std::memory_order_relaxed` is sufficient as the recipient only reads the
+  // latest TimeTicks value it sees and doesn't depend on it reflecting anything
+  // about the state of other memory.
+  last_foreground_time_region_.mapping
+      .GetMemoryAs<std::atomic<base::TimeTicks>>()
+      ->store(priority_.is_background() ? base::TimeTicks()
+                                        : base::TimeTicks::Now(),
+              std::memory_order_relaxed);
+
   mojom::RenderProcessBackgroundState background_state =
       priority_.is_background()
           ? mojom::RenderProcessBackgroundState::kBackgrounded
@@ -5738,5 +5808,12 @@ void RenderProcessHostImpl::NotifyMemoryPressureToRenderer(
 }
 
 #endif
+
+void RenderProcessHostImpl::GetBoundInterfacesForTesting(
+    std::vector<std::string>& out) {
+  io_thread_host_impl_->AsyncCall(&IOThreadHostImpl::GetInterfacesForTesting)
+      .WithArgs(std::ref(out));
+  io_thread_host_impl_->FlushPostedTasksForTesting();  // IN-TEST
+}
 
 }  // namespace content

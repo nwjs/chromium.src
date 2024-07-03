@@ -184,6 +184,12 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
       {"historyEmbeddingsSuggestion1", IDS_HISTORY_EMBEDDINGS_SUGGESTION_1},
       {"historyEmbeddingsSuggestion2", IDS_HISTORY_EMBEDDINGS_SUGGESTION_2},
       {"historyEmbeddingsSuggestion3", IDS_HISTORY_EMBEDDINGS_SUGGESTION_3},
+      {"historyEmbeddingsSuggestion1AriaLabel",
+       IDS_HISTORY_EMBEDDINGS_SUGGESTION_1_ARIA_LABEL},
+      {"historyEmbeddingsSuggestion2AriaLabel",
+       IDS_HISTORY_EMBEDDINGS_SUGGESTION_2_ARIA_LABEL},
+      {"historyEmbeddingsSuggestion3AriaLabel",
+       IDS_HISTORY_EMBEDDINGS_SUGGESTION_3_ARIA_LABEL},
       {"historyEmbeddingsHeading", IDS_HISTORY_EMBEDDINGS_HEADING},
       {"historyEmbeddingsHeadingLoading",
        IDS_HISTORY_EMBEDDINGS_HEADING_LOADING},
@@ -197,6 +203,8 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
                     l10n_util::GetStringFUTF16(
                         IDS_HISTORY_EMBEDDINGS_PROMO_BODY,
                         base::UTF8ToUTF16(chrome::kChromeUISettingsURL)));
+  source->AddInteger("historyEmbeddingsSearchMinimumWordCount",
+                     history_embeddings::kSearchQueryMinimumWordCount.Get());
 
   // History clusters
   HistoryClustersUtil::PopulateSource(source, profile, /*in_side_panel=*/false);

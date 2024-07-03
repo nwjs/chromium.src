@@ -12,22 +12,19 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
-import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
-import org.chromium.chrome.browser.tabmodel.TabList;
-import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ButtonType;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.IconPosition;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ShowMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
-import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorNavigationProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabListEditorOpenMetricGroups;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,46 +39,49 @@ public class TabListEditorManager {
     private final @Nullable SnackbarManager mSnackbarManager;
     private final @NonNull BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final @NonNull ObservableSupplier<TabModelFilter> mCurrentTabModelFilterSupplier;
-    private final @NonNull Supplier<TabModel> mRegularTabModelSupplier;
     private final @NonNull TabContentManager mTabContentManager;
     private final @NonNull TabListCoordinator mTabListCoordinator;
     private final @TabListMode int mMode;
     private final @NonNull ObservableSupplierImpl<TabListEditorController> mControllerSupplier =
             new ObservableSupplierImpl<>();
+    private final TabGroupCreationDialogManager mTabGroupCreationDialogManager;
 
     private @Nullable TabListEditorCoordinator mTabListEditorCoordinator;
     private @Nullable List<TabListEditorAction> mTabListEditorActions;
 
     /**
      * @param activity The current activity.
+     * @param modalDialogManager The modal dialog manager for the activity.
      * @param coordinatorView The overlay view to attach the editor to.
      * @param rootView The root view to attach the snackbar to.
      * @param browserControlsStateProvider The browser controls state provider.
      * @param currentTabModelFilterSupplier The supplier of the current {@link TabModelFilter}.
-     * @param regularTabModelSupplier The supplier of the regular {@link TabModel}.
      * @param tabContentManager The {@link TabContentManager} for thumbnails.
      * @param tabListCoordinator The parent {@link TabListCoordinator}.
      * @param mode The {@link TabListMode} of the tab list (grid, list, etc.).
+     * @param onTabGroupCreation Should be run when the UI is used to create a tab group.
      */
     public TabListEditorManager(
             @NonNull Activity activity,
+            @NonNull ModalDialogManager modalDialogManager,
             @NonNull ViewGroup coordinatorView,
             @NonNull ViewGroup rootView,
             @NonNull BrowserControlsStateProvider browserControlsStateProvider,
             @NonNull ObservableSupplier<TabModelFilter> currentTabModelFilterSupplier,
-            @NonNull Supplier<TabModel> regularTabModelSupplier,
             @NonNull TabContentManager tabContentManager,
             @NonNull TabListCoordinator tabListCoordinator,
-            @TabListMode int mode) {
+            @TabListMode int mode,
+            @Nullable Runnable onTabGroupCreation) {
         mActivity = activity;
         mCoordinatorView = coordinatorView;
         mRootView = rootView;
         mCurrentTabModelFilterSupplier = currentTabModelFilterSupplier;
-        mRegularTabModelSupplier = regularTabModelSupplier;
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mTabContentManager = tabContentManager;
         mTabListCoordinator = tabListCoordinator;
         mMode = mode;
+        mTabGroupCreationDialogManager =
+                new TabGroupCreationDialogManager(activity, modalDialogManager, onTabGroupCreation);
 
         // The snackbarManager used by mTabListEditorCoordinator. The rootView is the default
         // default parent view of the snackbar. When shown this will be re-parented inside the
@@ -114,7 +114,6 @@ public class TabListEditorManager {
                             mCoordinatorView,
                             mBrowserControlsStateProvider,
                             mCurrentTabModelFilterSupplier,
-                            mRegularTabModelSupplier,
                             mTabContentManager,
                             mTabListCoordinator::setRecyclerViewPosition,
                             mMode,
@@ -146,6 +145,7 @@ public class TabListEditorManager {
             mTabListEditorActions.add(
                     TabListEditorGroupAction.createAction(
                             mActivity,
+                            mTabGroupCreationDialogManager,
                             ShowMode.MENU_ONLY,
                             ButtonType.ICON_AND_TEXT,
                             IconPosition.START));
@@ -164,16 +164,12 @@ public class TabListEditorManager {
         }
 
         var controller = mControllerSupplier.get();
-        controller.configureToolbarWithMenuItems(
-                mTabListEditorActions, new TabListEditorNavigationProvider(mActivity, controller));
-
-        List<Tab> tabs = new ArrayList<>();
-        TabList list = mCurrentTabModelFilterSupplier.get();
-        for (int i = 0; i < list.getCount(); i++) {
-            tabs.add(list.getTabAt(i));
-        }
         controller.show(
-                tabs, /* preSelectedTabCount= */ 0, mTabListCoordinator.getRecyclerViewPosition());
+                TabModelUtils.convertTabListToListOfTabs(mCurrentTabModelFilterSupplier.get()),
+                /* preSelectedTabCount= */ 0,
+                mTabListCoordinator.getRecyclerViewPosition());
+        controller.configureToolbarWithMenuItems(mTabListEditorActions);
+
         TabUiMetricsHelper.recordSelectionEditorOpenMetrics(
                 TabListEditorOpenMetricGroups.OPEN_FROM_GRID, mActivity);
     }

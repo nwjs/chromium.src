@@ -11,16 +11,22 @@ if (is_android) {
 if (is_android) {
   android_library("factory_java") {
     srcjar_deps = [ ":jni_headers" ]
-    sources = [ "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingServiceFactory.java" ]
+    sources = [
+      "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingServiceFactory.java",
+      "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingServiceFactoryBridge.java",
+      "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingUIDelegateAndroid.java",
+    ]
 
     deps = [
-      ":ui_delegate_java",
+      ":delegate_java",
+      ":java",
       "//base:base_java",
       "//build/android:build_java",
       "//chrome/browser/profiles/android:java",
       "//components/data_sharing/public:public_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/jni_zero:jni_zero_java",
+      "//url:url_java",
     ]
   }
 
@@ -61,13 +67,15 @@ if (is_android) {
       "//third_party/android_sdk:android_window_extensions_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//ui/android:ui_no_recycler_view_java",
+      "//url:url_java",
     ]
 
-    public_deps = [ ":ui_delegate_java" ]
+    public_deps = [ ":delegate_java" ]
   }
 
-  android_library("ui_delegate_java") {
+  android_library("delegate_java") {
     sources = [
+      "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingSDKDelegateImpl.java",
       "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingUIDelegateImpl.java",
       "android/java/src/org/chromium/chrome/browser/data_sharing/MemberPickerListenerImpl.java",
     ]
@@ -78,7 +86,11 @@ if (is_android) {
       "//chrome/browser/profiles/android:java",
       "//chrome/browser/tab:java",
       "//components/data_sharing/public:public_java",
+      "//components/data_sharing/public/protocol:proto_java",
+      "//third_party/android_deps:protobuf_lite_runtime_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
+      "//url:url_java",
     ]
     if (defined(enable_data_sharing_internal) && enable_data_sharing_internal) {
       jar_excluded_patterns = [ "*/DataSharingUIDelegateImpl.class" ]
@@ -113,6 +125,7 @@ if (is_android) {
       "//chrome/browser/flags:java",
       "//chrome/browser/profiles/android:java",
       "//chrome/test/android:chrome_java_integration_test_support",
+      "//components/data_sharing:test_support_java",
       "//components/data_sharing/public:public_java",
       "//content/public/test/android:content_java_test_support",
       "//third_party/androidx:androidx_test_runner_java",
@@ -126,6 +139,10 @@ if (is_android) {
   }
 
   generate_jni("jni_headers") {
-    sources = [ "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingServiceFactory.java" ]
+    sources = [
+      "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingServiceFactory.java",
+      "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingServiceFactoryBridge.java",
+      "android/java/src/org/chromium/chrome/browser/data_sharing/DataSharingUIDelegateAndroid.java",
+    ]
   }
 }

@@ -344,6 +344,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   bool IsStickyKeysSettingVisibleInTray();
   bool IsEnterpriseIconVisibleForStickyKeys();
 
+  bool IsReducedAnimationsSettingVisibleInTray();
+  bool IsEnterpriseIconVisibleForReducedAnimations();
+
   // Switch access may be disabled in prefs but still running when the disable
   // dialog is displaying.
   bool IsSwitchAccessRunning() const;
@@ -495,6 +498,13 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
 
   // Starts or stops dictation. Records metrics for toggling via SwitchAccess.
   void ToggleDictationFromSource(DictationToggleSource source);
+
+  // Enables Select to Speak if the feature is currently disabled. If Select to
+  // Speak has not been enabled on the current profile before, then this method
+  // shows a dialog giving background about the feature. Once the dialog is
+  // accepted, it is never shown again for that profile. This method does
+  // nothing if the Select to Speak is currently enabled.
+  void EnableSelectToSpeakWithDialog();
 
   // Enables Dictation if the feature is currently disabled. Toggles (starts or
   // stops) Dictation if the feature is currently enabled.
@@ -670,6 +680,7 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   void UpdateMouseKeysDisableInTextFieldsFromPref();
   void UpdateMouseKeysAccelerationFromPref();
   void UpdateMouseKeysMaxSpeedFromPref();
+  void UpdateMouseKeysUsePrimaryKeysFromPref();
   void UpdateMouseKeysDominantHandFromPref();
   void UpdateFloatingMenuPositionFromPref();
   void UpdateLargeCursorFromPref();
@@ -697,6 +708,10 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   void ShowDictationKeyboardDialog();
   void OnDictationKeyboardDialogAccepted();
   void OnDictationKeyboardDialogDismissed();
+
+  void ShowSelectToSpeakKeyboardDialog();
+  void OnSelectToSpeakKeyboardDialogAccepted();
+  void OnSelectToSpeakKeyboardDialogDismissed();
 
   void RecordSelectToSpeakSpeechDuration(SelectToSpeakState old_state,
                                          SelectToSpeakState new_state);

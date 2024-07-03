@@ -42,7 +42,6 @@ import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ButtonData;
 import org.chromium.chrome.browser.toolbar.ButtonDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
-import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
@@ -349,7 +348,7 @@ public class TopToolbarCoordinator implements Toolbar {
             mStartSurfaceToolbarCoordinator.setTabSwitcherListener(tabSwitcherClickHandler);
             mStartSurfaceToolbarCoordinator.setOnTabSwitcherLongClickHandler(
                     StartSurfaceTabSwitcherActionMenuCoordinator.createOnLongClickListener(
-                            tabSwitcherLongClickCallback));
+                            tabSwitcherLongClickCallback, profile));
             mStartSurfaceToolbarCoordinator.initLogoWithNative();
         }
 
@@ -359,7 +358,7 @@ public class TopToolbarCoordinator implements Toolbar {
         mToolbarLayout.setOnTabSwitcherClickHandler(tabSwitcherClickHandler);
         mToolbarLayout.setOnTabSwitcherLongClickHandler(
                 TabSwitcherActionMenuCoordinator.createOnLongClickListener(
-                        tabSwitcherLongClickCallback));
+                        tabSwitcherLongClickCallback, profile));
         mToolbarLayout.setBookmarkClickHandler(bookmarkClickHandler);
         mToolbarLayout.setCustomTabCloseClickHandler(customTabsBackClickHandler);
         mToolbarLayout.setLayoutUpdater(layoutUpdater);
@@ -387,19 +386,17 @@ public class TopToolbarCoordinator implements Toolbar {
         }
 
         int tabStripHeightResource = mToolbarLayout.getTabStripHeightFromResource();
-        boolean isTablet = tabStripHeightResource > 0;
-        if (ToolbarFeatures.canTabStripHeightChange(isTablet)) {
-            mTabStripTransitionCoordinator =
-                    new TabStripTransitionCoordinator(
-                            browserControlsVisibilityManager,
-                            mControlContainer,
-                            mToolbarLayout,
-                            tabStripHeightResource,
-                            mTabObscuringHandler,
-                            mDesktopWindowStateProvider);
-            mToolbarLayout.getContext().registerComponentCallbacks(mTabStripTransitionCoordinator);
-            mToolbarLayout.setTabStripTransitionCoordinator(mTabStripTransitionCoordinator);
-        }
+
+        mTabStripTransitionCoordinator =
+                new TabStripTransitionCoordinator(
+                        browserControlsVisibilityManager,
+                        mControlContainer,
+                        mToolbarLayout,
+                        tabStripHeightResource,
+                        mTabObscuringHandler,
+                        mDesktopWindowStateProvider);
+        mToolbarLayout.getContext().registerComponentCallbacks(mTabStripTransitionCoordinator);
+        mToolbarLayout.setTabStripTransitionCoordinator(mTabStripTransitionCoordinator);
     }
 
     /**
@@ -639,6 +636,7 @@ public class TopToolbarCoordinator implements Toolbar {
 
     /**
      * Sets whether a title should be shown within the Toolbar.
+     *
      * @param showTitle Whether a title should be shown.
      */
     public void setShowTitle(boolean showTitle) {
@@ -655,6 +653,7 @@ public class TopToolbarCoordinator implements Toolbar {
 
     /**
      * Adds a custom action button to the toolbar layout, if it is supported.
+     *
      * @param drawable The icon for the button.
      * @param description The content description for the button.
      * @param listener The {@link View.OnClickListener} to use for clicks to the button.
@@ -677,7 +676,7 @@ public class TopToolbarCoordinator implements Toolbar {
 
     @Override
     public int getTabStripHeight() {
-        if (ToolbarFeatures.isDynamicTopChromeEnabled() && mTabStripTransitionCoordinator != null) {
+        if (mTabStripTransitionCoordinator != null) {
             return mTabStripTransitionCoordinator.getTabStripHeight();
         }
         return mToolbarLayout.getTabStripHeightFromResource();
@@ -686,6 +685,11 @@ public class TopToolbarCoordinator implements Toolbar {
     /** Triggered when the content view for the specified tab has changed. */
     public void onTabContentViewChanged() {
         mToolbarLayout.onTabContentViewChanged();
+    }
+
+    /** Triggered when the page of the specified tab had painted something non-empty. */
+    public void onDidFirstVisuallyNonEmptyPaint() {
+        mToolbarLayout.onDidFirstVisuallyNonEmptyPaint();
     }
 
     @Override
@@ -895,7 +899,7 @@ public class TopToolbarCoordinator implements Toolbar {
 
     /**
      * @return A {@link TopToolbarInteractabilityManager} which allows non toolbar clients to toggle
-     *         the interactability of elements present in the top toolbar.
+     *     the interactability of elements present in the top toolbar.
      */
     public @NonNull TopToolbarInteractabilityManager getTopToolbarInteractabilityManager() {
         return mStartSurfaceToolbarCoordinator != null

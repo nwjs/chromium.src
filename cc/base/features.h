@@ -5,6 +5,8 @@
 #ifndef CC_BASE_FEATURES_H_
 #define CC_BASE_FEATURES_H_
 
+#include <string>
+
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "build/build_config.h"
@@ -77,10 +79,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kNonBlockingCommit);
 // this should improve performance and reduce technical complexity.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kNoPreserveLastMutation);
 
-// When enabled, DroppedFrameCounter will use an adjusted sliding window
-// interval specified by field trial params.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSlidingWindowForDroppedFrameCounter);
-
 // When enabled, SupportsBackgroundThreadPriority is set to kNo for
 // GpuImageDecodeTaskImpl and SoftwareImageDecodeTaskImpl.
 // Introduced to fix https://crbug.com/1116624
@@ -151,10 +149,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kUseMapRectForPixelMovement);
 // viz::Surface.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kEvictionThrottlesDraw);
 
-// Whether to use the recorded bounds (i.e. `DisplayItemList::bounds()`) to
-// determine the area of tiling. See crbug.com/1517714.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kUseRecordedBoundsForTiling);
-
 // Permits adjusting the threshold we use for determining if main thread updates
 // are fast. Specifically, via a scalar on the range [0,1] that we multiply with
 // the existing threshold. I.e., |new_threshold| = |scalar| * |old_threshold|.
@@ -188,10 +182,8 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kNonBatchedCopySharedImage);
 // a frame while scrolling without any input events. Late arriving events are
 // then enqueued for the next VSync.
 //
-// When this feature is enabled we will instead wait until
-// `kWaitForLateScrollEventsDeadlineRatio` of the frame interval for input.
-// During this time scroll events will be dispatched immediately. At the
-// deadline we will resume frame production and enqueuing input.
+// When this feature is enabled we will use the corresponding mode definted by
+// `kScrollEventDispatchModeParamName`.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kWaitForLateScrollEvents);
 CC_BASE_EXPORT extern const base::FeatureParam<double>
     kWaitForLateScrollEventsDeadlineRatio;
@@ -199,6 +191,46 @@ CC_BASE_EXPORT extern const base::FeatureParam<double>
 // When enabled we stop always pushing PictureLayerImpl properties on
 // tree Activation. See crbug.com/40335690.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kDontAlwaysPushPictureLayerImpls);
+
+// When enabled, the renderer asks the compositor to request warming up and
+// create FrameSink speculatively even if invisible. Currently, this is intended
+// to be used when prerender initial navigation is happening in background.
+// Please see crbug.com/41496019 for more details.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kWarmUpCompositor);
+
+// Modes for `kWaitForLateScrollEvents` changing event dispatch. Where the
+// default is to just always enqueue scroll events.
+//
+// `kScrollEventDispatchModeNameDispatchScrollEventsImmediately` will wait for
+// `kWaitForLateScrollEventsDeadlineRatio` of the frame interval for input.
+// During this time scroll events will be dispatched immediately. At the
+// deadline we will resume frame production and enqueuing input.
+//
+// `kScrollEventDispatchModeNameUseScrollPredictorForEmptyQueue` checks when
+// we begin frame production, if the event queue is empty, we will generate a
+// new prediction and dispatch a synthetic scroll event.
+//
+// `kScrollEventDispatchModeUseScrollPredictorForDeadline` will perform the
+// same as `kScrollEventDispatchModeDispatchScrollEventsImmediately` until
+// the deadline is encountered. Instead of immediately resuming frame
+// production, we will first attempt to generate a new prediction to dispatch.
+// As in `kScrollEventDispatchModeUseScrollPredictorForEmptyQueue`. After
+// which we will resume frame production and enqueuing input.
+CC_BASE_EXPORT extern const base::FeatureParam<std::string>
+    kScrollEventDispatchMode;
+CC_BASE_EXPORT extern const char
+    kScrollEventDispatchModeDispatchScrollEventsImmediately[];
+CC_BASE_EXPORT extern const char
+    kScrollEventDispatchModeUseScrollPredictorForEmptyQueue[];
+CC_BASE_EXPORT extern const char
+    kScrollEventDispatchModeUseScrollPredictorForDeadline[];
+
+// Enables GPU-side layer trees for content rendering.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kVizLayers);
+
+// When enabled HTMLImageElement::decode() will initiate the decode task right
+// away rather than piggy-backing on the next BeginMainFrame.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSendExplicitDecodeRequestsImmediately);
 
 }  // namespace features
 

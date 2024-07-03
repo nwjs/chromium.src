@@ -10,6 +10,7 @@
 #import "components/embedder_support/ios/delegate/file_chooser/file_select_helper_ios.h"
 #import "content/public/browser/file_select_listener.h"
 #import "content/public/browser/navigation_entry.h"
+#import "content/public/browser/visibility.h"
 #import "content/public/browser/web_contents.h"
 #import "ios/web/content/content_browser_context.h"
 #import "ios/web/content/navigation/content_navigation_context.h"
@@ -67,7 +68,7 @@ FaviconURL::IconType IconTypeFromContentIconType(
     case blink::mojom::FaviconIconType::kInvalid:
       return FaviconURL::IconType::kInvalid;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return FaviconURL::IconType::kInvalid;
 }
 
@@ -191,7 +192,7 @@ void ContentWebState::SerializeMetadataToProto(
 }
 
 WebStateDelegate* ContentWebState::GetDelegate() {
-  return nullptr;
+  return delegate_;
 }
 
 std::unique_ptr<WebState> ContentWebState::Clone() const {
@@ -573,9 +574,43 @@ void ContentWebState::DidStopLoading() {
   }
 }
 
+void ContentWebState::DidFinishLoad(content::RenderFrameHost* render_frame_host,
+                                    const GURL& validated_url) {
+  if (!render_frame_host->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  for (auto& observer : observers_) {
+    observer.PageLoaded(this, web::PageLoadCompletionStatus::SUCCESS);
+  }
+}
+
+void ContentWebState::DidFailLoad(content::RenderFrameHost* render_frame_host,
+                                  const GURL& validated_url,
+                                  int error_code) {
+  if (!render_frame_host->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  for (auto& observer : observers_) {
+    observer.PageLoaded(this, web::PageLoadCompletionStatus::FAILURE);
+  }
+}
+
 void ContentWebState::LoadProgressChanged(double progress) {
   for (auto& observer : observers_) {
     observer.LoadProgressChanged(this, progress);
+  }
+}
+
+void ContentWebState::OnVisibilityChanged(content::Visibility visibility) {
+  // Occlusion is not supported on iOS.
+  DCHECK_NE(visibility, content::Visibility::OCCLUDED);
+
+  if (visibility == content::Visibility::VISIBLE) {
+    WasShown();
+  } else {
+    WasHidden();
   }
 }
 

@@ -24,7 +24,9 @@ NSString* const kGooglePasswordManagerWidgetPromoImage =
     @"google_password_manager_widget_promo";
 NSString* const kGooglePasswordManagerWidgetPromoDisabledImage =
     @"google_password_manager_widget_promo_disabled";
+NSString* const kGooglePaySymbol = @"google_pay";
 NSString* const kGooglePhotosSymbol = @"google_photos";
+NSString* const kGooglePlusAddressSymbol = @"google_plus_address";
 NSString* const kGoogleSettingsPasswordsInOtherAppsBannerImage =
     @"google_settings_passwords_in_other_apps_banner";
 NSString* const kMulticolorChromeballSymbol = @"multicolor_chromeball";
@@ -242,6 +244,9 @@ NSString* const kUngroupTabGroupSymbol = @"viewfinder";
 NSString* const kPlusInSquareSymbol = @"plus.square";
 NSString* const kMinusInCircleSymbol = @"minus.circle";
 NSString* const kMultiIdentitySymbol = @"person.2.fill";
+NSString* const kStarBubbleFillSymbol = @"star.bubble.fill";
+NSString* const kTurnUpRightDiamondFillSymbol =
+    @"arrow.triangle.turn.up.right.diamond.fill";
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

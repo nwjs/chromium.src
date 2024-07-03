@@ -8,7 +8,6 @@
 #include <stddef.h>
 
 #include <map>
-#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -122,10 +121,7 @@ class CONTENT_EXPORT PrivateAggregationHost
   // timeout, regardless of when the disconnection actually happens. `timeout`
   // must be positive if set. If `timeout` is set, `context_id` must be set too.
   // If `aggregation_coordinator_origin` is set, the origin must be on the
-  // allowlist. But if the `kPrivateAggregationApiMultipleCloudProviders`
-  // feature is disabled, this function will act as if
-  // `aggregation_coordinator_origin` was not set. `filtering_id_max_bytes` must
-  // be positive and no greater than
+  // allowlist. `filtering_id_max_bytes` must be positive and no greater than
   // `AggregationServicePayloadContents::kMaximumFilteringIdMaxBytes`. The
   // return value indicates whether the receiver was accepted. Virtual for
   // testing.
@@ -171,8 +167,7 @@ class CONTENT_EXPORT PrivateAggregationHost
 
   void CloseCurrentPipe(PipeResult pipe_result);
 
-  void OnTimeoutBeforeDisconnect(mojo::ReceiverId id,
-                                 ReceiverContext* receiver_context);
+  void OnTimeoutBeforeDisconnect(mojo::ReceiverId id);
 
   void OnReceiverDisconnected();
 
@@ -189,8 +184,7 @@ class CONTENT_EXPORT PrivateAggregationHost
       PrivateAggregationBudgeter::BudgetDeniedBehavior)>
       on_report_request_details_received_;
 
-  mojo::ReceiverSet<blink::mojom::PrivateAggregationHost,
-                    std::unique_ptr<ReceiverContext>>
+  mojo::ReceiverSet<blink::mojom::PrivateAggregationHost, ReceiverContext>
       receiver_set_;
 
   // A map containing a timer tracking the duration of time that each mojo pipe

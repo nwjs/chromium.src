@@ -7,8 +7,6 @@
 
 #include "services/webnn/public/mojom/webnn_graph.mojom-blink.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_arg_min_max_options.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_batch_normalization_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_conv_2d_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gemm_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gru_options.h"
@@ -28,21 +26,6 @@ class V8TestingScope;
 // The utility methods for graph builder test.
 NotShared<DOMArrayBufferView> CreateArrayBufferViewForOperand(
     const MLOperand* operand);
-
-MLOperand* BuildArgMinMax(
-    V8TestingScope& scope,
-    MLGraphBuilder* builder,
-    webnn::mojom::blink::ArgMinMax::Kind kind,
-    const MLOperand* input,
-    const MLArgMinMaxOptions* options = MLArgMinMaxOptions::Create());
-
-MLOperand* BuildBatchNormalization(V8TestingScope& scope,
-                                   MLGraphBuilder* builder,
-                                   const MLOperand* input,
-                                   const MLOperand* mean,
-                                   const MLOperand* variance,
-                                   const MLBatchNormalizationOptions* options =
-                                       MLBatchNormalizationOptions::Create());
 
 MLOperand* BuildConv2d(
     V8TestingScope& scope,

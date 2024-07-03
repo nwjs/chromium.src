@@ -16,12 +16,12 @@
 #include "base/check_op.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/path_service.h"
 #include "base/strings/abseil_string_number_conversions.h"
 #include "base/test/gmock_expected_support.h"
-#include "base/test/values_test_util.h"
 #include "base/types/expected.h"
 #include "base/values.h"
 #include "components/attribution_reporting/parsing_utils.h"
@@ -41,6 +41,11 @@ namespace {
 using ::testing::AllOf;
 using ::testing::Field;
 using ::testing::UnorderedElementsAreArray;
+
+struct AggregatableReportSharedInfo {
+  std::string as_string;
+  base::Value::Dict as_dict;
+};
 
 constexpr char kDefaultConfigFileName[] = "default_config.json";
 
@@ -71,6 +76,19 @@ std::vector<base::FilePath> GetInputs() {
   }
 
   return input_paths;
+}
+
+base::Value::Dict ParseDictFromFile(const base::FilePath& path) {
+  std::string json;
+  CHECK(base::ReadFileToString(path, &json)) << path;
+
+  base::JSONReader::Result result =
+      base::JSONReader::ReadAndReturnValueWithError(json,
+                                                    base::JSON_ALLOW_COMMENTS);
+  CHECK(result.has_value()) << path << ": " << result.error().ToString();
+
+  CHECK(result->is_dict()) << path;
+  return std::move(*result).TakeDict();
 }
 
 base::Value::List GetDecryptedPayloads(std::optional<base::Value> payloads,
@@ -130,6 +148,27 @@ base::Value::List GetDecryptedPayloads(std::optional<base::Value> payloads,
   return list;
 }
 
+void AdjustAggregatableReportBody(base::Value::Dict& report_body) {
+  std::optional<base::Value> shared_info = report_body.Extract("shared_info");
+  CHECK(shared_info.has_value());
+  const std::string& shared_info_str = shared_info->GetString();
+
+  std::optional<base::Value::Dict> shared_info_dict =
+      base::JSONReader::ReadDict(shared_info_str, base::JSON_PARSE_RFC);
+  CHECK(shared_info_dict.has_value());
+
+  // Report IDs are a source of nondeterminism, so remove them.
+  shared_info_dict->Remove("report_id");
+
+  // Set shared_info as a dictionary for easier comparison.
+  report_body.Set("shared_info", *std::move(shared_info_dict));
+
+  report_body.Set(
+      "histograms",
+      GetDecryptedPayloads(report_body.Extract("aggregation_service_payloads"),
+                           shared_info_str));
+}
+
 class Adjuster : public ReportBodyAdjuster {
  public:
   explicit Adjuster(bool actual) : actual_(actual) {}
@@ -167,31 +206,15 @@ class Adjuster : public ReportBodyAdjuster {
       return;
     }
 
-    // These fields normally encode a random GUID or the absolute
-    // time and therefore are sources of nondeterminism in the
-    // output.
+    AdjustAggregatableReportBody(report_body);
+  }
 
-    // Output attribution_destination from the shared_info field.
-    const std::optional<base::Value> shared_info =
-        report_body.Extract("shared_info");
-    CHECK(shared_info.has_value());
-    const std::string& shared_info_str = shared_info->GetString();
+  void AdjustAggregatableDebug(base::Value::Dict& report_body) override {
+    if (!actual_) {
+      return;
+    }
 
-    std::optional<base::Value> shared_info_value =
-        base::JSONReader::Read(shared_info_str, base::JSON_PARSE_RFC);
-    CHECK(shared_info_value.has_value());
-    static constexpr char kKeyAttributionDestination[] =
-        "attribution_destination";
-    std::optional<base::Value> attribution_destination =
-        shared_info_value->GetDict().Extract(kKeyAttributionDestination);
-    CHECK(attribution_destination.has_value());
-    report_body.Set(kKeyAttributionDestination,
-                    std::move(*attribution_destination));
-
-    report_body.Set("histograms",
-                    GetDecryptedPayloads(
-                        report_body.Extract("aggregation_service_payloads"),
-                        shared_info_str));
+    AdjustAggregatableReportBody(report_body);
   }
 
   const bool actual_;
@@ -208,9 +231,8 @@ class AttributionInteropTest : public ::testing::TestWithParam<base::FilePath> {
  public:
   static void SetUpTestSuite() {
     ASSERT_OK_AND_ASSIGN(
-        g_config_,
-        ParseAttributionInteropConfig(base::test::ParseJsonDictFromFile(
-            GetInputDir().AppendASCII(kDefaultConfigFileName))));
+        g_config_, ParseAttributionInteropConfig(ParseDictFromFile(
+                       GetInputDir().AppendASCII(kDefaultConfigFileName))));
   }
 
  protected:
@@ -226,7 +248,7 @@ AttributionInteropConfig AttributionInteropTest::g_config_;
 // See //content/test/data/attribution_reporting/interop/README.md for the
 // JSON schema.
 TEST_P(AttributionInteropTest, HasExpectedOutput) {
-  base::Value::Dict dict = base::test::ParseJsonDictFromFile(GetParam());
+  base::Value::Dict dict = ParseDictFromFile(GetParam());
 
   std::optional<base::Value> output = dict.Extract("output");
   ASSERT_TRUE(output && output->is_dict());
@@ -240,7 +262,7 @@ TEST_P(AttributionInteropTest, HasExpectedOutput) {
 
   ASSERT_OK_AND_ASSIGN(
       AttributionInteropOutput actual_output,
-      RunAttributionInteropSimulation(std::move(run), kHpkeKey.GetPublicKey()));
+      RunAttributionInteropSimulation(std::move(run), kHpkeKey));
 
   PreProcessOutput(expected_output, /*actual=*/false);
   PreProcessOutput(actual_output, /*actual=*/true);

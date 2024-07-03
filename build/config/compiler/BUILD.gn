@@ -527,6 +527,13 @@ config("compiler") {
     # but for now it looks like our build might rely on it
     # (https://crbug.com/829795).
     cflags += [ "-fmerge-all-constants" ]
+
+    # TODO(crbug.com/345541122): investigate the fuchsia binary size increase.
+    if (is_win) {
+      cflags += [ "/Zc:sizedDealloc-" ]
+    } else {
+      cflags += [ "-fno-sized-deallocation" ]
+    }
   }
 
   if (use_lld) {
@@ -649,6 +656,12 @@ config("compiler") {
       cflags_cc += [ "/std:c++17" ]
     } else {
       cflags_cc += [ "/std:c++20" ]
+    }
+    if (!is_clang) {
+      # Required for the __cplusplus macro definition to match the C++ version
+      # on MSVC. clang-cl defines it by default and doesn't need this flag.
+      # See: https://learn.microsoft.com/en-us/cpp/build/reference/zc-cplusplus
+      cflags_cc += [ "/Zc:__cplusplus" ]
     }
   } else if (!is_nacl) {
     # TODO(mcgrathr) - the NaCl GCC toolchain doesn't support either
@@ -786,19 +799,18 @@ config("compiler") {
       ldflags += [ "-Wl,-mllvm,-disable-auto-upgrade-debug-info" ]
     }
 
-    # TODO(crbug.com/335365324): Enable on other platforms.
-    if (is_android && !optimize_for_size) {
+    if (!optimize_for_size) {
       # Ideally the compiler would handle this automatically with PGO (see
       # comments at https://crrev.com/c/5440500).
-      #
-      # Android binary size impact (as of April 2024): The arm64 native code
-      # size increases by ~627KB (or 0.34%: the arm64 native code size in
-      # M124 is 178MB).
       cflags += [
         "-mllvm",
         "-inlinehint-threshold=360",
       ]
-      ldflags += [ "-Wl,-mllvm,-inlinehint-threshold=360" ]
+      if (is_win) {
+        ldflags += [ "-mllvm:-inlinehint-threshold=360" ]
+      } else {
+        ldflags += [ "-Wl,-mllvm,-inlinehint-threshold=360" ]
+      }
     }
 
     # TODO(crbug.com/40182783): investigate why this isn't effective on
@@ -1070,6 +1082,16 @@ config("compiler") {
   # performance penalty but are considered a bare minimum for security.
   if (use_safe_libstdcxx) {
     defines += [ "_GLIBCXX_ASSERTIONS=1" ]
+  }
+
+  # 64-bit Android sometimes defines __ARM_NEON but not __ARM_NEON__.
+  # 32-bit Android builds and macOS, however, define __ARM_NEON__,
+  # and code typically checks for this.
+  #
+  # Reduce confusion by making the __ARM_NEON__ #define always available,
+  # as NEON is a mandatory part of ARMv8 anyway.
+  if (current_cpu == "arm64") {
+    defines += [ "__ARM_NEON__=1" ]
   }
 }
 
@@ -1868,9 +1890,6 @@ config("default_warnings") {
 
           # TODO(https://crbug.com/324953188): fix and reenable
           "-Wno-extra-qualification",
-
-          # TODO(https://crbug.com/332931387): fix and reenable
-          "-Wno-unused-but-set-variable",
         ]
       }
 
@@ -1911,6 +1930,11 @@ config("default_warnings") {
           # TODO(crbug.com/41486292): Fix and re-enable.
           "-Wno-c++11-narrowing-const-reference",
         ]
+
+        if (llvm_force_head_revision) {
+          # TODO(crbug.com/344680447): Fix and re-enable.
+          cflags_cc += [ "-Wno-missing-template-arg-list-after-template-kw" ]
+        }
       }
     }
 
@@ -2417,10 +2441,10 @@ config("optimize") {
   if (is_win) {
     cflags = [ "/O2" ] + common_optimize_on_cflags
 
-    # https://doc.rust-lang.org/rustc/profile-guided-optimization.html#usage
-    # suggests not using an explicit `-Copt-level` at all, and the default is
-    # to optimize for performance like `/O2` for clang.
-    rustflags = []
+    # The `-O3` for clang turns on extra optimizations compared to the standard
+    # `-O2`. But for rust, `-Copt-level=3` is the default and is thus reliable
+    # to use.
+    rustflags = [ "-Copt-level=3" ]
   } else if (optimize_for_size || is_chromeos) {
     # Favor size over speed.
     # -Os in clang is more of a size-conscious -O2 than "size at any cost"

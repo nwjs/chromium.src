@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">пастелножълто</translation>
 <translation id="1056898198331236512">Предупреждение</translation>
 <translation id="1059913517121127803">Сканирането не бе стартирано</translation>
+<translation id="1061864016440983342">Използване без местоположение</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> от <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Установена е защитна стена</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Още настройки</translation>
 <translation id="2082932131694554252">Зададен клавиш на клавиатурата</translation>
 <translation id="2085089206770112532">Намаляване на яркостта на дисплея</translation>
+<translation id="2086091080968010660">Промените въз основа на часа може да не са точни. Включете достъпа до местоположението на ниво система от настройките.</translation>
 <translation id="2102231663024125441">Редактиране на текст</translation>
 <translation id="2105810540595158374">Устройството е контролер за игри.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, версия <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Редактиране на подробностите за името на точката за достъп (APN)</translation>
 <translation id="2195732836444333448">В момента няма наличен капацитет. Заповядайте отново скоро.</translation>
 <translation id="2201758491318984023">велосипед</translation>
-<translation id="2203222757805818543">Текущият график е зададен на <ph name="SUNRISE" /> – <ph name="SUNSET" />. За да се актуализира автоматично графикът за тъмния режим, <ph name="BEGIN_LINK" />предоставете достъп до местоположението<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">Горещ извор</translation>
 <translation id="2203642483788377106">скала</translation>
 <translation id="2208388655216963643">импресионизъм</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Възстановяване на стандартните</translation>
 <translation id="2286454467119466181">Опростено</translation>
 <translation id="2287186687001756809">Няма налично изображение. За да добавите снимки, отворете <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Текущият график е зададен на <ph name="SUNRISE" /> – <ph name="SUNSET" />. Ако искате графикът за залеза и изгрева да се актуализира автоматично, включете достъпа до местоположението на ниво система.</translation>
 <translation id="2305172810646967500">Черен</translation>
 <translation id="2307344026739914387">Използване на текущата двойка ключове</translation>
 <translation id="2308243864813041101">Изключете USB кабела на <ph name="DEVICE_NAME" />, за да продължите процеса на актуализиране</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">пясъчна дюна</translation>
 <translation id="2619761439309613843">Ежедневно опресняване</translation>
 <translation id="2620436844016719705">Система</translation>
+<translation id="2637303424821734920">ИЗКЛ. – За да се показва времето в района, <ph name="BEGIN_LINK" />включете достъпа до местоположението на ниво система<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Изображение при вход</translation>
 <translation id="2640549051766135490">Избран албум <ph name="TITLE" />, <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Контроли</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Фон</translation>
 <translation id="3027578600144895987">Затваряне на камерата</translation>
 <translation id="3031560714565892478">Устройството е видеокамера.</translation>
+<translation id="3051968340259309715">Това дава възможност на системните услуги да определят къде се намирате посредством настройката „Точност на местоположението“. Тя определя местоположението на устройството, като използва информация за безжични сигнали, например точки за достъп до Wi-Fi, клетъчни кули и GPS, заедно с данни от сензорите на устройството, например акселерометър и жироскоп. Можете да изключите местоположението от „Настройки &gt; Поверителност и сигурност &gt; Контроли за поверителност &gt; Достъп до местоположението“. <ph name="LINK_BEGIN" />Научете повече<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Крайна точка</translation>
 <translation id="3060579846059757016">Отправни точки</translation>
+<translation id="3061850252076394168">активиране на функцията прочитане на глас</translation>
 <translation id="3069085583900247081">Тестването не бе успешно</translation>
 <translation id="3078740164268491126">таблица</translation>
 <translation id="3081652522083185657">светло</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Името на нито един хост не бе преобразувано</translation>
 <translation id="4593212453765072419">Изисква се удостоверяване в прокси сървъра</translation>
 <translation id="4609350030397390689">Намаляване на яркостта на клавиатурата</translation>
-<translation id="4617553623719764431">Прогнозата за времето не се показва, защото местоположението ви не е известно. За да видите времето в района, <ph name="BEGIN_LINK" />предоставете достъп до местоположението<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> от <ph name="TOTAL_PAGE_NUMBER" />. Натиснете Enter, за да откажете заданието за отпечатване</translation>
 <translation id="463791356324567266">Сканирането се отменя...</translation>
 <translation id="4646949265910132906">Сигурна Wi-Fi връзка</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Стартиране</translation>
 <translation id="4987769320337599931">Защитна стена</translation>
 <translation id="4988526792673242964">Страници</translation>
+<translation id="4989542687859782284">Експерименти, които не са налице</translation>
 <translation id="4999333166442584738">Скриване на отчета</translation>
 <translation id="500920857929044050">Спиране на теста</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">яркост на клавиатурата</translation>
 <translation id="6412715219990689313">Вградена клавиатура</translation>
 <translation id="6417265370957905582">Google Асистент</translation>
+<translation id="6419454453018688975">Включване на достъпа до местоположението на ниво система</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Това дава възможност на системните услуги, които разполагат с разрешението, да използват местоположението ви. Функцията за местоположението може да използва източници като Wi‑Fi, мобилни мрежи и сензори, за да определя къде се намира устройството ви. <ph name="LINK_BEGIN" />Научете повече<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Слаба (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Към настройките на профила</translation>
 <translation id="6462978824459367242">Бутонът за добавяне на име на точката за достъп (APN) вече е активиран</translation>

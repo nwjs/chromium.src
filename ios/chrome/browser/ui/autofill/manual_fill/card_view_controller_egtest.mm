@@ -99,6 +99,9 @@ void OpenPaymentMethodManualFillView() {
         l10n_util::GetNSString(IDS_IOS_AUTOFILL_ACCNAME_AUTOFILL_DATA));
   } else {
     button_to_tap = ManualFallbackCreditCardIconMatcher();
+    [[EarlGrey selectElementWithMatcher:
+                   chrome_test_util::ManualFallbackFormSuggestionViewMatcher()]
+        performAction:grey_scrollToContentEdge(kGREYContentEdgeRight)];
   }
 
   // Tap the button that'll open the payment method manual fill view.
@@ -158,6 +161,97 @@ id<GREYMatcher> AutofillFormButton() {
                     grey_interactable(), nullptr);
 }
 
+// Matcher for the GPay icon shown in the server card cells.
+id<GREYMatcher> GPayIcon(NSString* network_and_last_four_digits) {
+  return grey_accessibilityID([NSString
+      stringWithFormat:@"%@ %@", manual_fill::kPaymentManualFillGPayLogoID,
+                       network_and_last_four_digits]);
+}
+
+// Matcher for the card number chip button.
+id<GREYMatcher> LocalCardNumberChipButton() {
+  NSString* accessibility_label;
+  if ([AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    NSString* last_four_digits =
+        [kLocalCardNumber substringFromIndex:kLocalCardNumber.length - 4];
+    NSString* last_four_digits_split = [NSString
+        stringWithFormat:@"%C %C %C %C", [last_four_digits characterAtIndex:0],
+                         [last_four_digits characterAtIndex:1],
+                         [last_four_digits characterAtIndex:2],
+                         [last_four_digits characterAtIndex:3]];
+    accessibility_label = l10n_util::GetNSStringF(
+        IDS_IOS_MANUAL_FALLBACK_CARD_NUMBER_CHIP_ACCESSIBILITY_LABEL,
+        base::SysNSStringToUTF16(last_four_digits_split));
+  } else {
+    accessibility_label = kLocalNumberObfuscated;
+  }
+
+  return grey_allOf(
+      chrome_test_util::ButtonWithAccessibilityLabel(accessibility_label),
+      grey_interactable(), nullptr);
+}
+
+// Matcher for the expiration month chip button.
+id<GREYMatcher> ExpirationMonthChipButton(std::u16string title) {
+  NSString* accessibility_label =
+      [AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]
+          ? l10n_util::GetNSStringF(
+                IDS_IOS_MANUAL_FALLBACK_EXPIRATION_MONTH_CHIP_ACCESSIBILITY_LABEL,
+                title)
+          : base::SysUTF16ToNSString(title);
+  return grey_allOf(
+      chrome_test_util::ButtonWithAccessibilityLabel(accessibility_label),
+      grey_interactable(), nullptr);
+}
+
+// Matcher for the expiration month chip button.
+id<GREYMatcher> ExpirationYearChipButton(std::u16string title) {
+  NSString* accessibility_label =
+      [AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]
+          ? l10n_util::GetNSStringF(
+                IDS_IOS_MANUAL_FALLBACK_EXPIRATION_YEAR_CHIP_ACCESSIBILITY_LABEL,
+                title)
+          : base::SysUTF16ToNSString(title);
+  return grey_allOf(
+      chrome_test_util::ButtonWithAccessibilityLabel(accessibility_label),
+      grey_interactable(), nullptr);
+}
+
+// Matcher for the cardholder month chip button.
+id<GREYMatcher> CardholderChipButton(std::u16string title) {
+  NSString* accessibility_label =
+      [AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]
+          ? l10n_util::GetNSStringF(
+                IDS_IOS_MANUAL_FALLBACK_CARDHOLDER_CHIP_ACCESSIBILITY_LABEL,
+                title)
+          : base::SysUTF16ToNSString(title);
+  return grey_allOf(
+      chrome_test_util::ButtonWithAccessibilityLabel(accessibility_label),
+      grey_interactable(), nullptr);
+}
+
+// Checks that the chip buttons of the local card are all visible.
+void CheckChipButtonsOfLocalCard() {
+  autofill::CreditCard card = autofill::test::GetCreditCard();
+  std::string locale = l10n_util::GetLocaleOverride();
+
+  [[EarlGrey selectElementWithMatcher:LocalCardNumberChipButton()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey
+      selectElementWithMatcher:ExpirationMonthChipButton(card.GetInfo(
+                                   autofill::CREDIT_CARD_EXP_MONTH, locale))]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey
+      selectElementWithMatcher:ExpirationYearChipButton(card.GetInfo(
+                                   autofill::CREDIT_CARD_EXP_2_DIGIT_YEAR,
+                                   locale))]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey
+      selectElementWithMatcher:CardholderChipButton(card.GetInfo(
+                                   autofill::CREDIT_CARD_NAME_FULL, locale))]
+      assertWithMatcher:grey_sufficientlyVisible()];
+}
+
 // Opens the payment method manual fill view when there are no saved payment
 // methods and verifies that the card view controller is visible afterwards.
 // Only useful when the `kIOSKeyboardAccessoryUpgrade` feature is enabled.
@@ -176,6 +270,15 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
+// Dismisses the payment bottom sheet by tapping the "Use Keyboard" button.
+void DismissPaymentBottomSheet() {
+  id<GREYMatcher> useKeyboardButton =
+      chrome_test_util::ButtonWithAccessibilityLabelId(
+          IDS_IOS_PAYMENT_BOTTOM_SHEET_USE_KEYBOARD);
+  [[EarlGrey selectElementWithMatcher:useKeyboardButton]
+      performAction:grey_tap()];
+}
+
 }  // namespace
 
 // Integration Tests for Manual Fallback credit cards View Controller.
@@ -192,14 +295,15 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
   [super setUp];
   GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
   const GURL URL = self.testServer->GetURL(kFormHTMLFile);
-  [ChromeEarlGrey loadURL:URL];
-  [ChromeEarlGrey waitForWebStateContainingText:"Autofill Test"];
+  [self loadURL];
   [AutofillAppInterface clearCreditCardStore];
+  [AutofillAppInterface clearAllServerDataForTesting];
   [AutofillAppInterface considerCreditCardFormSecureForTesting];
 }
 
 - (void)tearDown {
   [AutofillAppInterface clearCreditCardStore];
+  [AutofillAppInterface clearAllServerDataForTesting];
   [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait error:nil];
   [super tearDown];
 }
@@ -213,6 +317,12 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
     config.features_enabled.push_back(kIOSKeyboardAccessoryUpgrade);
   } else {
     config.features_disabled.push_back(kIOSKeyboardAccessoryUpgrade);
+  }
+
+  if ([self isRunningTest:@selector
+            (testCardChipButtonsAreAllVisibleWithVirtualCardsDisabled)]) {
+    config.features_disabled.push_back(
+        autofill::features::kAutofillEnableVirtualCards);
   }
 
   return config;
@@ -248,6 +358,38 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
   // Open the payment method manual fill view and verify that the card table
   // view controller is visible.
   OpenPaymentMethodManualFillView();
+}
+
+// Tests that the saved card chip buttons are all visible in the card
+// table view controller, and that they have the right accessibility label.
+- (void)testCardChipButtonsAreAllVisible {
+  [AutofillAppInterface saveLocalCreditCard];
+
+  // Bring up the keyboard
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+
+  // Open the payment method manual fill view.
+  OpenPaymentMethodManualFillView();
+
+  CheckChipButtonsOfLocalCard();
+}
+
+// Tests that the saved card chip buttons are all visible in the card
+// table view controller, and that they have the right accessibility label when
+// the Virtual Cards feature is disabled. TODO(crbug.com/335736927): Delete this
+// test once the Virtual Cards feature is launched.
+- (void)testCardChipButtonsAreAllVisibleWithVirtualCardsDisabled {
+  [AutofillAppInterface saveLocalCreditCard];
+
+  // Bring up the keyboard
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+
+  // Open the payment method manual fill view.
+  OpenPaymentMethodManualFillView();
+
+  CheckChipButtonsOfLocalCard();
 }
 
 // Tests that the the "no payment methods found" message is visible when no
@@ -504,9 +646,7 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
 - (void)testOTRAddPaymentMethodActionOpensAddPaymentMethodSettings {
   // Open a tab in incognito.
   [ChromeEarlGrey openNewIncognitoTab];
-  const GURL URL = self.testServer->GetURL(kFormHTMLFile);
-  [ChromeEarlGrey loadURL:URL];
-  [ChromeEarlGrey waitForWebStateContainingText:"Autofill Test"];
+  [self loadURL];
   [AutofillAppInterface considerCreditCardFormSecureForTesting];
 
   [AutofillAppInterface saveLocalCreditCard];
@@ -873,7 +1013,7 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
 }
 
 // Tests the "Show Details" action of the overflow menu button displays the
-// card's details in edit mode.
+// card's details.
 - (void)testShowCardDetailsFromOverflowMenu {
   if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
     EARL_GREY_TEST_DISABLED(@"This test is not relevant when the Keyboard "
@@ -898,7 +1038,16 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
   [[EarlGrey selectElementWithMatcher:OverflowMenuShowDetailsAction()]
       performAction:grey_tap()];
 
-  // TODO(crbug.com/326413453): Check that the card details opened.
+  // Verify that the card's details are visible.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::
+                                          AutofillCreditCardEditTableView()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Tap Cancel Button.
+  [[EarlGrey selectElementWithMatcher:NavigationBarCancelButton()]
+      performAction:grey_tap()];
+
+  // TODO(crbug.com/332956674): Check that the expanded view is still visible.
 }
 
 // Tests that tapping the "Autofill Form" button fills the payment form with
@@ -934,7 +1083,51 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
   [self verifyCreditCardInfosHaveBeenFilled:autofill::test::GetCreditCard()];
 }
 
+// Tests that the GPay icon is only visible when the Keyboard Accessory Upgrade
+// feature is enabled and the card is a server card.
+- (void)testGPayIconVisibility {
+  // Save a local and a masked card.
+  NSString* local_card_last_digits = [AutofillAppInterface saveLocalCreditCard];
+  NSString* masked_card_last_digits =
+      [AutofillAppInterface saveMaskedCreditCard];
+
+  [self loadURL];
+  [AutofillAppInterface considerCreditCardFormSecureForTesting];
+
+  // Bring up the keyboard
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+  DismissPaymentBottomSheet();
+  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
+                 @"Keyboard Should be Shown");
+
+  // Open the payment method manual fill view.
+  OpenPaymentMethodManualFillView();
+
+  // Check that the GPay icon is not visible in the local card cell.
+  [[EarlGrey selectElementWithMatcher:GPayIcon(local_card_last_digits)]
+      assertWithMatcher:grey_notVisible()];
+
+  // Scroll down to show the masked card.
+  [[EarlGrey
+      selectElementWithMatcher:ManualFallbackCreditCardTableViewMatcher()]
+      performAction:grey_scrollInDirection(kGREYDirectionDown, 200)];
+
+  // Check that the GPay icon is only visible in the masked card cell when the
+  // Keyboard Accessory Upgrade feature is enabled.
+  [[EarlGrey selectElementWithMatcher:GPayIcon(masked_card_last_digits)]
+      assertWithMatcher:[AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]
+                            ? grey_sufficientlyVisible()
+                            : grey_notVisible()];
+}
+
 #pragma mark - Private
+
+- (void)loadURL {
+  const GURL URL = self.testServer->GetURL(kFormHTMLFile);
+  [ChromeEarlGrey loadURL:URL];
+  [ChromeEarlGrey waitForWebStateContainingText:"Autofill Test"];
+}
 
 - (void)verifyCreditCardButtonWithTitle:(NSString*)title
                         doesInjectValue:(NSString*)result {

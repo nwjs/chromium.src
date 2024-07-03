@@ -282,10 +282,11 @@ class PrerenderHostTest : public RenderViewHostImplTestHarness {
         /*embedder_histogram_suffix=*/"",
         blink::mojom::SpeculationTargetHint::kNoHint, Referrer(),
         blink::mojom::SpeculationEagerness::kEager,
-        rfh->GetLastCommittedOrigin(), rfh->GetProcess()->GetID(),
-        contents()->GetWeakPtr(), rfh->GetFrameToken(),
-        rfh->GetFrameTreeNodeId(), rfh->GetPageUkmSourceId(),
-        ui::PAGE_TRANSITION_LINK, std::move(url_match_predicate),
+        /*no_vary_search_expected=*/std::nullopt, rfh->GetLastCommittedOrigin(),
+        rfh->GetProcess()->GetID(), contents()->GetWeakPtr(),
+        rfh->GetFrameToken(), rfh->GetFrameTreeNodeId(),
+        rfh->GetPageUkmSourceId(), ui::PAGE_TRANSITION_LINK,
+        std::move(url_match_predicate),
         /*prerender_navigation_handle_callback=*/{});
   }
 
@@ -334,10 +335,10 @@ class NoVarySearchHeaderPrerenderHostTest
     bool is_nvs_header_enabled = GetParam();
     if (is_nvs_header_enabled) {
       scoped_feature_list_.InitAndEnableFeature(
-          features::kPrerender2NoVarySearch);
+          blink::features::kPrerender2NoVarySearch);
     } else {
       scoped_feature_list_.InitAndDisableFeature(
-          features::kPrerender2NoVarySearch);
+          blink::features::kPrerender2NoVarySearch);
     }
   }
 

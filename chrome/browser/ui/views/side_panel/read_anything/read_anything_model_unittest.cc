@@ -18,6 +18,8 @@
 using testing::_;
 using testing::FloatNear;
 
+// TODO(b/40275871): These tests should be removed once the ReadAnythingWebUI
+// flag is fully rolled out.
 class MockReadAnythingModelObserver : public ReadAnythingModel::Observer {
  public:
   MOCK_METHOD(void,
@@ -25,6 +27,7 @@ class MockReadAnythingModelObserver : public ReadAnythingModel::Observer {
               (const std::string& font_name,
                double font_scale,
                bool links_enabled,
+               bool images_enabled,
                ui::ColorId foreground_color_id,
                ui::ColorId background_color_id,
                ui::ColorId separator_color_id,
@@ -39,8 +42,8 @@ class MockReadAnythingModelObserver : public ReadAnythingModel::Observer {
 class ReadAnythingModelTest : public TestWithBrowserView {
  public:
   void SetUp() override {
-    base::test::ScopedFeatureList features;
-    features.InitWithFeatures({features::kReadAnything}, {});
+    scoped_feature_list_.InitWithFeatures(
+        {}, {features::kReadAnythingWebUIToolbar});
     TestWithBrowserView::SetUp();
 
     model_ = std::make_unique<ReadAnythingModel>();
@@ -55,7 +58,7 @@ class ReadAnythingModelTest : public TestWithBrowserView {
   // with the input language.
   void InitModel(std::string language = "en") {
     std::string font_name;
-    model_->Init(language, font_name, 0.5, true,
+    model_->Init(language, font_name, 0.5, true, false,
                  read_anything::mojom::Colors::kDefaultValue,
                  read_anything::mojom::LineSpacing::kLoose,
                  read_anything::mojom::LetterSpacing::kStandard);
@@ -67,22 +70,20 @@ class ReadAnythingModelTest : public TestWithBrowserView {
   MockReadAnythingModelObserver model_observer_1_;
   MockReadAnythingModelObserver model_observer_2_;
   MockReadAnythingModelObserver model_observer_3_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// TODO(crbug.com/40853217): Fix the memory leak on destruction observed on
-// these tests on asan mac.
-#if !BUILDFLAG(IS_MAC) || !defined(ADDRESS_SANITIZER)
 // TODO(crbug.com/40286096): Test is flaky on all platforms.
 TEST_F(ReadAnythingModelTest,
        DISABLED_AddingModelObserverNotifiesAllObservers) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   EXPECT_CALL(model_observer_2_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->AddObserver(&model_observer_2_);
@@ -93,15 +94,15 @@ TEST_F(ReadAnythingModelTest, RemovedModelObserversDoNotReceiveNotifications) {
   model_->AddObserver(&model_observer_2_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   EXPECT_CALL(model_observer_2_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(0);
 
   EXPECT_CALL(model_observer_3_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->RemoveObserver(&model_observer_2_);
@@ -113,7 +114,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnSetSelectedFontIndexaa) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->SetSelectedFontByIndex(2);
@@ -123,7 +124,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnDecreasedFontSize) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->DecreaseTextSize();
@@ -135,7 +136,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnIncreasedFontSize) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->IncreaseTextSize();
@@ -147,7 +148,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnSetSelectedColorsIndex) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->SetSelectedColorsByIndex(2);
@@ -157,7 +158,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnSetSelectedLineSpacingIndex) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->SetSelectedLineSpacingByIndex(2);
@@ -167,7 +168,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnSetSelectedLetterSpacingIndex) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->SetSelectedLetterSpacingByIndex(2);
@@ -177,7 +178,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnSystemThemeChanged) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->OnSystemThemeChanged();
@@ -187,7 +188,7 @@ TEST_F(ReadAnythingModelTest, NotificationOnSetLinksEnabled) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->SetLinksEnabled(false);
@@ -196,7 +197,7 @@ TEST_F(ReadAnythingModelTest, NotificationOnSetLinksEnabled) {
 TEST_F(ReadAnythingModelTest, MinimumFontScaleIsEnforced) {
   std::string font_name;
   std::string language;
-  model_->Init(language, font_name, 0.5, true,
+  model_->Init(language, font_name, 0.5, true, false,
                read_anything::mojom::Colors::kDefaultValue,
                read_anything::mojom::LineSpacing::kLoose,
                read_anything::mojom::LetterSpacing::kStandard);
@@ -207,7 +208,7 @@ TEST_F(ReadAnythingModelTest, MinimumFontScaleIsEnforced) {
 TEST_F(ReadAnythingModelTest, MaximumFontScaleIsEnforced) {
   std::string font_name;
   std::string language;
-  model_->Init(language, font_name, 4.5, true,
+  model_->Init(language, font_name, 4.5, true, false,
                read_anything::mojom::Colors::kDefaultValue,
                read_anything::mojom::LineSpacing::kLoose,
                read_anything::mojom::LetterSpacing::kStandard);
@@ -272,4 +273,3 @@ TEST_F(ReadAnythingModelTest, FontModelSetsDropdownAndForegroundColors) {
   EXPECT_EQ(color_info.selected_dropdown_color_id,
             GetFontModel()->GetDropdownSelectedBackgroundColorIdAt(0).value());
 }
-#endif  // !defined(ADDRESS_SANITIZER)

@@ -236,7 +236,6 @@
 <translation id="2189104374785738357">APN ವಿವರಗಳನ್ನು ಎಡಿಟ್ ಮಾಡಿ</translation>
 <translation id="2195732836444333448">ಪ್ರಸ್ತುತ ಗರಿಷ್ಠ ಸಾಮರ್ಥ್ಯ. ಶೀಘ್ರದಲ್ಲೇ ಹಿಂತಿರುಗಿ.</translation>
 <translation id="2201758491318984023">ಬೈಸಿಕಲ್</translation>
-<translation id="2203222757805818543">ಪ್ರಸ್ತುತ ವೇಳಾಪಟ್ಟಿಯನ್ನು <ph name="SUNRISE" /> - <ph name="SUNSET" /> ಗೆ ಸೆಟ್ ಮಾಡಲಾಗಿದೆ. ಕತ್ತಲೆ ಮೋಡ್ ವೇಳಾಪಟ್ಟಿಯನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಅಪ್‌ಡೇಟ್ ಮಾಡಲು, <ph name="BEGIN_LINK" />ಸ್ಥಳದ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ಆನ್ ಮಾಡಿ<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">ಬಿಸಿನೀರಿನ ಬುಗ್ಗೆ</translation>
 <translation id="2203642483788377106">ಕ್ಲಿಫ್</translation>
 <translation id="2208388655216963643">ಇಂಪ್ರೆಷನಿಸ್ಟ್</translation>
@@ -313,6 +312,7 @@
 <translation id="2618015542787108131">ಮರಳುದಿಣ್ಣೆ</translation>
 <translation id="2619761439309613843">ಪ್ರತಿದಿನವು ರಿಫ್ರೆಶ್ ಮಾಡಿ</translation>
 <translation id="2620436844016719705">ಸಿಸ್ಟಂ</translation>
+<translation id="2637303424821734920">ಆಫ್ ಆಗಿದೆ - ಸ್ಥಳೀಯ ಹವಾಮಾನವನ್ನು ಡಿಸ್‌ಪ್ಲೇ ಮಾಡಲು <ph name="BEGIN_LINK" />ಸಿಸ್ಟಂ ಸ್ಥಳದ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ಆನ್ ಮಾಡಿ<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">ಸೈನ್ ಇನ್ ಚಿತ್ರ</translation>
 <translation id="2640549051766135490">ಆಲ್ಬಮ್ <ph name="TITLE" /> <ph name="DESC" /> ಆಯ್ಕೆ ಮಾಡಲಾಗಿದೆ</translation>
 <translation id="2645380101799517405">ಕಂಟ್ರೋಲ್‌ಗಳು</translation>
@@ -361,9 +361,11 @@
 <translation id="3017079585324758401">ಹಿನ್ನೆಲೆ</translation>
 <translation id="3027578600144895987">ಕ್ಯಾಮರಾವನ್ನು ಮುಚ್ಚಿರಿ</translation>
 <translation id="3031560714565892478">ಸಾಧನವು ವೀಡಿಯೊ ಕ್ಯಾಮರಾ ಆಗಿದೆ.</translation>
+<translation id="3051968340259309715">ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ನಿರ್ಧರಿಸಲು ಸ್ಥಳದ ನಿಖರತೆಯನ್ನು ಬಳಸಲು ಸಿಸ್ಟಮ್ ಸೇವೆಗಳಿಗೆ ಇದು ಅನುಮತಿಸುತ್ತದೆ. ಸಾಧನದ ಸ್ಥಳವನ್ನು ಅಂದಾಜು ಮಾಡಲು ಅಕ್ಸೆಲೆರೊಮೀಟರ್ ಮತ್ತು ಗೈರೊಸ್ಕೋಪ್‌ನಂತಹ ಸಾಧನದ ಸೆನ್ಸಾರ್ ಡೇಟಾದೊಂದಿಗೆ ವೈ-ಫೈ ಆ್ಯಕ್ಸೆಸ್ ಪಾಯಿಂಟ್‌ಗಳು, ಸೆಲ್ಯುಲಾರ್ ನೆಟ್‌ವರ್ಕ್ ಟವರ್‌ಗಳು ಮತ್ತು GPS ನಂತಹ ವೈರ್‌ಲೆಸ್ ಸಿಗ್ನಲ್‌ಗಳ ಮಾಹಿತಿಯನ್ನು ಸ್ಥಳದ ನಿಖರತೆ ಬಳಸುತ್ತದೆ. ನೀವು ಸೆಟ್ಟಿಂಗ್‌ಗಳು &gt; ಗೌಪ್ಯತೆ ಮತ್ತು ಭದ್ರತೆ &gt; ಗೌಪ್ಯತೆ ನಿಯಂತ್ರಣಗಳು &gt; ಸ್ಥಳದ ಆ್ಯಕ್ಸೆಸ್‌ನಲ್ಲಿ ಸ್ಥಳವನ್ನು ಆಫ್ ಮಾಡಬಹುದು. <ph name="LINK_BEGIN" />ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">ಅಂತಿಮ ಬಿಂದು</translation>
 <translation id="3060579846059757016">ಬಾಹ್ಯರೇಖೆಗಳು</translation>
+<translation id="3061850252076394168">ಆಯ್ಕೆಮಾಡಿ ಮತ್ತು ಆಲಿಸಿ ಎಂಬುದನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ</translation>
 <translation id="3069085583900247081">ಪರೀಕ್ಷೆ ವಿಫಲವಾಗಿದೆ</translation>
 <translation id="3078740164268491126">ಕೋಷ್ಟಕ</translation>
 <translation id="3081652522083185657">ಲೈಟ್</translation>
@@ -536,7 +538,7 @@
 <translation id="4086271957099059213">ಮತ್ತೊಂದು ಕಂಟ್ರೋಲ್‌ ಅನ್ನು ರಚಿಸಿ</translation>
 <translation id="4091002263446255071">ರೊಮ್ಯಾಂಟಿಕ್</translation>
 <translation id="4093865285251893588">ಪ್ರೊಫೈಲ್ ಚಿತ್ರ</translation>
-<translation id="409427325554347132">ಪರೀಕ್ಷಾ ವಿವರಗಳನ್ನು ಉಳಿಸಿ</translation>
+<translation id="409427325554347132">ಪರೀಕ್ಷಾ ವಿವರಗಳನ್ನು ಸೇವ್ ಮಾಡಿ</translation>
 <translation id="409469431304488632">ಪ್ರಯೋಗ</translation>
 <translation id="4095829376260267438">WPA2WPA3</translation>
 <translation id="4110686435123617899">ಆಲ್ಬಮ್ ಆಯ್ಕೆ ಮಾಡಿ <ph name="TITLE" /> <ph name="DESC" /></translation>
@@ -630,7 +632,6 @@
 <translation id="458794348635939462">ಎಲ್ಲಾ ಹೋಸ್ಟ್‌ಗಳನ್ನು ಪರಿಹರಿಸಲು ವಿಫಲವಾಗಿದೆ</translation>
 <translation id="4593212453765072419">ಪ್ರಾಕ್ಸಿ ದೃಢೀಕರಣ ಅಗತ್ಯವಿದೆ</translation>
 <translation id="4609350030397390689">ಕೀಬೋರ್ಡ್ ಹೊಳಪನ್ನು ಕಡಿಮೆ ಮಾಡಿ</translation>
-<translation id="4617553623719764431">ನಿಮ್ಮ ಸ್ಥಳದ ಕುರಿತು ತಿಳಿಯದಿರುವ ಕಾರಣ ಹವಾಮಾನವನ್ನು ಪ್ರದರ್ಶಿಸಲಾಗಿಲ್ಲ. ಸ್ಥಳೀಯ ಹವಾಮಾನವನ್ನು ಪ್ರದರ್ಶಿಸಲು, <ph name="BEGIN_LINK" />ಸ್ಥಳದ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ಆನ್‌ ಮಾಡಿ<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="TOTAL_PAGE_NUMBER" /> ರಲ್ಲಿ <ph name="PRINTED_PAGE_NUMBER" /> ಮುದ್ರಣ ಕಾರ್ಯವನ್ನು ರದ್ದುಮಾಡಲು enter ಒತ್ತಿರಿ.</translation>
 <translation id="463791356324567266">ಸ್ಕ್ಯಾನಿಂಗ್ ಮಾಡುವಿಕೆಯನ್ನು ರದ್ದುಗೊಳಿಸಲಾಗುತ್ತಿದೆ...</translation>
 <translation id="4646949265910132906">ಸುರಕ್ಷಿತ Wi-Fi ಸಂಪರ್ಕ</translation>
@@ -704,6 +705,7 @@
 <translation id="4985509611418653372">ರನ್‌ ಮಾಡಿ</translation>
 <translation id="4987769320337599931">ಫೈರ್‌ವಾಲ್</translation>
 <translation id="4988526792673242964">ಪುಟಗಳು</translation>
+<translation id="4989542687859782284">ಲಭ್ಯವಿಲ್ಲ</translation>
 <translation id="4999333166442584738">ವರದಿಯನ್ನು ಮರೆಮಾಡಿ</translation>
 <translation id="500920857929044050">ಪರೀಕ್ಷೆ ನಿಲ್ಲಿಸಿ</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -960,7 +962,6 @@
 <translation id="6412715219990689313">ಬಿಲ್ಟ್-ಇನ್ ಕೀಬೋರ್ಡ್</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
 <translation id="6423239382391657905">VPN ತೆರೆಯಿರಿ</translation>
-<translation id="6438073885402882007">ಇದು ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಬಳಸಲು ಅನುಮತಿಯೊಂದಿಗೆ ಸಿಸ್ಟಮ್ ಸೇವೆಗಳನ್ನು ಅನುಮತಿಸುತ್ತದೆ. ನಿಮ್ಮ ಸಾಧನದ ಸ್ಥಳದ ಮಾಹಿತಿಯನ್ನು ಅಂದಾಜು ಮಾಡಲು ಸಹಾಯ ಮಾಡುವುದಕ್ಕಾಗಿ ಸ್ಥಳವು ವೈ-ಫೈ, ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್‌ಗಳು ಮತ್ತು ಸೆನ್ಸರ್‌ಗಳಂತಹ ಮೂಲಗಳನ್ನು ಬಳಸಬಹುದು. <ph name="LINK_BEGIN" />ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">ದುರ್ಬಲ (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">ಖಾತೆಯ ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಗೆ ಹೋಗಿ</translation>
 <translation id="6462978824459367242">APN ಸೇರಿಸಿ ಎಂಬ ಬಟನ್ ಅನ್ನು ಈಗ ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ</translation>
@@ -1076,7 +1077,7 @@
 <translation id="7040230719604914234">ಆಪರೇಟರ್</translation>
 <translation id="7041549558901442110">ಸಾಧನವು ಕನೆಕ್ಟ್ ಆಗಿಲ್ಲ.</translation>
 <translation id="7046522406494308071">ಎಲ್ಲಾ ಶಾರ್ಟ್‌ಕಟ್‌ಗಳನ್ನು ಡೀಫಾಲ್ಟ್ ಆಗಿ ರೀಸೆಟ್ ಮಾಡಬೇಕೆ?</translation>
-<translation id="7058278511608979688">ಕೊನೆಗೊಳಿಸಿ ಮತ್ತು ಉಳಿಸಿ</translation>
+<translation id="7058278511608979688">ಕೊನೆಗೊಳಿಸಿ ಮತ್ತು ಸೇವ್ ಮಾಡಿ</translation>
 <translation id="7059230779847288458">ಚಾರ್ಜಿಂಗ್ ಆಗುತ್ತಿದೆ, ಸಂಪೂರ್ಣವಾಗಿ ಚಾರ್ಜ್ ಆಗಲು <ph name="TIME_VALUE" /> ಸಮಯ ಬೇಕು</translation>
 <translation id="7066538517128343186"><ph name="KEY" /> ಕೀ</translation>
 <translation id="7068619307603204412">ನಿಮ್ಮ ಸಾಧನವನ್ನು ಸಿದ್ಧಪಡಿಸಿ</translation>
@@ -1456,7 +1457,7 @@
 <translation id="9111102763498581341">ಅನ್‌ಲಾಕ್</translation>
 <translation id="9122602430962285795">ಮರುಕನೆಕ್ಟ್ ಮಾಡಲು ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಗೆ ಹೋಗಿ</translation>
 <translation id="9122865513525855321">ಝೆನ್</translation>
-<translation id="9126720536733509015">ಒಂದೇ PDF ನಲ್ಲಿ ಹಲವಾರು ಪುಟಗಳನ್ನು ಉಳಿಸಿ</translation>
+<translation id="9126720536733509015">ಒಂದೇ PDF ನಲ್ಲಿ ಹಲವಾರು ಪುಟಗಳನ್ನು ಸೇವ್ ಮಾಡಿ</translation>
 <translation id="9133772297793293778">ನಿಮ್ಮ ಕೀಬೋರ್ಡ್‌ನಲ್ಲಿ 1-4 ಮಾರ್ಪಾಡಿಸುವಿಕೆಗಳು ಮತ್ತು ಇತರ 1 ಕೀಯನ್ನು ಒತ್ತಿ. ಎಡಿಟಿಂಗ್ ಮೋಡ್‌ನಿಂದ ನಿರ್ಗಮಿಸಲು, alt + Esc ಒತ್ತಿ.</translation>
 <translation id="9137526406337347448">Google ಸೇವೆಗಳು</translation>
 <translation id="9138630967333032450">ಎಡ Shift ಕೀ</translation>

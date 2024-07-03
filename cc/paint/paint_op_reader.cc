@@ -14,6 +14,7 @@
 
 #include "base/bits.h"
 #include "base/compiler_specific.h"
+#include "base/containers/heap_array.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -69,12 +70,12 @@ PaintOpReader::PaintOpReader(const volatile void* memory,
                              size_t size,
                              const PaintOp::DeserializeOptions& options,
                              bool enable_security_constraints)
-    : memory_(static_cast<const volatile char*>(memory)),
+    : memory_(static_cast<const volatile uint8_t*>(memory)),
       remaining_bytes_(
           base::bits::AlignDown(size, PaintOpWriter::kDefaultAlignment)),
       options_(options),
       enable_security_constraints_(enable_security_constraints) {
-  PaintOpWriter::AssertAlignment(memory, BufferAlignment());
+  PaintOpWriter::AssertAlignment(memory_, BufferAlignment());
 }
 
 // static
@@ -132,7 +133,7 @@ void PaintOpReader::ReadSimple(T* val) {
   // used for SkRect/SkIRect/SkMatrix whose implicit operator= can't use a
   // volatile.  TOCTOU violations don't matter for these simple types so
   // use assignment.
-  *val = *reinterpret_cast<const T*>(const_cast<const char*>(memory_));
+  *val = *reinterpret_cast<const T*>(const_cast<const uint8_t*>(memory_));
 
   memory_ += size;
   remaining_bytes_ -= size;
@@ -145,23 +146,24 @@ uint8_t* PaintOpReader::CopyScratchSpace(size_t bytes) {
   if (options_.scratch_buffer.size() < bytes) {
     options_.scratch_buffer.resize(bytes);
   }
-  memcpy(options_.scratch_buffer.data(), const_cast<const char*>(memory_),
+  memcpy(options_.scratch_buffer.data(), const_cast<const uint8_t*>(memory_),
          bytes);
   return options_.scratch_buffer.data();
 }
 
-void PaintOpReader::ReadData(size_t bytes, void* data) {
+void PaintOpReader::ReadData(base::span<uint8_t> data) {
   AssertFieldAlignment();
-  if (bytes == 0)
+  if (data.size() == 0) {
     return;
+  }
 
-  if (remaining_bytes_ < bytes) {
+  if (remaining_bytes_ < data.size()) {
     SetInvalid(DeserializationError::kInsufficientRemainingBytes_ReadData);
     return;
   }
 
-  memcpy(data, const_cast<const char*>(memory_), bytes);
-  DidRead(bytes);
+  memcpy(data.data(), const_cast<const uint8_t*>(memory_), data.size());
+  DidRead(data.size());
 }
 
 void PaintOpReader::ReadSize(size_t* size) {
@@ -217,13 +219,24 @@ void PaintOpReader::Read(SkRRect* rect) {
 
 void PaintOpReader::Read(SkColor4f* color) {
   ReadSimple(color);
+  if (!valid_) {
+    return;
+  }
+
   // Colors are generally [0, 1], sometimes with a wider gamut, but
   // infinite and NaN colors don't make sense and shouldn't be produced by a
   // renderer, so encountering a non-finite color implies the paint op buffer
   // is invalid.
-  if (valid_ && (!std::isfinite(color->fR) || !std::isfinite(color->fG) ||
-                 !std::isfinite(color->fB) || !std::isfinite(color->fA))) {
+  if (!std::isfinite(color->fR) || !std::isfinite(color->fG) ||
+      !std::isfinite(color->fB) || !std::isfinite(color->fA)) {
     SetInvalid(DeserializationError::kNonFiniteSkColor4f);
+    return;
+  }
+
+  // Alpha outside [0, 1] is considered invalid.
+  if (color->fA < 0.0f || 1.0f < color->fA) {
+    SetInvalid(DeserializationError::kInvalidSkColor4fAlpha);
+    return;
   }
 }
 
@@ -306,6 +319,13 @@ void PaintOpReader::Read(PaintFlags* flags) {
   Read(&flags->shader_);
 }
 
+void PaintOpReader::Read(CorePaintFlags* flags) {
+  Read(&flags->color_);
+  Read(&flags->width_);
+  Read(&flags->miter_limit_);
+  ReadSimple(&flags->bitfields_uint_);
+}
+
 void PaintOpReader::Read(
     PaintImage* image,
     PaintFlags::DynamicRangeLimitMixture dynamic_range_limit) {
@@ -325,7 +345,7 @@ void PaintOpReader::Read(
   if (enable_security_constraints_) {
     switch (serialized_type) {
       case PaintOp::SerializedImageType::kNoImage:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         return;
       case PaintOp::SerializedImageType::kImageData: {
         SkColorType color_type;
@@ -375,7 +395,7 @@ void PaintOpReader::Read(
         return;
     }
 
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -408,7 +428,7 @@ void PaintOpReader::Read(
           SetInvalid(DeserializationError::kSharedImageProviderUnknownMailbox);
           break;
         default:
-          NOTREACHED();
+          NOTREACHED_IN_MIGRATION();
           break;
       }
       SetInvalid(DeserializationError::kSharedImageOpenFailure);
@@ -529,7 +549,7 @@ void PaintOpReader::Read(sk_sp<SkData>* data) {
   }
 
   // This is safe to cast away the volatile as it is just a memcpy internally.
-  *data = SkData::MakeWithCopy(const_cast<const char*>(memory_), bytes);
+  *data = SkData::MakeWithCopy(const_cast<const uint8_t*>(memory_), bytes);
   DidRead(bytes);
 }
 
@@ -590,7 +610,7 @@ void PaintOpReader::Read(sk_sp<sktext::gpu::Slug>* slug) {
     return;
   }
 
-  *slug = sktext::gpu::Slug::Deserialize(const_cast<const char*>(memory_),
+  *slug = sktext::gpu::Slug::Deserialize(const_cast<const uint8_t*>(memory_),
                                          data_bytes, options_.strike_client);
   DidRead(data_bytes);
 
@@ -624,7 +644,7 @@ void PaintOpReader::Read(sk_sp<DrawLooper>* looper) {
 
     ReadSimple(&offset);
     ReadSimple(&blur_sigma);
-    ReadSimple(&color);
+    Read(&color);
     ReadSimple(&flags);
     if (!valid_) {
       *looper = nullptr;
@@ -722,7 +742,7 @@ void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
     return;
   }
   ref.colors_.resize(colors_size);
-  ReadData(colors_bytes, ref.colors_.data());
+  ReadData(base::as_writable_byte_span(ref.colors_));
 
   decltype(ref.positions_)::size_type positions_size = 0;
   ReadSize(&positions_size);
@@ -738,7 +758,7 @@ void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
     return;
   }
   ref.positions_.resize(positions_size);
-  ReadData(positions_size * sizeof(SkScalar), ref.positions_.data());
+  ReadData(base::as_writable_byte_span(ref.positions_));
 
   // We don't write the cached shader, so don't attempt to read it either.
 
@@ -843,7 +863,7 @@ void PaintOpReader::Read(SkYUVAInfo::Subsampling* subsampling) {
 }
 
 void PaintOpReader::Read(gpu::Mailbox* mailbox) {
-  ReadData(sizeof(gpu::Mailbox::Name), (*mailbox).name);
+  ReadData(base::as_writable_byte_span(mailbox->name));
 }
 
 void PaintOpReader::Read(SkHighContrastConfig* config) {
@@ -990,7 +1010,7 @@ void PaintOpReader::Read(sk_sp<PaintFilter>* filter) {
   AssertFieldAlignment();
   switch (type) {
     case PaintFilter::Type::kNullFilter:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
     case PaintFilter::Type::kColorFilter:
       ReadColorFilterPaintFilter(filter, crop_rect);
@@ -1610,11 +1630,11 @@ void PaintOpReader::Read(SkRegion* region) {
     SetInvalid(DeserializationError::kInsufficientRemainingBytes_Read_SkRegion);
   if (!valid_)
     return;
-  std::unique_ptr<char[]> data(new char[region_bytes]);
-  ReadData(region_bytes, data.get());
+  auto data = base::HeapArray<char>::Uninit(region_bytes);
+  ReadData(base::as_writable_byte_span(data));
   if (!valid_)
     return;
-  size_t result = region->readFromMemory(data.get(), region_bytes);
+  size_t result = region->readFromMemory(data.data(), data.size());
   if (!result)
     SetInvalid(DeserializationError::kSkRegionReadFromMemoryFailure);
 }

@@ -48,7 +48,6 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
-#include "chrome/browser/ui/views/web_apps/web_app_install_dialog_coordinator.h"
 #include "chrome/browser/ui/webui/ash/system_web_dialog_delegate.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
@@ -84,6 +83,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/widget/any_widget_observer.h"
+#include "ui/views/widget/widget.h"
 #include "url/url_constants.h"
 
 namespace ash {
@@ -652,6 +652,39 @@ IN_PROC_BROWSER_TEST_P(HelpAppIntegrationTest,
                 SandboxedWebUiAppTestBase::GetAppFrame(web_contents), kScript));
 }
 
+// Test that the Help App can open the on device app controls part section in OS
+// Settings.
+IN_PROC_BROWSER_TEST_P(HelpAppIntegrationTest,
+                       HelpAppV2ShowOnDeviceAppControls) {
+  WaitForTestSystemAppInstall();
+  content::WebContents* web_contents = LaunchApp(SystemWebAppType::HELP);
+
+  // There should be two browser windows, one regular and one for the newly
+  // opened help app.
+  EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
+
+  const GURL expected_url("chrome://os-settings/apps");
+  content::TestNavigationObserver navigation_observer(expected_url);
+  navigation_observer.StartWatchingNewWebContents();
+
+  // Script that tells the Help App to show on device app controls.
+  constexpr char kScript[] = R"(
+    (async () => {
+      await window.customLaunchData.delegate.showOnDeviceAppControls();
+    })();
+  )";
+  // Trigger the script, then wait for settings to open. Use ExecJs
+  // instead of EvalJsInAppFrame because the script needs to run in the same
+  // world as the page's code.
+  EXPECT_TRUE(content::ExecJs(
+      SandboxedWebUiAppTestBase::GetAppFrame(web_contents), kScript));
+  navigation_observer.Wait();
+
+  // Settings should be active in a new window.
+  EXPECT_EQ(3u, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(expected_url, GetActiveWebContents()->GetVisibleURL());
+}
+
 // Test that the Help App opens the OS Settings family link page.
 IN_PROC_BROWSER_TEST_P(HelpAppIntegrationTest, HelpAppV2ShowParentalControls) {
   WaitForTestSystemAppInstall();
@@ -791,13 +824,9 @@ IN_PROC_BROWSER_TEST_P(HelpAppIntegrationTest,
   // The active tab should be the `test_url` we opened.
   EXPECT_EQ(test_url, GetActiveWebContents()->GetVisibleURL());
 
-  // Wait for the PWA install dialog to show up. Internally, this is called the
-  // PWAConfirmationBubbleView (Not to be confused with the omnibox icon).
-  waiter.WaitIfNeededAndGet();
-
-  EXPECT_TRUE(
-      web_app::WebAppInstallDialogCoordinator::GetOrCreateForBrowser(browser())
-          ->IsShowing());
+  // Wait for the PWA install dialog to show up.
+  views::Widget* widget = waiter.WaitIfNeededAndGet();
+  ASSERT_NE(widget, nullptr);
 }
 
 // Test that the Help App's `openUrlInBrowserAndTriggerInstallDialog` crashes

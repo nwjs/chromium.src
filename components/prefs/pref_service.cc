@@ -21,6 +21,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram.h"
 #include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
@@ -39,10 +40,33 @@
 #include "components/prefs/android/pref_service_android.h"
 #endif
 
-namespace {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+namespace pref_service_util {
+void GetAllDottedPaths(std::string_view prefix,
+                       const base::Value::Dict& dict,
+                       std::vector<std::string>& paths) {
+  for (const auto pair : dict) {
+    std::string path;
+    if (prefix.empty()) {
+      path = pair.first;
+    } else {
+      path = base::StrCat({prefix, ".", pair.first});
+    }
 
+    if (pair.second.is_dict()) {
+      GetAllDottedPaths(path, pair.second.GetDict(), paths);
+    } else {
+      paths.push_back(path);
+    }
+  }
+}
 
-}  // namespace
+void GetAllDottedPaths(const base::Value::Dict& dict,
+                       std::vector<std::string>& paths) {
+  GetAllDottedPaths("", dict, paths);
+}
+}  // namespace pref_service_util
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 PrefService::PersistentPrefStoreLoadingObserver::
     PersistentPrefStoreLoadingObserver(PrefService* pref_service)
@@ -340,7 +364,7 @@ const base::Value* PrefService::GetUserPrefValue(
 
   const Preference* pref = FindPreference(path);
   if (!pref) {
-    NOTREACHED() << "Trying to get an unregistered pref: " << path;
+    NOTREACHED_IN_MIGRATION() << "Trying to get an unregistered pref: " << path;
     return nullptr;
   }
 
@@ -351,7 +375,7 @@ const base::Value* PrefService::GetUserPrefValue(
     return nullptr;
 
   if (value->type() != pref->GetType()) {
-    DUMP_WILL_BE_NOTREACHED_NORETURN()
+    DUMP_WILL_BE_NOTREACHED()
         << "Pref value type doesn't match registered type.";
     return nullptr;
   }
@@ -397,7 +421,8 @@ void PrefService::ClearPref(const std::string& path) {
 
   const Preference* pref = FindPreference(path);
   if (!pref) {
-    NOTREACHED() << "Trying to clear an unregistered pref: " << path;
+    NOTREACHED_IN_MIGRATION()
+        << "Trying to clear an unregistered pref: " << path;
     return;
   }
   user_pref_store_->RemoveValue(path, GetWriteFlags(pref));
@@ -516,12 +541,11 @@ base::Value* PrefService::GetMutableUserPref(const std::string& path,
 
   const Preference* pref = FindPreference(path);
   if (!pref) {
-    DUMP_WILL_BE_NOTREACHED_NORETURN()
-        << "Trying to get an unregistered pref: " << path;
+    DUMP_WILL_BE_NOTREACHED() << "Trying to get an unregistered pref: " << path;
     return nullptr;
   }
   if (pref->GetType() != type) {
-    NOTREACHED() << "Wrong type for GetMutableValue: " << path;
+    NOTREACHED_IN_MIGRATION() << "Wrong type for GetMutableValue: " << path;
     return nullptr;
   }
 
@@ -562,13 +586,14 @@ void PrefService::SetUserPrefValue(const std::string& path,
 
   const Preference* pref = FindPreference(path);
   if (!pref) {
-    DUMP_WILL_BE_NOTREACHED_NORETURN()
+    DUMP_WILL_BE_NOTREACHED()
         << "Trying to write an unregistered pref: " << path;
     return;
   }
   if (pref->GetType() != new_value.type()) {
-    NOTREACHED() << "Trying to set pref " << path << " of type "
-                 << pref->GetType() << " to value of type " << new_value.type();
+    NOTREACHED_IN_MIGRATION()
+        << "Trying to set pref " << path << " of type " << pref->GetType()
+        << " to value of type " << new_value.type();
     return;
   }
 
@@ -703,6 +728,22 @@ void PrefService::RemoveStandaloneBrowserPref(const std::string& path) {
   }
   standalone_browser_pref_store_->RemoveValue(
       path, WriteablePrefStore::DEFAULT_PREF_WRITE_FLAGS);
+}
+
+void PrefService::RemoveAllStandaloneBrowserPrefs() {
+  if (!standalone_browser_pref_store_) {
+    LOG(WARNING) << "standalone_browser_pref_store_ is null";
+    return;
+  }
+
+  std::vector<std::string> paths;
+  pref_service_util::GetAllDottedPaths(
+      standalone_browser_pref_store_->GetValues(), paths);
+
+  for (const std::string& path : paths) {
+    standalone_browser_pref_store_->RemoveValue(
+        path, WriteablePrefStore::DEFAULT_PREF_WRITE_FLAGS);
+  }
 }
 #endif
 

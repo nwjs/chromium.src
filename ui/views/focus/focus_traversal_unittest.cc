@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if defined(UNSAFE_BUFFERS_BUILD)
+// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
+// then remove this pragma.
+#pragma allow_unsafe_buffers
+#endif
+
 #include <stddef.h>
 
 #include "base/check.h"
@@ -166,8 +172,8 @@ class BorderView : public NativeViewHost {
     if (details.child == this && details.is_add) {
       if (!widget_) {
         widget_ = std::make_unique<Widget>();
-        Widget::InitParams params(Widget::InitParams::TYPE_CONTROL);
-        params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+        Widget::InitParams params(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                                  Widget::InitParams::TYPE_CONTROL);
         params.parent = details.parent->GetWidget()->GetNativeView();
         widget_->Init(std::move(params));
         widget_->SetFocusTraversableParentView(this);

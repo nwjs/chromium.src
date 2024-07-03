@@ -10,6 +10,7 @@
 
 #include "base/containers/circular_deque.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -262,7 +263,9 @@ class GPU_EXPORT SchedulerDfs {
     // running. Updated in |SetScheduled| and |UpdateRunningPriority|.
     SchedulingState scheduling_state_;
 
-    const raw_ptr<SchedulerDfs> scheduler_;
+    // RAW_PTR_EXCLUSION: SchedulerDfs was added to raw_ptr unsupported type for
+    // performance reasons. See raw_ptr.h for more info.
+    RAW_PTR_EXCLUSION SchedulerDfs* const scheduler_ = nullptr;
     const SequenceId sequence_id_;
     scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
 
@@ -280,7 +283,7 @@ class GPU_EXPORT SchedulerDfs {
     // increasing order number but may be removed out of order. Tasks are
     // blocked if there's a wait fence with order number less than or equal to
     // the task's order number.
-    base::flat_map<WaitFence, SchedulingPriority> wait_fences_;
+    base::flat_set<WaitFence> wait_fences_;
   };
 
   Sequence* GetSequence(SequenceId sequence_id);
@@ -371,4 +374,4 @@ class GPU_EXPORT SchedulerDfs {
 
 }  // namespace gpu
 
-#endif  // GPU_COMMAND_BUFFER_SERVICE_SCHEDULER_H_
+#endif  // GPU_COMMAND_BUFFER_SERVICE_SCHEDULER_DFS_H_

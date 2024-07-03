@@ -85,6 +85,14 @@ BASE_FEATURE(kDelegatedCompositingLimitToUi,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+// If enabled, the overlay processor will force the use of dcomp surfaces as the
+// render pass backing while delegated ink is being employed. This will avoid
+// the need for finding what surface to synchronize ink updates with by making
+// all surfaces synchronize with dcomp commit
+BASE_FEATURE(kUseDCompSurfacesForDelegatedInk,
+             "UseDCompSurfacesForDelegatedInk",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kRenderPassDrawnRect,
              "RenderPassDrawnRect",
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -197,7 +205,7 @@ BASE_FEATURE(kDynamicSchedulerForClients,
 //   feature parameters.
 BASE_FEATURE(kCALayerNewLimit,
              "CALayerNewLimit",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 // Set FeatureParam default to -1. CALayerOverlayProcessor choose the default in
 // ca_layer_overlay.cc When it's < 0.
 const base::FeatureParam<int> kCALayerNewLimitDefault{&kCALayerNewLimit,
@@ -237,7 +245,11 @@ const base::FeatureParam<int> kNumPendingFrames{&kVSyncAlignedPresent,
 
 BASE_FEATURE(kAllowUndamagedNonrootRenderPassToSkip,
              "AllowUndamagedNonrootRenderPassToSkip",
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS_LACROS)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // Allow SurfaceAggregator to merge render passes when they contain quads that
 // require overlay (e.g. protected video). See usage in |EmitSurfaceContent|.
@@ -258,11 +270,7 @@ BASE_FEATURE(kBufferQueueImageSetPurgeable,
 // SkiaOutputDeviceBufferQueue itself.
 BASE_FEATURE(kRendererAllocatesImages,
              "RendererAllocatesImages",
-#if BUILDFLAG(IS_MAC)
              base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
 );
 #endif
 
@@ -386,6 +394,22 @@ BASE_FEATURE(kSnapshotEvictedRootSurface,
 #endif
 );
 
+// If enabled, info for quads from the last render pass will be reported as
+// UMAs.
+BASE_FEATURE(kShouldLogFrameQuadInfo,
+             "ShouldLogFrameQuadInfo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, ClientResourceProvider will allow for the batching of
+// callbacks. So that the client can perform a series of individual releases,
+// but have ClientResourceProvider coordinate the callbacks. This allows all of
+// the Main-thread callbacks to be batched into a single jump to that thread.
+//
+// When disabled each callback will perform its own separate post task.
+BASE_FEATURE(kBatchResourceRelease,
+             "BatchResourceRelease",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // The scale to use for root surface snapshots on eviction. See
 // `kSnapshotEvictedRootSurface`.
 const base::FeatureParam<double> kSnapshotEvictedRootSurfaceScale{
@@ -395,12 +419,7 @@ const base::FeatureParam<double> kSnapshotEvictedRootSurfaceScale{
 // inserting a separate color conversion pass during surface aggregation.
 BASE_FEATURE(kColorConversionInRenderer,
              "ColorConversionInRenderer",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Use BlitRequests for copy requests made by ViewTransition.
-BASE_FEATURE(kBlitRequestsForViewTransition,
-             "BlitRequestsForViewTransition",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Changes BeginFrame issue to use LastUsedBeginFrameArgs() instead of the
 // current set of BeginFrameArgs.
@@ -408,6 +427,11 @@ BASE_FEATURE(kBlitRequestsForViewTransition,
 BASE_FEATURE(kUseLastBeginFrameArgs,
              "UseLastBeginFrameArgs",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Use BlitRequests for copy requests made by ViewTransition.
+BASE_FEATURE(kBlitRequestsForViewTransition,
+             "BlitRequestsForViewTransition",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsDelegatedCompositingEnabled() {
   return base::FeatureList::IsEnabled(kDelegatedCompositing);
@@ -453,7 +477,7 @@ std::optional<int> ShouldDrawPredictedInkPoints() {
   else if (predicted_points == kDraw2Points3Ms)
     return viz::PredictionConfig::k2Points3Ms;
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return std::nullopt;
 }
 
@@ -555,6 +579,10 @@ std::optional<double> SnapshotEvictedRootSurfaceScale() {
     return std::nullopt;
   }
   return kSnapshotEvictedRootSurfaceScale.Get();
+}
+
+bool ShouldLogFrameQuadInfo() {
+  return base::FeatureList::IsEnabled(features::kShouldLogFrameQuadInfo);
 }
 
 #if BUILDFLAG(IS_MAC)

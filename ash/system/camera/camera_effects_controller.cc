@@ -114,7 +114,7 @@ CameraHalBackgroundBlurState MapBackgroundBlurPrefValueToCameraHalState(
       return std::make_pair(cros::mojom::BlurLevel::kMaximum, true);
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return std::make_pair(cros::mojom::BlurLevel::kLowest, false);
 }
 
@@ -141,7 +141,7 @@ MapBackgroundBlurCameraHalStateToPrefValue(cros::mojom::BlurLevel level,
       return CameraEffectsController::BackgroundBlurPrefValue::kMaximum;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return CameraEffectsController::BackgroundBlurPrefValue::kLowest;
 }
 
@@ -166,7 +166,7 @@ CameraEffectsController::BackgroundBlurState MapBackgroundBlurPrefValueToState(
       return CameraEffectsController::BackgroundBlurState::kImage;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return CameraEffectsController::BackgroundBlurState::kOff;
 }
 
@@ -570,7 +570,8 @@ void CameraEffectsController::OnActiveUserSessionChanged(
     const AccountId& account_id) {
   is_eligible_for_background_replace_ =
       features::IsVcBackgroundReplaceEnabled() &&
-      Shell::Get()->session_controller()->IsEligibleForSeaPen(account_id);
+      std::get<0>(
+          Shell::Get()->session_controller()->IsEligibleForSeaPen(account_id));
 
   const base::FilePath profile_path =
       Shell::Get()->session_controller()->GetProfilePath(account_id);
@@ -629,9 +630,10 @@ std::optional<int> CameraEffectsController::GetEffectState(
       return Shell::Get()->autozoom_controller()->GetState() !=
              cros::mojom::CameraAutoFramingState::OFF;
     case VcEffectId::kNoiseCancellation:
+    case VcEffectId::kStyleTransfer:
     case VcEffectId::kLiveCaption:
     case VcEffectId::kTestEffect:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return std::nullopt;
   }
 }
@@ -685,9 +687,10 @@ void CameraEffectsController::OnEffectControlActivated(
       break;
     }
     case VcEffectId::kNoiseCancellation:
+    case VcEffectId::kStyleTransfer:
     case VcEffectId::kLiveCaption:
     case VcEffectId::kTestEffect:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 

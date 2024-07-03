@@ -34,6 +34,7 @@
 #include "base/ranges/algorithm.h"
 #include "base/trace_event/trace_event.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "third_party/skia/include/core/SkRRect.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -43,7 +44,9 @@
 #include "ui/compositor/layer_type.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
+#include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/geometry/vector2d_f.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/border.h"
 
@@ -61,10 +64,31 @@ constexpr int kDeskPreviewMinHeight = 48;
 constexpr int kUseSmallerHeightDividerWidthThreshold = 600;
 
 // The rounded corner radii, also in dips.
-constexpr gfx::RoundedCornersF kCornerRadius(8);
+constexpr float kCornerRadiusInDips = 8;
+constexpr gfx::RoundedCornersF kCornerRadius(kCornerRadiusInDips);
 
 // Used for painting the highlight when the context menu is open.
 constexpr float kHighlightTransparency = 0.3f * 0xFF;
+
+// Applies rounded corner clipping to the canvas before the wallpaper is
+// painted. This is several milliseconds faster on low-end devices than giving
+// the wallpaper its own layer and applying rounded corners to the layer.
+class WallpaperRoundedCornerView : public WallpaperBaseView {
+ public:
+  WallpaperRoundedCornerView() = default;
+  WallpaperRoundedCornerView(const WallpaperRoundedCornerView&) = delete;
+  WallpaperRoundedCornerView& operator=(const WallpaperRoundedCornerView&) =
+      delete;
+  ~WallpaperRoundedCornerView() override = default;
+
+  void OnPaint(gfx::Canvas* canvas) override {
+    canvas->sk_canvas()->clipRRect(
+        SkRRect::MakeRectXY(gfx::RectToSkRect(GetContentsBounds()),
+                            kCornerRadiusInDips, kCornerRadiusInDips),
+        /*do_anti_alias=*/true);
+    WallpaperBaseView::OnPaint(canvas);
+  }
+};
 
 // Holds data about the original desk's layers to determine what we should do
 // when we attempt to mirror those layers.
@@ -337,7 +361,7 @@ DeskPreviewView::DeskPreviewView(PressedCallback callback,
                                  DeskMiniView* mini_view)
     : views::Button(std::move(callback)),
       mini_view_(mini_view),
-      wallpaper_preview_(new DeskWallpaperPreview),
+      wallpaper_preview_(new WallpaperRoundedCornerView),
       desk_mirrored_contents_view_(new views::View),
       force_desk_occlusion_tracker_visible_(
           aura::WindowOcclusionTracker::ScopedForceVisible(
@@ -353,11 +377,6 @@ DeskPreviewView::DeskPreviewView(PressedCallback callback,
   layer()->SetFillsBoundsOpaquely(false);
   layer()->SetMasksToBounds(false);
 
-  wallpaper_preview_->SetPaintToLayer();
-  auto* wallpaper_preview_layer = wallpaper_preview_->layer();
-  wallpaper_preview_layer->SetFillsBoundsOpaquely(false);
-  wallpaper_preview_layer->SetRoundedCornerRadius(kCornerRadius);
-  wallpaper_preview_layer->SetIsFastRoundedCorner(true);
   AddChildView(wallpaper_preview_.get());
 
   desk_mirrored_contents_view_->SetPaintToLayer(ui::LAYER_NOT_DRAWN);
@@ -379,6 +398,12 @@ DeskPreviewView::DeskPreviewView(PressedCallback callback,
   RecreateDeskContentsMirrorLayers();
 
   UpdateAccessibleName();
+
+  AddAccelerator(ui::Accelerator(ui::VKEY_LEFT, ui::EF_CONTROL_DOWN));
+  AddAccelerator(ui::Accelerator(ui::VKEY_RIGHT, ui::EF_CONTROL_DOWN));
+  AddAccelerator(ui::Accelerator(ui::VKEY_W, ui::EF_CONTROL_DOWN));
+  AddAccelerator(
+      ui::Accelerator(ui::VKEY_W, ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN));
 }
 
 DeskPreviewView::~DeskPreviewView() = default;
@@ -493,7 +518,7 @@ void DeskPreviewView::Swap(bool right) {
 
 void DeskPreviewView::UpdateAccessibleName() {
   if (Desk* desk = mini_view_->desk()) {
-    SetAccessibleName(l10n_util::GetStringFUTF16(
+    GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
         desk->is_active() ? IDS_ASH_DESKS_DESK_PREVIEW_ACTIVE
                           : IDS_ASH_DESKS_DESK_PREVIEW_INACTIVE,
         desk->name()));
@@ -504,7 +529,7 @@ void DeskPreviewView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   views::Button::GetAccessibleNodeData(node_data);
 
   // Avoid failing accessibility checks if we don't have a name.
-  if (GetAccessibleName().empty()) {
+  if (GetViewAccessibility().GetCachedName().empty()) {
     node_data->SetNameExplicitlyEmpty();
   }
 
@@ -615,6 +640,28 @@ void DeskPreviewView::AboutToRequestFocusFromTabTraversal(bool reverse) {
   if (reverse) {
     mini_view_->OnPreviewOrProfileAboutToBeFocusedByReverseTab();
   }
+}
+
+bool DeskPreviewView::AcceleratorPressed(const ui::Accelerator& accelerator) {
+  if (!accelerator.IsCtrlDown()) {
+    return views::Button::AcceleratorPressed(accelerator);
+  }
+
+  if (accelerator.key_code() == ui::VKEY_LEFT ||
+      accelerator.key_code() == ui::VKEY_RIGHT) {
+    Swap(/*right=*/accelerator.key_code() == ui::VKEY_RIGHT);
+    return true;
+  }
+
+  if (accelerator.key_code() == ui::VKEY_W) {
+    Close(/*primary_action=*/!accelerator.IsShiftDown());
+    return true;
+  }
+  return views::Button::AcceleratorPressed(accelerator);
+}
+
+bool DeskPreviewView::CanHandleAccelerators() const {
+  return HasFocus() && views::Button::CanHandleAccelerators();
 }
 
 views::View* DeskPreviewView::GetView() {

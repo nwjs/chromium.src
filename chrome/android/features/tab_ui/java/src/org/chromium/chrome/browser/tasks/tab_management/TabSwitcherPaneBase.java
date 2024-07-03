@@ -35,6 +35,7 @@ import org.chromium.chrome.browser.hub.DisplayButtonData;
 import org.chromium.chrome.browser.hub.FadeHubLayoutAnimationFactory;
 import org.chromium.chrome.browser.hub.FullButtonData;
 import org.chromium.chrome.browser.hub.HubContainerView;
+import org.chromium.chrome.browser.hub.HubLayoutAnimationListener;
 import org.chromium.chrome.browser.hub.HubLayoutAnimatorProvider;
 import org.chromium.chrome.browser.hub.HubLayoutConstants;
 import org.chromium.chrome.browser.hub.LoadHint;
@@ -45,7 +46,6 @@ import org.chromium.chrome.browser.hub.ShrinkExpandHubLayoutAnimationFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
-import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.styles.ChromeColors;
@@ -105,6 +105,18 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     private final TabSwitcherPaneCoordinatorFactory mFactory;
     private final boolean mIsIncognito;
     private final DoubleConsumer mOnToolbarAlphaChange;
+    private final HubLayoutAnimationListener mAnimationListener =
+            new HubLayoutAnimationListener() {
+                @Override
+                public void beforeStart() {
+                    mIsAnimatingSupplier.set(true);
+                }
+
+                @Override
+                public void afterEnd() {
+                    mIsAnimatingSupplier.set(false);
+                }
+            };
 
     private boolean mNativeInitialized;
     private @Nullable PaneHubController mPaneHubController;
@@ -180,7 +192,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
         if (loadHint == LoadHint.WARM) {
             if (mTabSwitcherPaneCoordinatorSupplier.hasValue()) {
                 mHandler.postDelayed(mSoftCleanupRunnable, SOFT_CLEANUP_DELAY_MS);
-            } else {
+            } else if (shouldEagerlyCreateCoordinator()) {
                 createTabSwitcherPaneCoordinator();
             }
         }
@@ -202,6 +214,11 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     @Override
     public @NonNull ObservableSupplier<DisplayButtonData> getReferenceButtonDataSupplier() {
         return mReferenceButtonDataSupplier;
+    }
+
+    @Override
+    public @Nullable HubLayoutAnimationListener getHubLayoutAnimationListener() {
+        return mAnimationListener;
     }
 
     @Override
@@ -322,7 +339,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     }
 
     @Override
-    public boolean resetWithTabs(@Nullable List<PseudoTab> tabs, boolean quickMode) {
+    public boolean resetWithTabs(@Nullable List<Tab> tabs, boolean quickMode) {
         assert false : "Not reached.";
         return true;
     }
@@ -414,6 +431,12 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     /** Returns the current selected tab ID. */
     protected abstract int getCurrentTabId();
 
+    /** Returns whether to eagerly create the coordinator in the {@link LoadHint.WARM} state. */
+    protected abstract boolean shouldEagerlyCreateCoordinator();
+
+    /** A runnable that will be invoked when delegate UI creates a tab group. */
+    protected abstract Runnable getOnTabGroupCreationRunnable();
+
     /** Requests accessibility focus on the currently selected tab in the tab switcher. */
     protected void requestAccessibilityFocusOnCurrentTab() {
         TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
@@ -432,6 +455,15 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
      */
     protected ObservableSupplier<Boolean> getIsVisibleSupplier() {
         return mIsVisibleSupplier;
+    }
+
+    /**
+     * Holds whether there's an ongoing animation with this Pane and outside the hub. Care must be
+     * taken when reading this supplier as animations do not start synchronously with focus changes,
+     * and a Pane may be shown before the enter animation actually starts.
+     */
+    protected @NonNull ObservableSupplier<Boolean> getIsAnimatingSupplier() {
+        return mIsAnimatingSupplier;
     }
 
     /** Returns whether the pane is focused. */
@@ -464,7 +496,8 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         this::onTabClick,
-                        mIsIncognito);
+                        mIsIncognito,
+                        getOnTabGroupCreationRunnable());
         mTabSwitcherPaneCoordinatorSupplier.set(coordinator);
         mTabSwitcherCustomViewManager.setDelegate(
                 coordinator.getTabSwitcherCustomViewManagerDelegate());

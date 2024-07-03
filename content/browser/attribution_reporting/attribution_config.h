@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#include <limits>
+
 #include "base/time/time.h"
 #include "components/attribution_reporting/constants.h"
 #include "content/common/content_export.h"
@@ -78,7 +80,8 @@ struct CONTENT_EXPORT AttributionConfig {
 
     // Controls the max number of report states allowed for a given source
     // registration.
-    absl::uint128 max_trigger_state_cardinality = absl::Uint128Max();
+    absl::uint128 max_trigger_state_cardinality =
+        std::numeric_limits<uint32_t>::max();
 
     friend bool operator==(const EventLevelLimit&,
                            const EventLevelLimit&) = default;
@@ -130,6 +133,24 @@ struct CONTENT_EXPORT AttributionConfig {
     // should also be updated.
   };
 
+  struct CONTENT_EXPORT AggregatableDebugRateLimit {
+    // Returns true if this config is valid.
+    [[nodiscard]] bool Validate() const;
+
+    int max_budget_per_context_site = 1048576;
+    int max_budget_per_context_reporting_site = 65536;
+
+    static constexpr base::TimeDelta kRateLimitWindow = base::Days(1);
+
+    int max_reports_per_source = 5;
+
+    friend bool operator==(const AggregatableDebugRateLimit&,
+                           const AggregatableDebugRateLimit&) = default;
+
+    // When adding new members, the corresponding `Validate()` definition
+    // should also be updated.
+  };
+
   AttributionConfig();
 
   AttributionConfig(const AttributionConfig&);
@@ -154,6 +175,7 @@ struct CONTENT_EXPORT AttributionConfig {
   EventLevelLimit event_level_limit;
   AggregateLimit aggregate_limit;
   DestinationRateLimit destination_rate_limit;
+  AggregatableDebugRateLimit aggregatable_debug_rate_limit;
 
   friend bool operator==(const AttributionConfig&,
                          const AttributionConfig&) = default;

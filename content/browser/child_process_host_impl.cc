@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/browser/child_process_host_impl.h"
 
 #include <limits>
@@ -104,7 +109,7 @@ base::FilePath ChildProcessHost::GetChildPath(int flags) {
       child_base_name +=
           GetContentClient()->browser()->GetChildProcessSuffix(flags);
     } else {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
     }
 
     child_path = child_path.Append(child_base_name + ".app")

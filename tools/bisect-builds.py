@@ -1049,9 +1049,9 @@ def FetchRevision(context, rev, filename, quit_event=None, progress_event=None):
                     displayed.
   """
   def ReportHook(blocknum, blocksize, totalsize):
-    if quit_event and quit_event.isSet():
+    if quit_event and quit_event.is_set():
       raise RuntimeError('Aborting download of revision %s' % str(rev))
-    if progress_event and progress_event.isSet():
+    if progress_event and progress_event.is_set():
       size = blocknum * blocksize
       if totalsize == -1:  # Total size not known.
         progress = 'Received %d bytes' % size
@@ -1068,7 +1068,7 @@ def FetchRevision(context, rev, filename, quit_event=None, progress_event=None):
       gsutil_download(download_url, filename)
     else:
       urllib.request.urlretrieve(download_url, filename, ReportHook)
-      if progress_event and progress_event.isSet():
+      if progress_event and progress_event.is_set():
         print()
   except RuntimeError:
     pass
@@ -1467,6 +1467,8 @@ def Bisect(context,
       min_str, max_str = 'bad', 'good'
     else:
       min_str, max_str = 'good', 'bad'
+    print('You have about %d more steps left.' %
+          ((maxrev - minrev).bit_length() - 1))
     print('Bisecting range [%s (%s), %s (%s)].' %
           (revlist[minrev], min_str, revlist[maxrev], max_str))
 

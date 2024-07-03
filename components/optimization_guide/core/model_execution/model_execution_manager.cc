@@ -117,6 +117,7 @@ GetRequiredModelAdaptationLoaders(
     OptimizationGuideModelProvider* model_provider,
     base::WeakPtr<OnDeviceModelComponentStateManager>
         on_device_component_state_manager,
+    PrefService* local_state,
     base::WeakPtr<OnDeviceModelServiceController>
         on_device_model_service_controller) {
   std::map<ModelBasedCapabilityKey, OnDeviceModelAdaptationLoader> loaders;
@@ -130,6 +131,7 @@ GetRequiredModelAdaptationLoaders(
         std::piecewise_construct, std::forward_as_tuple(feature),
         std::forward_as_tuple(
             feature, model_provider, on_device_component_state_manager,
+            local_state,
             base::BindRepeating(
                 &OnDeviceModelServiceController::MaybeUpdateModelAdaptation,
                 on_device_model_service_controller, feature)));
@@ -165,6 +167,7 @@ ModelExecutionManager::ModelExecutionManager(
       model_adaptation_loaders_(GetRequiredModelAdaptationLoaders(
           model_provider,
           on_device_component_state_manager,
+          local_state,
           on_device_model_service_controller
               ? on_device_model_service_controller->GetWeakPtr()
               : nullptr)),
@@ -178,7 +181,8 @@ ModelExecutionManager::ModelExecutionManager(
     return;
   }
   if (GetGenAILocalFoundationalModelEnterprisePolicySettings(local_state) !=
-      prefs::GenAILocalFoundationalModelEnterprisePolicySettings::kAllowed) {
+      model_execution::prefs::
+          GenAILocalFoundationalModelEnterprisePolicySettings::kAllowed) {
     return;
   }
 
@@ -399,9 +403,9 @@ void ModelExecutionManager::OnModelExecuteResponse(
             execute_response->response_metadata());
         message += "Response: [";
         int group_cnt = 0;
-        for (const auto& tab_organization : tab_response->tab_organizations()) {
+        for (const auto& tab_group : tab_response->tab_groups()) {
           std::string tab_titles = "";
-          for (const auto& tab : tab_organization.tabs()) {
+          for (const auto& tab : tab_group.tabs()) {
             tab_titles +=
                 base::StringPrintf("%s\" %s \"", tab_titles.empty() ? "" : ",",
                                    tab.title().c_str());
@@ -410,7 +414,7 @@ void ModelExecutionManager::OnModelExecuteResponse(
               "%s{"
               "\"label\": \"%s\", "
               "\"tabs\": [%s] }",
-              group_cnt > 0 ? "," : "", tab_organization.label().c_str(),
+              group_cnt > 0 ? "," : "", tab_group.label().c_str(),
               tab_titles.c_str());
           group_cnt += 1;
         }

@@ -542,6 +542,26 @@ TEST_F(SiteInstanceTest, SiteInstanceDestructor) {
   // contents is now deleted, along with instance and browsing_instance
 }
 
+// Tests that, when using SiteInfo::CreateForTesting with an IsolationContext
+// that has no BrowsingInstance, that origins are still correctly given a
+// default origin-keyed process when OriginKeyedProcessByDefault is enabled.
+TEST_F(SiteInstanceTest,
+       OriginKeyedProcessesByDefault_SiteInfo_CreateForTesting) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /* enable */ {features::kOriginKeyedProcessesByDefault},
+      /* disable */ {});
+  EXPECT_TRUE(
+      base::FeatureList::IsEnabled(features::kOriginKeyedProcessesByDefault));
+
+  TestBrowserContext browser_context;
+  GURL url("https://www.foo.com/");
+  SiteInfo site_info =
+      SiteInfo::CreateForTesting(IsolationContext(&browser_context), url);
+  EXPECT_TRUE(site_info.requires_origin_keyed_process());
+  EXPECT_EQ(url, site_info.process_lock_url());
+}
+
 // Verifies some basic properties of default SiteInstances.
 TEST_F(SiteInstanceTest, DefaultSiteInstanceProperties) {
   TestBrowserContext browser_context;
@@ -645,6 +665,9 @@ TEST_F(SiteInstanceTest, SetSite) {
 TEST_F(SiteInstanceTest, GetSiteForURL) {
   TestBrowserContext context;
 
+  bool origin_keyed_processes_by_default =
+      base::FeatureList::IsEnabled(features::kOriginKeyedProcessesByDefault);
+
   // Pages are irrelevant.
   GURL test_url = GURL("http://www.google.com/index.html");
   GURL site_url = GetSiteForURL(test_url);
@@ -655,7 +678,12 @@ TEST_F(SiteInstanceTest, GetSiteForURL) {
   // Ports are irrelevant.
   test_url = GURL("https://www.google.com:8080");
   site_url = GetSiteForURL(test_url);
-  EXPECT_EQ(GURL("https://google.com"), site_url);
+  if (origin_keyed_processes_by_default) {
+    // Ports *are* included when isolating by origin.
+    EXPECT_EQ(test_url, site_url);
+  } else {
+    EXPECT_EQ(GURL("https://google.com"), site_url);
+  }
 
   // Punycode is canonicalized.
   test_url = GURL("http://☃snowperson☃.net:333/");
@@ -680,7 +708,11 @@ TEST_F(SiteInstanceTest, GetSiteForURL) {
 
   test_url = GURL("http://[::1]:2/page.html");
   site_url = GetSiteForURL(test_url);
-  EXPECT_EQ(GURL("http://[::1]"), site_url);
+  if (origin_keyed_processes_by_default) {
+    EXPECT_EQ(GURL("http://[::1]:2"), site_url);
+  } else {
+    EXPECT_EQ(GURL("http://[::1]"), site_url);
+  }
   EXPECT_EQ("[::1]", site_url.host());
 
   // Hostnames without TLDs are okay.
@@ -736,7 +768,11 @@ TEST_F(SiteInstanceTest, GetSiteForURL) {
       "blob:https://www.ftp.chromium.org/"
       "4d4ff040-6d61-4446-86d3-13ca07ec9ab9");
   site_url = GetSiteForURL(test_url);
-  EXPECT_EQ(GURL("https://chromium.org"), site_url);
+  if (origin_keyed_processes_by_default) {
+    EXPECT_EQ(GURL("https://www.ftp.chromium.org"), site_url);
+  } else {
+    EXPECT_EQ(GURL("https://chromium.org"), site_url);
+  }
 
   // Blob URLs with file origin also extract the site from the origin.
   test_url = GURL("blob:file:///1029e5a4-2983-4b90-a585-ed217563acfeb");
@@ -805,15 +841,26 @@ TEST_F(SiteInstanceTest, ProcessLockDoesNotUseEffectiveURL) {
   // (app.com), and the process lock URL should refer to the original URL's site
   // (foo.com).
   {
+    bool origin_keyed_processes_by_default =
+        base::FeatureList::IsEnabled(features::kOriginKeyedProcessesByDefault);
+
     auto site_info = SiteInfo::CreateForTesting(isolation_context, test_url);
-    EXPECT_EQ(nonapp_site_url, site_info.process_lock_url());
+    if (origin_keyed_processes_by_default) {
+      EXPECT_EQ(test_url, site_info.process_lock_url());
+    } else {
+      EXPECT_EQ(nonapp_site_url, site_info.process_lock_url());
+    }
     EXPECT_EQ(app_url, site_info.site_url());
   }
 
+  bool is_origin_keyed_processes_by_default =
+      base::FeatureList::IsEnabled(features::kOriginKeyedProcessesByDefault);
+  GURL expected_process_lock_url =
+      is_origin_keyed_processes_by_default ? test_url : nonapp_site_url;
   SiteInfo expected_site_info(
-      app_url /* site_url */, nonapp_site_url /* process_lock_url */,
-      /*requires_origin_keyed_process=*/false,
-      /*requires_origin_keyed_process_by_default=*/false,
+      app_url /* site_url */, expected_process_lock_url,
+      is_origin_keyed_processes_by_default,
+      is_origin_keyed_processes_by_default,
       /*is_sandboxed=*/false, UrlInfo::kInvalidUniqueSandboxId,
       CreateStoragePartitionConfigForTesting(),
       WebExposedIsolationInfo::CreateNonIsolated(),
@@ -1611,10 +1658,12 @@ TEST_F(SiteInstanceTest, OriginalURL) {
       SetBrowserClientForTesting(&modified_client);
   std::unique_ptr<TestBrowserContext> browser_context(new TestBrowserContext());
 
+  bool is_origin_keyed_processes_by_default =
+      base::FeatureList::IsEnabled(features::kOriginKeyedProcessesByDefault);
   SiteInfo expected_site_info(
       app_url /* site_url */, original_url /* process_lock_url */,
-      /*requires_origin_keyed_process=*/false,
-      /*requires_origin_keyed_process_by_default=*/false,
+      is_origin_keyed_processes_by_default,
+      is_origin_keyed_processes_by_default,
       /*is_sandboxed=*/false, UrlInfo::kInvalidUniqueSandboxId,
       CreateStoragePartitionConfigForTesting(),
       WebExposedIsolationInfo::CreateNonIsolated(),

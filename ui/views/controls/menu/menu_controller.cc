@@ -920,7 +920,8 @@ void MenuController::OnMouseReleased(SubmenuView* source,
       part.menu->GetDelegate()->ExecuteCommand(command, event.flags());
       return;
     }
-    if (!part.menu->NonIconChildViewsCount() &&
+    if ((!part.menu->NonIconChildViewsCount() ||
+         part.menu->GetTriggerActionWithNonIconChildViews()) &&
         part.menu->GetDelegate()->IsTriggerableEvent(part.menu, event)) {
       Accept(part.menu, event.flags());
       return;
@@ -3547,7 +3548,7 @@ void MenuController::SetChildMenuOpenDirectionAtDepth(
   } else if (index < child_menu_open_direction_.size()) {
     child_menu_open_direction_[index] = direction;
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 }
 

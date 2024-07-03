@@ -6,6 +6,7 @@
 
 #include <netinet/in.h>
 
+#include "ash/components/arc/mojom/arc_wifi.mojom.h"
 #include "ash/components/arc/mojom/net.mojom-shared.h"
 #include "ash/components/arc/mojom/net.mojom.h"
 #include "base/containers/map_util.h"
@@ -301,6 +302,17 @@ void FillConfigurationsFromState(const ash::NetworkState* network_state,
   }
 }
 
+arc::mojom::WifiScanResultPtr NetworkStateToWifiScanResult(
+    const ash::NetworkState& network_state) {
+  auto mojo = arc::mojom::WifiScanResult::New();
+  mojo->bssid = network_state.bssid();
+  mojo->hex_ssid = network_state.GetHexSsid();
+  mojo->security = TranslateWiFiSecurity(network_state.security_class());
+  mojo->frequency = network_state.frequency();
+  mojo->rssi = network_state.rssi();
+  return mojo;
+}
+
 void FillConfigurationsFromDevice(const patchpanel::NetworkDevice& device,
                                   arc::mojom::NetworkConfiguration* mojo) {
   mojo->network_interface = device.phys_ifname();
@@ -480,7 +492,7 @@ arc::mojom::ConnectionStateType TranslateConnectionState(
 
   // The remaining cases defined in shill dbus-constants are legacy values from
   // Flimflam and are not expected to be encountered.
-  NOTREACHED() << "Unknown connection state: " << state;
+  NOTREACHED_IN_MIGRATION() << "Unknown connection state: " << state;
   return arc::mojom::ConnectionStateType::NOT_CONNECTED;
 }
 
@@ -505,7 +517,7 @@ arc::mojom::NetworkType TranslateNetworkType(const std::string& type) {
     return arc::mojom::NetworkType::CELLULAR;
   }
 
-  NOTREACHED() << "Unknown network type: " << type;
+  NOTREACHED_IN_MIGRATION() << "Unknown network type: " << type;
   return arc::mojom::NetworkType::ETHERNET;
 }
 
@@ -615,6 +627,20 @@ std::vector<arc::mojom::NetworkConfigurationPtr> TranslateNetworkStates(
   return networks;
 }
 
+std::vector<arc::mojom::WifiScanResultPtr> TranslateScanResults(
+    const ash::NetworkStateHandler::NetworkStateList& network_states) {
+  std::vector<arc::mojom::WifiScanResultPtr> results;
+  for (const ash::NetworkState* const state : network_states) {
+    if (state->GetNetworkTechnologyType() !=
+        ash::NetworkState::NetworkTechnologyType::kWiFi) {
+      continue;
+    }
+
+    results.push_back(NetworkStateToWifiScanResult(*state));
+  }
+  return results;
+}
+
 base::Value::List TranslateSubjectNameMatchListToValue(
     const std::vector<std::string>& string_list) {
   base::Value::List result;
@@ -673,5 +699,45 @@ TranslateSocketConnectionEvent(const mojom::SocketConnectionEventPtr& mojom) {
   }
 
   return msg;
+}
+
+bool AreConfigurationsEquivalent(
+    std::vector<arc::mojom::NetworkConfigurationPtr>& latest_networks,
+    std::vector<arc::mojom::NetworkConfigurationPtr>& cached_networks) {
+  if (cached_networks.size() != latest_networks.size()) {
+    return false;
+  }
+
+  const auto arc_iface_compare =
+      [](const arc::mojom::NetworkConfigurationPtr& a,
+         const arc::mojom::NetworkConfigurationPtr& b) -> bool {
+    return a->arc_network_interface > b->arc_network_interface;
+  };
+  std::sort(cached_networks.begin(), cached_networks.end(), arc_iface_compare);
+  std::sort(latest_networks.begin(), latest_networks.end(), arc_iface_compare);
+
+  for (size_t i = 0; i < latest_networks.size(); ++i) {
+    const arc::mojom::NetworkConfigurationPtr& latest = latest_networks.at(i);
+    const arc::mojom::NetworkConfigurationPtr& cached = cached_networks.at(i);
+
+    if (latest->arc_network_interface != cached->arc_network_interface ||
+        latest->guid != cached->guid ||
+        latest->connection_state != cached->connection_state ||
+        latest->is_default_network != cached->is_default_network ||
+        latest->type != cached->type ||
+        latest->is_metered != cached->is_metered ||
+        latest->network_interface != cached->network_interface ||
+        latest->host_mtu != cached->host_mtu ||
+        latest->host_dns_addresses != cached->host_dns_addresses ||
+        latest->dns_proxy_addresses != cached->dns_proxy_addresses ||
+        latest->host_search_domains != cached->host_search_domains ||
+        latest->host_ipv4_address != cached->host_ipv4_address ||
+        latest->host_ipv6_global_addresses !=
+            cached->host_ipv6_global_addresses) {
+      return false;
+    }
+  }
+
+  return true;
 }
 }  // namespace arc::net_utils

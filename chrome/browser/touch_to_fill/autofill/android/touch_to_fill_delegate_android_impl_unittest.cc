@@ -4,14 +4,17 @@
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_delegate_android_impl.h"
 
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/form_structure.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_driver.h"
 #include "components/autofill/core/browser/test_browser_autofill_manager.h"
+#include "components/autofill/core/browser/ui/suggestion_type.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
@@ -45,11 +48,12 @@ class MockAutofillClient : public TestAutofillClient {
               ScanCreditCard,
               (CreditCardScanCallback callback),
               (override));
-  MOCK_METHOD(void, ShowAutofillSettings, (FillingProduct), (override));
+  MOCK_METHOD(void, ShowAutofillSettings, (SuggestionType), (override));
   MOCK_METHOD(bool,
               ShowTouchToFillCreditCard,
-              (base::WeakPtr<autofill::TouchToFillDelegate> delegate,
-               base::span<const CreditCard> cards_to_suggest),
+              ((base::WeakPtr<autofill::TouchToFillDelegate> delegate),
+               (base::span<const CreditCard> cards_to_suggest),
+               (const std::vector<bool>& card_acceptabilities)),
               (override));
   MOCK_METHOD(bool,
               ShowTouchToFillIban,
@@ -65,7 +69,8 @@ class MockAutofillClient : public TestAutofillClient {
   void ExpectDelegateWeakPtrFromShowInvalidatedOnHideForCards() {
     EXPECT_CALL(*this, ShowTouchToFillCreditCard)
         .WillOnce([this](base::WeakPtr<autofill::TouchToFillDelegate> delegate,
-                         base::span<const CreditCard> cards_to_suggest) {
+                         base::span<const CreditCard> cards_to_suggest,
+                         std::vector<bool> card_acceptabilities) {
           captured_delegate_ = delegate;
           return true;
         });
@@ -406,7 +411,9 @@ TEST_P(TouchToFillDelegateAndroidImplPaymentMethodUnitTest,
 TEST_P(TouchToFillDelegateAndroidImplPaymentMethodUnitTest,
        TryToShowTouchToFillFailsForPaymentMethodIfNoPaymentMethodsOnFile) {
   ASSERT_FALSE(touch_to_fill_delegate_->IsShowingTouchToFill());
-  autofill_client_.GetPersonalDataManager()->ClearAllLocalData();
+  autofill_client_.GetPersonalDataManager()
+      ->test_payments_data_manager()
+      .ClearAllLocalData();
 
   TryToShowTouchToFill(/*expected_success=*/false);
   histogram_tester_.ExpectUniqueSample(
@@ -429,6 +436,12 @@ TEST_P(TouchToFillDelegateAndroidImplPaymentMethodUnitTest,
 class TouchToFillDelegateAndroidImplCreditCardUnitTest
     : public TouchToFillDelegateAndroidImplUnitTest {
  public:
+  TouchToFillDelegateAndroidImplCreditCardUnitTest() {
+    scoped_feature_list_.InitWithFeatureState(
+        features::kAutofillEnableVcnGrayOutForMerchantOptOut,
+        /*enabled=*/false);
+  }
+
   static std::vector<CreditCard> GetCardsToSuggest(
       std::vector<CreditCard*> credit_cards) {
     std::vector<CreditCard> cards_to_suggest;
@@ -444,6 +457,7 @@ class TouchToFillDelegateAndroidImplCreditCardUnitTest
     TouchToFillDelegateAndroidImplUnitTest::SetUp();
     ConfigureForCreditCards(test::GetCreditCard());
   }
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_F(TouchToFillDelegateAndroidImplCreditCardUnitTest,
@@ -679,7 +693,7 @@ TEST_F(TouchToFillDelegateAndroidImplCreditCardUnitTest,
   ASSERT_FALSE(touch_to_fill_delegate_->IsShowingTouchToFill());
   EXPECT_CALL(autofill_client_,
               ShowTouchToFillCreditCard(
-                  _, ElementsAreArray(GetCardsToSuggest(credit_cards))));
+                  _, ElementsAreArray(GetCardsToSuggest(credit_cards)), _));
 
   TryToShowTouchToFill(/*expected_success=*/true);
 }
@@ -704,8 +718,37 @@ TEST_F(TouchToFillDelegateAndroidImplCreditCardUnitTest,
   ASSERT_FALSE(disused_expired_card.IsCompleteValidCard());
   ASSERT_FALSE(touch_to_fill_delegate_->IsShowingTouchToFill());
   EXPECT_CALL(autofill_client_,
-              ShowTouchToFillCreditCard(_, ElementsAre(credit_card)));
+              ShowTouchToFillCreditCard(_, ElementsAre(credit_card), _));
 
+  TryToShowTouchToFill(/*expected_success=*/true);
+}
+
+TEST_F(
+    TouchToFillDelegateAndroidImplCreditCardUnitTest,
+    TryToShowTouchToFillDoesNotShowVirtualCardSuggestionsForOptedOutMerchants) {
+  autofill_client_.GetPersonalDataManager()
+      ->test_payments_data_manager()
+      .ClearCreditCards();
+  CreditCard credit_card =
+      test::GetMaskedServerCardEnrolledIntoVirtualCardNumber();
+  autofill_client_.GetPersonalDataManager()
+      ->payments_data_manager()
+      .AddCreditCard(credit_card);
+
+  ASSERT_FALSE(touch_to_fill_delegate_->IsShowingTouchToFill());
+
+  ON_CALL(*static_cast<MockAutofillOptimizationGuide*>(
+              autofill_client_.GetAutofillOptimizationGuide()),
+          ShouldBlockFormFieldSuggestion)
+      .WillByDefault(testing::Return(true));
+
+  // Since merchant has opted out of virtual cards and gray-out feature is
+  // disabled, no virtual card suggestion is shown for virtual card number
+  // enrolled card.
+  std::vector<bool> expected_acceptability{true};
+  EXPECT_CALL(autofill_client_,
+              ShowTouchToFillCreditCard(_, ElementsAre(credit_card),
+                                        expected_acceptability));
   TryToShowTouchToFill(/*expected_success=*/true);
 }
 
@@ -727,35 +770,13 @@ TEST_F(TouchToFillDelegateAndroidImplCreditCardUnitTest,
 
   // Since the card is enrolled into the virtual cards feature, a virtual card
   // suggestion should be created and added before the real card.
-  EXPECT_CALL(
-      autofill_client_,
-      ShowTouchToFillCreditCard(
-          _, ElementsAreArray(
-                 {CreditCard::CreateVirtualCard(credit_card), credit_card})));
-
-  TryToShowTouchToFill(/*expected_success=*/true);
-}
-
-// Since merchant has opted out of virtual cards, no virtual card suggestion
-// is shown for virtual card number enrolled card.
-TEST_F(
-    TouchToFillDelegateAndroidImplCreditCardUnitTest,
-    TryToShowTouchToFillDoesNotShowVirtualCardSuggestionsForOptedOutMerchants) {
-  autofill_client_.GetPersonalDataManager()
-      ->test_payments_data_manager()
-      .ClearCreditCards();
-  CreditCard credit_card =
-      test::GetMaskedServerCardEnrolledIntoVirtualCardNumber();
-  autofill_client_.GetPersonalDataManager()
-      ->payments_data_manager()
-      .AddCreditCard(credit_card);
-  ASSERT_FALSE(touch_to_fill_delegate_->IsShowingTouchToFill());
-  ON_CALL(*static_cast<MockAutofillOptimizationGuide*>(
-              autofill_client_.GetAutofillOptimizationGuide()),
-          ShouldBlockFormFieldSuggestion)
-      .WillByDefault(testing::Return(true));
   EXPECT_CALL(autofill_client_,
-              ShowTouchToFillCreditCard(_, ElementsAre(credit_card)));
+              ShowTouchToFillCreditCard(
+                  _,
+                  ElementsAreArray({CreditCard::CreateVirtualCard(credit_card),
+                                    credit_card}),
+                  _));
+
   TryToShowTouchToFill(/*expected_success=*/true);
 }
 
@@ -794,7 +815,7 @@ TEST_F(TouchToFillDelegateAndroidImplCreditCardUnitTest,
 
   EXPECT_CALL(autofill_client_,
               ShowTouchToFillCreditCard(
-                  _, ElementsAreArray(GetCardsToSuggest(credit_cards))));
+                  _, ElementsAreArray(GetCardsToSuggest(credit_cards)), _));
 
   TryToShowTouchToFill(/*expected_success=*/true);
 
@@ -817,8 +838,9 @@ TEST_F(TouchToFillDelegateAndroidImplCreditCardUnitTest,
        ShowCreditCardSettingsIsCalled) {
   TryToShowTouchToFill(/*expected_success=*/true);
 
-  EXPECT_CALL(autofill_client_,
-              ShowAutofillSettings(testing::Eq(FillingProduct::kCreditCard)));
+  EXPECT_CALL(
+      autofill_client_,
+      ShowAutofillSettings(testing::Eq(SuggestionType::kManageCreditCard)));
   touch_to_fill_delegate_->ShowPaymentMethodSettings();
 
   ASSERT_EQ(touch_to_fill_delegate_->IsShowingTouchToFill(), true);
@@ -926,23 +948,17 @@ TEST_F(TouchToFillDelegateAndroidImplIbanUnitTest,
 // Add one valid credit card to PDM and verify that credit card is not shown in
 // IBAN form.
 TEST_F(TouchToFillDelegateAndroidImplIbanUnitTest, PassTheIbansToTheClient) {
-  autofill_client_.GetPersonalDataManager()->ClearAllLocalData();
-  autofill_client_.GetPersonalDataManager()
-      ->payments_data_manager()
-      .AddCreditCard(autofill::test::GetCreditCard());
+  TestPaymentsDataManager& paydm =
+      autofill_client_.GetPersonalDataManager()->test_payments_data_manager();
+  paydm.ClearAllLocalData();
+  paydm.AddCreditCard(autofill::test::GetCreditCard());
   Iban iban1;
   iban1.set_value(base::UTF8ToUTF16(std::string(test::kIbanValue_1)));
-  autofill_client_.GetPersonalDataManager()
-      ->test_payments_data_manager()
-      .AddAsLocalIban(std::move(iban1));
+  paydm.AddAsLocalIban(std::move(iban1));
   Iban iban2;
   iban2.set_value(base::UTF8ToUTF16(std::string(test::kIbanValue_2)));
-  autofill_client_.GetPersonalDataManager()
-      ->test_payments_data_manager()
-      .AddAsLocalIban(std::move(iban2));
-  std::vector<Iban> ibans = autofill_client_.GetPersonalDataManager()
-                                ->test_payments_data_manager()
-                                .GetOrderedIbansToSuggest();
+  paydm.AddAsLocalIban(std::move(iban2));
+  std::vector<Iban> ibans = paydm.GetOrderedIbansToSuggest();
 
   EXPECT_CALL(autofill_client_,
               ShowTouchToFillIban(_, ElementsAreArray(ibans)));
@@ -958,6 +974,26 @@ TEST_F(TouchToFillDelegateAndroidImplIbanUnitTest,
   EXPECT_CALL(autofill_client_, ShowTouchToFillIban).WillOnce(Return(true));
 
   TryToShowTouchToFill(/*expected_success=*/true);
+}
+
+TEST_F(TouchToFillDelegateAndroidImplIbanUnitTest,
+       TryToShowTouchToFillFailsIfFlagOn) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAutofillSkipAndroidBottomSheetForIban);
+  autofill_client_.GetPersonalDataManager()
+      ->test_payments_data_manager()
+      .ClearAllLocalData();
+  Iban iban;
+  iban.set_value(base::UTF8ToUTF16(std::string(test::kIbanValue_1)));
+  autofill_client_.GetPersonalDataManager()
+      ->test_payments_data_manager()
+      .AddAsLocalIban(std::move(iban));
+
+  EXPECT_CALL(autofill_client_, ShowTouchToFillIban).Times(0);
+  TryToShowTouchToFill(/*expected_success=*/false);
+
+  browser_autofill_manager_.reset();
 }
 
 TEST_F(TouchToFillDelegateAndroidImplIbanUnitTest,
@@ -977,12 +1013,82 @@ TEST_F(TouchToFillDelegateAndroidImplIbanUnitTest,
   touch_to_fill_delegate_->IbanSuggestionSelected(Iban::Guid(guid));
 }
 
-TEST_F(TouchToFillDelegateAndroidImplIbanUnitTest, IbanSelectionFillsIbanForm) {
+TEST_F(TouchToFillDelegateAndroidImplIbanUnitTest,
+       LocalIbanSelectionFillsIbanForm) {
   std::string guid = ConfigureForIbans();
   TryToShowTouchToFill(/*expected_success=*/true);
 
-  EXPECT_CALL(*(autofill_client_.GetMockIbanAccessManager()), FetchValue);
+  EXPECT_CALL(
+      *autofill_client_.GetPaymentsAutofillClient()->GetIbanAccessManager(),
+      FetchValue);
   touch_to_fill_delegate_->IbanSuggestionSelected(Iban::Guid(guid));
+}
+
+TEST_F(TouchToFillDelegateAndroidImplIbanUnitTest,
+       ServerIbanSelectionFillsIbanForm) {
+  autofill_client_.GetPersonalDataManager()
+      ->test_payments_data_manager()
+      .SetSyncingForTest(true);
+  std::string guid = ConfigureForIbans();
+  // Add a server IBAN with a different instrument_id and verify `FetchValue`
+  // is not triggered.
+  long instrument_id = 123245678L;
+  Iban server_iban = test::GetServerIban();
+  server_iban.set_identifier(Iban::InstrumentId(instrument_id));
+  autofill_client_.GetPersonalDataManager()
+      ->test_payments_data_manager()
+      .AddServerIban(server_iban);
+
+  TryToShowTouchToFill(/*expected_success=*/true);
+
+  EXPECT_CALL(
+      *autofill_client_.GetPaymentsAutofillClient()->GetIbanAccessManager(),
+      FetchValue);
+  touch_to_fill_delegate_->IbanSuggestionSelected(
+      Iban::InstrumentId(instrument_id));
+}
+
+class TouchToFillDelegateAndroidImplVcnGrayOutForMerchantOptOutUnitTest
+    : public TouchToFillDelegateAndroidImplCreditCardUnitTest {
+ public:
+  TouchToFillDelegateAndroidImplVcnGrayOutForMerchantOptOutUnitTest() {
+    scoped_feature_list_.InitWithFeatureState(
+        features::kAutofillEnableVcnGrayOutForMerchantOptOut,
+        /*enabled=*/true);
+    ON_CALL(*static_cast<MockAutofillOptimizationGuide*>(
+                autofill_client_.GetAutofillOptimizationGuide()),
+            ShouldBlockFormFieldSuggestion)
+        .WillByDefault(testing::Return(true));
+  }
+
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(TouchToFillDelegateAndroidImplVcnGrayOutForMerchantOptOutUnitTest,
+       TryToShowTouchToFillWithVirtualCardSuggestionsForOptedOutMerchants) {
+  CreditCard credit_card =
+      test::GetMaskedServerCardEnrolledIntoVirtualCardNumber();
+  credit_card.set_record_type(CreditCard::RecordType::kMaskedServerCard);
+  autofill_client_.GetPersonalDataManager()
+      ->test_payments_data_manager()
+      .ClearCreditCards();
+  autofill_client_.GetPersonalDataManager()
+      ->payments_data_manager()
+      .AddCreditCard(credit_card);
+  CreditCard virtual_card = CreditCard::CreateVirtualCard(credit_card);
+
+  ASSERT_FALSE(touch_to_fill_delegate_->IsShowingTouchToFill());
+
+  // Since VCN gray-out is enabled, the virtual card should be displayed in the
+  // bottomsheet, but the corresponding suggestion should not be acceptable.
+  std::vector<bool> expected_acceptability{false, true};
+  EXPECT_CALL(autofill_client_,
+              ShowTouchToFillCreditCard(
+                  _, ElementsAreArray({virtual_card, credit_card}),
+                  expected_acceptability));
+
+  TryToShowTouchToFill(/*expected_success=*/true);
 }
 
 }  // namespace autofill

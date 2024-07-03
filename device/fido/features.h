@@ -71,8 +71,9 @@ COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticator);
 
 // Enable use of Google Password Manager PIN.
+const char kWebAuthnGpmPinFeatureParameterName[] = "WebAuthenticationGpmPin";
 COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnGpmPin);
+extern const base::FeatureParam<bool> kWebAuthnGpmPin;
 
 // Filter a priori discovered credentials on google.com to those that have a
 // user id that starts with "GOOGLE_ACCOUNT:".
@@ -85,18 +86,9 @@ COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kChromeOsPasskeys);
 #endif
 
-// Update the minimum, maximum, and default timeout values for webauthn requests
-// to be more generous and meet https://www.w3.org/TR/WCAG21/#enough-time.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnAccessibleTimeouts);
-
 // Support cross-domain RP ID assertions.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnRelatedOrigin);
-
-// CHECK an invariant about credential sources.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnChromeImplementedInvariant);
 
 // Allow extensions to assert WebAuthn relying party identifiers for domains
 // they have host permissions for.
@@ -138,6 +130,11 @@ BASE_DECLARE_FEATURE(kWebAuthnCredProtectWin10BugWorkaround);
 // Store recovery keys on iCloud keychain for the enclave authenticator.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnICloudRecoveryKey);
+
+// Cache responses from the security domain. To be used if we're overloading the
+// security domain service.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnCacheSecurityDomain);
 
 }  // namespace device
 

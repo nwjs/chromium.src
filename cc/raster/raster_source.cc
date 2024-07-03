@@ -23,18 +23,18 @@
 
 namespace cc {
 
-RasterSource::RasterSource(const RecordingSource* other)
-    : display_list_(other->display_list_),
-      background_color_(other->background_color_),
-      requires_clear_(other->requires_clear_),
-      is_solid_color_(other->is_solid_color_),
-      solid_color_(other->solid_color_),
-      recorded_bounds_(other->recorded_bounds_),
-      size_(other->size_),
+RasterSource::RasterSource(const RecordingSource& other)
+    : display_list_(other.display_list_),
+      background_color_(other.background_color_),
+      requires_clear_(other.requires_clear_),
+      is_solid_color_(other.is_solid_color_),
+      solid_color_(other.solid_color_),
+      recorded_bounds_(other.recorded_bounds_),
+      size_(other.size_),
       slow_down_raster_scale_factor_for_debug_(
-          other->slow_down_raster_scale_factor_for_debug_),
-      recording_scale_factor_(other->recording_scale_factor_),
-      directly_composited_image_info_(other->directly_composited_image_info_) {
+          other.slow_down_raster_scale_factor_for_debug_),
+      recording_scale_factor_(other.recording_scale_factor_),
+      directly_composited_image_info_(other.directly_composited_image_info_) {
   DCHECK(recorded_bounds_.IsEmpty() ||
          gfx::Rect(size_).Contains(recorded_bounds_));
 }
@@ -116,18 +116,22 @@ void RasterSource::PlaybackToCanvas(
     raster_canvas->clear(SK_ColorTRANSPARENT);
   }
 
-  PlaybackDisplayListToCanvas(raster_canvas, settings.image_provider);
+  PlaybackDisplayListToCanvas(raster_canvas, settings);
   raster_canvas->restore();
 }
 
 void RasterSource::PlaybackDisplayListToCanvas(
     SkCanvas* raster_canvas,
-    ImageProvider* image_provider) const {
+    const PlaybackSettings& settings) const {
   // TODO(enne): Temporary CHECK debugging for http://crbug.com/823835
   CHECK(display_list_.get());
   int repeat_count = std::max(1, slow_down_raster_scale_factor_for_debug_);
-  for (int i = 0; i < repeat_count; ++i)
-    display_list_->Raster(raster_canvas, image_provider);
+  PlaybackParams params(settings.image_provider, SkM44());
+  params.raster_inducing_scroll_offsets =
+      settings.raster_inducing_scroll_offsets;
+  for (int i = 0; i < repeat_count; ++i) {
+    display_list_->Raster(raster_canvas, params);
+  }
 }
 
 bool RasterSource::PerformSolidColorAnalysis(gfx::Rect layer_rect,

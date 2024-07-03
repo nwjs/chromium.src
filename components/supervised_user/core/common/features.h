@@ -30,6 +30,10 @@ BASE_DECLARE_FEATURE(kEnableExtensionsPermissionsForSupervisedUsersOnDesktop);
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+// Returns whether a new installation state for supervised users
+// on new extension installations is offered to the Webstore.
+BASE_DECLARE_FEATURE(kExposedParentalControlNeededForExtensionInstallation);
+
 // Returns whether the new mode for extension approval management is enabled.
 // Under this mode, supervised users may request parent approval on each
 // extension installation or the parent allows and approves by default all
@@ -49,6 +53,14 @@ bool IsSupervisedUserSkipParentApprovalToInstallExtensionsEnabled();
 // Only affects Desktop platforms.
 BASE_DECLARE_FEATURE(kCustomWebSignInInterceptForSupervisedUsers);
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+// This hides the following guest mode entry points for supervised users:
+//
+// * In the Profile menu for supervised profiles
+// * In the Profile picker, if there are one or more supervised profiles
+BASE_DECLARE_FEATURE(kHideGuestModeForSupervisedUsers);
+#endif
+
 // Runs a shadow no-op safe-sites call alongside kids-api call, to compare
 // latencies.
 BASE_DECLARE_FEATURE(kShadowKidsApiWithSafeSites);
@@ -62,6 +74,12 @@ BASE_DECLARE_FEATURE(kMigrateAccountManagementSettingsToCapabilities);
 // Uses PrimaryAccountAccessTokenFetcher::Mode::kWaitUntilAvailable for
 // ClassifyUrl fetches.
 BASE_DECLARE_FEATURE(kWaitUntilAccessTokenAvailableForClassifyUrl);
+
+#if BUILDFLAG(IS_IOS)
+// Replaces usages of prefs::kSupervisedUserID with AccountInfo capabilities on
+// iOS.
+BASE_DECLARE_FEATURE(kReplaceSupervisionPrefsWithAccountCapabilitiesOnIOS);
+#endif
 
 // Returns whether local parent approvals on Family Link user's device are
 // enabled.

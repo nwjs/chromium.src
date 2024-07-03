@@ -62,6 +62,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
+#include "base/trace_event/base_tracing.h"
 #include "build/build_config.h"
 #include "components/crash/content/browser/crash_handler_host_linux.h"
 #include "components/embedder_support/origin_trials/origin_trials_settings_storage.h"
@@ -137,7 +138,6 @@ using AttributionReportingOsRegistrar =
 
 namespace android_webview {
 namespace {
-static bool g_should_create_thread_pool = true;
 #if DCHECK_IS_ON()
 // A boolean value to determine if the NetworkContext has been created yet. This
 // exists only to check correctness: g_check_cleartext_permitted may only be set
@@ -517,7 +517,8 @@ base::FilePath AwContentBrowserClient::GetDefaultDownloadDirectory() {
 }
 
 std::string AwContentBrowserClient::GetDefaultDownloadName() {
-  NOTREACHED() << "Android WebView does not use chromium downloads";
+  NOTREACHED_IN_MIGRATION()
+      << "Android WebView does not use chromium downloads";
   return std::string();
 }
 
@@ -534,7 +535,7 @@ AwContentBrowserClient::GetLocalTracesDirectory() {
 
 void AwContentBrowserClient::DidCreatePpapiPlugin(
     content::BrowserPpapiHost* browser_host) {
-  NOTREACHED() << "Android WebView does not support plugins";
+  NOTREACHED_IN_MIGRATION() << "Android WebView does not support plugins";
 }
 
 bool AwContentBrowserClient::AllowPepperSocketAPI(
@@ -542,14 +543,14 @@ bool AwContentBrowserClient::AllowPepperSocketAPI(
     const GURL& url,
     bool private_api,
     const content::SocketPermissionRequest* params) {
-  NOTREACHED() << "Android WebView does not support plugins";
+  NOTREACHED_IN_MIGRATION() << "Android WebView does not support plugins";
   return false;
 }
 
 bool AwContentBrowserClient::IsPepperVpnProviderAPIAllowed(
     content::BrowserContext* browser_context,
     const GURL& url) {
-  NOTREACHED() << "Android WebView does not support plugins";
+  NOTREACHED_IN_MIGRATION() << "Android WebView does not support plugins";
   return false;
 }
 
@@ -696,9 +697,8 @@ AwContentBrowserClient::CreateURLLoaderThrottles(
         static_cast<ui::PageTransition>(request.transition_type),
         ui::PAGE_TRANSITION_RELOAD);
     if (is_load_url || is_go_back_forward || is_reload) {
-      result.push_back(
-          std::make_unique<AwURLLoaderThrottle>(static_cast<AwBrowserContext*>(
-              browser_context)));
+      result.push_back(std::make_unique<AwURLLoaderThrottle>(
+          static_cast<AwBrowserContext*>(browser_context)));
     }
   }
 
@@ -839,14 +839,6 @@ bool AwContentBrowserClient::ShouldOverrideUrlLoading(
   return client_bridge->ShouldOverrideUrlLoading(
       url, has_user_gesture, is_redirect, is_outermost_main_frame,
       request_headers, ignore_navigation);
-}
-
-bool AwContentBrowserClient::CreateThreadPool(std::string_view name) {
-  if (g_should_create_thread_pool) {
-    base::ThreadPoolInstance::Create(name);
-    return true;
-  }
-  return false;
 }
 
 std::unique_ptr<content::LoginDelegate>
@@ -1004,9 +996,9 @@ bool AwContentBrowserClient::ShouldLockProcessToSite(
 }
 
 bool AwContentBrowserClient::ShouldEnforceNewCanCommitUrlChecks() {
-  // TODO(https://crbug.com/326250356): Diagnose and fix Android WebView crashes
-  // from these new checks and then remove this function.
-  return false;
+  // TODO(https://crbug.com/326250356): Diagnose any remaining Android WebView
+  // crashes from these new checks and then remove this function.
+  return true;
 }
 
 void AwContentBrowserClient::WillCreateURLLoaderFactory(
@@ -1025,6 +1017,8 @@ void AwContentBrowserClient::WillCreateURLLoaderFactory(
     bool* disable_secure_dns,
     network::mojom::URLLoaderFactoryOverridePtr* factory_override,
     scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
+  TRACE_EVENT0("android_webview",
+               "AwContentBrowserClient::WillCreateURLLoaderFactory");
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   mojo::PendingReceiver<network::mojom::URLLoaderFactory> proxied_receiver;
@@ -1113,9 +1107,12 @@ uint32_t AwContentBrowserClient::GetWebSocketOptions(
   content::WebContents* web_contents =
       content::WebContents::FromRenderFrameHost(frame);
   AwContents* aw_contents = AwContents::FromWebContents(web_contents);
+  AwBrowserContext* aw_context =
+      AwBrowserContext::FromWebContents(web_contents);
 
-  bool global_cookie_policy =
-      AwCookieAccessPolicy::GetInstance()->GetShouldAcceptCookies();
+  bool global_cookie_policy = aw_context->GetCookieManager()
+                                  ->cookie_access_policy()
+                                  ->GetShouldAcceptCookies();
   bool third_party_cookie_policy = aw_contents->AllowThirdPartyCookies();
   if (!global_cookie_policy) {
     options |= network::mojom::kWebSocketOptionBlockAllCookies;
@@ -1141,9 +1138,14 @@ bool AwContentBrowserClient::WillCreateRestrictedCookieManager(
       target_rcm_remote;
   *receiver = target_rcm_remote.InitWithNewPipeAndPassReceiver();
 
+  AwBrowserContext* aw_context =
+      static_cast<AwBrowserContext*>(browser_context);
+  AwCookieAccessPolicy* aw_cookie_access_policy =
+      aw_context->GetCookieManager()->cookie_access_policy();
+
   AwProxyingRestrictedCookieManager::CreateAndBind(
       std::move(target_rcm_remote), is_service_worker, process_id, routing_id,
-      std::move(orig_receiver));
+      std::move(orig_receiver), aw_cookie_access_policy);
 
   return false;  // only made a proxy, still need the actual impl to be made.
 }
@@ -1233,11 +1235,6 @@ void AwContentBrowserClient::OnDisplayInsecureContent(
   }
 }
 
-// static
-void AwContentBrowserClient::DisableCreatingThreadPool() {
-  g_should_create_thread_pool = false;
-}
-
 blink::mojom::OriginTrialsSettingsPtr
 AwContentBrowserClient::GetOriginTrialsSettings() {
   return AwBrowserProcess::GetInstance()
@@ -1267,6 +1264,8 @@ bool AwContentBrowserClient::IsAttributionReportingOperationAllowed(
     const url::Origin* destination_origin,
     const url::Origin* reporting_origin,
     bool* can_bypass) {
+  AwBrowserContext* aw_context =
+      static_cast<AwBrowserContext*>(browser_context);
   // WebView only supports OS-level attribution and not web-attribution.
   // Note: We do not check here if attribution reporting has been disabled
   // for the associated WebView as this is checked at the start of processing
@@ -1285,10 +1284,14 @@ bool AwContentBrowserClient::IsAttributionReportingOperationAllowed(
     case AttributionReportingOperation::kReport:
     case AttributionReportingOperation::kSourceTransitionalDebugReporting:
     case AttributionReportingOperation::kTriggerTransitionalDebugReporting:
+    case AttributionReportingOperation::kSourceAggregatableDebugReport:
+    case AttributionReportingOperation::kTriggerAggregatableDebugReport:
       return false;
     case AttributionReportingOperation::kOsSourceTransitionalDebugReporting:
     case AttributionReportingOperation::kOsTriggerTransitionalDebugReporting: {
-      if (!AwCookieAccessPolicy::GetInstance()->GetShouldAcceptCookies()) {
+      if (!aw_context->GetCookieManager()
+               ->cookie_access_policy()
+               ->GetShouldAcceptCookies()) {
         return false;
       }
 
@@ -1366,4 +1369,20 @@ bool AwContentBrowserClient::WillProvidePublicFirstPartySets() {
       switches::kWebViewFpsComponent);
 }
 
+bool AwContentBrowserClient::IsFullCookieAccessAllowed(
+    content::BrowserContext* browser_context,
+    content::WebContents* web_contents,
+    const GURL& url,
+    const blink::StorageKey& storage_key) {
+  if (!web_contents) {
+    // We do not allow third-party cookie access from service workers.
+    return false;
+  }
+  AwSettings* aw_settings = AwSettings::FromWebContents(web_contents);
+  if (!aw_settings) {
+    return false;
+  }
+
+  return aw_settings->GetAllowThirdPartyCookies();
+}
 }  // namespace android_webview

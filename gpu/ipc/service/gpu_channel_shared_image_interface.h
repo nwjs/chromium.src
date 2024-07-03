@@ -28,8 +28,7 @@ class GPU_IPC_SERVICE_EXPORT GpuChannelSharedImageInterface
     : public SharedImageInterface {
  public:
   explicit GpuChannelSharedImageInterface(
-      base::WeakPtr<SharedImageStub> shared_image_stub,
-      const CommandBufferId command_buffer_id);
+      base::WeakPtr<SharedImageStub> shared_image_stub);
 
   GpuChannelSharedImageInterface(const GpuChannelSharedImageInterface&) =
       delete;
@@ -99,13 +98,19 @@ class GPU_IPC_SERVICE_EXPORT GpuChannelSharedImageInterface
 
   const SharedImageCapabilities& GetCapabilities() override;
 
+  // Public functions specific to GpuChannelSharedImageInterface:
+  SequenceId sequence() { return sequence_; }
+  scoped_refptr<gpu::SyncPointClientState> sync_point_client_state() {
+    return sync_point_client_state_;
+  }
+
  protected:
   ~GpuChannelSharedImageInterface() override;
 
  private:
   SyncToken MakeSyncToken(uint64_t release_id) {
-    return SyncToken(CommandBufferNamespace::GPU_IO, command_buffer_id_,
-                     release_id);
+    return SyncToken(CommandBufferNamespace::GPU_CHANNEL_SHARED_IMAGE_INTERFACE,
+                     command_buffer_id_, release_id);
   }
 
   void ScheduleGpuTask(base::OnceClosure task,

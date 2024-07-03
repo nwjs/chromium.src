@@ -227,7 +227,8 @@ void EditableComboboxTest::InitEditableCombobox(
 void EditableComboboxTest::InitWidget() {
   widget_ = new Widget();
   Widget::InitParams params =
-      CreateParams(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.bounds = kWidgetBounds;
   widget_->Init(std::move(params));
   widget_->Show();
@@ -371,11 +372,6 @@ TEST_F(EditableComboboxTest, TabMovesToOtherViewAndClosesMenu) {
   EXPECT_TRUE(IsTextfieldFocused());
   SendKeyEvent(ui::VKEY_TAB);
   EXPECT_FALSE(IsTextfieldFocused());
-  // In Chrome Refresh the drop down arrow will behave more like a normal button
-  // and therefore will be focusable.
-  if (!features::IsChromeRefresh2023()) {
-    EXPECT_TRUE(dummy_focusable_view_->HasFocus());
-  }
   WaitForMenuClosureAnimation();
   EXPECT_FALSE(IsMenuOpen());
 }
@@ -899,14 +895,14 @@ TEST_F(EditableComboboxTest, AccessibleNameAndRole) {
   EXPECT_EQ(data.role, ax::mojom::Role::kComboBoxGrouping);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"abc");
-  EXPECT_EQ(combobox_->GetAccessibleName(), u"abc");
+  EXPECT_EQ(combobox_->GetViewAccessibility().GetCachedName(), u"abc");
 
   data = ui::AXNodeData();
   combobox_->SetAccessibleName(u"New name");
   combobox_->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"New name");
-  EXPECT_EQ(combobox_->GetAccessibleName(), u"New name");
+  EXPECT_EQ(combobox_->GetViewAccessibility().GetCachedName(), u"New name");
 }
 
 using EditableComboboxDefaultTest = ViewsTestBase;

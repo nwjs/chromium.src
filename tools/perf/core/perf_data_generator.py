@@ -220,7 +220,7 @@ FYI_BUILDERS = {
         'linux',
         'dimension': {
             'gpu': '10de',
-            'os': 'Ubuntu-22.04',
+            'os': 'Ubuntu',
             'pool': 'chrome.tests.perf-fyi',
         },
     },
@@ -658,7 +658,7 @@ BUILDERS = {
             'pool': 'chrome.tests.perf',
             'os': 'Android',
             'device_type': 'oriole',
-            'device_os': 'TP1A.220624.021',
+            'device_os': 'AP1A.240405.002',
             'device_os_flavor': 'google',
         },
     },
@@ -673,7 +673,36 @@ BUILDERS = {
             'pool': 'chrome.tests.perf-pgo',
             'os': 'Android',
             'device_type': 'oriole',
-            'device_os': 'TP1A.220624.021',
+            'device_os': 'AP1A.240405.002',
+            'device_os_flavor': 'google',
+        },
+    },
+    'android-pixel-fold-perf': {
+        'tests': [{
+            'isolate':
+            'performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle',
+        }],
+        'platform':
+        'android-trichrome-chrome-google-64-32-bundle',
+        'dimension': {
+            'pool': 'chrome.tests.perf',
+            'os': 'Android',
+            'device_type': 'felix',
+            # 'device_os': 'UQ1A.240205.002', # relax before all pixel folds are reimaged
+            'device_os_flavor': 'google',
+        },
+    },
+    'android-pixel-tangor-perf': {
+        'tests': [{
+            'isolate':
+            'performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle',
+        }],
+        'platform':
+        'android-trichrome-chrome-google-64-32-bundle',
+        'dimension': {
+            'pool': 'chrome.tests.perf',
+            'os': 'Android',
+            'device_type': 'tangorpro',
             'device_os_flavor': 'google',
         },
     },
@@ -688,7 +717,7 @@ BUILDERS = {
             'pool': 'chrome.tests.perf',
             'os': 'Android',
             'device_type': 'raven',
-            'device_os': 'TP1A.220624.021',
+            'device_os': 'AP1A.240405.002',
             'device_os_flavor': 'google',
         },
     },
@@ -703,7 +732,7 @@ BUILDERS = {
             'pool': 'chrome.tests.perf',
             'os': 'Android',
             'device_type': 'raven',
-            'device_os': 'TP1A.220624.021',
+            'device_os': 'AP1A.240405.002',
             'device_os_flavor': 'google',
         },
     },
@@ -1044,6 +1073,24 @@ BUILDERS = {
             'pool': 'chrome.tests.perf-pgo',
         },
     },
+    'mac-m1_mini_2020-no-brp-perf': {
+        'tests': [
+            {
+                'isolate': 'performance_test_suite',
+                'extra_args': [
+                    '--assert-gpu-compositing',
+                ],
+            },
+        ],
+        'platform':
+        'mac',
+        'dimension': {
+            'cpu': 'arm',
+            'mac_model': 'Macmini9,1',
+            'os': 'Mac',
+            'pool': 'chrome.tests.perf',
+        },
+    },
     'mac-m1-pro-perf': {
         'tests': [
             {
@@ -1058,7 +1105,7 @@ BUILDERS = {
         'dimension': {
             'cpu': 'arm',
             'mac_model': 'MacBookPro18,3',
-            'os': 'Mac-13',
+            'os': 'Mac',
             'pool': 'chrome.tests.perf',
         },
     },
@@ -1489,22 +1536,17 @@ GTEST_BENCHMARKS = {
     'tracing_perftests':
     BenchmarkMetadata(
         'eseckler@chromium.org, khokhlov@chromium.org, kraskevich@chromium.org',
-        'Speed>Tracing'
-    ),
+        'Speed>Tracing'),
     'load_library_perf_tests':
     BenchmarkMetadata('xhwang@chromium.org, jrummell@chromium.org',
                       'Internals>Media>Encrypted'),
-    'performance_browser_tests':
-    BenchmarkMetadata('jophba@chromium.org',
-                      'Internals>Media>ScreenCapture'),
     'views_perftests':
     BenchmarkMetadata('tapted@chromium.org', 'Internals>Views'),
     'components_perftests':
     BenchmarkMetadata('csharrison@chromium.org'),
     'dawn_perf_tests':
     BenchmarkMetadata(
-        'enga@chromium.org',
-        'Dawn',
+        'enga@chromium.org', 'Dawn',
         'https://dawn.googlesource.com/dawn/+/HEAD/src/tests/perf_tests/README.md'
     ),
 }

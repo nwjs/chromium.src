@@ -27,6 +27,7 @@
 #include "content/browser/attribution_reporting/os_registration.h"
 #include "content/browser/attribution_reporting/storable_source.h"
 #include "content/browser/attribution_reporting/store_source_result.h"
+#include "content/browser/attribution_reporting/stored_source.h"
 #include "content/public/browser/global_routing_id.h"
 #include "net/base/schemeful_site.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -46,6 +47,10 @@ using ::attribution_reporting::SuitableOrigin;
 
 constexpr attribution_reporting::Registrar kRegistrar =
     attribution_reporting::Registrar::kWeb;
+
+constexpr base::Time kSourceTime;
+
+constexpr StoredSource::Id kSourceId(1);
 
 AttributionReport DefaultEventLevelReport(
     base::Time source_time = base::Time::Now()) {
@@ -77,7 +82,7 @@ TEST(AttributionDebugReportTest, NoDebugReporting_NoReportReturned) {
       &OperationAllowed,
       StoreSourceResult(
           SourceBuilder().Build(),
-          /*is_noised=*/false,
+          /*is_noised=*/false, kSourceTime,
           StoreSourceResult::InsufficientUniqueDestinationCapacity(3))));
 
   EXPECT_FALSE(AttributionDebugReport::Create(
@@ -94,7 +99,7 @@ TEST(AttributionDebugReportTest, OperationProhibited_NoReportReturned) {
       &OperationProhibited,
       StoreSourceResult(
           SourceBuilder().SetDebugReporting(true).Build(),
-          /*is_noised=*/false,
+          /*is_noised=*/false, kSourceTime,
           StoreSourceResult::InsufficientUniqueDestinationCapacity(3))));
 
   EXPECT_FALSE(AttributionDebugReport::Create(
@@ -115,7 +120,7 @@ TEST(AttributionDebugReportTest,
               .SetDebugReporting(true)
               .SetDebugCookieSet(true)
               .Build(),
-          /*is_noised=*/false,
+          /*is_noised=*/false, kSourceTime,
           StoreSourceResult::InsufficientUniqueDestinationCapacity(3)));
   ASSERT_TRUE(report);
 
@@ -145,7 +150,7 @@ TEST(AttributionDebugReportTest, WithinFencedFrame_NoDebugReport) {
               .SetDebugReporting(true)
               .SetIsWithinFencedFrame(true)
               .Build(),
-          /*is_noised=*/false,
+          /*is_noised=*/false, kSourceTime,
           StoreSourceResult::InsufficientUniqueDestinationCapacity(3))));
 
   EXPECT_FALSE(AttributionDebugReport::Create(
@@ -168,8 +173,8 @@ TEST(AttributionDebugReportTest, SourceDebugging) {
     const char* expected_report_body = nullptr;
   } kTestCases[] = {
       {
-          .result =
-              StoreSourceResult::Success(/*min_fake_report_time=*/std::nullopt),
+          .result = StoreSourceResult::Success(
+              /*min_fake_report_time=*/std::nullopt, kSourceId),
           .debug_key = std::nullopt,
           .expected_report_body = R"json([{
             "body": {
@@ -223,7 +228,7 @@ TEST(AttributionDebugReportTest, SourceDebugging) {
       },
       {
           .result = StoreSourceResult::Success(
-              /*min_fake_report_time=*/std::nullopt),
+              /*min_fake_report_time=*/std::nullopt, kSourceId),
           .is_noised = true,
           .expected_report_body = R"json([{
             "body": {
@@ -360,7 +365,8 @@ TEST(AttributionDebugReportTest, SourceDebugging) {
                                    .SetDebugKey(test_case.debug_key)
                                    .SetDebugCookieSet(is_debug_cookie_set)
                                    .Build(),
-                               test_case.is_noised, test_case.result);
+                               test_case.is_noised, kSourceTime,
+                               test_case.result);
 
       SCOPED_TRACE(Message() << "is_debug_cookie_set: " << is_debug_cookie_set
                              << ", result: " << result.status());
@@ -394,9 +400,9 @@ TEST(AttributionDebugReportTest, SourceDebugging) {
                         net::SchemefulSite::Deserialize("https://d.test"),
                     })
                     .Build(),
-                /*is_noised=*/true,
+                /*is_noised=*/true, kSourceTime,
                 StoreSourceResult::Success(
-                    /*min_fake_report_time=*/std::nullopt)));
+                    /*min_fake_report_time=*/std::nullopt, kSourceId)));
 
     EXPECT_EQ(report->ReportBody(), base::test::ParseJson(R"json([{
          "body": {

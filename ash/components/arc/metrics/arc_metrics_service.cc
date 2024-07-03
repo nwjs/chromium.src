@@ -87,7 +87,7 @@ std::string BootTypeToString(mojom::BootType boot_type) {
     case mojom::BootType::REGULAR_BOOT:
       return ".RegularBoot";
   }
-  DUMP_WILL_BE_NOTREACHED_NORETURN();
+  DUMP_WILL_BE_NOTREACHED();
   return "";
 }
 
@@ -98,7 +98,7 @@ const char* DnsQueryToString(mojom::ArcDnsQuery query) {
     case mojom::ArcDnsQuery::ANDROID_API_HOST_NAME:
       return "AndroidApi";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "";
 }
 
@@ -127,7 +127,7 @@ const char* WaylandTimingEventToString(mojom::WaylandTimingEvent event) {
     case mojom::WaylandTimingEvent::kZcrVsyncTimingUpdate:
       return ".ZcrVsyncTimingUpdate";
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return "";
 }
 struct LoadAverageHistogram {

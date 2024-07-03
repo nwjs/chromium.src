@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/renderer/renderer_blink_platform_impl.h"
 
 #include <algorithm>
@@ -190,7 +195,7 @@ gpu::ContextType ToGpuContextType(blink::Platform::ContextType type) {
     case blink::Platform::kWebGPUContextType:
       return gpu::CONTEXT_TYPE_WEBGPU;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return gpu::CONTEXT_TYPE_OPENGLES2;
 }
 
@@ -310,6 +315,12 @@ uint64_t RendererBlinkPlatformImpl::VisitedLinkHash(
 
 bool RendererBlinkPlatformImpl::IsLinkVisited(uint64_t link_hash) {
   return GetContentClient()->renderer()->IsLinkVisited(link_hash);
+}
+
+void RendererBlinkPlatformImpl::AddOrUpdateVisitedLinkSalt(
+    const url::Origin& origin,
+    uint64_t salt) {
+  GetContentClient()->renderer()->AddOrUpdateVisitedLinkSalt(origin, salt);
 }
 
 blink::WebString RendererBlinkPlatformImpl::UserAgent() {

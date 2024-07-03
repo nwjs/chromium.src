@@ -21,6 +21,7 @@ class ImageButton;
 class Label;
 class MdTextButton;
 class StyledLabel;
+class TableLayoutView;
 }  // namespace views
 
 namespace plus_addresses {
@@ -43,7 +44,6 @@ class PlusAddressCreationDialogDelegate : public views::BubbleDialogDelegate,
   ~PlusAddressCreationDialogDelegate() override;
 
   // WidgetDelegate:
-  bool ShouldShowCloseButton() const override;
   void OnWidgetInitialized() override;
 
   // PlusAddressCreationView:
@@ -57,11 +57,16 @@ class PlusAddressCreationDialogDelegate : public views::BubbleDialogDelegate,
   void HandleButtonPress(PlusAddressViewButtonType type);
 
  private:
-  // Set the modal dialog to show error messages.
+  // Updates the modal dialog to show error messages.
   void ShowErrorStateUI();
+
+  // Updates `plus_address_label_` to indicate that a new address is loading,
+  // disables `confirm_button_` and informs the controller.
+  void OnRefreshClicked();
 
   base::WeakPtr<PlusAddressCreationController> controller_;
   raw_ptr<content::WebContents> web_contents_;
+  raw_ptr<views::TableLayoutView> plus_address_label_container_ = nullptr;
   raw_ptr<views::Label> plus_address_label_ = nullptr;
   raw_ptr<views::ImageButton> refresh_button_ = nullptr;
   raw_ptr<views::StyledLabel> error_report_label_ = nullptr;

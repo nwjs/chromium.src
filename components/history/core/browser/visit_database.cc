@@ -299,7 +299,7 @@ bool VisitDatabase::FillVisitVector(sql::Statement& statement,
 bool VisitDatabase::FillVisitVectorWithOptions(sql::Statement& statement,
                                                const QueryOptions& options,
                                                VisitVector* visits) {
-  std::set<URLID> found_urls;
+  std::map<URLID, VisitRow> found_urls;
 
   // Keeps track of the day that `found_urls` is holding the URLs for, in order
   // to handle removing per-day duplicates.
@@ -320,9 +320,23 @@ bool VisitDatabase::FillVisitVectorWithOptions(sql::Statement& statement,
         found_urls_midnight = visit.visit_time.LocalMidnight();
       }
       // Make sure the URL this visit corresponds to is unique.
-      if (found_urls.find(visit.url_id) != found_urls.end())
+      auto it = found_urls.find(visit.url_id);
+      if (it != found_urls.end()) {
+#if defined(ANDROID)
+        // The visit with app ID is preferred. Replace the already added visit
+        // with a new one if it doesn't have an app ID but the new one does.
+        VisitRow& ov = it->second;
+        if (!ov.app_id && visit.app_id) {
+          auto is_matched = [ov](VisitRow v) { return ov.url_id == v.url_id; };
+          auto pos = std::find_if(visits->begin(), visits->end(), is_matched);
+          DCHECK(pos != visits->end());
+          *pos = visit;
+          found_urls[visit.url_id] = visit;
+        }
+#endif
         continue;
-      found_urls.insert(visit.url_id);
+      }
+      found_urls[visit.url_id] = visit;
     }
 
     if (static_cast<int>(visits->size()) >= options.EffectiveMaxCount())
@@ -1121,7 +1135,7 @@ void VisitDatabase::GetVisitsSource(const VisitVector& visits,
       sql.append(base::NumberToString(visits[j].visit_id));
     }
     sql.append(") ORDER BY id");
-    sql::Statement statement(GetDB().GetUniqueStatement(sql.c_str()));
+    sql::Statement statement(GetDB().GetUniqueStatement(sql));
 
     // Get the source entries out of the query result.
     while (statement.Step()) {
@@ -1181,7 +1195,7 @@ VisitDatabase::GetGoogleDomainVisitsFromSearchesInRange(base::Time begin_time,
 
 bool VisitDatabase::MigrateVisitsWithoutDuration() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
 
@@ -1198,7 +1212,7 @@ bool VisitDatabase::MigrateVisitsWithoutDuration() {
 
 bool VisitDatabase::MigrateVisitsWithoutIncrementedOmniboxTypedScore() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
 
@@ -1266,7 +1280,7 @@ bool VisitDatabase::MigrateVisitsWithoutIncrementedOmniboxTypedScore() {
 
 bool VisitDatabase::MigrateVisitsWithoutPubliclyRoutableColumn() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
 
@@ -1290,7 +1304,7 @@ bool VisitDatabase::CanMigrateFlocAllowed() {
 bool VisitDatabase::
     MigrateVisitsWithoutOpenerVisitColumnAndDropPubliclyRoutableColumn() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
 
@@ -1323,7 +1337,7 @@ bool VisitDatabase::
 
 bool VisitDatabase::MigrateVisitsAutoincrementIdAndAddOriginatorColumns() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
 
@@ -1362,7 +1376,7 @@ bool VisitDatabase::MigrateVisitsAutoincrementIdAndAddOriginatorColumns() {
 
 bool VisitDatabase::MigrateVisitsAddOriginatorFromVisitAndOpenerVisitColumns() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
 
@@ -1420,7 +1434,7 @@ bool VisitDatabase::GetAllVisitedURLRowidsForMigrationToVersion40(
 
 bool VisitDatabase::MigrateVisitsAddIsKnownToSyncColumn() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
 
@@ -1444,7 +1458,7 @@ bool VisitDatabase::MigrateVisitsAddIsKnownToSyncColumn() {
 
 bool VisitDatabase::MigrateVisitsAddConsiderForNewTabPageMostVisitedColumn() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
 
@@ -1461,7 +1475,7 @@ bool VisitDatabase::MigrateVisitsAddConsiderForNewTabPageMostVisitedColumn() {
 
 bool VisitDatabase::MigrateVisitsAddExternalReferrerUrlColumn() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
 
@@ -1477,7 +1491,7 @@ bool VisitDatabase::MigrateVisitsAddExternalReferrerUrlColumn() {
 
 bool VisitDatabase::MigrateVisitsAddVisitedLinkIdColumn() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
   if (!GetDB().DoesColumnExist("visits", "visited_link_id")) {
@@ -1491,7 +1505,7 @@ bool VisitDatabase::MigrateVisitsAddVisitedLinkIdColumn() {
 
 bool VisitDatabase::MigrateVisitsAddAppId() {
   if (!GetDB().DoesTableExist("visits")) {
-    NOTREACHED() << " Visits table should exist before migration";
+    NOTREACHED_IN_MIGRATION() << " Visits table should exist before migration";
     return false;
   }
   if (!GetDB().DoesColumnExist("visits", "app_id")) {

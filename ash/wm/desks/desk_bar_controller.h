@@ -55,14 +55,14 @@ class ASH_EXPORT DeskBarController : public DesksController::Observer,
     // focusable view in `bar_view`, and `reverse`. If `reverse` is false, it
     // returns the traversible view after `starting_view`; otherwise, it returns
     // the traversible view before `starting_view`.
-    views::View* GetNextFocusableView(views::View* starting_view,
-                                      bool reverse) const;
+    const views::View* GetNextFocusableView(views::View* starting_view,
+                                            bool reverse) const;
 
     // Returns the first focusable view in `bar_view`.
-    views::View* GetFirstFocusableView() const;
+    const views::View* GetFirstFocusableView() const;
 
     // Returns the last focusable view in `bar_view`.
-    views::View* GetLastFocusableView() const;
+    const views::View* GetLastFocusableView() const;
 
     std::unique_ptr<views::Widget> bar_widget;
     raw_ptr<DeskBarViewBase> bar_view;
@@ -101,7 +101,7 @@ class ASH_EXPORT DeskBarController : public DesksController::Observer,
 
   // Returns desk bar view in `root`. If there is no such desk bar, nullptr is
   // returned.
-  DeskBarViewBase* GetDeskBarView(aura::Window* root) const;
+  DeskBarViewBase* GetDeskBarView(aura::Window* root);
 
   // Returns true when there is a visible desk bar.
   bool IsShowingDeskBar() const;
@@ -116,6 +116,9 @@ class ASH_EXPORT DeskBarController : public DesksController::Observer,
   void CloseAllDeskBars();
 
  private:
+  // Moves the focus ring to the next traversable view.
+  void MoveFocus(const BarWidgetAndView& desk_bar, bool reverse);
+
   void CloseDeskBarInternal(BarWidgetAndView& desk_bar);
 
   // When pressing off the bar, it should either commit desk name change, or

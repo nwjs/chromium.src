@@ -23,7 +23,6 @@
 #include "content/browser/renderer_host/private_network_access_util.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/service_worker/service_worker_main_resource_handle.h"
-#include "content/browser/service_worker/service_worker_object_host.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/browser/url_loader_factory_params_helper.h"
 #include "content/browser/webtransport/web_transport_connector_impl.h"
@@ -39,13 +38,13 @@
 #include "content/public/browser/worker_type.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
-#include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "net/base/isolation_info.h"
 #include "net/cookies/site_for_cookies.h"
 #include "services/metrics/public/cpp/delegating_ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/cross_origin_embedder_policy.h"
+#include "services/network/public/cpp/document_isolation_policy.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/network/public/mojom/client_security_state.mojom-shared.h"
 #include "services/network/public/mojom/ip_address_space.mojom-shared.h"
@@ -108,13 +107,15 @@ class SharedWorkerHost::ScopedProcessHostRef {
  public:
   explicit ScopedProcessHostRef(RenderProcessHost* render_process_host)
       : render_process_host_(render_process_host) {
-    if (!render_process_host_->AreRefCountsDisabled())
+    if (!render_process_host_->AreRefCountsDisabled()) {
       render_process_host_->IncrementWorkerRefCount();
+    }
   }
 
   ~ScopedProcessHostRef() {
-    if (!render_process_host_->AreRefCountsDisabled())
+    if (!render_process_host_->AreRefCountsDisabled()) {
       render_process_host_->DecrementWorkerRefCount();
+    }
   }
 
   ScopedProcessHostRef(const ScopedProcessHostRef& other) = delete;
@@ -169,8 +170,9 @@ SharedWorkerHost::~SharedWorkerHost() {
     }
   } else {
     // Tell clients that this worker failed to start.
-    for (const ClientInfo& info : clients_)
+    for (const ClientInfo& info : clients_) {
       info.client->OnScriptLoadFailed(/*error_message=*/"");
+    }
   }
 
   if (site_instance_->HasProcess()) {
@@ -241,7 +243,10 @@ void SharedWorkerHost::Start(
           network::CrossOriginEmbedderPolicy(
               network::mojom::CrossOriginEmbedderPolicyValue::kRequireCorp),
           /*is_web_secure_context=*/false,
-          network::mojom::IPAddressSpace::kUnknown, policy);
+          network::mojom::IPAddressSpace::kUnknown, policy,
+          network::DocumentIsolationPolicy(
+              network::mojom::DocumentIsolationPolicyValue::
+                  kIsolateAndRequireCorp));
     }
 
     policy_container_host = std::move(creator_policy_container_host_);
@@ -336,16 +341,24 @@ void SharedWorkerHost::Start(
   result.subresource_loader_factories->set_bypass_redirect_checks(
       bypass_redirect_checks);
 
-  // Prepare the controller service worker info to pass to the renderer.
-  // |object_info| can be nullptr when the service worker context or the service
-  // worker version is gone during shared worker startup.
-  mojo::PendingAssociatedRemote<blink::mojom::ServiceWorkerObject>
-      service_worker_remote_object;
-  blink::mojom::ServiceWorkerState service_worker_sent_state;
-  if (result.controller && result.controller->object_info) {
-    result.controller->object_info->receiver =
-        service_worker_remote_object.InitWithNewEndpointAndPassReceiver();
-    service_worker_sent_state = result.controller->object_info->state;
+  SubresourceLoaderParams::CheckWithMainResourceHandle(
+      service_worker_handle_.get(), result.service_worker_client.get());
+  blink::mojom::ServiceWorkerContainerInfoForClientPtr container_info;
+  blink::mojom::ControllerServiceWorkerInfoPtr controller;
+  if (service_worker_handle_->service_worker_client()) {
+    // TODO(crbug.com/41478971): Plumb the COEP reporter.
+    container_info = service_worker_handle_->scoped_service_worker_client()
+                         ->CommitResponseAndRelease(
+                             /*rfh_id=*/std::nullopt,
+                             std::move(result.policy_container_policies),
+                             /*coep_reporter=*/{}, ukm_source_id());
+
+    // Prepare the controller service worker info to pass to the renderer.
+    if (service_worker_handle_->service_worker_client()->controller()) {
+      controller = service_worker_handle_->service_worker_client()
+                       ->container_host()
+                       .CreateControllerServiceWorkerInfo();
+    }
   }
 
   // Send the CreateSharedWorker message.
@@ -359,26 +372,15 @@ void SharedWorkerHost::Start(
       GetContentClient()->browser()->GetUserAgentMetadata(),
       devtools_handle_->pause_on_start(), devtools_handle_->dev_tools_token(),
       std::move(renderer_preferences), std::move(preference_watcher_receiver),
-      std::move(content_settings), service_worker_handle_->TakeContainerInfo(),
+      std::move(content_settings), std::move(container_info),
       std::move(result.main_script_load_params),
-      std::move(result.subresource_loader_factories),
-      std::move(result.controller),
+      std::move(result.subresource_loader_factories), std::move(controller),
       policy_container_host->CreatePolicyContainerForBlink(),
       receiver_.BindNewPipeAndPassRemote(), std::move(worker_receiver_),
       std::move(browser_interface_broker), ukm_source_id_,
       instance_.DoesRequireCrossSiteRequestForCookies());
   if (service_worker_handle_->service_worker_client()) {
     service_worker_handle_->service_worker_client()->SetContainerReady();
-  }
-
-  // |service_worker_remote_object| is an associated interface ptr, so calls
-  // can't be made on it until its request endpoint is sent. Now that the
-  // request endpoint was sent, it can be used, so add it to
-  // ServiceWorkerObjectHost.
-  if (service_worker_remote_object.is_valid()) {
-    result.controller_service_worker_object_host
-        ->AddRemoteObjectPtrAndUpdateState(
-            std::move(service_worker_remote_object), service_worker_sent_state);
   }
 
   // Monitor the lifetime of the worker.
@@ -473,9 +475,10 @@ void SharedWorkerHost::BindCacheStorageInternal(
 
 void SharedWorkerHost::GetSandboxedFileSystemForBucket(
     const storage::BucketInfo& bucket,
+    const std::vector<std::string>& directory_path_components,
     blink::mojom::BucketHost::GetDirectoryCallback callback) {
-  GetProcessHost()->GetSandboxedFileSystemForBucket(bucket.ToBucketLocator(),
-                                                    std::move(callback));
+  GetProcessHost()->GetSandboxedFileSystemForBucket(
+      bucket.ToBucketLocator(), directory_path_components, std::move(callback));
 }
 
 GlobalRenderFrameHostId SharedWorkerHost::GetAssociatedRenderFrameHostId()
@@ -641,8 +644,9 @@ SharedWorkerHost::ClientInfo::~ClientInfo() {}
 
 void SharedWorkerHost::OnConnected(int connection_request_id) {
   for (const ClientInfo& info : clients_) {
-    if (info.connection_request_id != connection_request_id)
+    if (info.connection_request_id != connection_request_id) {
       continue;
+    }
     info.client->OnConnected(std::vector<blink::mojom::WebFeature>(
         used_features_.begin(), used_features_.end()));
     return;
@@ -666,8 +670,9 @@ void SharedWorkerHost::OnReadyForInspection(
 }
 
 void SharedWorkerHost::OnScriptLoadFailed(const std::string& error_message) {
-  for (const ClientInfo& info : clients_)
+  for (const ClientInfo& info : clients_) {
     info.client->OnScriptLoadFailed(error_message);
+  }
 }
 
 // [spec]:
@@ -698,10 +703,12 @@ bool SharedWorkerHost::CheckCrossOriginEmbedderPolicy(
 void SharedWorkerHost::OnFeatureUsed(blink::mojom::WebFeature feature) {
   // Avoid reporting a feature more than once, and enable any new clients to
   // observe features that were historically used.
-  if (!used_features_.insert(feature).second)
+  if (!used_features_.insert(feature).second) {
     return;
-  for (const ClientInfo& info : clients_)
+  }
+  for (const ClientInfo& info : clients_) {
     info.client->OnFeatureUsed(feature);
+  }
 }
 
 void SharedWorkerHost::RenderProcessHostDestroyed(RenderProcessHost* host) {
@@ -716,8 +723,9 @@ std::vector<GlobalRenderFrameHostId>
 SharedWorkerHost::GetRenderFrameIDsForWorker() {
   std::vector<GlobalRenderFrameHostId> result;
   result.reserve(clients_.size());
-  for (const ClientInfo& info : clients_)
+  for (const ClientInfo& info : clients_) {
     result.push_back(info.render_frame_host_id);
+  }
   return result;
 }
 
@@ -876,8 +884,9 @@ void SharedWorkerHost::OnClientConnectionLost() {
     }
   }
   // If there are no clients left, then it's cleanup time.
-  if (clients_.empty())
+  if (clients_.empty()) {
     Destruct();
+  }
 }
 
 void SharedWorkerHost::OnWorkerConnectionLost() {

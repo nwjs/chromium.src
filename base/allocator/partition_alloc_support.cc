@@ -50,6 +50,7 @@
 #include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_config.h"
+#include "partition_alloc/partition_alloc_constants.h"
 #include "partition_alloc/partition_lock.h"
 #include "partition_alloc/partition_root.h"
 #include "partition_alloc/pointers/instance_tracer.h"
@@ -263,6 +264,12 @@ BASE_FEATURE(kDisableMemoryReclaimerInBackground,
              "DisableMemoryReclaimerInBackground",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, limit the time memory reclaimer may take, returning early when
+// exceeded.
+BASE_FEATURE(kPartitionAllocShortMemoryReclaim,
+             "PartitionAllocShortMemoryReclaim",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // static
 MemoryReclaimerSupport& MemoryReclaimerSupport::Instance() {
   static base::NoDestructor<MemoryReclaimerSupport> instance;
@@ -327,7 +334,11 @@ void MemoryReclaimerSupport::Run() {
   {
     // Micros, since memory reclaiming should typically take at most a few ms.
     SCOPED_UMA_HISTOGRAM_TIMER_MICROS("Memory.PartitionAlloc.MemoryReclaim");
-    ::partition_alloc::MemoryReclaimer::Instance()->ReclaimNormal();
+    if (base::FeatureList::IsEnabled(kPartitionAllocShortMemoryReclaim)) {
+      ::partition_alloc::MemoryReclaimer::Instance()->ReclaimFast();
+    } else {
+      ::partition_alloc::MemoryReclaimer::Instance()->ReclaimNormal();
+    }
   }
 
   MaybeScheduleTask();
@@ -453,6 +464,13 @@ namespace {
 
 internal::PartitionLock g_stack_trace_buffer_lock;
 
+constexpr size_t kDanglingPtrStackTraceSize =
+    PA_BUILDFLAG(IS_DEBUG)
+        ? 32  // Symbolizing large stack traces can be expensive in debug
+              // builds. We prefer displaying a reasonably sized one instead
+              // of timing out.
+        : base::debug::StackTrace::kMaxTraces;
+
 struct DanglingPointerFreeInfo {
   debug::StackTrace stack_trace;
   debug::TaskTrace task_trace;
@@ -475,7 +493,11 @@ void DanglingRawPtrDetected(uintptr_t id) {
 
   for (std::optional<DanglingPointerFreeInfo>& entry : g_stack_trace_buffer) {
     if (!entry) {
-      entry = {debug::StackTrace(), debug::TaskTrace(), id};
+      entry = {
+          debug::StackTrace(kDanglingPtrStackTraceSize),
+          debug::TaskTrace(),
+          id,
+      };
       return;
     }
   }
@@ -633,7 +655,8 @@ void DanglingRawPtrReleased(uintptr_t id) {
   // This is called from raw_ptr<>'s release operation. Making allocations is
   // allowed. In particular, symbolizing and printing the StackTraces may
   // allocate memory.
-  debug::StackTrace stack_trace_release;
+
+  debug::StackTrace stack_trace_release(kDanglingPtrStackTraceSize);
   debug::TaskTrace task_trace_release;
   std::optional<DanglingPointerFreeInfo> free_info =
       TakeDanglingPointerFreeInfo(id);
@@ -1236,6 +1259,10 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
            partition_alloc::TagViolationReportingMode::kDisabled));
   }
 
+  allocator_shim::UseSmallSingleSlotSpans use_small_single_slot_spans(
+      base::FeatureList::IsEnabled(
+          features::kPartitionAllocUseSmallSingleSlotSpans));
+
   allocator_shim::ConfigurePartitions(
       allocator_shim::EnableBrp(brp_config.enable_brp),
       allocator_shim::EnableMemoryTagging(enable_memory_tagging),
@@ -1243,7 +1270,8 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
       allocator_shim::SchedulerLoopQuarantine(scheduler_loop_quarantine),
       scheduler_loop_quarantine_branch_capacity_in_bytes,
       allocator_shim::ZappingByFreeFlags(zapping_by_free_flags),
-      allocator_shim::UsePoolOffsetFreelists(use_pool_offset_freelists));
+      allocator_shim::UsePoolOffsetFreelists(use_pool_offset_freelists),
+      use_small_single_slot_spans);
 
   const uint32_t extras_size = allocator_shim::GetMainPartitionRootExtrasSize();
   // As per description, extras are optional and are expected not to
@@ -1442,6 +1470,9 @@ void PartitionAllocSupport::ReconfigureAfterTaskRunnerInit(
 
 void PartitionAllocSupport::OnForegrounded(bool has_main_frame) {
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+  // Other changes are renderer-only, not this one.
+  MemoryReclaimerSupport::Instance().SetForegrounded(true);
+
   {
     base::AutoLock scoped_lock(lock_);
     if (established_process_type_ != switches::kRendererProcess) {
@@ -1460,12 +1491,13 @@ void PartitionAllocSupport::OnForegrounded(bool has_main_frame) {
     allocator_shim::AdjustDefaultAllocatorForForeground();
   }
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-
-  MemoryReclaimerSupport::Instance().SetForegrounded(true);
 }
 
 void PartitionAllocSupport::OnBackgrounded() {
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+  // Other changes are renderer-only, not this one.
+  MemoryReclaimerSupport::Instance().SetForegrounded(false);
+
   {
     base::AutoLock scoped_lock(lock_);
     if (established_process_type_ != switches::kRendererProcess) {
@@ -1476,7 +1508,7 @@ void PartitionAllocSupport::OnBackgrounded() {
   // Performance matters less for background renderers, don't pay the memory
   // cost.
   ::partition_alloc::ThreadCache::SetLargestCachedSize(
-      ::partition_alloc::ThreadCacheLimits::kDefaultSizeThreshold);
+      ::partition_alloc::kThreadCacheDefaultSizeThreshold);
 
   // In renderers, memory reclaim uses the "idle time" task runner to run
   // periodic reclaim. This does not always run when the renderer is idle, and
@@ -1499,8 +1531,6 @@ void PartitionAllocSupport::OnBackgrounded() {
     allocator_shim::AdjustDefaultAllocatorForBackground();
   }
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-
-  MemoryReclaimerSupport::Instance().SetForegrounded(false);
 }
 
 #if PA_BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS)

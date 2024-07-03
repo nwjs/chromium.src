@@ -83,6 +83,10 @@ void BrowserAccessibilityFuchsia::OnLocationChanged() {
   UpdateNode();
 }
 
+ui::AXPlatformNode* BrowserAccessibilityFuchsia::GetAXPlatformNode() const {
+  return platform_node_;
+}
+
 BrowserAccessibilityFuchsia* ToBrowserAccessibilityFuchsia(
     BrowserAccessibility* obj) {
   return static_cast<BrowserAccessibilityFuchsia*>(obj);
@@ -140,6 +144,8 @@ BrowserAccessibilityFuchsia::GetFuchsiaRole() const {
       return FuchsiaRole::kColumnHeader;
     case AXRole::kGrid:
       return FuchsiaRole::kGrid;
+    case AXRole::kGridCell:
+      return FuchsiaRole::kCell;
     case AXRole::kHeader:
       return FuchsiaRole::kHeader;
     case AXRole::kImage:

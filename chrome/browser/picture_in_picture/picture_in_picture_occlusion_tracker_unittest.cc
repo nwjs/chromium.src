@@ -48,7 +48,7 @@ class PictureInPictureOcclusionTrackerTest : public ChromeViewsTestBase {
   std::unique_ptr<views::Widget> CreatePictureInPictureWidget() {
     // Create a picture-in-picture widget and inform the occlusion tracker.
     std::unique_ptr<views::Widget> picture_in_picture_widget =
-        CreateTestWidget();
+        CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
     picture_in_picture_widget->Show();
     picture_in_picture_widget->SetBounds({0, 0, 200, 200});
     PictureInPictureWindowManager::GetInstance()
@@ -74,7 +74,8 @@ TEST_F(PictureInPictureOcclusionTrackerTest,
 
   // Create a widget to track the occlusion state of, placing it so that it
   // starts out unoccluded.
-  std::unique_ptr<views::Widget> occludable_widget = CreateTestWidget();
+  std::unique_ptr<views::Widget> occludable_widget =
+      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
   occludable_widget->Show();
   occludable_widget->SetBounds({300, 0, 200, 200});
 
@@ -108,7 +109,8 @@ TEST_F(PictureInPictureOcclusionTrackerTest,
 
   // Create a widget to track the occlusion state of, placing it so that it
   // starts out occluded.
-  std::unique_ptr<views::Widget> occludable_widget = CreateTestWidget();
+  std::unique_ptr<views::Widget> occludable_widget =
+      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
   occludable_widget->Show();
   occludable_widget->SetBounds({50, 50, 200, 200});
 
@@ -140,16 +142,17 @@ TEST_F(PictureInPictureOcclusionTrackerTest,
 
   // Create a parent widget for our occludable widget that is underneath the
   // picture-in-picture window.
-  std::unique_ptr<views::Widget> parent_widget = CreateTestWidget();
+  std::unique_ptr<views::Widget> parent_widget =
+      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
   parent_widget->Show();
   parent_widget->SetBounds({0, 0, 200, 200});
 
   // Create an occludable widget that is a child of `parent_widget`.
   views::Widget::InitParams params =
-      CreateParams(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+      CreateParams(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.parent = parent_widget->GetNativeView();
   params.child = true;
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.bounds = gfx::Rect(0, 0, 50, 50);
   std::unique_ptr<views::Widget> occludable_widget =
       CreateTestWidget(std::move(params));
@@ -178,7 +181,8 @@ TEST_F(PictureInPictureOcclusionTrackerTest, MultipleObserversForOneWidget) {
 
   // Create a widget to track the occlusion state of, placing it so that it
   // starts out occluded.
-  std::unique_ptr<views::Widget> occludable_widget = CreateTestWidget();
+  std::unique_ptr<views::Widget> occludable_widget =
+      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
   occludable_widget->Show();
   occludable_widget->SetBounds({50, 50, 200, 200});
 
@@ -226,10 +230,10 @@ TEST_F(PictureInPictureOcclusionTrackerTest,
 
   // Create an occludable widget that is a child of `picture_in_picture_widget`.
   views::Widget::InitParams params =
-      CreateParams(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+      CreateParams(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+                   views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.parent = picture_in_picture_widget->GetNativeView();
   params.child = true;
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.bounds = gfx::Rect(0, 0, 50, 50);
   std::unique_ptr<views::Widget> occludable_widget =
       CreateTestWidget(std::move(params));
@@ -249,13 +253,15 @@ TEST_F(PictureInPictureOcclusionTrackerTest, ObserveTwiceDoesNotCrash) {
   ScopedPictureInPictureOcclusionObservation observation(&observer);
 
   // Create an observed widget.
-  std::unique_ptr<views::Widget> occludable_widget1 = CreateTestWidget();
+  std::unique_ptr<views::Widget> occludable_widget1 =
+      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
   occludable_widget1->Show();
   observation.Observe(occludable_widget1.get());
 
   // Create a second observed widget, and observe that one with the same
   // ScopedPictureInPictureOcclusionObservation, replacing the first one.
-  std::unique_ptr<views::Widget> occludable_widget2 = CreateTestWidget();
+  std::unique_ptr<views::Widget> occludable_widget2 =
+      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
   occludable_widget2->Show();
   observation.Observe(occludable_widget2.get());
 

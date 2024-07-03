@@ -14,7 +14,8 @@
 
 @implementation ManualFillCreditCard (CreditCardForm)
 
-- (instancetype)initWithCreditCard:(const autofill::CreditCard&)creditCard {
+- (instancetype)initWithCreditCard:(const autofill::CreditCard&)creditCard
+                              icon:(UIImage*)icon {
   NSString* GUID =
       base::SysUTF16ToNSString(base::ASCIIToUTF16(creditCard.guid()));
   NSString* network = base::SysUTF16ToNSString(creditCard.NetworkForDisplay());
@@ -35,10 +36,6 @@
       (creditCard.record_type() !=
        autofill::CreditCard::RecordType::kVirtualCard);
 
-  const int issuerNetworkIconID =
-      autofill::data_util::GetPaymentRequestData(creditCard.network())
-          .icon_resource_id;
-
   // Unicode characters used in card number:
   //  - 0x0020 - Space.
   //  - 0x2060 - WORD-JOINER (makes string undivisible).
@@ -52,6 +49,9 @@
                                autofill::CreditCard::GetMidlineEllipsisDots(4) +
                                std::u16string(separator) + digits);
 
+  NSString* networkAndLastFourDigits =
+      base::SysUTF16ToNSString(creditCard.NetworkAndLastFourDigits());
+
   // Use 2 digits year.
   NSString* expirationYear =
       [NSString stringWithFormat:@"%02d", creditCard.expiration_year() % 100];
@@ -59,16 +59,17 @@
       [NSString stringWithFormat:@"%02d", creditCard.expiration_month()];
 
   return [self initWithGUID:GUID
-                    network:network
-        issuerNetworkIconID:issuerNetworkIconID
-                   bankName:bankName
-                 cardHolder:cardHolder
-                     number:number
-           obfuscatedNumber:obfuscatedNumber
-             expirationYear:expirationYear
-            expirationMonth:expirationMonth
-                 recordType:creditCard.record_type()
-            canFillDirectly:canFillDirectly];
+                       network:network
+                          icon:icon
+                      bankName:bankName
+                    cardHolder:cardHolder
+                        number:number
+              obfuscatedNumber:obfuscatedNumber
+      networkAndLastFourDigits:networkAndLastFourDigits
+                expirationYear:expirationYear
+               expirationMonth:expirationMonth
+                    recordType:creditCard.record_type()
+               canFillDirectly:canFillDirectly];
 }
 
 @end

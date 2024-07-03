@@ -158,7 +158,9 @@ std::optional<AggregatableReportRequest> CreateAggregatableReportRequest(
 
   absl::visit(
       base::Overloaded{
-          [](const AttributionReport::EventLevelData&) { NOTREACHED(); },
+          [](const AttributionReport::EventLevelData&) {
+            NOTREACHED_IN_MIGRATION();
+          },
           [&](const AttributionReport::AggregatableAttributionData& data) {
             source_time = data.source.source_time();
             source_debug_key = data.source.debug_key();
@@ -196,9 +198,8 @@ std::optional<AggregatableReportRequest> CreateAggregatableReportRequest(
   }
   additional_fields.Set("source_registration_time",
                         std::move(serialized_source_time));
-  additional_fields.Set(
-      "attribution_destination",
-      net::SchemefulSite(attribution_info.context_origin).Serialize());
+  SetAttributionDestination(
+      additional_fields, net::SchemefulSite(attribution_info.context_origin));
   return AggregatableReportRequest::Create(
       AggregationServicePayloadContents(
           AggregationServicePayloadContents::Operation::kHistogram,
@@ -227,6 +228,11 @@ base::CheckedNumeric<int64_t> GetTotalAggregatableValues(
     total_value += contribution.value;
   }
   return total_value;
+}
+
+void SetAttributionDestination(base::Value::Dict& dict,
+                               const net::SchemefulSite& destination) {
+  dict.Set("attribution_destination", destination.Serialize());
 }
 
 }  // namespace content

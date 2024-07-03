@@ -4,14 +4,16 @@
 
 #include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
 
+#include <gtest/gtest.h>
+
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include <gtest/gtest.h>
 #include "base/check.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/browser_features.h"
@@ -44,36 +46,18 @@
 
 namespace {
 
-class BrowserTestWithParam
-    : public InProcessBrowserTest,
-      public testing::WithParamInterface<std::pair<bool, bool>> {
+class BrowserTestWithParam : public InProcessBrowserTest,
+                             public testing::WithParamInterface<bool> {
  public:
-  BrowserTestWithParam() {
-    const bool is_cr23_enabled = GetParam().second;
-    if (is_cr23_enabled) {
-      scoped_feature_list_.InitAndEnableFeature(features::kChromeRefresh2023);
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(features::kChromeRefresh2023);
-    }
-  }
+  BrowserTestWithParam() = default;
   BrowserTestWithParam(const BrowserTestWithParam&) = delete;
   BrowserTestWithParam& operator=(const BrowserTestWithParam&) = delete;
   ~BrowserTestWithParam() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 }  // namespace
 
-// Each value listed below represents the following:
-// {is_bookmark, is_cr23_enabled}
-INSTANTIATE_TEST_SUITE_P(RealboxHandlerIconTest,
-                         BrowserTestWithParam,
-                         testing::Values(std::pair<bool, bool>(true, true),
-                                         std::pair<bool, bool>(true, false),
-                                         std::pair<bool, bool>(false, true),
-                                         std::pair<bool, bool>(false, false)));
+INSTANTIATE_TEST_SUITE_P(All, BrowserTestWithParam, testing::Bool());
 
 // Tests that all Omnibox match vector icons map to an equivalent SVG for use in
 // the NTP Realbox.
@@ -98,7 +82,7 @@ IN_PROC_BROWSER_TEST_P(BrowserTestWithParam, MatchVectorIcons) {
         EXPECT_FALSE(svg_name.empty());
       }
     } else {
-      const bool is_bookmark = BrowserTestWithParam::GetParam().first;
+      const bool is_bookmark = BrowserTestWithParam::GetParam();
       const gfx::VectorIcon& vector_icon = match.GetVectorIcon(is_bookmark);
       const std::string& svg_name =
           RealboxHandler::AutocompleteMatchVectorIconToResourceName(
@@ -125,7 +109,7 @@ IN_PROC_BROWSER_TEST_P(BrowserTestWithParam, AnswerVectorIcons) {
     SuggestionAnswer answer;
     answer.set_type(answer_type);
     match.answer = answer;
-    const bool is_bookmark = BrowserTestWithParam::GetParam().first;
+    const bool is_bookmark = BrowserTestWithParam::GetParam();
     const gfx::VectorIcon& vector_icon = match.GetVectorIcon(is_bookmark);
     const std::string& svg_name =
         RealboxHandler::AutocompleteMatchVectorIconToResourceName(vector_icon);
@@ -231,14 +215,18 @@ IN_PROC_BROWSER_TEST_F(RealboxSearchPreloadBrowserTest, SearchPreloadSuccess) {
   std::string search_terms = "prerender";
   AddNewSuggestionRule(input_query, {search_terms}, /*prefetch_index=*/0,
                        /*prerender_index=*/0);
-  auto [_, prerender_url] = GetSearchPrefetchAndNonPrefetch(search_terms);
+  auto [search_url, _] = GetSearchPrefetchAndNonPrefetch(search_terms);
   // Fake a WebUI input.
   remote_page_handler->QueryAutocomplete(base::ASCIIToUTF16(input_query),
                                          /*prevent_inline_autocomplete=*/false);
   remote_page_handler.FlushForTesting();
 
   // Prerender and Prefetch should be triggered.
-  WaitUntilStatusChangesTo(GetCanonicalSearchURL(prerender_url),
+  WaitUntilStatusChangesTo(GetCanonicalSearchURL(search_url),
                            SearchPrefetchStatus::kComplete);
+  std::string prefetch_url_raw =
+      GetRealPrefetchUrlForTesting(GetCanonicalSearchURL(search_url)).spec();
+  base::ReplaceFirstSubstringAfterOffset(&prefetch_url_raw, 0, "pf=cs&", "");
+  GURL prerender_url = GURL(prefetch_url_raw);
   registry_observer.WaitForTrigger(prerender_url);
 }

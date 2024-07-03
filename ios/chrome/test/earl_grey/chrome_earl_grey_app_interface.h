@@ -553,6 +553,12 @@
 // Returns whether Tab Group Sync is enabled.
 + (BOOL)isTabGroupSyncEnabled;
 
+// Returns whether the current layout is showing the bottom omnibox.
++ (BOOL)isCurrentLayoutBottomOmnibox;
+
+// Returns whether the Enhanced Safe Browsing Infobar Promo feature is enabled.
++ (BOOL)isEnhancedSafeBrowsingInfobarEnabled;
+
 #pragma mark - ContentSettings
 
 // Gets the current value of the popup content setting preference for the
@@ -620,8 +626,8 @@
 // Sets the value of a integer user pref in the original browser state.
 + (void)setIntegerValue:(int)value forUserPref:(NSString*)prefName;
 
-// Returns true if the Preference is currently using its default value,
-// and has not been set by any higher-priority source (even with the same
+// Returns true if the LocalState Preference is currently using its default
+// value, and has not been set by any higher-priority source (even with the same
 // value).
 + (BOOL)prefWithNameIsDefaultValue:(NSString*)prefName;
 

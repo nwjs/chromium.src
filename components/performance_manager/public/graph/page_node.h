@@ -10,17 +10,20 @@
 #include <string>
 
 #include "base/containers/flat_set.h"
-#include "base/functional/function_ref.h"
 #include "base/observer_list_types.h"
 #include "components/performance_manager/public/graph/node.h"
+#include "components/performance_manager/public/graph/node_set_view.h"
 #include "components/performance_manager/public/mojom/coordination_unit.mojom.h"
 #include "components/performance_manager/public/mojom/lifecycle.mojom.h"
 #include "components/performance_manager/public/resource_attribution/page_context.h"
-#include "components/performance_manager/public/web_contents_proxy.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 
 class GURL;
+
+namespace content {
+class WebContents;
+}
 
 namespace performance_manager {
 
@@ -39,9 +42,12 @@ enum class PageType {
 // A PageNode represents the root of a FrameTree, or equivalently a WebContents.
 // These may correspond to normal tabs, WebViews, Portals, Chrome Apps or
 // Extensions.
-class PageNode : public Node {
+class PageNode : public TypedNode<PageNode> {
  public:
-  using FrameNodeVisitor = base::FunctionRef<bool(const FrameNode*)>;
+  using NodeSet = base::flat_set<const Node*>;
+  template <class NodeViewPtr>
+  using NodeSetView = NodeSetView<NodeSet, NodeViewPtr>;
+
   using LifecycleState = mojom::LifecycleState;
   using Observer = PageNodeObserver;
   class ObserverDefaultImpl;
@@ -103,6 +109,8 @@ class PageNode : public Node {
   };
 
   static const char* ToString(PageNode::PageState page_state);
+
+  static constexpr NodeTypeEnum Type() { return NodeTypeEnum::kPage; }
 
   PageNode();
 
@@ -202,17 +210,9 @@ class PageNode : public Node {
   // are no main frames at the moment, returns nullptr.
   virtual const FrameNode* GetMainFrameNode() const = 0;
 
-  // Visits the main frame nodes associated with this page. The iteration is
-  // halted if the visitor returns false. Returns true if every call to the
-  // visitor returned true, false otherwise.
-  virtual bool VisitMainFrameNodes(const FrameNodeVisitor& visitor) const = 0;
-
   // Returns all of the main frame nodes, both current and otherwise. If there
-  // are no main frames at the moment, returns the empty set. Note that this
-  // incurs a full container copy of all main frame nodes. Please use
-  // VisitMainFrameNodes when that makes sense.
-  virtual const base::flat_set<raw_ptr<const FrameNode, CtnExperimental>>
-  GetMainFrameNodes() const = 0;
+  // are no main frames at the moment, returns the empty set.
+  virtual NodeSetView<const FrameNode*> GetMainFrameNodes() const = 0;
 
   // Returns the URL the main frame last committed a navigation to, or the
   // initial URL of the page before navigation. The latter case is distinguished
@@ -237,7 +237,7 @@ class PageNode : public Node {
   // Returns the web contents associated with this page node. It is valid to
   // call this function on any thread but the weak pointer must only be
   // dereferenced on the UI thread.
-  virtual const WebContentsProxy& GetContentsProxy() const = 0;
+  virtual base::WeakPtr<content::WebContents> GetWebContents() const = 0;
 
   // Returns the current page state. See "PageNodeObserver::OnPageStateChanged".
   virtual PageState GetPageState() const = 0;

@@ -7,6 +7,7 @@
 #include <optional>
 #include <utility>
 
+#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/login/login_screen_controller.h"
 #include "ash/login/ui/login_data_dispatcher.h"
@@ -14,6 +15,7 @@
 #include "ash/public/cpp/session/session_controller.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
+#include "ash/system/brightness_control_delegate.h"
 #include "ash/system/power/power_status.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
@@ -21,6 +23,7 @@
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "chromeos/dbus/power_manager/backlight.pb.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/session_manager_types.h"
 #include "components/user_manager/known_user.h"
@@ -176,6 +179,98 @@ void BrightnessControllerChromeos::OnSessionStateChanged(
 
 void BrightnessControllerChromeos::OnFocusPod(const AccountId& account_id) {
   active_account_id_ = account_id;
+
+  if (features::IsBrightnessControlInSettingsEnabled()) {
+    RestoreBrightnessSettings(account_id);
+  }
+}
+
+void BrightnessControllerChromeos::RestoreBrightnessSettings(
+    const AccountId& account_id) {
+  // Get the user's stored preference for whether the ambient light sensor
+  // should be enabled. If there is no saved preference for the ambient light
+  // sensor value, set the ambient light sensor to be enabled to match the
+  // default behavior.
+  user_manager::KnownUser known_user(local_state_);
+  const bool ambient_light_sensor_enabled_for_account =
+      known_user
+          .FindBoolPath(account_id, prefs::kDisplayAmbientLightSensorEnabled)
+          .value_or(true);
+
+  if (!ambient_light_sensor_enabled_for_account) {
+    // If the ambient light sensor is disabled, restore the user's preferred
+    // brightness level.
+    const std::optional<double> brightness_for_account =
+        known_user
+            .FindPath(account_id,
+                      prefs::kInternalDisplayScreenBrightnessPercent)
+            ->GetIfDouble();
+    if (brightness_for_account.has_value()) {
+      SetBrightnessPercent(brightness_for_account.value(), /*gradual=*/true,
+                           BrightnessControlDelegate::BrightnessChangeSource::
+                               kRestoredFromUserPref);
+    }
+  }
+
+  SetAmbientLightSensorEnabled(ambient_light_sensor_enabled_for_account);
+}
+
+void BrightnessControllerChromeos::RestoreBrightnessSettingsOnFirstLogin() {
+  // Don't restore the ambient light sensor value if the relevant flag is
+  // disabled.
+  if (!features::IsBrightnessControlInSettingsEnabled()) {
+    return;
+  }
+
+  if (!active_pref_service_) {
+    return;
+  }
+
+  // If the ambient light sensor status has already been restored, don't restore
+  // it again for this device.
+  if (has_ambient_light_sensor_been_restored_for_new_user_) {
+    return;
+  }
+
+  // This pref has a value of true by default.
+  const bool ambient_light_sensor_previously_enabled_for_account =
+      active_pref_service_->GetBoolean(
+          prefs::kDisplayAmbientLightSensorLastEnabled);
+
+  SetAmbientLightSensorEnabled(
+      ambient_light_sensor_previously_enabled_for_account);
+
+  has_ambient_light_sensor_been_restored_for_new_user_ = true;
+}
+
+void BrightnessControllerChromeos::OnActiveUserPrefServiceChanged(
+    PrefService* pref_service) {
+  active_pref_service_ = pref_service;
+
+  // Don't restore the ambient light sensor value if the relevant flag is
+  // disabled.
+  if (!features::IsBrightnessControlInSettingsEnabled()) {
+    return;
+  }
+
+  // Only restore the profile-synced ambient light sensor setting if it's a
+  // user's first time logging in to a new device.
+  if (!session_controller_->IsUserFirstLogin()) {
+    return;
+  }
+
+  // Observe the state of the synced profile pref so that the ambient light
+  // sensor setting will be restored as soon as the pref finishes syncing on the
+  // new device.
+  pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
+  if (active_pref_service_) {
+    pref_change_registrar_->Init(active_pref_service_);
+    pref_change_registrar_->Add(
+        prefs::kDisplayAmbientLightSensorLastEnabled,
+        base::BindRepeating(&BrightnessControllerChromeos::
+                                RestoreBrightnessSettingsOnFirstLogin,
+                            weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 void BrightnessControllerChromeos::OnActiveUserSessionChanged(

@@ -91,6 +91,7 @@
 #include "third_party/blink/renderer/core/html/track/text_track.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/inspector/invalidation_set_to_selector_map.h"
 #include "third_party/blink/renderer/core/layout/adjust_for_absolute_zoom.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_size.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_size.h"
@@ -693,7 +694,18 @@ void StyleEngine::UpdateCounterStyles() {
   counter_styles_need_update_ = false;
 }
 
-void StyleEngine::MarkPositionTryStylesDirty() {
+void StyleEngine::MarkPositionTryStylesDirty(
+    const HeapHashSet<Member<RuleSet>>& changed_rule_sets) {
+  if (RuntimeEnabledFeatures::LastSuccessfulPositionOptionEnabled()) {
+    for (RuleSet* rule_set : changed_rule_sets) {
+      CHECK(rule_set);
+      for (StyleRulePositionTry* try_rule : rule_set->PositionTryRules()) {
+        if (try_rule) {
+          dirty_position_try_names_.insert(try_rule->Name());
+        }
+      }
+    }
+  }
   // TODO(crbug.com/1381623): Currently invalidating all elements in the
   // document with position-options, regardless of where the @position-try rules
   // are added. In order to make invalidation more targeted we would need to add
@@ -730,6 +742,7 @@ void StyleEngine::UpdateActiveStyle() {
   DCHECK(GetDocument().IsActive());
   DCHECK(IsMainThread());
   TRACE_EVENT0("blink", "Document::updateActiveStyle");
+  InvalidationSetToSelectorMap::StartOrStopTrackingIfNeeded();
   UpdateViewport();
   UpdateActiveStyleSheets();
   UpdateGlobalRuleSet();
@@ -799,13 +812,13 @@ void StyleEngine::UpdateCounters(const Element& element,
       ng_list_item->OrdinalValueChanged();
     } else if (auto* inline_list_item =
                    DynamicTo<LayoutInlineListItem>(layout_object)) {
-      ng_list_item->Ordinal().MarkDirty();
+      inline_list_item->Ordinal().MarkDirty();
       inline_list_item->OrdinalValueChanged();
     }
-  }
-  if (element.GetLayoutObject() && element.GetComputedStyle() &&
-      !element.GetComputedStyle()->ContentBehavesAsNormal()) {
-    UpdateLayoutCounters(element, *element.GetLayoutObject(), context);
+    if (element.GetComputedStyle() &&
+        !element.GetComputedStyle()->ContentBehavesAsNormal()) {
+      UpdateLayoutCounters(element, *layout_object, context);
+    }
   }
   for (Node* child = LayoutTreeBuilderTraversal::FirstChild(element); child;
        child = LayoutTreeBuilderTraversal::NextSibling(*child)) {
@@ -1247,7 +1260,7 @@ bool StyleEngine::ShouldSkipInvalidationFor(const Element& element) const {
   }
   if (!global_rule_set_) {
     // TODO(crbug.com/1175902): This is a speculative fix for a crash.
-    NOTREACHED()
+    NOTREACHED_IN_MIGRATION()
         << "global_rule_set_ should only be null for inactive documents.";
     return true;
   }
@@ -1545,9 +1558,8 @@ void StyleEngine::ClassChangedForElement(
 
   if (features.NeedsHasInvalidationForClassChange() &&
       PossiblyAffectingHasState(element)) {
-    unsigned changed_size = changed_classes.size();
-    for (unsigned i = 0; i < changed_size; ++i) {
-      if (features.NeedsHasInvalidationForClass(changed_classes[i])) {
+    for (const AtomicString& changed_class : changed_classes) {
+      if (features.NeedsHasInvalidationForClass(changed_class)) {
         InvalidateChangedElementAffectedByLogicalCombinationsInHas(
             element, /* for_element_affected_by_pseudo_in_has */ false);
         InvalidateAncestorsOrSiblingsAffectedByHas(
@@ -1563,10 +1575,9 @@ void StyleEngine::ClassChangedForElement(
   }
 
   InvalidationLists invalidation_lists;
-  unsigned changed_size = changed_classes.size();
-  for (unsigned i = 0; i < changed_size; ++i) {
+  for (const AtomicString& changed_class : changed_classes) {
     features.CollectInvalidationSetsForClass(invalidation_lists, element,
-                                             changed_classes[i]);
+                                             changed_class);
   }
   pending_invalidations_.ScheduleInvalidationSetsForNode(invalidation_lists,
                                                          element);
@@ -1601,14 +1612,14 @@ void StyleEngine::ClassChangedForElement(const SpaceSplitString& old_classes,
   InvalidationLists invalidation_lists;
   bool affecting_has_state = false;
 
-  for (unsigned i = 0; i < new_classes.size(); ++i) {
+  for (const AtomicString& new_class : new_classes) {
     bool found = false;
-    for (unsigned j = 0; j < old_classes.size(); ++j) {
-      if (new_classes[i] == old_classes[j]) {
+    for (unsigned i = 0; i < old_classes.size(); ++i) {
+      if (new_class == old_classes[i]) {
         // Mark each class that is still in the newClasses so we can skip doing
         // an n^2 search below when looking for removals. We can't break from
         // this loop early since a class can appear more than once.
-        remaining_class_bits[j] = true;
+        remaining_class_bits[i] = true;
         found = true;
       }
     }
@@ -1616,10 +1627,10 @@ void StyleEngine::ClassChangedForElement(const SpaceSplitString& old_classes,
     if (!found) {
       if (LIKELY(needs_schedule_invalidation)) {
         features.CollectInvalidationSetsForClass(invalidation_lists, element,
-                                                 new_classes[i]);
+                                                 new_class);
       }
       if (UNLIKELY(possibly_affecting_has_state)) {
-        if (features.NeedsHasInvalidationForClass(new_classes[i])) {
+        if (features.NeedsHasInvalidationForClass(new_class)) {
           affecting_has_state = true;
           possibly_affecting_has_state = false;  // Clear to skip check
         }
@@ -2735,7 +2746,7 @@ void StyleEngine::ApplyUserRuleSetChanges(
   if (changed_rule_flags & kPositionTryRules) {
     // TODO(crbug.com/1383907): @position-try rules are not yet collected from
     // user stylesheets.
-    MarkPositionTryStylesDirty();
+    MarkPositionTryStylesDirty(changed_rule_sets);
   }
 
   InvalidateForRuleSetChanges(GetDocument(), changed_rule_sets,
@@ -2867,7 +2878,7 @@ void StyleEngine::ApplyRuleSetChanges(
   }
 
   if (changed_rule_flags & kPositionTryRules) {
-    MarkPositionTryStylesDirty();
+    MarkPositionTryStylesDirty(changed_rule_sets);
   }
 
   if (changed_rule_flags & kViewTransitionRules) {
@@ -3240,22 +3251,23 @@ StyleRuleFontPaletteValues* StyleEngine::FontPaletteValuesForNameAndFamily(
 
 DocumentStyleEnvironmentVariables& StyleEngine::EnsureEnvironmentVariables() {
   if (!environment_variables_) {
-    environment_variables_ = DocumentStyleEnvironmentVariables::Create(
-        StyleEnvironmentVariables::GetRootInstance(), *document_);
+    environment_variables_ =
+        MakeGarbageCollected<DocumentStyleEnvironmentVariables>(
+            StyleEnvironmentVariables::GetRootInstance(), *document_);
   }
-  return *environment_variables_.get();
+  return *environment_variables_.Get();
 }
 
-scoped_refptr<StyleInitialData> StyleEngine::MaybeCreateAndGetInitialData() {
-  if (initial_data_) {
-    return initial_data_;
-  }
-  if (const PropertyRegistry* registry = document_->GetPropertyRegistry()) {
-    if (!registry->IsEmpty()) {
-      initial_data_ = StyleInitialData::Create(GetDocument(), *registry);
+StyleInitialData* StyleEngine::MaybeCreateAndGetInitialData() {
+  if (!initial_data_) {
+    if (const PropertyRegistry* registry = document_->GetPropertyRegistry()) {
+      if (!registry->IsEmpty()) {
+        initial_data_ =
+            MakeGarbageCollected<StyleInitialData>(GetDocument(), *registry);
+      }
     }
   }
-  return initial_data_;
+  return initial_data_.Get();
 }
 
 bool StyleEngine::RecalcHighlightStylesForContainer(Element& container) {
@@ -3537,31 +3549,8 @@ void StyleEngine::UpdateStyleForOutOfFlow(Element& element,
                                           const CSSPropertyValueSet* try_set,
                                           const TryTacticList& tactic_list,
                                           AnchorEvaluator* anchor_evaluator) {
-  // Note that we enter this function for any OOF element, not just those that
-  // use position-try-options. Therefore, it's important to return without
-  // doing style recalc when anchor positioning features are not in use.
-
   const CSSPropertyValueSet* try_tactics_set =
       try_value_flips_.FlipSet(tactic_list);
-
-  bool needs_update = try_set || try_tactics_set;
-
-  if (element.ComputedStyleRef().PositionAnchor() ||
-      element.ImplicitAnchorElement()) {
-    // anchor-center offsets may need to be updated since the layout of the
-    // anchor may have changed. anchor-center offsets are computed when a
-    // default anchor is present.
-    needs_update = true;
-  }
-  if (element.ComputedStyleRef().HasAnchorFunctions()) {
-    needs_update = true;
-  }
-
-  if (!needs_update) {
-    CHECK(!try_set);
-    CHECK(!try_tactics_set);
-    return;
-  }
 
   base::AutoReset<bool> pt_recalc(&in_position_try_style_recalc_, true);
 
@@ -4273,6 +4262,8 @@ void StyleEngine::Trace(Visitor* visitor) const {
   visitor->Trace(font_palette_values_rule_map_);
   visitor->Trace(user_counter_style_map_);
   visitor->Trace(user_cascade_layer_map_);
+  visitor->Trace(environment_variables_);
+  visitor->Trace(initial_data_);
   visitor->Trace(inspector_style_sheet_);
   visitor->Trace(document_style_sheet_collection_);
   visitor->Trace(style_sheet_collection_map_);
@@ -4298,6 +4289,7 @@ void StyleEngine::Trace(Visitor* visitor) const {
   visitor->Trace(fill_or_clip_path_uri_value_cache_);
   visitor->Trace(style_containment_scope_tree_);
   visitor->Trace(try_value_flips_);
+  visitor->Trace(last_successful_option_dirty_set_);
   FontSelectorClient::Trace(visitor);
 }
 
@@ -4385,6 +4377,79 @@ void StyleEngine::BaseURLChanged() {
 void StyleEngine::UpdateViewportSize() {
   viewport_size_ =
       CSSToLengthConversionData::ViewportSize(GetDocument().GetLayoutView());
+}
+
+namespace {
+
+bool UpdateLastSuccessfulPositionOption(Element& element) {
+  if (OutOfFlowData* out_of_flow_data = element.GetOutOfFlowData()) {
+    LayoutObject* layout_object = element.GetLayoutObject();
+    if (out_of_flow_data->ApplyPendingSuccessfulPositionOption(layout_object) &&
+        layout_object) {
+      layout_object->SetNeedsLayoutAndFullPaintInvalidation(
+          layout_invalidation_reason::kAnchorPositioning);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool InvalidatePositionTryNames(Element* root,
+                                const HashSet<AtomicString>& try_names) {
+  bool invalidated = false;
+  Node* current = root;
+  while (current) {
+    if (auto* element = DynamicTo<Element>(current)) {
+      if (OutOfFlowData* data = element->GetOutOfFlowData()) {
+        if (data->InvalidatePositionTryNames(try_names)) {
+          LayoutObject* layout_object = element->GetLayoutObject();
+          CHECK(layout_object);
+          layout_object->SetNeedsLayoutAndFullPaintInvalidation(
+              layout_invalidation_reason::kAnchorPositioning);
+          invalidated = true;
+        }
+      }
+      if (ComputedStyle::NullifyEnsured(element->GetComputedStyle()) ==
+          nullptr) {
+        current =
+            LayoutTreeBuilderTraversal::NextSkippingChildren(*element, root);
+        continue;
+      }
+    }
+    current = LayoutTreeBuilderTraversal::Next(*current, root);
+  }
+  return invalidated;
+}
+
+}  // namespace
+
+bool StyleEngine::UpdateLastSuccessfulPositionOptions() {
+  if (!RuntimeEnabledFeatures::LastSuccessfulPositionOptionEnabled()) {
+    CHECK(dirty_position_try_names_.empty());
+    CHECK(last_successful_option_dirty_set_.empty());
+    return false;
+  }
+  bool invalidated = false;
+  if (!dirty_position_try_names_.empty()) {
+    // Added, removed, or modified @position-try rules.
+    // Walk the whole tree and invalidate last successful position for elements
+    // with position-try-options referring those names.
+    if (InvalidatePositionTryNames(GetDocument().documentElement(),
+                                   dirty_position_try_names_)) {
+      invalidated = true;
+    }
+    dirty_position_try_names_.clear();
+  }
+
+  if (!last_successful_option_dirty_set_.empty()) {
+    for (Element* element : last_successful_option_dirty_set_) {
+      if (UpdateLastSuccessfulPositionOption(*element)) {
+        invalidated = true;
+      }
+    }
+    last_successful_option_dirty_set_.clear();
+  }
+  return invalidated;
 }
 
 }  // namespace blink

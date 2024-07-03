@@ -38,6 +38,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/tabs/organization/tab_organization_request.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_session.h"
@@ -516,11 +517,15 @@ void TabSearchPageHandler::RestartSession() {
   }
 
   restarting_ = true;
-
+  TabOrganizationSession* current_session =
+      organization_service_->GetSessionForBrowser(browser);
+  const auto* base_session_webcontents =
+      current_session ? current_session->base_session_webcontents() : nullptr;
   // Don't notify observers to avoid a repaint
   TabOrganizationSession* session =
       organization_service_->ResetSessionForBrowser(
-          browser, TabOrganizationEntryPoint::kTabSearch, nullptr);
+          browser, TabOrganizationEntryPoint::kTabSearch,
+          base_session_webcontents);
   if (!base::Contains(listened_sessions_, session)) {
     session->AddObserver(this);
     listened_sessions_.emplace_back(session);
@@ -939,23 +944,29 @@ tab_search::mojom::TabPtr TabSearchPageHandler::GetTab(
 
   const base::TimeTicks last_active_time_ticks = contents->GetLastActiveTime();
   tab_data->last_active_time_ticks = last_active_time_ticks;
+
+  // last_active_time_for_testing can affect pixel tests depending on when the
+  // view pops up. To make it consistent, override the string to something
+  // constant.
   tab_data->last_active_elapsed_text =
-      GetLastActiveElapsedText(last_active_time_ticks);
+      disable_last_active_time_for_testing_
+          ? "0"
+          : GetLastActiveElapsedText(last_active_time_ticks);
 
-    std::vector<TabAlertState> alert_states =
-        chrome::GetTabAlertStatesForContents(contents);
-    // Currently, we only report media alert states.
-    base::ranges::copy_if(alert_states.begin(), alert_states.end(),
-                          std::back_inserter(tab_data->alert_states),
-                          [](TabAlertState alert) {
-                            return alert == TabAlertState::MEDIA_RECORDING ||
-                                   alert == TabAlertState::AUDIO_RECORDING ||
-                                   alert == TabAlertState::VIDEO_RECORDING ||
-                                   alert == TabAlertState::AUDIO_PLAYING ||
-                                   alert == TabAlertState::AUDIO_MUTING;
-                          });
+  std::vector<TabAlertState> alert_states =
+      chrome::GetTabAlertStatesForContents(contents);
+  // Currently, we only report media alert states.
+  base::ranges::copy_if(alert_states.begin(), alert_states.end(),
+                        std::back_inserter(tab_data->alert_states),
+                        [](TabAlertState alert) {
+                          return alert == TabAlertState::MEDIA_RECORDING ||
+                                 alert == TabAlertState::AUDIO_RECORDING ||
+                                 alert == TabAlertState::VIDEO_RECORDING ||
+                                 alert == TabAlertState::AUDIO_PLAYING ||
+                                 alert == TabAlertState::AUDIO_MUTING;
+                        });
 
-    return tab_data;
+  return tab_data;
 }
 
 tab_search::mojom::RecentlyClosedTabPtr
@@ -1133,6 +1144,10 @@ TabSearchPageHandler::GetMojoForTabOrganizationSession(
 
   mojo_session->session_id = session->session_id();
   mojo_session->error = tab_search::mojom::TabOrganizationError::kNone;
+  mojo_session->active_tab_id = session->base_session_webcontents()
+                                    ? extensions::ExtensionTabUtil::GetTabId(
+                                          session->base_session_webcontents())
+                                    : -1;
   std::vector<tab_search::mojom::TabOrganizationPtr> organizations;
 
   TabOrganizationRequest::State state = session->request()->state();

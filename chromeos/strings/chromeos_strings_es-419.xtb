@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">amarillo pastel</translation>
 <translation id="1056898198331236512">Advertencia</translation>
 <translation id="1059913517121127803">No se pudo comenzar el escaneo</translation>
+<translation id="1061864016440983342">Usar sin ubicación</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> de <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Se detectó un firewall</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Más opciones de configuración</translation>
 <translation id="2082932131694554252">Tecla del teclado asignada</translation>
 <translation id="2085089206770112532">Disminuir el brillo de la pantalla</translation>
+<translation id="2086091080968010660">Es posible que los cambios basados en la hora no sean precisos. Activa el acceso a la ubicación en la configuración.</translation>
 <translation id="2102231663024125441">Edición de texto</translation>
 <translation id="2105810540595158374">El dispositivo es un control de juegos.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versión <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Edita los detalles de APN</translation>
 <translation id="2195732836444333448">Se alcanzó el límite de capacidad. Vuelve pronto.</translation>
 <translation id="2201758491318984023">bicicleta</translation>
-<translation id="2203222757805818543">El horario actual está establecido de <ph name="SUNRISE" /> a <ph name="SUNSET" />. Para actualizar automáticamente el horario del modo oscuro, <ph name="BEGIN_LINK" />activa el acceso a la ubicación<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">aguas termales</translation>
 <translation id="2203642483788377106">un acantilado</translation>
 <translation id="2208388655216963643">impresionista</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Restaurar la configuración predeterminada</translation>
 <translation id="2286454467119466181">Simple</translation>
 <translation id="2287186687001756809">No hay imágenes disponibles. Para agregar fotos, ve a <ph name="LINK" />.</translation>
+<translation id="2294577623958216786">El horario actual está establecido de <ph name="SUNRISE" /> a <ph name="SUNSET" />. Para actualizar automáticamente el horario del amanecer y del atardecer, activa el acceso a la ubicación del sistema.</translation>
 <translation id="2305172810646967500">negro</translation>
 <translation id="2307344026739914387">Usar el par de claves actual</translation>
 <translation id="2308243864813041101">Desenchufa el cable USB del dispositivo <ph name="DEVICE_NAME" /> para continuar con el proceso de actualización</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">una duna de arena</translation>
 <translation id="2619761439309613843">Cambiar diario</translation>
 <translation id="2620436844016719705">Sistema</translation>
+<translation id="2637303424821734920">DESACTIVADO: Para mostrar el clima local, <ph name="BEGIN_LINK" />activa el acceso a la ubicación del sistema<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Imagen de acceso</translation>
 <translation id="2640549051766135490">Se seleccionó el álbum <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="2645380101799517405">Controles</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Imagen de fondo</translation>
 <translation id="3027578600144895987">Cerrar la cámara</translation>
 <translation id="3031560714565892478">El dispositivo es una videocámara.</translation>
+<translation id="3051968340259309715">Esto permite que los servicios del sistema usen la Precisión de la ubicación para determinar dónde te encuentras. La Precisión de la ubicación usa la información sobre señales inalámbricas, como los puntos de acceso de Wi-Fi, las torres de redes móviles y el GPS, junto con los datos de sensores del dispositivo, como el acelerómetro y el giroscopio, para calcular la ubicación del dispositivo. Puedes desactivar la ubicación en Configuración &gt; Privacidad y seguridad &gt; Controles de privacidad &gt; Acceso a la ubicación. <ph name="LINK_BEGIN" />Más información<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Extremo</translation>
 <translation id="3060579846059757016">Puntos destacados</translation>
+<translation id="3061850252076394168">habilita Seleccionar para pronunciar</translation>
 <translation id="3069085583900247081">No se pudo realizar la prueba</translation>
 <translation id="3078740164268491126">tabla</translation>
 <translation id="3081652522083185657">claro</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">no se pudieron resolver todos los hosts</translation>
 <translation id="4593212453765072419">Se requiere autenticación proxy.</translation>
 <translation id="4609350030397390689">Disminuir el brillo del teclado</translation>
-<translation id="4617553623719764431">No se muestra el clima porque no conoce tu ubicación. Para mostrar el clima local, <ph name="BEGIN_LINK" />activa el acceso a la ubicación<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> de un total de <ph name="TOTAL_PAGE_NUMBER" />. Presiona Intro para cancelar el trabajo de impresión.</translation>
 <translation id="463791356324567266">Cancelando el escaneo…</translation>
 <translation id="4646949265910132906">Conexión Wi-Fi segura</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Ejecutar</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Páginas</translation>
+<translation id="4989542687859782284">No disponible</translation>
 <translation id="4999333166442584738">Ocultar informe</translation>
 <translation id="500920857929044050">Detener la prueba</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">brillo del teclado</translation>
 <translation id="6412715219990689313">Teclado integrado</translation>
 <translation id="6417265370957905582">Asistente de Google</translation>
+<translation id="6419454453018688975">Activar el acceso a la ubicación del sistema</translation>
 <translation id="6423239382391657905">VPN abierto</translation>
-<translation id="6438073885402882007">Esto habilita a los servicios del sistema con permiso a usar tu ubicación. La ubicación puede usar fuentes como Wi-Fi, redes móviles y sensores para obtener la ubicación estimada del dispositivo. <ph name="LINK_BEGIN" />Más información<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Débil (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Ir a la configuración de la cuenta</translation>
 <translation id="6462978824459367242">Se habilitó el botón Agregar APN</translation>

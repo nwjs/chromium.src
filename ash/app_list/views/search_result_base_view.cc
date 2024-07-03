@@ -13,6 +13,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/views/accessibility/view_accessibility.h"
 
 namespace ash {
 
@@ -26,7 +27,7 @@ SearchResultBaseView::SearchResultBaseView() {
   // all relevant key events (e.g. ENTER key for result activation) to search
   // result views as needed.
   SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
-  SetAccessibleRole(ax::mojom::Role::kListBoxOption);
+  GetViewAccessibility().SetRole(ax::mojom::Role::kListBoxOption);
 }
 
 SearchResultBaseView::~SearchResultBaseView() {
@@ -145,19 +146,20 @@ void SearchResultBaseView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->SetDefaultActionVerb(ax::mojom::DefaultActionVerb::kClick);
 
   // It is possible for the view to be visible but lack a result. When this
-  // happens, GetAccessibleName() will return an empty string. Because the
-  // focusable state is set in the constructor and not updated when the
-  // result is removed, the accessibility paint checks will fail.
+  // happens, `ViewAccessibility::GetCachedName` will return an empty
+  // string. Because the focusable state is set in the constructor and not
+  // updated when the result is removed, the accessibility paint checks will
+  // fail.
   if (!result()) {
     node_data->SetNameExplicitlyEmpty();
     return;
   }
 
-  node_data->SetName(GetAccessibleName());
+  node_data->SetName(GetViewAccessibility().GetCachedName());
 }
 
 void SearchResultBaseView::UpdateAccessibleName() {
-  SetAccessibleName(ComputeAccessibleName());
+  GetViewAccessibility().SetName(ComputeAccessibleName());
 }
 
 void SearchResultBaseView::ClearResult() {

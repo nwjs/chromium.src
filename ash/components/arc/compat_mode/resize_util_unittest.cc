@@ -31,6 +31,9 @@ class FakeToastManager : public ash::ToastManager {
   // ToastManager overrides:
   void Show(ash::ToastData data) override { called_show_ = true; }
   void Cancel(std::string_view id) override { called_cancel_ = true; }
+  bool RequestFocusOnActiveToastDismissButton(std::string_view id) override {
+    return false;
+  }
   bool MaybeToggleA11yHighlightOnActiveToastDismissButton(
       std::string_view id) override {
     return false;
@@ -40,7 +43,7 @@ class FakeToastManager : public ash::ToastManager {
     return false;
   }
   bool IsToastShown(std::string_view id) const override { return false; }
-  bool IsToastDismissButtonHighlighted(std::string_view id) const override {
+  bool IsToastDismissButtonFocused(std::string_view id) const override {
     return false;
   }
   std::unique_ptr<ash::ScopedToastPause> CreateScopedPause() override {
@@ -127,7 +130,8 @@ TEST_F(ResizeUtilTest, TestResizeLockToPhone) {
             if (!window->GetProperty(aura::client::kIsRestoringKey)) {
               return;
             }
-            NOTREACHED() << "The restroing key should not be enabled.";
+            NOTREACHED_IN_MIGRATION()
+                << "The restroing key should not be enabled.";
           }));
   pref_delegate()->SetResizeLockNeedsConfirmation(kTestAppId, false);
   EXPECT_TRUE(widget()->IsMaximized());
@@ -160,7 +164,8 @@ TEST_F(ResizeUtilTest, TestResizeLockToTablet) {
             if (!window->GetProperty(aura::client::kIsRestoringKey)) {
               return;
             }
-            NOTREACHED() << "The restroing key should not be enabled.";
+            NOTREACHED_IN_MIGRATION()
+                << "The restroing key should not be enabled.";
           }));
   pref_delegate()->SetResizeLockNeedsConfirmation(kTestAppId, false);
   EXPECT_TRUE(widget()->IsMaximized());

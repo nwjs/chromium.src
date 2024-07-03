@@ -30,6 +30,7 @@
 #include "ui/events/event.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/insets_f.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/layout/table_layout.h"
@@ -237,7 +238,7 @@ void CalendarDateCellView::OnSelectedDateUpdated() {
     is_selected_ = is_selected;
     SchedulePaint();
     if (!is_selected_) {
-      SetAccessibleName(tool_tip_);
+      GetViewAccessibility().SetName(tool_tip_);
       return;
     }
     // Sets accessible label. E.g. Calendar, week of July 16th 2021, [selected
@@ -248,7 +249,7 @@ void CalendarDateCellView::OnSelectedDateUpdated() {
     base::Time first_day_of_week =
         date_ - base::Days(date_exploded.day_of_week);
 
-    SetAccessibleName(l10n_util::GetStringFUTF16(
+    GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
         IDS_ASH_CALENDAR_SELECTED_DATE_CELL_ACCESSIBLE_DESCRIPTION,
         calendar_utils::GetMonthDayYear(first_day_of_week),
         calendar_utils::GetDayOfMonth(date_)));
@@ -294,7 +295,7 @@ void CalendarDateCellView::SetTooltipAndAccessibleName() {
     }
   }
   SetTooltipText(tool_tip_);
-  SetAccessibleName(tool_tip_);
+  GetViewAccessibility().SetName(tool_tip_);
 }
 
 void CalendarDateCellView::UpdateFetchStatus(bool is_fetched) {
@@ -336,7 +337,7 @@ void CalendarDateCellView::UpdateFetchStatus(bool is_fetched) {
 }
 
 void CalendarDateCellView::SetFirstOnFocusedAccessibilityLabel() {
-  SetAccessibleName(l10n_util::GetStringFUTF16(
+  GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
       IDS_ASH_CALENDAR_DATE_CELL_ON_FOCUS_ACCESSIBLE_DESCRIPTION, tool_tip_));
 }
 
@@ -471,7 +472,7 @@ CalendarMonthView::CalendarMonthView(
                   current_date_exploded);
     ++safe_index;
     if (safe_index == calendar_utils::kDateInOneWeek) {
-      DUMP_WILL_BE_NOTREACHED_NORETURN()
+      DUMP_WILL_BE_NOTREACHED()
           << "Should not render more than 7 days as the grayed out cells.";
       break;
     }
@@ -510,7 +511,8 @@ CalendarMonthView::CalendarMonthView(
 
     ++safe_index;
     if (safe_index == 32) {
-      NOTREACHED() << "Should not render more than 31 days in a month.";
+      NOTREACHED_IN_MIGRATION()
+          << "Should not render more than 31 days in a month.";
       break;
     }
   }
@@ -604,7 +606,7 @@ CalendarMonthView::CalendarMonthView(
       SCOPED_CRASH_KEY_NUMBER("CMV", "first_day_of_month_time",
                               100 * first_day_of_month_exploded.hour +
                                   first_day_of_month_exploded.minute);
-      NOTREACHED()
+      NOTREACHED_IN_MIGRATION()
           << "Should not render more than 7 days as the gray out cells.";
       break;
     }

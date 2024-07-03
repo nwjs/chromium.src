@@ -33,7 +33,6 @@
 #include "chrome/browser/ash/login/test/guest_session_mixin.h"
 #include "chrome/browser/ash/login/test/logged_in_user_mixin.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
-#include "chrome/browser/resources/preinstalled_web_apps/internal/container.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -41,6 +40,7 @@
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/web_applications/preinstalled_web_apps/container.h"
 #include "chrome/browser/web_applications/preinstalled_web_apps/preinstalled_web_apps.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_id_constants.h"
@@ -430,7 +430,13 @@ INSTANTIATE_TEST_SUITE_P(
 IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, PRE_LaunchFromAppList) {}
 
 // Verifies that the container app can be launched from the app list.
-IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, LaunchFromAppList) {
+// TODO(b/345344156): Failing on ChromeOS.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#define MAYBE_LaunchFromAppList DISABLED_LaunchFromAppList
+#else
+#define MAYBE_LaunchFromAppList LaunchFromAppList
+#endif
+IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, MAYBE_LaunchFromAppList) {
   // Views.
   raw_ptr<ash::AppsGridView> apps_grid_view = nullptr;
   raw_ptr<ash::AppListItemView> container_app = nullptr;
@@ -523,7 +529,13 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, LaunchFromAppList) {
 IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, PRE_LaunchFromShelf) {}
 
 // Verifies that the container app can be launched from the shelf.
-IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, LaunchFromShelf) {
+// TODO(b/345344156): Failing on ChromeOS.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#define MAYBE_LaunchFromShelf DISABLED_LaunchFromShelf
+#else
+#define MAYBE_LaunchFromShelf LaunchFromShelf
+#endif
+IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, MAYBE_LaunchFromShelf) {
   // Views.
   raw_ptr<ash::ShelfAppButton> chrome_app = nullptr;
   raw_ptr<ash::ShelfAppButton> container_app = nullptr;

@@ -40,6 +40,7 @@ class MockWebGPUInterface : public gpu::webgpu::WebGPUInterfaceStub {
                         GLuint,
                         GLuint,
                         GLuint,
+                        GLuint,
                         const WGPUTextureFormat*,
                         GLuint,
                         gpu::webgpu::MailboxFlags,
@@ -166,7 +167,7 @@ class WireSerializer : public dawn::wire::CommandSerializer {
  private:
   size_t offset_ = 0;
   char buf_[1024 * 1024];
-  dawn::wire::CommandHandler* handler_;
+  raw_ptr<dawn::wire::CommandHandler> handler_;
 };
 
 }  // anonymous namespace
@@ -271,7 +272,7 @@ class WebGPUSwapBufferProviderTest : public testing::Test {
 
   scoped_refptr<DawnControlClientHolder> dawn_control_client_;
   raw_ptr<MockWebGPUInterface> webgpu_;
-  raw_ptr<viz::TestSharedImageInterface> sii_;
+  raw_ptr<gpu::TestSharedImageInterface> sii_;
   FakeProviderClient client_;
   scoped_refptr<WebGPUSwapBufferProviderForTests> provider_;
   bool provider_alive_ = true;

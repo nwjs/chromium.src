@@ -63,6 +63,15 @@ class PermissionPromptBaseView : public views::BubbleDialogDelegateView,
       const std::vector<raw_ptr<permissions::PermissionRequest,
                                 VectorExperimental>>& visible_requests);
 
+  // Starts observing our widget for occlusion by a picture-in-picture window.
+  // Subclasses must manually call this if they override `AddedToWidget()`
+  // without calling `PermissionPromptBaseView::AddedToWidget()`.
+  void StartTrackingPictureInPictureOcclusion();
+
+  void AnchorToPageInfoOrChip();
+
+  Browser* browser() const { return browser_; }
+
  private:
   const UrlIdentity url_identity_;
 
@@ -73,6 +82,8 @@ class PermissionPromptBaseView : public views::BubbleDialogDelegateView,
   // means it will be in an always-on-top window, and needs to be tracked by the
   // PictureInPictureOcclusionTracker.
   const bool is_for_picture_in_picture_window_;
+
+  const raw_ptr<Browser> browser_ = nullptr;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_PERMISSIONS_PERMISSION_PROMPT_BASE_VIEW_H_

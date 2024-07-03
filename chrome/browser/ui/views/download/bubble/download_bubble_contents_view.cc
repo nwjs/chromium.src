@@ -257,7 +257,8 @@ void DownloadBubbleContentsView::ProcessLocalPasswordInProgressClick(
     delegate->CheckClientDownloadDone(
         item->GetId(), safe_browsing::DownloadCheckResult::UNKNOWN);
   } else {
-    NOTREACHED() << "Unexpected command: " << static_cast<int>(command);
+    NOTREACHED_IN_MIGRATION()
+        << "Unexpected command: " << static_cast<int>(command);
   }
 #endif
 }

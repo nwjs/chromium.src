@@ -143,7 +143,9 @@ class ShellDevToolsBindings::NetworkResourceLoader
     bindings_->loaders_.erase(bindings_->loaders_.find(this));
   }
 
-  void OnRetry(base::OnceClosure start_retry) override { NOTREACHED(); }
+  void OnRetry(base::OnceClosure start_retry) override {
+    NOTREACHED_IN_MIGRATION();
+  }
 
   const int stream_id_;
   const int request_id_;
@@ -357,6 +359,9 @@ void ShellDevToolsBindings::HandleMessageFromDevToolsFrontend(
     return;
   } else if (*method == "getPreferences") {
     SendMessageAck(request_id, std::move(preferences_));
+    return;
+  } else if (*method == "getHostConfig") {
+    SendMessageAck(request_id, {});
     return;
   } else if (*method == "setPreference") {
     if (params.size() < 2)

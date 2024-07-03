@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">i-pastel ephuzi</translation>
 <translation id="1056898198331236512">Isexwayiso</translation>
 <translation id="1059913517121127803">Ayikwazanga ukuqalisa ukuskena</translation>
+<translation id="1061864016440983342">Sebenzisa ngaphandle kwendawo</translation>
 <translation id="1062823486781306604">I-<ph name="INDEX" /> yokungu-<ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">I-WEP</translation>
 <translation id="1071587090247825784">Kutholwe uhlelo lokuvikela</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Ezinye izilungiselelo</translation>
 <translation id="2082932131694554252">Kunikezwe ukhiye wekhibhodi</translation>
 <translation id="2085089206770112532">Ukugqama kwesibonisi kuphansi</translation>
+<translation id="2086091080968010660">Izinguquko ezisekelwe esikhathini zingase zinganembi. Vula ukufinyelela kwendawo yesistimu emasethingini.</translation>
 <translation id="2102231663024125441">Ukuhlela umbhalo</translation>
 <translation id="2105810540595158374">Idivayisi iyisilawuli segeyimu.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, uhlobo lwe-<ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Hlela imininingwane ye-APN</translation>
 <translation id="2195732836444333448">Kugcwele njengamanje. Buya maduze.</translation>
 <translation id="2201758491318984023">ibhayisikili</translation>
-<translation id="2203222757805818543">Ishejuli yamanje isethwe kokuthi <ph name="SUNRISE" /> - <ph name="SUNSET" />. Ukuze ubuyekeze ngokuzenzakalelayo ishejuli yemodi emnyama, <ph name="BEGIN_LINK" />vula ukufinyelela indawo<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">intwasahlobo eshisayo</translation>
 <translation id="2203642483788377106">iwa</translation>
 <translation id="2208388655216963643">i-impressionist</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Buyisela okuzenzakalelayo</translation>
 <translation id="2286454467119466181">Okulula</translation>
 <translation id="2287186687001756809">Asikho isithombe esitholakalayo. Ukuze ungeze izithombe, iya ku-<ph name="LINK" /></translation>
+<translation id="2294577623958216786">Ishejuli yamanje isethwe ku-<ph name="SUNRISE" />-<ph name="SUNSET" />. Ukuze uyibuyekeze ngokuzenzekelayo ishejuli yokushona kwelanga nokuvela kwelanga, vula ukufinyelela kwendawo yesistimu.</translation>
 <translation id="2305172810646967500">okumnyama</translation>
 <translation id="2307344026739914387">Sebenzisa ukubhanqa ukhiye kwamanye</translation>
 <translation id="2308243864813041101">Khipha ikhebuli ye-USB yokuthi <ph name="DEVICE_NAME" /> ukuze uqhubeke nenqubo yokubuyekeza</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">indunduma yesihlabathi</translation>
 <translation id="2619761439309613843">Ukuvuselela kwansuku zonke</translation>
 <translation id="2620436844016719705">Isistimu</translation>
+<translation id="2637303424821734920">IVALIWE - Ukuze ibonise isimo sezulu sendawo <ph name="BEGIN_LINK" />vula ukufinyelela indawo kwesistimu<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Isithombe sokungena ngemvume</translation>
 <translation id="2640549051766135490">I-Albhamu <ph name="TITLE" /> <ph name="DESC" /> ikhethiwe</translation>
 <translation id="2645380101799517405">Izilawuli</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Ingemuva</translation>
 <translation id="3027578600144895987">Vala ikhamera</translation>
 <translation id="3031560714565892478">Idivayisi iyikhamera yevidiyo.</translation>
+<translation id="3051968340259309715">Lokhu kuvumela ukuba uhlelokulungisa lohlelo lusebenzise Ukuhlonzwa Kwendawo Ngqo ukuze luthole indawo yakho. Ukuhlonzwa Kwendawo Ngqo kusebenzisa ulwazi mayelana namasiginali angenantambo, anjengamaphoyinti okufinyelela iWi-Fi, imibhoshongo yenethiwekhi yeselula, ne-GPS, okuhambisana nedatha yenzwa yedivayisi, enjenge-accelerometer ne-gyroscope, ukuze kwenziwe isilinganiso sendawo yedivayisi. Ungayivala indawo ngaphansi kokuthi Amasethingi &gt; Ubumfihlo nokuvikeleka &gt; Izilawuli zobumfihlo &gt; Ukufinyelela indawo. <ph name="LINK_BEGIN" />Funda kabanzi<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">Iphoyinti yokugcina</translation>
 <translation id="3060579846059757016">Izinhlaka</translation>
+<translation id="3061850252076394168">nika amandla okuthi khetha ukuze ukhulume</translation>
 <translation id="3069085583900247081">Ukuhlola akuphumelelanga</translation>
 <translation id="3078740164268491126">ithebula</translation>
 <translation id="3081652522083185657">isibani</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Yehlulekile ukulungisa bonke abasingathi</translation>
 <translation id="4593212453765072419">Kudingeka ukuqinisekisa kommeleli</translation>
 <translation id="4609350030397390689">Ukugqama kwekhibhodi kuphansi</translation>
-<translation id="4617553623719764431">Isimo sezulu asiboniswa ngoba asiyazi indawo yakho. Ukuze ubonise isimo sezulu sasendaweni, <ph name="BEGIN_LINK" />vula ukufinyelela Indawo<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> kwangu-<ph name="TOTAL_PAGE_NUMBER" /> Cindezela u-enter ukuze ukhansele umsebenzi wokuphrinta.</translation>
 <translation id="463791356324567266">Ikhansela ukuskena...</translation>
 <translation id="4646949265910132906">Uxhumano lwe-WiFi Oluvikelekile</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Ukugijima</translation>
 <translation id="4987769320337599931">Uhlelo lokuvikela</translation>
 <translation id="4988526792673242964">Amakhasi</translation>
+<translation id="4989542687859782284">Ayitholakali</translation>
 <translation id="4999333166442584738">Fihla umbiko</translation>
 <translation id="500920857929044050">Misa ukuhlola</translation>
 <translation id="5017508259293544172">I-LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">ukukhanya kwekhibhodi</translation>
 <translation id="6412715219990689313">Ikhibhodi eyakhelwe ngaphakathi</translation>
 <translation id="6417265370957905582">Umsizi we-Google</translation>
+<translation id="6419454453018688975">Vula ukufinyelela indawo yesistimu</translation>
 <translation id="6423239382391657905">I-OpenVPN</translation>
-<translation id="6438073885402882007">Lokhu kuvumela izinhlelo kulungisa zohlelo ngemvume yokusebenzisa indawo yakho. Indawo ingasebenzisa imithombo efana ne-Wi-Fi, amanethiwekhi eselula, nezinzwa ukusiza ukulinganisela indawo yedivayisi yakho. <ph name="LINK_BEGIN" />Funda kabanzi<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Buthakathaka (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Iya kumasethingi e-akhawunti</translation>
 <translation id="6462978824459367242">Ukufaka inkinobho ye-APN manje kuvunyelwe</translation>

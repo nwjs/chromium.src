@@ -65,17 +65,24 @@ class LensOverlayQueryController {
   // returning the response to the full image callback. Should be called
   // exactly once. Override these methods to stub out network requests for
   // testing.
-  virtual void StartQueryFlow(const SkBitmap& screenshot,
-                              std::optional<GURL> page_url,
-                              std::optional<std::string> page_title);
+  virtual void StartQueryFlow(
+      const SkBitmap& screenshot,
+      std::optional<GURL> page_url,
+      std::optional<std::string> page_title,
+      std::vector<lens::mojom::CenterRotatedBoxPtr> significant_region_boxes,
+      float ui_scale_factor);
 
   // Clears the state and resets stored values.
   void EndQuery();
 
-  // Sends a region search interaction. Expected to be called multiple times.
+  // Sends a region search interaction. Expected to be called multiple times. If
+  // region_bytes are included, those will be sent to Lens instead of cropping
+  // the region out of the screenshot. This should be used to provide a higher
+  // definition image than image cropping would provide.
   void SendRegionSearch(
       lens::mojom::CenterRotatedBoxPtr region,
-      std::map<std::string, std::string> additional_search_query_params);
+      std::map<std::string, std::string> additional_search_query_params,
+      std::optional<SkBitmap> region_bytes);
 
   // Sends a text-only interaction. Expected to be called multiple times.
   void SendTextOnlyQuery(
@@ -140,7 +147,8 @@ class LensOverlayQueryController {
       std::optional<std::string> query_text,
       std::optional<std::string> object_id,
       lens::LensOverlaySelectionType selection_type,
-      std::map<std::string, std::string> additional_search_query_params);
+      std::map<std::string, std::string> additional_search_query_params,
+      std::optional<SkBitmap> region_bytes);
 
   // Fetches the endpoint using the initial image data.
   void FetchFullImageRequest(
@@ -225,6 +233,14 @@ class LensOverlayQueryController {
 
   // The page title, if it is allowed to be shared.
   std::optional<std::string> page_title_;
+
+  // Bounding boxes for significant regions identified in the original
+  // screenshot image.
+  std::vector<lens::mojom::CenterRotatedBoxPtr> significant_region_boxes_;
+
+  // The UI Scaling Factor of the underlying page, if it has been passed in.
+  // Else 0.
+  float ui_scale_factor_ = 0;
 
   // The current state.
   QueryControllerState query_controller_state_ = QueryControllerState::kOff;

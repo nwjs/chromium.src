@@ -553,7 +553,7 @@ const char* FromDawnEnum(wgpu::TextureFormat dawn_enum) {
       return "astc-12x12-unorm-srgb";
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   return "";
 }
@@ -681,6 +681,8 @@ wgpu::FeatureName AsDawnEnum(const V8GPUFeatureName& webgpu_enum) {
       return wgpu::FeatureName::ShaderF16;
     case V8GPUFeatureName::Enum::kFloat32Filterable:
       return wgpu::FeatureName::Float32Filterable;
+    case V8GPUFeatureName::Enum::kDualSourceBlending:
+      return wgpu::FeatureName::DualSourceBlending;
   }
 }
 

@@ -64,9 +64,6 @@
 
 namespace {
 
-// Note that the non-touchable icon size is larger than the default to make the
-// avatar icon easier to read.
-constexpr int kIconSizeForNonTouchUi = 22;
 constexpr int kChromeRefreshImageLabelPadding = 6;
 
 }  // namespace
@@ -102,13 +99,11 @@ AvatarToolbarButton::AvatarToolbarButton(BrowserView* browser_view)
   // the left and the (potential) user name on the right.
   SetHorizontalAlignment(gfx::ALIGN_LEFT);
 
-  if (features::IsChromeRefresh2023()) {
-    SetImageLabelSpacing(kChromeRefreshImageLabelPadding);
-    label()->SetPaintToLayer();
-    label()->SetSkipSubpixelRenderingOpacityCheck(true);
-    label()->layer()->SetFillsBoundsOpaquely(false);
-    label()->SetSubpixelRenderingEnabled(false);
-  }
+  SetImageLabelSpacing(kChromeRefreshImageLabelPadding);
+  label()->SetPaintToLayer();
+  label()->SetSkipSubpixelRenderingOpacityCheck(true);
+  label()->layer()->SetFillsBoundsOpaquely(false);
+  label()->SetSubpixelRenderingEnabled(false);
 }
 
 AvatarToolbarButton::~AvatarToolbarButton() = default;
@@ -130,8 +125,6 @@ void AvatarToolbarButton::UpdateIcon() {
   SetImageModel(ButtonState::STATE_NORMAL, icon);
   SetImageModel(ButtonState::STATE_DISABLED,
                 ui::GetDefaultDisabledIconFromImageModel(icon));
-
-  SetInsets();
 
   for (auto& observer : observer_list_) {
     observer.OnIconUpdated();
@@ -179,21 +172,19 @@ void AvatarToolbarButton::UpdateText() {
   const auto* const color_provider = GetColorProvider();
   CHECK(color_provider);
 
-  SetInsets();
   SetTooltipText(delegate_->GetAvatarTooltipText());
   auto [text, color] = delegate_->GetTextAndColor(color_provider);
   SetHighlight(text, color);
+  UpdateAccessibilityLabel();
   // Update the layout insets after `SetHighlight()` since
   // text might be updated by setting the highlight.
   UpdateLayoutInsets();
 
-  if (features::IsChromeRefresh2023()) {
-    UpdateInkdrop();
-    // Outset focus ring should be present for the chip but not when only
-    // the icon is visible, when there is no text.
-    views::FocusRing::Get(this)->SetOutsetFocusRingDisabled(
-        !IsLabelPresentAndVisible());
-  }
+  UpdateInkdrop();
+  // Outset focus ring should be present for the chip but not when only
+  // the icon is visible, when there is no text.
+  views::FocusRing::Get(this)->SetOutsetFocusRingDisabled(
+      !IsLabelPresentAndVisible());
 
   // TODO(crbug.com/40689215): this is a hack because toolbar buttons don't
   // correctly calculate their preferred size until they've been laid out once
@@ -208,48 +199,56 @@ void AvatarToolbarButton::UpdateText() {
   InvalidateLayout();
 }
 
-std::optional<SkColor> AvatarToolbarButton::GetHighlightTextColor() const {
-  if (!features::IsChromeRefresh2023()) {
-    return std::nullopt;
+void AvatarToolbarButton::UpdateAccessibilityLabel() {
+  std::optional<std::u16string> accessibility_label =
+      delegate_->GetAccessibilityLabel();
+  // Setting std::nullopt is needed. Setting an empty string will suppress the
+  // messages.
+  std::optional<std::u16string> name;
+  std::optional<std::u16string> description;
+
+  // In order not to override the content of the view, set the accessibility
+  // label as the description. If the view text is empty, set the accessibility
+  // label as the main name in order be read first and not to override reading
+  // the tooltip as the description.
+  if (GetText().empty()) {
+    name = accessibility_label;
+  } else {
+    description = accessibility_label;
   }
 
+  SetAccessibilityProperties(ax::mojom::Role::kButton, name, description);
+}
+
+std::optional<SkColor> AvatarToolbarButton::GetHighlightTextColor() const {
   const auto* const color_provider = GetColorProvider();
   CHECK(color_provider);
   return delegate_->GetHighlightTextColor(color_provider);
 }
 
 std::optional<SkColor> AvatarToolbarButton::GetHighlightBorderColor() const {
-  if (features::IsChromeRefresh2023()) {
-    const auto* const color_provider = GetColorProvider();
-    CHECK(color_provider);
-    return color_provider->GetColor(kColorToolbarButtonBorder);
-  }
-
-  return std::nullopt;
+  const auto* const color_provider = GetColorProvider();
+  CHECK(color_provider);
+  return color_provider->GetColor(kColorToolbarButtonBorder);
 }
 
 void AvatarToolbarButton::UpdateInkdrop() {
-  CHECK(features::IsChromeRefresh2023());
-
   auto [hover_color_id, ripple_color_id] = delegate_->GetInkdropColors();
   ConfigureToolbarInkdropForRefresh2023(this, hover_color_id, ripple_color_id);
 }
 
 bool AvatarToolbarButton::ShouldPaintBorder() const {
-  return (!features::IsChromeRefresh2023()) ||
-         (IsLabelPresentAndVisible() && delegate_->ShouldPaintBorder());
+  return IsLabelPresentAndVisible() && delegate_->ShouldPaintBorder();
 }
 
 bool AvatarToolbarButton::ShouldBlendHighlightColor() const {
-  bool has_custom_theme =
-      this->GetWidget() && this->GetWidget()->GetCustomTheme();
-
-  return !features::IsChromeRefresh2023() || has_custom_theme;
+  return this->GetWidget() && this->GetWidget()->GetCustomTheme();
 }
 
 base::ScopedClosureRunner AvatarToolbarButton::ShowExplicitText(
-    const std::u16string& text) {
-  return delegate_->ShowExplicitText(text);
+    const std::u16string& text,
+    std::optional<std::u16string> accessibility_label) {
+  return delegate_->ShowExplicitText(text, accessibility_label);
 }
 
 void AvatarToolbarButton::ResetButtonAction() {
@@ -323,6 +322,15 @@ void AvatarToolbarButton::MaybeShowProfileSwitchIPH() {
   }
 }
 
+void AvatarToolbarButton::MaybeShowExplicitBrowserSigninPreferenceRememberedIPH(
+    const AccountInfo& account_info) {
+  user_education::FeaturePromoParams params(
+      feature_engagement::kIPHExplicitBrowserSigninPreferenceRememberedFeature,
+      account_info.gaia);
+  params.title_params = base::UTF8ToUTF16(account_info.given_name);
+  browser_->window()->MaybeShowFeaturePromo(std::move(params));
+}
+
 void AvatarToolbarButton::MaybeShowWebSignoutIPH(const std::string& gaia_id) {
   CHECK(switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
   browser_->window()->MaybeShowFeaturePromo(user_education::FeaturePromoParams(
@@ -351,9 +359,7 @@ void AvatarToolbarButton::OnThemeChanged() {
 
   delegate_->OnThemeChanged(GetColorProvider());
   UpdateText();
-  if (features::IsChromeRefresh2023()) {
-    UpdateInkdrop();
-  }
+  UpdateInkdrop();
 }
 
 // static
@@ -401,8 +407,7 @@ SkColor AvatarToolbarButton::GetForegroundColor(ButtonState state) const {
   // `GetForegroundColor()` This is to avoid creating new colorIds for icons for
   // all the different states. With chrome refresh and without any custom theme,
   // the color would be same as the label color.
-  if (features::IsChromeRefresh2023() && !has_custom_theme &&
-      IsLabelPresentAndVisible()) {
+  if (!has_custom_theme && IsLabelPresentAndVisible()) {
     const std::optional<SkColor> foreground_color = GetHighlightTextColor();
     const auto* const color_provider = GetColorProvider();
     return foreground_color.has_value()
@@ -421,36 +426,15 @@ bool AvatarToolbarButton::IsLabelPresentAndVisible() const {
   return label()->GetVisible() && !label()->GetText().empty();
 }
 
-void AvatarToolbarButton::SetInsets() {
-  // In non-touch mode we use a larger-than-normal icon size for avatars so we
-  // need to compensate it by smaller insets.
-  const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
-  gfx::Insets layout_insets((touch_ui || features::IsChromeRefresh2023())
-                                ? 0
-                                : (kDefaultIconSize - kIconSizeForNonTouchUi) /
-                                      2);
-  SetLayoutInsetDelta(layout_insets);
-}
-
 void AvatarToolbarButton::UpdateLayoutInsets() {
-  if (!features::IsChromeRefresh2023()) {
-    return;
-  }
-
-  if (IsLabelPresentAndVisible()) {
-    SetLayoutInsets(::GetLayoutInsets(AVATAR_CHIP_PADDING));
-  } else {
-    SetLayoutInsets(::GetLayoutInsets(TOOLBAR_BUTTON));
-  }
+  SetLayoutInsets(::GetLayoutInsets(
+      IsLabelPresentAndVisible() ? AVATAR_CHIP_PADDING : TOOLBAR_BUTTON));
 }
 
 int AvatarToolbarButton::GetIconSize() const {
-  if (ui::TouchUiController::Get()->touch_ui()) {
-    return kDefaultTouchableIconSize;
-  }
-
-  return features::IsChromeRefresh2023() ? kDefaultIconSizeChromeRefresh
-                                         : kIconSizeForNonTouchUi;
+  return ui::TouchUiController::Get()->touch_ui()
+             ? kDefaultTouchableIconSize
+             : kDefaultIconSizeChromeRefresh;
 }
 
 void AvatarToolbarButton::AddObserver(Observer* observer) {
@@ -478,6 +462,15 @@ void AvatarToolbarButton::NotifyShowSigninPausedDelayEnded() const {
   for (auto& observer : observer_list_) {
     observer.OnShowSigninPausedDelayEnded();  // IN-TEST
   }
+}
+
+void AvatarToolbarButton::PaintButtonContents(gfx::Canvas* canvas) {
+  int icon_size = GetIconSize();
+  gfx::Rect avatar_image_bounds = image_container_view()->bounds();
+  // Override image bounds width and height to match the icon size used.
+  avatar_image_bounds.set_width(icon_size);
+  avatar_image_bounds.set_height(icon_size);
+  delegate_->PaintIcon(canvas, avatar_image_bounds);
 }
 
 BEGIN_METADATA(AvatarToolbarButton)

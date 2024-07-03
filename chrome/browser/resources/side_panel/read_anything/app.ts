@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import './read_anything_toolbar.js';
+import './strings.m.js';
 import '//read-anything-side-panel.top-chrome/shared/sp_empty_state.js';
 import '//read-anything-side-panel.top-chrome/shared/sp_shared_style.css.js';
 import '//resources/cr_elements/cr_hidden_style.css.js';
 import '//resources/cr_elements/cr_shared_vars.css.js';
 import '//resources/cr_elements/cr_toast/cr_toast.js';
-import './strings.m.js';
-import './read_anything_toolbar.js';
 
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import type {CrToastElement} from '//resources/cr_elements/cr_toast/cr_toast.js';
@@ -21,9 +21,10 @@ import type {SkColor} from '//resources/mojo/skia/public/mojom/skcolor.mojom-web
 import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {getTemplate} from './app.html.js';
-import {minOverflowLengthToScroll, validatedFontName} from './common.js';
+import {minOverflowLengthToScroll, playFromSelectionTimeout, validatedFontName} from './common.js';
 import type {ReadAnythingToolbarElement} from './read_anything_toolbar.js';
-import {areVoicesEqual, AVAILABLE_GOOGLE_TTS_LOCALES, convertLangOrLocaleForVoicePackManager, convertLangToAnAvailableLangIfPresent, createInitialListOfEnabledLanguages, mojoVoicePackStatusToVoicePackStatusEnum, VoicePackStatus} from './voice_language_util.js';
+import type {VoicePackStatus} from './voice_language_util.js';
+import {areVoicesEqual, AVAILABLE_GOOGLE_TTS_LOCALES, convertLangOrLocaleForVoicePackManager, convertLangOrLocaleToExactVoicePackLocale, convertLangToAnAvailableLangIfPresent, createInitialListOfEnabledLanguages, isEspeak, isNatural, isVoicePackStatusError, isVoicePackStatusSuccess, mojoVoicePackStatusToVoicePackStatusEnum, VoiceClientSideStatusCode, VoicePackServerStatusErrorCode, VoicePackServerStatusSuccessCode} from './voice_language_util.js';
 
 const ReadAnythingElementBase = WebUiListenerMixin(PolymerElement);
 
@@ -78,6 +79,35 @@ const overflowXScroll = 'scroll';
 const minWidthTypical = 'auto';
 const minWidthOverflow = 'fit-content';
 
+// Images CSS Classes.
+const HIDDEN_IMAGE = 'hiddenImg';
+
+// UMA logging constants.
+const NEW_PAGE_UMA = 'Accessibility.ReadAnything.NewPage';
+const LANGUAGE_UMA = 'Accessibility.ReadAnything.ReadAloud.Language';
+const VOICE_UMA = 'Accessibility.ReadAnything.ReadAloud.Voice';
+// Enum for logging when we play speech on a page.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum ReadAnythingNewPage {
+  NEW_PAGE = 0,
+  SPEECH_PLAYED_ON_NEW_PAGE = 1,
+
+  // Must be last.
+  COUNT = 2,
+}
+// Enum for logging which kind of voice is being used to read aloud.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum ReadAnythingVoiceType {
+  NATURAL = 0,
+  ESPEAK = 1,
+  CHROMEOS = 2,
+
+  // Must be last.
+  COUNT = 3,
+}
+
 // A two-way map where each key is unique and each value is unique. The keys are
 // DOM nodes and the values are numbers, representing AXNodeIDs.
 class TwoWayMap<K, V> extends Map<K, V> {
@@ -119,6 +149,12 @@ if (chrome.readingMode) {
     const readAnythingApp = document.querySelector('read-anything-app');
     assert(readAnythingApp, 'no app');
     readAnythingApp.updateLinks();
+  };
+
+  chrome.readingMode.updateImages = () => {
+    const readAnythingApp = document.querySelector('read-anything-app');
+    assert(readAnythingApp, 'no app');
+    readAnythingApp.updateImages();
   };
 
   chrome.readingMode.updateImage = (nodeId) => {
@@ -296,9 +332,10 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   private lastDownloadedLang_: string;
   private emptyStateSubheading_: string;
 
-  private previousHighlight_: HTMLElement[] = [];
+  private previousHighlights_: HTMLElement[] = [];
   private currentColorSuffix_: string;
   private isHighlightOn_: boolean = true;
+  private previousRootId_: number;
 
   // If the WebUI toolbar should be shown. This happens when the WebUI feature
   // flag is enabled.
@@ -336,7 +373,14 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
   private localeToDisplayName: {[locale: string]: string};
 
-  private voicePackInstallStatus: {[language: string]: VoicePackStatus} = {};
+  // Our local representation of the status of voice pack downloads and
+  // availability
+  private voiceStatusLocalState:
+      {[language: string]: VoiceClientSideStatusCode} = {};
+
+  // Cache of responses from LanguagePackManager
+  private voicePackInstallStatusServerResponses:
+      {[language: string]: VoicePackStatus} = {};
 
   // Set of languages of the browser and/or of the pages navigated to that we
   // need to download Natural voices for automatically
@@ -387,6 +431,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
   override connectedCallback() {
     super.connectedCallback();
+
     // onConnected should always be called first in connectedCallback to ensure
     // we're not blocking onConnected on anything else during WebUI setup.
     if (chrome.readingMode) {
@@ -412,16 +457,17 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     this.showLoading();
 
     if (this.isReadAloudEnabled_) {
+      // Clear state. We don't do this in disconnectedCallback because that's
+      // not always reliabled called.
+      this.synth.cancel();
+      this.hasContent_ = false;
+      this.firstUtteranceSpoken = false;
+      this.firstTextNodeSetForReadAloud = null;
+      this.domNodeToAxNodeIdMap_.clear();
+      this.clearReadAloudState();
+
       this.synth.onvoiceschanged = () => {
-        this.getVoices(/*refresh =*/ true);
-        // If the selected voice is now unavailable, such as after an install,
-        // reselect a new voice.
-        if (this.selectedVoice &&
-            !this.availableVoices.some(
-                voice => areVoicesEqual(voice, this.selectedVoice!))) {
-          this.selectedVoice = undefined;
-          this.getSpeechSynthesisVoice();
-        }
+        this.onVoicesChanged_();
       };
     }
 
@@ -432,52 +478,40 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       if (!this.hasContent_ || !this.speechPlayingState.paused) {
         return;
       }
-      const selection = this.getSelection();
+      const selection: Selection = this.getSelection();
       assert(selection, 'no selection');
-      const {anchorNode, anchorOffset, focusNode, focusOffset} = selection;
-      if (!anchorNode || !focusNode) {
+      if (!selection.anchorNode || !selection.focusNode) {
         // The selection was collapsed by clicking inside the selection.
         chrome.readingMode.onCollapseSelection();
         return;
       }
-      let anchorNodeId = this.domNodeToAxNodeIdMap_.get(anchorNode);
-      let focusNodeId = this.domNodeToAxNodeIdMap_.get(focusNode);
-      let adjustedAnchorOffset = anchorOffset;
-      let adjustedFocusOffset = focusOffset;
-      // If the node was highlighted, then we need to find the parent node which
-      // we stored in the map, rather than the node itself
-      if (!anchorNodeId) {
-        anchorNodeId = this.getHighlightedAncestorId_(anchorNode);
-        adjustedAnchorOffset += this.getOffsetInAncestor(anchorNode);
-      }
-      if (!focusNodeId) {
-        focusNodeId = this.getHighlightedAncestorId_(focusNode);
-        adjustedFocusOffset += this.getOffsetInAncestor(focusNode);
-      }
+
+      const {anchorNodeId, anchorOffset, focusNodeId, focusOffset} =
+          this.getSelectedIds();
       if (!anchorNodeId || !focusNodeId) {
         return;
       }
 
       chrome.readingMode.onSelectionChange(
-          anchorNodeId, adjustedAnchorOffset, focusNodeId, adjustedFocusOffset);
+          anchorNodeId, anchorOffset, focusNodeId, focusOffset);
       // If there's been a selection, clear the current
       // Read Aloud highlight.
-      const element = document.querySelector('.' + currentReadHighlightClass);
-      if (element && anchorNodeId && focusNodeId) {
-        element.classList.remove(currentReadHighlightClass);
+      const elements =
+          document.querySelectorAll('.' + currentReadHighlightClass);
+      if (elements.length > 0 && anchorNodeId && focusNodeId) {
+        elements.forEach(el => el.classList.remove(currentReadHighlightClass));
       }
 
       // Clear the previously read highlight if there's been a selection.
       // If speech is resumed, this won't be restored.
       // TODO(b/40927698): Restore the previous highlight after speech
       // is resumed after a selection.
-      this.previousHighlight_.forEach((element) => {
+      this.previousHighlights_.forEach((element) => {
         if (element) {
-          element.className = '';
+          element.classList.remove(previousReadHighlightClass);
         }
       });
-      this.previousHighlight_ = [];
-
+      this.previousHighlights_ = [];
     };
 
     document.onscroll = () => {
@@ -529,11 +563,10 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     }
 
     let ancestor;
-    if (node.parentElement.className === parentOfHighlightClass) {
+    if (node.parentElement.classList.contains(parentOfHighlightClass)) {
       ancestor = node.parentNode;
-    } else if (
-        node.parentElement.parentElement?.className ===
-        parentOfHighlightClass) {
+    } else if (node.parentElement.parentElement?.classList.contains(
+                   parentOfHighlightClass)) {
       ancestor = node.parentNode.parentNode;
     }
 
@@ -727,10 +760,23 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       return;
     }
 
-    this.loadImages_();
+    if (this.previousRootId_ !== rootId) {
+      this.previousRootId_ = rootId;
+      chrome.metricsPrivate.recordEnumerationValue(
+          NEW_PAGE_UMA, ReadAnythingNewPage.NEW_PAGE,
+          ReadAnythingNewPage.COUNT);
+    }
+
+    if (chrome.readingMode.imagesFeatureEnabled) {
+      // Always load images even if they are disabled to ensure a fast response
+      // when toggling.
+      this.loadImages_();
+    }
+
 
     this.hasContent_ = true;
     container.appendChild(node);
+    this.updateImages();
   }
 
   updateImage(nodeId: number) {
@@ -786,7 +832,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   }
 
   updateSelection() {
-    const selection = this.getSelection()!;
+    const selection: Selection = this.getSelection()!;
     selection.removeAllRanges();
 
     const range = new Range();
@@ -838,8 +884,18 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       }
     }
 
-    range.setStart(startNode, startOffset);
-    range.setEnd(endNode, endOffset);
+    // Gmail will try to select text when collapsing the node. At the same time,
+    // the node contents are then shortened because of the collapse which causes
+    // the range to go out of bounds. When this happens we should reset the
+    // selection.
+    try {
+      range.setStart(startNode, startOffset);
+      range.setEnd(endNode, endOffset);
+    } catch (err) {
+      selection.removeAllRanges();
+      return;
+    }
+
     selection.addRange(range);
 
     // Scroll the start node into view. ScrollIntoView is available on the
@@ -867,24 +923,48 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     }
   }
 
+  updateImages() {
+    document.querySelectorAll('img, figure').forEach((element) => {
+      if (chrome.readingMode.imagesEnabled) {
+        element.classList.remove(HIDDEN_IMAGE);
+      } else {
+        element.classList.add(HIDDEN_IMAGE);
+      }
+    });
+  }
+
   updateVoicePackStatusFromInstallResponse(lang: string, status: string) {
     if (!lang) {
       return;
     }
 
-    const voicePackStatus = mojoVoicePackStatusToVoicePackStatusEnum(status);
-    if (voicePackStatus === VoicePackStatus.INSTALL_ERROR) {
-      // TODO (b/331795122) Handle install errors on the UI
-      this.setVoicePackStatus_(lang, VoicePackStatus.INSTALL_ERROR);
-      return;
+    const newVoicePackStatus = mojoVoicePackStatusToVoicePackStatusEnum(status);
+    const oldVoicePackStatus = this.getVoicePackServerStatus_(lang);
+
+    if (isVoicePackStatusError(newVoicePackStatus)) {
+      // Keep the server responses.
+      this.setVoicePackServerStatus_(lang, newVoicePackStatus);
+
+      // Update application state.
+      this.updateApplicationState(lang, newVoicePackStatus, oldVoicePackStatus);
+
+      // Disable the associated language if there are no other Google voices for
+      // it.
+      const availableVoicesForLang = this.getVoices().filter(
+          v => this.getVoicePackConvertedLangIfExists_(v.lang) === lang);
+      if (availableVoicesForLang.length === 0 ||
+          availableVoicesForLang.every(v => isEspeak(v))) {
+        this.enabledLanguagesInPref = this.enabledLanguagesInPref.filter(
+            enabledLang =>
+                this.getVoicePackConvertedLangIfExists_(enabledLang) !== lang);
+      }
+    } else {
+      // Do not rely on the status from Install response. It has responded
+      // "installed" for voices that are not installed. Instead, request the
+      // status from GetVoicePackInfo. The result will be returned in
+      // updateVoicePackStatus().
+      this.sendGetVoicePackInfoRequest(lang);
     }
-
-
-    // Do not rely on the status from Install response. It has responded
-    // "installed" for voices that are not installed. Instead, request the
-    // status from GetVoicePackInfo. The result will be returned in
-    // updateVoicePackStatus().
-    this.sendGetVoicePackInfoRequest(lang);
   }
 
   updateVoicePackStatus(lang: string, status: string) {
@@ -892,56 +972,105 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       return;
     }
 
-    const voicePackLangauge = this.getConvertedLangIfExists_(lang);
+    const newVoicePackStatus = mojoVoicePackStatusToVoicePackStatusEnum(status);
+    const oldVoicePackStatus = this.getVoicePackServerStatus_(lang);
 
-    const voicePackStatus = mojoVoicePackStatusToVoicePackStatusEnum(status);
-    if (voicePackStatus === VoicePackStatus.EXISTS) {
-      if (this.voicePackInstallStatus[voicePackLangauge] ===
-          VoicePackStatus.DOWNLOADED) {
-        // If the language pack is uninstalled but we still think it is
-        // installed, then the user removed the language pack outside of reading
-        // mode and we don't want to reinstall.
-        this.setVoicePackStatus_(lang, VoicePackStatus.REMOVED_BY_USER);
-      } else if (this.languagesForVoiceDownloads.has(lang)) {
-        // We can't rely on the voice pack manager to reflect that a voice is
-        // installing, so check our local state to see if we've already
-        // triggered an install request.
-        // Only call sendInstallVoicePackRequest() if it's not already
-        // downloading
-        if (this.getVoicePackStatus_(lang) !== VoicePackStatus.INSTALLING) {
-          // TODO(b/326130935): Hide the message when installation completes or
-          // show an error message if something fails.
-          this.setVoicePackStatus_(lang, VoicePackStatus.INSTALLING);
-          chrome.readingMode.sendInstallVoicePackRequest(lang);
-        }
-      }
-    } else if (voicePackStatus === VoicePackStatus.DOWNLOADED) {
-      // If we've never seen the voice pack for this language, then it was
-      // already downloaded so mark it as such.
-      if (!this.voicePackInstallStatus[voicePackLangauge]) {
-        this.setVoicePackStatus_(voicePackLangauge, voicePackStatus);
-      } else if (
-          this.voicePackInstallStatus[voicePackLangauge] ===
-          VoicePackStatus.INSTALLING) {
-        const possibleLanguageConversion =
-            convertLangToAnAvailableLangIfPresent(
-                voicePackLangauge, this.availableLangs, true);
-        this.lastDownloadedLang_ = possibleLanguageConversion ?
-            possibleLanguageConversion :
-            voicePackLangauge;
-        this.showToast_();
-        this.setVoicePackStatus_(voicePackLangauge, voicePackStatus);
-      }
+    // Keep the server responses
+    this.setVoicePackServerStatus_(lang, newVoicePackStatus);
 
-      // Force a refresh of the voices list since we might not get an update the
-      // voices have changed.
-      this.getVoices(true);
-      return;
+    // Update application state
+    this.updateApplicationState(lang, newVoicePackStatus, oldVoicePackStatus);
+  }
+
+
+  // Store client side voice pack state and trigger side effects
+  private updateApplicationState(
+      lang: string, newVoicePackStatus: VoicePackStatus,
+      oldVoicePackStatus?: VoicePackStatus) {
+    if (isVoicePackStatusSuccess(newVoicePackStatus)) {
+      const newStatusCode = newVoicePackStatus.code;
+
+      switch (newStatusCode) {
+        case VoicePackServerStatusSuccessCode.NOT_INSTALLED:
+          // Install the voice if it's not currently installed and it's marked
+          // as a language that should be installed
+          if (this.languagesForVoiceDownloads.has(lang)) {
+            // Don't re-send install request if it's already been sent
+            if (this.getVoicePackLocalStatus_(lang) !==
+                VoiceClientSideStatusCode.SENT_INSTALL_REQUEST) {
+              this.forceInstallRequest(lang, /* isRetry = */ false);
+            }
+          } else {
+            this.setVoicePackLocalStatus_(
+                lang, VoiceClientSideStatusCode.NOT_INSTALLED);
+          }
+          break;
+        case VoicePackServerStatusSuccessCode.INSTALLING:
+          // Do nothing- we mark our local state as installing when we send the
+          // request. Locally, we may time out a slow request and mark it as
+          // errored, and we don't want to overwrite that state here.
+          break;
+        case VoicePackServerStatusSuccessCode.INSTALLED:
+          // See if voice is newly downloaded and should have a toast notifying
+          // the user. If there is no old status, then we are opening for the
+          // first time and therefore should not be showing a notification.
+          if (oldVoicePackStatus &&
+              oldVoicePackStatus.code !==
+                  VoicePackServerStatusSuccessCode.INSTALLED) {
+            this.lastDownloadedLang_ =
+                this.getVoicePackConvertedLangIfExists_(lang);
+            this.showToast_();
+
+            // Force a refresh of the voices list since we might not get an
+            // update the voices have changed.
+            this.getVoices(true);
+          }
+
+          this.autoSwitchVoice_(lang);
+
+          // Even though the voice may be installed on disk, it still may not be
+          // available to the speechSynthesis API. Check whether to mark the
+          // voice as AVAILABLE or INSTALLED_AND_UNAVAILABLE
+          const naturalVoicesForLangAreAvailable = this.availableVoices.some(
+              voice => isNatural(voice) &&
+                  this.getVoicePackConvertedLangIfExists_(voice.lang) === lang);
+          this.setVoicePackLocalStatus_(
+              lang,
+              naturalVoicesForLangAreAvailable ?
+                  VoiceClientSideStatusCode.AVAILABLE :
+                  VoiceClientSideStatusCode.INSTALLED_AND_UNAVAILABLE);
+          break;
+        default:
+          // This ensures the switch statement is exhaustive
+          return newStatusCode satisfies never;
+      }
+    } else if (isVoicePackStatusError(newVoicePackStatus)) {
+      this.autoSwitchVoice_(lang);
+      const newStatusCode = newVoicePackStatus.code;
+
+      switch (newStatusCode) {
+        case VoicePackServerStatusErrorCode.OTHER:
+        case VoicePackServerStatusErrorCode.WRONG_ID:
+        case VoicePackServerStatusErrorCode.NEED_REBOOT:
+        case VoicePackServerStatusErrorCode.UNSUPPORTED_PLATFORM:
+          this.setVoicePackLocalStatus_(
+              lang, VoiceClientSideStatusCode.ERROR_INSTALLING);
+          break;
+        case VoicePackServerStatusErrorCode.ALLOCATION:
+          this.setVoicePackLocalStatus_(
+              lang, VoiceClientSideStatusCode.INSTALL_ERROR_ALLOCATION);
+          break;
+        default:
+          // This ensures the switch statement is exhaustive
+          return newStatusCode satisfies never;
+      }
     } else {
-      this.setVoicePackStatus_(lang, voicePackStatus);
-      // TODO (b/335472298) Handle voice menu downloading voice spinners
+      // Couldn't parse the response
+      this.setVoicePackLocalStatus_(
+          lang, VoiceClientSideStatusCode.ERROR_INSTALLING);
     }
   }
+
 
   private getLanguageDownloadedTitle_(lang: string) {
     const langDisplayName =
@@ -955,12 +1084,40 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
   // TODO(b/325962407): replace toast with system notification
   private showToast_(): void {
-    if (!this.shadowRoot) {
-      return;
+    const toast = document.querySelector<CrToastElement>('#toast')!;
+    toast.show();
+  }
+
+  private onVoicesChanged_() {
+    // Get a new list of voices. This should be done before we call
+    // refreshVoicePackStatuses();
+    this.getVoices(/*refresh =*/ true);
+
+    // If voice was selected automatically and not by the user, check if
+    // there's a higher quality voice available now.
+    if (!this.currentVoiceIsUserChosen_()) {
+      const naturalVoicesForLang = this.availableVoices.filter(
+          voice => isNatural(voice) &&
+              voice.lang.startsWith(chrome.readingMode.baseLanguageForSpeech));
+
+      if (naturalVoicesForLang) {
+        this.selectedVoice = naturalVoicesForLang[0];
+        this.resetSpeechPostSettingChange_();
+      }
     }
 
-    const toast = this.shadowRoot.querySelector<CrToastElement>('#toast')!;
-    toast.show();
+    // Now that the voice list has changed, refresh the VoicePackStatuses in
+    // case a language has been uninstalled.
+    this.refreshVoicePackStatuses();
+
+    // If the selected voice is now unavailable, such as after an uninstall,
+    // reselect a new voice.
+    if (this.selectedVoice &&
+        !this.availableVoices.some(
+            voice => areVoicesEqual(voice, this.selectedVoice!))) {
+      this.selectedVoice = undefined;
+      this.getSpeechSynthesisVoice();
+    }
   }
 
   private onSpeechRateChange_(event: CustomEvent<{rate: number}>) {
@@ -980,8 +1137,6 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   }
 
   defaultVoice(): SpeechSynthesisVoice|undefined {
-    // TODO(crbug.com/40927698): Additional logic to find default voice if there
-    // isn't a voice marked as default
     const baseLang = this.speechSynthesisLanguage;
     const allPossibleVoices = this.getVoices();
     const voicesForLanguage =
@@ -989,40 +1144,45 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
     if (!voicesForLanguage || (voicesForLanguage.length === 0)) {
       // Stay with the current voice if no voices are available for this
-      // language. If no voice is yet selected, use the default voice.
+      // language.
       return this.selectedVoice ?
           this.selectedVoice :
-          this.getVoices().find(({default: isDefaultVoice}) => isDefaultVoice);
+          this.getNaturalVoiceOrDefault_(allPossibleVoices);
     }
 
     // First try to choose a voice only from currently enabled locales for this
     // language.
-    const voicesForEnabledLocale = voicesForLanguage.filter(
-        voice =>
-            this.enabledLanguagesInPref.includes(voice.lang.toLowerCase()));
-    if (!voicesForEnabledLocale || voicesForEnabledLocale.length === 0) {
-      // If there are no enabled locales for this language, choose a voice
-      // labeled default among all enabled voices, or the first enabled voice.
+    const voicesForCurrentEnabledLocale = voicesForLanguage.filter(
+        v => this.enabledLanguagesInPref.includes(v.lang.toLowerCase()));
+    if (!voicesForCurrentEnabledLocale ||
+        !voicesForCurrentEnabledLocale.length) {
+      // If there's no enabled locales for this language, check for any other
+      // voices for enabled locales.
       const allVoicesForEnabledLocales = allPossibleVoices.filter(
           v => this.enabledLanguagesInPref.includes(v.lang.toLowerCase()));
-      if (!allVoicesForEnabledLocales) {
-        // If there are no enabled locales, we can't select a voice. So return
-        // undefined so we can disable the play button.
+      if (!allVoicesForEnabledLocales.length) {
+        // If there are no voices for the enabled locales, or no enabled
+        // locales at all, we can't select a voice. So return undefined so we
+        // can disable the play button.
         return undefined;
       } else {
-        const defaultVoiceForEnabledLocales = allVoicesForEnabledLocales.find(
-            ({default: isDefaultVoice}) => isDefaultVoice);
-        return defaultVoiceForEnabledLocales ? defaultVoiceForEnabledLocales :
-                                               allVoicesForEnabledLocales[0];
+        return this.getNaturalVoiceOrDefault_(allVoicesForEnabledLocales);
       }
     }
 
-    // Get the default voice for the currently enabled locale.
-    const defaultVoiceForLanguage = voicesForEnabledLocale.find(
-        ({default: isDefaultVoice}) => isDefaultVoice);
+    return this.getNaturalVoiceOrDefault_(voicesForCurrentEnabledLocale);
+  }
 
-    return defaultVoiceForLanguage ? defaultVoiceForLanguage :
-                                     voicesForEnabledLocale[0];
+  private getNaturalVoiceOrDefault_(voices: SpeechSynthesisVoice[]):
+      SpeechSynthesisVoice {
+    const naturalVoice = voices.find(v => isNatural(v));
+    if (naturalVoice) {
+      return naturalVoice;
+    }
+
+    const defaultVoice =
+        voices.find(({default: isDefaultVoice}) => isDefaultVoice);
+    return defaultVoice ? defaultVoice : voices[0];
   }
 
   // Attempt to get a new voice using the current language. In theory, the
@@ -1093,21 +1253,15 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       this.availableLangs = [...new Set(availableVoices.map(({lang}) => lang))];
 
       this.populateDisplayNamesForLocaleCodes();
-
-      // Update voice pack install status if we're refreshing the list.
-      if (refresh) {
-        this.availableLangs
-            .filter(
-                lang =>
-                    this.voicePackInstallStatus[this.getConvertedLangIfExists_(
-                        lang)] === VoicePackStatus.DOWNLOADED)
-            .forEach(downloadedLang => {
-              this.setVoicePackStatus_(
-                  downloadedLang, VoicePackStatus.INSTALLED);
-            });
-      }
     }
     return this.availableVoices;
+  }
+
+  private refreshVoicePackStatuses() {
+    for (const lang of Object.keys(
+             this.voicePackInstallStatusServerResponses)) {
+      this.sendGetVoicePackInfoRequest(lang);
+    }
   }
 
   private populateDisplayNamesForLocaleCodes() {
@@ -1164,7 +1318,6 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     }
 
     const defaultUtteranceSettings = this.defaultUtteranceSettings();
-    // TODO(crbug.com/40927698): Finalize the default voice preview text.
     const utterance = new SpeechSynthesisUtterance(
         loadTimeData.getString('readingModeVoicePreviewText'));
     const voice = event.detail.previewVoice;
@@ -1174,7 +1327,6 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     utterance.pitch = defaultUtteranceSettings.pitch;
     utterance.rate = defaultUtteranceSettings.rate;
 
-    // TODO(crbug.com/40927698): Add tests for pause button
     utterance.onstart = event => {
       this.previewVoicePlaying = event.utterance.voice;
     };
@@ -1261,13 +1413,35 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   private logSpeechPlaySession() {
     // Don't log a playback session just in case something has gotten out of
     // sync and we call stopSpeech before playSpeech.
-    assert(this.playSessionStartTime > 0, 'invalid speech playing start time');
     if (this.playSessionStartTime > 0) {
+      this.logLanguageUsedForReading();
+      this.logVoiceTypeUsedForReading();
       chrome.readingMode.logLongMetric(
           Date.now() - this.playSessionStartTime,
           'Accessibility.ReadAnything.SpeechPlaybackSession');
       this.playSessionStartTime = -1;
     }
+  }
+
+  private logVoiceTypeUsedForReading() {
+    if (!this.selectedVoice) {
+      return;
+    }
+
+    let voiceType: ReadAnythingVoiceType|undefined;
+    if (isNatural(this.selectedVoice)) {
+      voiceType = ReadAnythingVoiceType.NATURAL;
+    } else if (isEspeak(this.selectedVoice)) {
+      voiceType = ReadAnythingVoiceType.ESPEAK;
+    } else if (chrome.readingMode.isChromeOsAsh) {
+      voiceType = ReadAnythingVoiceType.CHROMEOS;
+    }
+    if (!voiceType) {
+      return;
+    }
+
+    chrome.metricsPrivate.recordEnumerationValue(
+        VOICE_UMA, voiceType, ReadAnythingVoiceType.COUNT);
   }
 
   private playNextGranularity_() {
@@ -1299,22 +1473,58 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     }
   }
 
+  private logLanguageUsedForReading() {
+    if (!this.selectedVoice) {
+      return;
+    }
+
+    // See tools/metrics/histograms/enums.xml enum LocaleCodeISO639. The enum
+    // there doesn't always have locales where the base lang and the locale
+    // are the same (e.g. they don't have id-id, but do have id). So if the
+    // base lang and the locale are the same, just use the base lang.
+    let langToLog = this.selectedVoice.lang;
+    const langSplit = this.selectedVoice.lang.toLowerCase().split('-');
+    if (langSplit.length === 2 && langSplit[0] === langSplit[1]) {
+      langToLog = langSplit[0];
+    }
+    chrome.metricsPrivate.recordSparseValueWithHashMetricName(
+        LANGUAGE_UMA, langToLog);
+  }
+
   playSpeech() {
     const container = this.$.container;
+    const {anchorNode, anchorOffset, focusNode, focusOffset} =
+        this.getSelection();
+    const hasSelection =
+        anchorNode !== focusNode || anchorOffset !== focusOffset;
     if (this.speechPlayingState.speechStarted &&
         this.speechPlayingState.paused) {
       const pausedFromButton = this.speechPlayingState.pauseSource ===
           PauseActionSource.BUTTON_CLICK;
 
-      // If word boundaries aren't supported for the given voice, we should
-      // still continue to use synth.resume, as this is preferable to
-      // restarting the current message.
-      if (pausedFromButton &&
-          this.wordBoundaryState.mode !== WordBoundaryMode.BOUNDARY_DETECTED) {
-        this.synth.resume();
-      } else {
+      let playedFromSelection = false;
+      if (hasSelection) {
         this.synth.cancel();
-        this.highlightAndPlayInterruptedMessage();
+        chrome.readingMode.onRestartReadAloud();
+        playedFromSelection = this.playFromSelection();
+      }
+
+      if (!playedFromSelection) {
+        if (pausedFromButton &&
+            this.wordBoundaryState.mode !==
+                WordBoundaryMode.BOUNDARY_DETECTED) {
+          // If word boundaries aren't supported for the given voice, we should
+          // still continue to use synth.resume, as this is preferable to
+          // restarting the current message.
+          this.synth.resume();
+        } else {
+          this.synth.cancel();
+          if (!this.highlightAndPlayInterruptedMessage()) {
+            // Ensure we're updating Read Aloud state if there's no text to
+            // speak.
+            this.onSpeechFinished();
+          }
+        }
       }
 
       this.speechPlayingState = {
@@ -1329,20 +1539,30 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         this.updateLinks();
         // Now that links are toggled, ensure that the new nodes are also
         // highlighted.
-        this.highlightNodes(chrome.readingMode.getCurrentText());
+        if (!playedFromSelection) {
+          this.highlightNodes(chrome.readingMode.getCurrentText());
+        }
       }
 
       // If the current read highlight has been cleared from a call to
       // updateContent, such as for links being toggled on or off via a Read
       // Aloud play / pause or via a preference change, rehighlight the nodes
       // after a pause.
-      if (!container.querySelector('.' + currentReadHighlightClass)) {
+      if (!playedFromSelection &&
+          !container.querySelector('.' + currentReadHighlightClass)) {
         this.highlightNodes(chrome.readingMode.getCurrentText());
       }
 
       return;
     }
     if (container.textContent) {
+      // Log that we're playing speech on a new page, but not when resuming.
+      // This helps us compare how many reading mode pages are opened with
+      // speech played and without speech played. Counting resumes would
+      // inflate the speech played number.
+      chrome.metricsPrivate.recordEnumerationValue(
+          NEW_PAGE_UMA, ReadAnythingNewPage.SPEECH_PLAYED_ON_NEW_PAGE,
+          ReadAnythingNewPage.COUNT);
       this.speechPlayingState = {
         paused: false,
         speechStarted: true,
@@ -1353,46 +1573,124 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         this.updateLinks();
       }
 
-      // TODO(crbug.com/40927698): There should be a way to use AXPosition so
-      // that this step can be skipped.
-      if (this.firstTextNodeSetForReadAloud) {
+      const playedFromSelection = hasSelection && this.playFromSelection();
+      if (!playedFromSelection && this.firstTextNodeSetForReadAloud) {
+        // TODO(crbug.com/40927698): There should be a way to use AXPosition so
+        // that this step can be skipped.
         chrome.readingMode.initAxPositionWithNode(
             this.firstTextNodeSetForReadAloud);
-        this.highlightAndPlayMessage();
+        if (!this.highlightAndPlayMessage()) {
+          // Ensure we're updating Read Aloud state if there's no text to speak.
+          this.onSpeechFinished();
+        }
       }
     }
   }
 
-  // TODO: Should this be merged with highlightAndPlayMessage?
-  highlightAndPlayInterruptedMessage() {
-    // getCurrentText gets the AX Node IDs of text that should be spoken and
-    // highlighted.
-    const axNodeIds: number[] = chrome.readingMode.getCurrentText();
+  private getSelectedIds(): {
+    anchorNodeId: number|undefined,
+    anchorOffset: number,
+    focusNodeId: number|undefined,
+    focusOffset: number,
+  } {
+    const {anchorNode, anchorOffset, focusNode, focusOffset} =
+        this.getSelection();
+    let anchorNodeId = this.domNodeToAxNodeIdMap_.get(anchorNode);
+    let focusNodeId = this.domNodeToAxNodeIdMap_.get(focusNode);
+    let adjustedAnchorOffset = anchorOffset;
+    let adjustedFocusOffset = focusOffset;
+    if (!anchorNodeId) {
+      anchorNodeId = this.getHighlightedAncestorId_(anchorNode);
+      adjustedAnchorOffset += this.getOffsetInAncestor(anchorNode);
+    }
+    if (!focusNodeId) {
+      focusNodeId = this.getHighlightedAncestorId_(focusNode);
+      adjustedFocusOffset += this.getOffsetInAncestor(focusNode);
+    }
+    return {
+      anchorNodeId: anchorNodeId,
+      anchorOffset: adjustedAnchorOffset,
+      focusNodeId: focusNodeId,
+      focusOffset: adjustedFocusOffset,
+    };
+  }
 
-    const utteranceText = this.extractTextOf(axNodeIds);
-    // Return if the utterance is empty or null.
-    if (!utteranceText) {
+  playFromSelection(): boolean {
+    const selection = this.getSelection();
+    if (!this.firstTextNodeSetForReadAloud || !selection) {
       return false;
     }
 
-    if (this.wordBoundaryState.mode === WordBoundaryMode.BOUNDARY_DETECTED) {
-      const substringIndex = this.wordBoundaryState.previouslySpokenIndex +
-          this.wordBoundaryState.speechUtteranceStartIndex;
-      this.wordBoundaryState.previouslySpokenIndex = 0;
-      this.wordBoundaryState.speechUtteranceStartIndex = substringIndex;
-      this.playText(utteranceText.substring(substringIndex));
-    } else {
-      this.playText(utteranceText);
+    const {anchorNodeId, anchorOffset, focusNodeId, focusOffset} =
+        this.getSelectedIds();
+    // If only one of the ids is present, use that one.
+    let startingNodeId: number|undefined =
+        anchorNodeId ? anchorNodeId : focusNodeId;
+    let startingOffset = anchorNodeId ? anchorOffset : focusOffset;
+    // If both are present, start with the node that is sooner in the page.
+    if (anchorNodeId && focusNodeId) {
+      const pos =
+          selection.anchorNode.compareDocumentPosition(selection.focusNode);
+      const focusIsFirst = pos === Node.DOCUMENT_POSITION_PRECEDING;
+      startingNodeId = focusIsFirst ? focusNodeId : anchorNodeId;
+      startingOffset = focusIsFirst ? focusOffset : anchorOffset;
     }
-    this.highlightNodes(axNodeIds);
+
+    if (!startingNodeId) {
+      return false;
+    }
+
+    // Clear the selection so we don't keep trying to play from the same
+    // selection every time they press play.
+    selection.removeAllRanges();
+    // Iterate through the page from the beginning until we get to the
+    // selection. This is so clicking previous works before the selection and
+    // so the previous highlights are properly set.
+    chrome.readingMode.initAxPositionWithNode(
+        this.firstTextNodeSetForReadAloud);
+
+    // Iterate through the nodes asynchronously so that we can show the spinner
+    // in the toolbar while we move up to the selection.
+    setTimeout(() => {
+      this.movePlaybackToNode_(startingNodeId, startingOffset);
+      // Set everything to previous and then play the next granularity, which
+      // includes the selection.
+      this.resetPreviousHighlight();
+      if (!this.highlightAndPlayMessage()) {
+        this.onSpeechFinished();
+      }
+    }, playFromSelectionTimeout);
+
     return true;
+  }
+
+  private movePlaybackToNode_(nodeId: number, offset: number): void {
+    let currentTextIds = chrome.readingMode.getCurrentText();
+    let hasCurrentText = currentTextIds.length > 0;
+    // Since a node could spread across multiple granularities, we use the
+    // offset to determine if the selected text is in this granularity or if
+    // we have to move to the next one.
+    let startOfSelectionIsInCurrentText = currentTextIds.includes(nodeId) &&
+        chrome.readingMode.getCurrentTextEndIndex(nodeId) > offset;
+    while (hasCurrentText && !startOfSelectionIsInCurrentText) {
+      this.highlightNodes(currentTextIds, /*scrollIntoView=*/ false);
+      chrome.readingMode.movePositionToNextGranularity();
+      currentTextIds = chrome.readingMode.getCurrentText();
+      hasCurrentText = currentTextIds.length > 0;
+      startOfSelectionIsInCurrentText = currentTextIds.includes(nodeId) &&
+          chrome.readingMode.getCurrentTextEndIndex(nodeId) > offset;
+    }
+  }
+
+  highlightAndPlayInterruptedMessage(): boolean {
+    return this.highlightAndPlayMessage(/* isInterrupted = */ true);
   }
 
   // Play text of these axNodeIds. When finished, read and highlight to read the
   // following text.
   // TODO (crbug.com/1474951): Investigate using AXRange.GetText to get text
   // between start node / end nodes and their offsets.
-  highlightAndPlayMessage(): boolean {
+  highlightAndPlayMessage(isInterrupted: boolean = false): boolean {
     // getCurrentText gets the AX Node IDs of text that should be spoken and
     // highlighted.
     const axNodeIds: number[] = chrome.readingMode.getCurrentText();
@@ -1412,10 +1710,37 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       // TODO(b/332694565): This fallback should never be needed, but it is.
       // Investigate root cause of Read Aloud / Reading Mode mismatch.
       chrome.readingMode.movePositionToNextGranularity();
-      return this.highlightAndPlayMessage();
+      return this.highlightAndPlayMessage(isInterrupted);
     }
 
-    this.playText(utteranceText);
+    // The TTS engine may not like attempts to speak whitespace, so move to the
+    // next utterance.
+    if (utteranceText.trim().length === 0) {
+      chrome.readingMode.movePositionToNextGranularity();
+      return this.highlightAndPlayMessage(isInterrupted);
+    }
+
+    // If we're resuming a previously interrupted message, use word
+    // boundaries (if available) to resume at the beginning of the current
+    // word.
+    if (isInterrupted &&
+        this.wordBoundaryState.mode === WordBoundaryMode.BOUNDARY_DETECTED) {
+      const substringIndex = this.wordBoundaryState.previouslySpokenIndex +
+          this.wordBoundaryState.speechUtteranceStartIndex;
+      this.wordBoundaryState.previouslySpokenIndex = 0;
+      this.wordBoundaryState.speechUtteranceStartIndex = substringIndex;
+      const utteranceTextForWordBoundary =
+          utteranceText.substring(substringIndex);
+      // Don't use the word boundary if it's going to cause a TTS engine issue.
+      if (utteranceTextForWordBoundary.trim().length === 0) {
+        this.playText(utteranceText);
+      } else {
+        this.playText(utteranceText.substring(substringIndex));
+      }
+    } else {
+      this.playText(utteranceText);
+    }
+
     if (this.wordBoundaryState.mode ===
             WordBoundaryMode.BOUNDARIES_NOT_SUPPORTED ||
         !this.shouldUseWordHighlighting()) {
@@ -1540,8 +1865,8 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     message.addEventListener('boundary', (event) => {
       // Some voices may give sentence boundaries, but we're only concerned
       // with word boundaries in boundary event because we're speaking text at
-      // the sentence granularity level, so we'll retrieve these boundaries in message.onEnd
-      // instead.
+      // the sentence granularity level, so we'll retrieve these boundaries in
+      // message.onEnd instead.
       if (event.name === 'word') {
         this.updateBoundary(event.charIndex);
 
@@ -1672,14 +1997,14 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     this.highlightCurrentText_(startIndex, endIndex, element as HTMLElement);
   }
 
-  highlightNodes(nextTextIds: number[]) {
+  highlightNodes(nextTextIds: number[], scrollIntoView: boolean = true) {
     if (nextTextIds.length === 0) {
       return;
     }
 
     for (let i = 0; i < nextTextIds.length; i++) {
       const nodeId = nextTextIds[i];
-      const element = this.domNodeToAxNodeIdMap_.keyFrom(nodeId);
+      const element = this.domNodeToAxNodeIdMap_.keyFrom(nodeId) as HTMLElement;
       if (!element) {
         continue;
       }
@@ -1689,7 +2014,35 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         // If the start or end index is invalid, don't use this node.
         continue;
       }
-      this.highlightCurrentText_(start, end, element as HTMLElement);
+      this.highlightCurrentText_(start, end, element);
+    }
+
+    if (!scrollIntoView) {
+      return;
+    }
+
+    // Ensure all the current highlights are in view.
+    // TODO: b/40927698 - Handle if the highlight is longer than the full height
+    // of the window (e.g. when font size is very large). Possibly using word
+    // boundaries to know when we've reached the bottom of the window and need
+    // to scroll so the rest of the current highlight is showing.
+    const currentHighlights =
+        document.querySelectorAll<HTMLElement>('.' + currentReadHighlightClass);
+    if (!currentHighlights.length) {
+      return;
+    }
+    const firstHighlight = currentHighlights.item(0);
+    const lastHighlight = currentHighlights.item(currentHighlights.length - 1);
+    const highlightBottom = lastHighlight.getBoundingClientRect().bottom;
+    const highlightHeight =
+        highlightBottom - firstHighlight.getBoundingClientRect().top;
+    if (highlightHeight > (window.innerHeight / 2)) {
+      // If the bottom of the highlight would be offscreen if we center it,
+      // scroll the first highlight to the top instead of centering it.
+      firstHighlight.scrollIntoView({block: 'start'});
+    } else if (highlightBottom > window.innerHeight) {
+      // Otherwise center the current highlight if part of it would be cut off.
+      firstHighlight.scrollIntoView({block: 'center'});
     }
   }
 
@@ -1701,7 +2054,6 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       // TODO(crbug.com/40927698): Ensure the rate is valid for the current
       // speech engine.
       rate: this.rate,
-      // TODO(crbug.com/40927698): Ensure the correct default values are used.
       volume: 1,
       pitch: 1,
     };
@@ -1717,7 +2069,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       highlightStart: number, highlightEnd: number,
       currentNode: HTMLElement): void {
     const parentOfHighlight = document.createElement('span');
-    parentOfHighlight.className = parentOfHighlightClass;
+    parentOfHighlight.classList.add(parentOfHighlightClass);
 
     // First pull out any text within this node before the highlighted section.
     // Since it's already been highlighted, we fade it out.
@@ -1725,15 +2077,16 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         currentNode.textContent!.substring(0, highlightStart);
     if (highlightPrefix.length > 0) {
       const prefixNode = document.createElement('span');
-      prefixNode.className = previousReadHighlightClass;
+      prefixNode.classList.add(previousReadHighlightClass);
       prefixNode.textContent = highlightPrefix;
+      this.previousHighlights_.push(prefixNode);
       parentOfHighlight.appendChild(prefixNode);
     }
 
     // Then get the section of text to highlight and mark it for
     // highlighting.
     const readingHighlight = document.createElement('span');
-    readingHighlight.className = currentReadHighlightClass;
+    readingHighlight.classList.add(currentReadHighlightClass);
     const textNode = document.createTextNode(
         currentNode.textContent!.substring(highlightStart, highlightEnd));
     readingHighlight.appendChild(textNode);
@@ -1751,11 +2104,8 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
     // Replace the current node in the tree with the split up version of the
     // node.
-    this.previousHighlight_.push(readingHighlight);
+    this.previousHighlights_.push(readingHighlight);
     this.replaceElement(currentNode, parentOfHighlight);
-
-    // Automatically scroll the text so the highlight stays roughly centered.
-    readingHighlight.scrollIntoViewIfNeeded();
   }
 
   private onSpeechFinished() {
@@ -1777,7 +2127,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       speechStarted: false,
       speechActuallyPlaying: false,
     };
-    this.previousHighlight_ = [];
+    this.previousHighlights_ = [];
     this.resetToDefaultWordBoundaryState();
   }
 
@@ -1808,7 +2158,18 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         this.enabledLanguagesInPref.includes(toggledLanguage);
 
     if (!currentlyEnabled) {
-      this.installVoicePackIfPossible(toggledLanguage);
+      this.autoSwitchVoice_(toggledLanguage);
+      this.installVoicePackIfPossible(
+          toggledLanguage, /* onlyInstallExactGoogleLocaleMatch=*/ true,
+          /* retryIfPreviousInstallFailed= */ true);
+    } else {
+      // If the language has been deselected, remove the language from the list
+      // of language packs to download
+      const langCodeForVoicePackManager =
+          convertLangOrLocaleForVoicePackManager(toggledLanguage);
+      if (langCodeForVoicePackManager) {
+        this.languagesForVoiceDownloads.delete(langCodeForVoicePackManager);
+      }
     }
     this.enabledLanguagesInPref = currentlyEnabled ?
         this.enabledLanguagesInPref.filter(lang => lang !== toggledLanguage) :
@@ -1890,9 +2251,9 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     // The most recent highlight could have been spread across multiple segments
     // so clear the formatting for all of the segments.
     for (let i = 0; i < chrome.readingMode.getCurrentText().length; i++) {
-      const lastElement = this.previousHighlight_.pop();
+      const lastElement = this.previousHighlights_.pop();
       if (lastElement) {
-        lastElement.className = '';
+        lastElement.classList.remove(currentReadHighlightClass);
       }
     }
 
@@ -1900,9 +2261,10 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   }
 
   private resetPreviousHighlight() {
-    this.previousHighlight_.forEach((element) => {
+    this.previousHighlights_.forEach((element) => {
       if (element) {
-        element.className = previousReadHighlightClass;
+        element.classList.add(previousReadHighlightClass);
+        element.classList.remove(currentReadHighlightClass);
       }
     });
   }
@@ -1910,8 +2272,10 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   restoreSettingsFromPrefs() {
     if (this.isReadAloudEnabled_) {
       this.updateSpeechRate_(chrome.readingMode.speechRate);
-      this.selectPreferredVoice_();
+      // We need to restore enabled languages prior to selecting the preferred
+      // voice to ensure we have the right voices available.
       this.restoreEnabledLanguagesFromPref_();
+      this.selectPreferredVoice_();
     }
     this.updateLineSpacing_(chrome.readingMode.lineSpacing);
     this.updateLetterSpacing_(chrome.readingMode.letterSpacing);
@@ -1976,8 +2340,23 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     });
 
     for (const lang of this.enabledLanguagesInPref) {
-      this.installVoicePackIfPossible(lang);
+      this.installVoicePackIfPossible(
+          lang, /* onlyInstallExactGoogleLocaleMatch=*/ true,
+          /* retryIfPreviousInstallFailed= */ false);
     }
+  }
+
+  private currentVoiceIsUserChosen_(): boolean {
+    const storedVoiceName = chrome.readingMode.getStoredVoice();
+
+    // `this.selectedVoice` is not necessarily chosen by the user, it is just
+    // the voice that read aloud is using. It may be a default voice chosen by
+    // read aloud, so we check it against user preferences to see if it was
+    // user-chosen.
+    if (storedVoiceName) {
+      return this.selectedVoice?.name === storedVoiceName;
+    }
+    return false;
   }
 
   private selectPreferredVoice_() {
@@ -1995,10 +2374,11 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       return;
     }
 
-    const selectedVoice = this.getVoices()
-                              .filter(voice => voice.name === storedVoiceName);
-
-    this.selectedVoice = selectedVoice ? selectedVoice[0] : this.defaultVoice();
+    const selectedVoice =
+        this.getVoices().filter(voice => voice.name === storedVoiceName);
+    this.selectedVoice = selectedVoice && (selectedVoice.length > 0) ?
+        selectedVoice[0] :
+        this.defaultVoice();
   }
 
   private onLineSpacingChange_(event: CustomEvent<{data: number}>) {
@@ -2191,10 +2571,11 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   languageChanged() {
     this.speechSynthesisLanguage = chrome.readingMode.baseLanguageForSpeech;
     this.$.toolbar.updateFonts();
-    if (chrome.readingMode.isAutoVoiceSwitchingEnabled) {
-      this.selectPreferredVoice_();
-    }
-    this.installVoicePackIfPossible(this.speechSynthesisLanguage);
+    // Don't check for Google locales when the language has changed.
+    this.installVoicePackIfPossible(
+        this.speechSynthesisLanguage,
+        /* onlyInstallExactGoogleLocaleMatch=*/ false,
+        /* retryIfPreviousInstallFailed= */ false);
   }
 
   // Include parameters in order to force a re-render whenever the values
@@ -2208,14 +2589,68 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         !willDrawAgainSoon;
   }
 
+  private autoSwitchVoice_(lang: string) {
+    if (!chrome.readingMode.isAutoVoiceSwitchingEnabled) {
+      return;
+    }
+
+    // Only enable this language if it has available voices and is the current
+    // language. Otherwise switch to a default voice if nothing is selected.
+    const availableLang =
+        convertLangToAnAvailableLangIfPresent(lang, this.availableLangs);
+    if (!availableLang ||
+        !availableLang.startsWith(this.speechSynthesisLanguage.split('-')[0])) {
+      this.selectPreferredVoice_();
+      return;
+    }
+
+    // Only enable Google TTS supported locales for this language if they exist.
+    let localesToEnable: string[] = [];
+    const voicePackLocale =
+        convertLangOrLocaleToExactVoicePackLocale(availableLang);
+    if (voicePackLocale) {
+      localesToEnable.push(voicePackLocale);
+    } else {
+      // If there are no Google TTS locales for this language then enable any
+      // available locale for this language.
+      localesToEnable =
+          this.availableLangs.filter(l => l.startsWith(availableLang));
+    }
+
+    // Enable the locales so we can select a voice for the given language and
+    // show it in the voice menu.
+    localesToEnable.forEach(langToEnable => {
+      if (!this.enabledLanguagesInPref.includes(langToEnable)) {
+        this.enabledLanguagesInPref =
+            [...this.enabledLanguagesInPref, langToEnable];
+      }
+    });
+    this.selectPreferredVoice_();
+  }
+
   // Kicks off a workflow to install a voice pack.
   // 1) Checks if Language Pack Manager supports a version of this voice/locale
   // 2) If so, adds voice to installVoicePackIfPossible set
   // 3) Kicks off request GetVoicePackInfo to see if the voice is installed
   // 4) Upon response, if we see the voice is not installed and that it's in
   // installVoicePackIfPossible, then we trigger an install request
-  private installVoicePackIfPossible(langOrLocale: string) {
+  private installVoicePackIfPossible(
+      langOrLocale: string, onlyInstallExactGoogleLocaleMatch: boolean,
+      retryIfPreviousInstallFailed: boolean) {
     if (!chrome.readingMode.isLanguagePackDownloadingEnabled) {
+      return;
+    }
+
+    // Don't attempt to install a language if it's not a Google TTS language
+    // available for downloading. It's possible for other non-Google TTS
+    // voices to have a valid language code from
+    // convertLangOrLocaleForVoicePackManager, so return early instead to
+    // prevent accidentally downloading untoggled voices.
+    // If we shouldn't check for Google locales (such as when installing a new
+    // page language), this check can be skipped.
+    if (onlyInstallExactGoogleLocaleMatch &&
+        !AVAILABLE_GOOGLE_TTS_LOCALES.has(langOrLocale)) {
+      this.autoSwitchVoice_(langOrLocale);
       return;
     }
 
@@ -2223,24 +2658,58 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
         convertLangOrLocaleForVoicePackManager(langOrLocale);
 
     if (!langCodeForVoicePackManager) {
-      this.setVoicePackStatus_(langOrLocale, VoicePackStatus.NONE);
+      this.autoSwitchVoice_(langOrLocale);
       return;
     }
 
     const statusForLang =
-        this.voicePackInstallStatus[langCodeForVoicePackManager];
-    if (!statusForLang || (statusForLang === VoicePackStatus.EXISTS)) {
+        this.voicePackInstallStatusServerResponses[langCodeForVoicePackManager];
+
+    if (!statusForLang) {
+      if (retryIfPreviousInstallFailed) {
+        this.forceInstallRequest(
+            langCodeForVoicePackManager, /* isRetry = */ false);
+      } else {
+        this.languagesForVoiceDownloads.add(langCodeForVoicePackManager);
+        // Inquire if the voice pack is downloaded. If not, it'll trigger a
+        // download when we get the response in updateVoicePackStatus().
+        this.sendGetVoicePackInfoRequest(langCodeForVoicePackManager);
+      }
+      return;
+    }
+
+    // If we send an install request for this language, we'll auto switch
+    // voices after it installs.
+    if (isVoicePackStatusSuccess(statusForLang) &&
+        statusForLang.code === VoicePackServerStatusSuccessCode.NOT_INSTALLED) {
       this.languagesForVoiceDownloads.add(langCodeForVoicePackManager);
       // Inquire if the voice pack is downloaded. If not, it'll trigger a
       // download when we get the response in updateVoicePackStatus().
       this.sendGetVoicePackInfoRequest(langCodeForVoicePackManager);
-      this.setVoicePackStatus_(
-          langCodeForVoicePackManager, VoicePackStatus.EXISTS);
-    } else if (statusForLang === VoicePackStatus.DOWNLOADED) {
-      // Force a refresh of the voices list since we might not get an update the
-      // voices have changed.
-      this.getVoices(/*refresh=*/ true);
+    } else if (
+        retryIfPreviousInstallFailed && isVoicePackStatusError(statusForLang)) {
+      this.languagesForVoiceDownloads.add(langCodeForVoicePackManager);
+
+      // If the previous install attempt failed (e.g. due to no internet
+      // connection), the PackManager sends a failure for subsequent GetInfo
+      // requests. Therefore, we need to bypass our normal flow of calling
+      // GetInfo to see if the voice is available to install, and just call
+      // sendInstallVoicePackRequest directly
+      this.forceInstallRequest(
+          langCodeForVoicePackManager, /* isRetry = */ true);
+    } else {
+      this.autoSwitchVoice_(langCodeForVoicePackManager);
     }
+  }
+
+  private forceInstallRequest(
+      langCodeForVoicePackManager: string, isRetry: boolean) {
+    this.setVoicePackLocalStatus_(
+        langCodeForVoicePackManager,
+        isRetry ? VoiceClientSideStatusCode.SENT_INSTALL_REQUEST_ERROR_RETRY :
+                  VoiceClientSideStatusCode.SENT_INSTALL_REQUEST);
+
+    chrome.readingMode.sendInstallVoicePackRequest(langCodeForVoicePackManager);
   }
 
   private onKeyDown_(e: KeyboardEvent) {
@@ -2250,23 +2719,37 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     }
   }
 
-  private getVoicePackStatus_(lang: string): VoicePackStatus|undefined {
-    const voicePackLanguage = this.getConvertedLangIfExists_(lang);
-    return this.voicePackInstallStatus[voicePackLanguage];
+  private getVoicePackServerStatus_(lang: string): VoicePackStatus|undefined {
+    const voicePackLanguage = this.getVoicePackConvertedLangIfExists_(lang);
+    return this.voicePackInstallStatusServerResponses[voicePackLanguage];
   }
 
-  private setVoicePackStatus_(lang: string, status: VoicePackStatus) {
-    // Convert the language string to ensure consistency across
-    // languages and locales when setting the status.
-    const voicePackLanguage = this.getConvertedLangIfExists_(lang);
+  private getVoicePackLocalStatus_(lang: string): VoiceClientSideStatusCode
+      |undefined {
+    const voicePackLanguage = this.getVoicePackConvertedLangIfExists_(lang);
+    return this.voiceStatusLocalState[voicePackLanguage];
+  }
 
-    this.voicePackInstallStatus = {
-      ...this.voicePackInstallStatus,
+  private setVoicePackLocalStatus_(
+      lang: string, status: VoiceClientSideStatusCode) {
+    const voicePackLanguage = this.getVoicePackConvertedLangIfExists_(lang);
+    this.voiceStatusLocalState = {
+      ...this.voiceStatusLocalState,
       [voicePackLanguage]: status,
     };
   }
 
-  private getConvertedLangIfExists_(lang: string): string {
+  private setVoicePackServerStatus_(lang: string, status: VoicePackStatus) {
+    // Convert the language string to ensure consistency across
+    // languages and locales when setting the status.
+    const voicePackLanguage = this.getVoicePackConvertedLangIfExists_(lang);
+    this.voicePackInstallStatusServerResponses = {
+      ...this.voicePackInstallStatusServerResponses,
+      [voicePackLanguage]: status,
+    };
+  }
+
+  private getVoicePackConvertedLangIfExists_(lang: string): string {
     const voicePackLanguage = convertLangOrLocaleForVoicePackManager(lang);
 
     // If the voice pack language wasn't converted, use the original string.

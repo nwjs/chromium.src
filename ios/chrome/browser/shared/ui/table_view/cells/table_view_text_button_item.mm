@@ -46,6 +46,7 @@ const NSTextAlignment kDefaultTextAlignment = NSTextAlignmentCenter;
     _textAlignment = kDefaultTextAlignment;
     _boldButtonText = YES;
     _dimBackgroundWhenDisabled = YES;
+    _showsActivityIndicator = NO;
   }
   return self;
 }
@@ -104,6 +105,16 @@ const NSTextAlignment kDefaultTextAlignment = NSTextAlignmentCenter;
             colorWithAlphaComponent:kDisabledButtonAlpha];
   }
 
+  buttonConfiguration.showsActivityIndicator = self.showsActivityIndicator;
+  if (self.showsActivityIndicator) {
+    __weak __typeof(self) weakSelf = self;
+    buttonConfiguration.activityIndicatorColorTransformer =
+        ^UIColor*(UIColor* color) {
+          return weakSelf.activityIndicatorColor
+                     ? weakSelf.activityIndicatorColor
+                     : [UIColor colorNamed:kSolidWhiteColor];
+        };
+  }
   cell.button.configuration = buttonConfiguration;
 
   [cell disableButtonIntrinsicWidth:self.disableButtonIntrinsicWidth];

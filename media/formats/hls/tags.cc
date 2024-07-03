@@ -369,6 +369,53 @@ struct TypedAttributeMap {
   std::array<types::AttributeMap::Item, kNumKeys> attributes_;
 };
 
+#define RETURN_IF_ERROR(var_not_expr)                   \
+  do {                                                  \
+    if (!var_not_expr.has_value()) {                    \
+      return std::move(var_not_expr).error().AddHere(); \
+    }                                                   \
+  } while (0)
+
+template <template <typename...> typename SpecifiedContainer, typename Type>
+struct is_specialization_of : std::false_type {};
+
+template <template <typename...> typename SpecifiedContainer, typename... Types>
+struct is_specialization_of<SpecifiedContainer, SpecifiedContainer<Types...>>
+    : std::true_type {};
+
+// ParseField exists to help with the pattern where we need to parse some field
+// from a dictionary of tag attributes where some of those fields are optional.
+// It is designed to provide support for either optional or required fields,
+// depending on the return-type specialization:
+// When Result=std::optional<X>, ParseField will return a nullopt rather than
+// an error if the `field_name` field can't be found in `map`.
+// When Result=T (where T is not std::optional<X>), ParseField will fail with
+// a ParseStatus if `field_name` is not found in map.
+// A function pointer must also be provided which does the parsing from
+// SourceString => Result, provided that the `field_name` key is present.
+template <typename Result,
+          typename AttrEnum,
+          typename ParseFn,
+          typename... ParseFnArgs>
+ParseStatus::Or<Result> ParseField(AttrEnum field_name,
+                                   TypedAttributeMap<AttrEnum> map,
+                                   ParseFn parser,
+                                   ParseFnArgs&&... args) {
+  if (map.HasValue(field_name)) {
+    auto maybe =
+        parser(map.GetValue(field_name), std::forward<ParseFnArgs>(args)...);
+    if (!maybe.has_value()) {
+      ParseStatus result = ParseStatusCode::kMalformedTag;
+      return std::move(result).AddCause(std::move(maybe).error());
+    }
+    return Result(std::move(maybe).value());
+  }
+  if constexpr (is_specialization_of<std::optional, Result>::value) {
+    return Result(std::nullopt);
+  }
+  return ParseStatusCode::kMalformedTag;
+}
+
 }  // namespace
 
 // static
@@ -970,7 +1017,7 @@ ParseStatus::Or<XByteRangeTag> XByteRangeTag::Parse(TagItem tag) {
     return ParseStatusCode::kMalformedTag;
   }
 
-  auto range = types::ByteRangeExpression::Parse(
+  auto range = types::parsing::ByteRangeExpression::Parse(
       tag.GetContent()->SkipVariableSubstitution());
   if (!range.has_value()) {
     return ParseStatus(ParseStatusCode::kMalformedTag)
@@ -1040,12 +1087,12 @@ ParseStatus::Or<XMapTag> XMapTag::Parse(
     return ParseStatusCode::kMalformedTag;
   }
 
-  std::optional<types::ByteRangeExpression> byte_range;
+  std::optional<types::parsing::ByteRangeExpression> byte_range;
   if (map.HasValue(XMapTagAttribute::kByteRange)) {
     auto result =
         types::ParseQuotedString(map.GetValue(XMapTagAttribute::kByteRange),
                                  variable_dict, sub_buffer)
-            .MapValue(types::ByteRangeExpression::Parse);
+            .MapValue(types::parsing::ByteRangeExpression::Parse);
     if (!result.has_value()) {
       return ParseStatus(ParseStatusCode::kMalformedTag)
           .AddCause(std::move(result).error());
@@ -1065,8 +1112,8 @@ ParseStatus::Or<XMediaSequenceTag> XMediaSequenceTag::Parse(TagItem tag) {
 // static
 ParseStatus::Or<XPartTag> XPartTag::Parse(
     TagItem tag,
-    const VariableDictionary& variable_dict,
-    VariableDictionary::SubstitutionBuffer& sub_buffer) {
+    const VariableDictionary& vars,
+    VariableDictionary::SubstitutionBuffer& subs) {
   DCHECK(tag.GetName() == ToTagName(XPartTag::kName));
   if (!tag.GetContent().has_value()) {
     return ParseStatusCode::kMalformedTag;
@@ -1081,75 +1128,40 @@ ParseStatus::Or<XPartTag> XPartTag::Parse(
         .AddCause(std::move(map_result));
   }
 
-  // Parse the 'URI' attribute
-  std::optional<ResolvedSourceString> uri;
-  if (map.HasValue(XPartTagAttribute::kUri)) {
-    auto uri_result = types::ParseQuotedString(
-        map.GetValue(XPartTagAttribute::kUri), variable_dict, sub_buffer);
-    if (!uri_result.has_value()) {
-      return ParseStatus(ParseStatusCode::kMalformedTag)
-          .AddCause(std::move(uri_result).error());
-    }
+  auto uri = ParseField<ResolvedSourceString>(
+      XPartTagAttribute::kUri, map,
+      &types::parsing::Quoted<types::parsing::RawStr>::ParseWithSubstitution,
+      vars, subs);
+  RETURN_IF_ERROR(uri);
 
-    uri = std::move(uri_result).value();
-  } else {
-    return ParseStatusCode::kMalformedTag;
-  }
+  auto duration = ParseField<base::TimeDelta>(
+      XPartTagAttribute::kDuration, map,
+      &types::parsing::TimeDelta::ParseWithoutSubstitution);
+  RETURN_IF_ERROR(duration);
 
-  // Parse the 'DURATION' attribute
-  base::TimeDelta duration;
-  if (map.HasValue(XPartTagAttribute::kDuration)) {
-    auto duration_result = types::ParseDecimalFloatingPoint(
-        map.GetValue(XPartTagAttribute::kDuration).SkipVariableSubstitution());
-    if (!duration_result.has_value()) {
-      return ParseStatus(ParseStatusCode::kMalformedTag)
-          .AddCause(std::move(duration_result).error());
-    }
+  auto byte_range =
+      ParseField<std::optional<types::parsing::ByteRangeExpression>>(
+          XPartTagAttribute::kByteRange, map,
+          &types::parsing::Quoted<
+              types::parsing::ByteRangeExpression>::ParseWithSubstitution,
+          vars, subs);
+  RETURN_IF_ERROR(byte_range);
 
-    duration = base::Seconds(std::move(duration_result).value());
-    if (duration.is_max()) {
-      return ParseStatusCode::kValueOverflowsTimeDelta;
-    }
-  } else {
-    return ParseStatusCode::kMalformedTag;
-  }
+  auto independent = ParseField<std::optional<bool>>(
+      XPartTagAttribute::kIndependent, map,
+      &types::parsing::YesOrNo::ParseWithoutSubstitution);
+  RETURN_IF_ERROR(independent);
 
-  // Parse the 'BYTERANGE' attribute
-  std::optional<types::ByteRangeExpression> byte_range;
-  if (map.HasValue(XPartTagAttribute::kByteRange)) {
-    auto result =
-        types::ParseQuotedString(map.GetValue(XPartTagAttribute::kByteRange),
-                                 variable_dict, sub_buffer)
-            .MapValue(types::ByteRangeExpression::Parse);
-    if (!result.has_value()) {
-      return ParseStatus(ParseStatusCode::kMalformedTag)
-          .AddCause(std::move(result).error());
-    }
+  auto gap = ParseField<std::optional<bool>>(
+      XPartTagAttribute::kGap, map,
+      &types::parsing::YesOrNo::ParseWithoutSubstitution);
+  RETURN_IF_ERROR(gap);
 
-    byte_range = std::move(result).value();
-  }
-
-  // Parse the 'INDEPENDENT' attribute
-  bool independent = false;
-  if (map.HasValue(XPartTagAttribute::kIndependent)) {
-    if (map.GetValue(XPartTagAttribute::kIndependent).Str() == "YES") {
-      independent = true;
-    }
-  }
-
-  // Parse the 'GAP' attribute
-  bool gap = false;
-  if (map.HasValue(XPartTagAttribute::kGap)) {
-    if (map.GetValue(XPartTagAttribute::kGap).Str() == "YES") {
-      gap = true;
-    }
-  }
-
-  return XPartTag{.uri = uri.value(),
-                  .duration = duration,
-                  .byte_range = byte_range,
-                  .independent = independent,
-                  .gap = gap};
+  return XPartTag{.uri = std::move(uri).value(),
+                  .duration = std::move(duration).value(),
+                  .byte_range = std::move(byte_range).value(),
+                  .independent = (*independent).value_or(false),
+                  .gap = (*gap).value_or(false)};
 }
 
 // static
@@ -1460,5 +1472,7 @@ ParseStatus::Or<XRenditionReportTag> XRenditionReportTag::Parse(
 ParseStatus::Or<XProgramDateTimeTag> XProgramDateTimeTag::Parse(TagItem tag) {
   return ParseISO8601DateTimeTag(tag, &XProgramDateTimeTag::time);
 }
+
+#undef RETURN_IF_ERROR
 
 }  // namespace media::hls

@@ -5,16 +5,18 @@
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_ranking_model.h"
 
 #import "base/metrics/histogram_macros.h"
+#import "components/prefs/pref_service.h"
 #import "components/segmentation_platform/public/constants.h"
 #import "components/segmentation_platform/public/features.h"
 #import "components/segmentation_platform/public/segmentation_platform_service.h"
 #import "ios/chrome/browser/ntp_tiles/model/tab_resumption/tab_resumption_prefs.h"
+#import "ios/chrome/browser/parcel_tracking/features.h"
 #import "ios/chrome/browser/parcel_tracking/parcel_tracking_prefs.h"
-#import "ios/chrome/browser/parcel_tracking/parcel_tracking_util.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/ui/content_suggestions/cells/most_visited_tiles_config.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/most_visited_tiles_mediator.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/shortcuts_config.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/shortcuts_mediator.h"
@@ -23,7 +25,6 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_metrics_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_metrics_recorder.h"
 #import "ios/chrome/browser/ui/content_suggestions/magic_stack/magic_stack_ranking_model_delegate.h"
-#import "ios/chrome/browser/ui/content_suggestions/magic_stack/most_visited_tiles_config.h"
 #import "ios/chrome/browser/ui/content_suggestions/parcel_tracking/parcel_tracking_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/parcel_tracking/parcel_tracking_mediator.h"
 #import "ios/chrome/browser/ui/content_suggestions/safety_check/safety_check_magic_stack_mediator.h"
@@ -107,7 +108,7 @@
         _safetyCheckMediator.delegate = self;
       } else {
         // Known module mediators need to be handled.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
       }
     }
   }
@@ -133,7 +134,8 @@
           showTabResumptionWithItem:_tabResumptionMediator.itemConfig];
     }
     if (ShouldPutMostVisitedSitesInMagicStack() &&
-        _mostVisitedTilesMediator.mostVisitedConfig) {
+        [_mostVisitedTilesMediator.mostVisitedConfig.mostVisitedItems count] >
+            0) {
       [self.consumer setMostVisitedTilesConfig:_mostVisitedTilesMediator
                                                    .mostVisitedConfig];
     }
@@ -209,16 +211,14 @@
   [self showTabResumptionWithItem:_tabResumptionMediator.itemConfig];
 }
 
-- (void)tabResumptionHelperDidReplaceItem:(TabResumptionItem*)oldItem {
+- (void)tabResumptionHelperDidReconfigureItem {
   if (tab_resumption_prefs::IsTabResumptionDisabled(_localState)) {
     return;
   }
 
   if (IsIOSMagicStackCollectionViewEnabled()) {
     TabResumptionItem* item = _tabResumptionMediator.itemConfig;
-    [self.delegate magicStackRankingModel:self
-                           didReplaceItem:oldItem
-                                 withItem:item];
+    [self.delegate magicStackRankingModel:self didReconfigureItem:item];
     return;
   }
 }
@@ -293,6 +293,32 @@
 - (NSUInteger)indexForMagicStackModule:
     (ContentSuggestionsModuleType)moduleType {
   return [_latestMagicStackOrder indexOfObject:@(int(moduleType))];
+}
+
+#pragma mark - MostVisitedTilesMediatorDelegate
+
+- (void)didReceiveInitialMostVistedTiles {
+  if (![self isMagicStackOrderReady]) {
+    return;
+  }
+
+  NSArray<MagicStackModule*>* rank = [self latestMagicStackConfigRank];
+  NSUInteger index =
+      [rank indexOfObject:_mostVisitedTilesMediator.mostVisitedConfig];
+  [self.delegate
+      magicStackRankingModel:self
+               didInsertItem:_mostVisitedTilesMediator.mostVisitedConfig
+                     atIndex:index];
+}
+
+- (void)removeMostVisitedTilesModule {
+  if (![self isMagicStackOrderReady]) {
+    return;
+  }
+
+  [self.delegate
+      magicStackRankingModel:self
+               didRemoveItem:_mostVisitedTilesMediator.mostVisitedConfig];
 }
 
 #pragma mark - Private
@@ -447,7 +473,8 @@
     switch (moduleType) {
       case ContentSuggestionsModuleType::kMostVisited:
         if (ShouldPutMostVisitedSitesInMagicStack() &&
-            _mostVisitedTilesMediator.mostVisitedConfig) {
+            [_mostVisitedTilesMediator.mostVisitedConfig
+                    .mostVisitedItems count] > 0) {
           [magicStackOrder
               addObject:_mostVisitedTilesMediator.mostVisitedConfig];
         }
@@ -490,7 +517,7 @@
       default:
         // These module types should not have been added by the logic
         // receiving the order list from Segmentation.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -553,7 +580,7 @@
       default:
         // These module types should not have been added by the logic
         // receiving the order list from Segmentation.
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
   }
@@ -573,6 +600,9 @@
   }
 
   if (IsIOSMagicStackCollectionViewEnabled()) {
+    if (![self isMagicStackOrderReady]) {
+      return;
+    }
     NSArray<MagicStackModule*>* rank = [self latestMagicStackConfigRank];
     NSUInteger index = [rank indexOfObject:item];
     [self.delegate magicStackRankingModel:self

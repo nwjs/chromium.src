@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">pastelgeel</translation>
 <translation id="1056898198331236512">Waarschuwing</translation>
 <translation id="1059913517121127803">Kan scannen niet starten</translation>
+<translation id="1061864016440983342">Gebruiken zonder locatie</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> van <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Firewall waargenomen</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Meer instellingen</translation>
 <translation id="2082932131694554252">Toegewezen toetsenbordtoets</translation>
 <translation id="2085089206770112532">Helderheid van scherm verlagen</translation>
+<translation id="2086091080968010660">Tijdgebaseerde wijzigingen zijn misschien niet nauwkeurig. Zet locatietoegang voor het systeem aan in de instellingen.</translation>
 <translation id="2102231663024125441">Tekstbewerking</translation>
 <translation id="2105810540595158374">Apparaat is een gamecontroller.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versie <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN-gegevens bewerken</translation>
 <translation id="2195732836444333448">We zitten op dit moment op de maximale capaciteit. Probeer het later nog eens.</translation>
 <translation id="2201758491318984023">fiets</translation>
-<translation id="2203222757805818543">Huidige planning is ingesteld op <ph name="SUNRISE" /> - <ph name="SUNSET" />. Als je het schema voor de donkere modus automatisch wilt updaten, <ph name="BEGIN_LINK" />zet je locatietoegang aan<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">warmwaterbron</translation>
 <translation id="2203642483788377106">klif</translation>
 <translation id="2208388655216963643">impressionistisch</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Standaardwaarden herstellen</translation>
 <translation id="2286454467119466181">Eenvoudig</translation>
 <translation id="2287186687001756809">Geen afbeelding beschikbaar. Ga naar <ph name="LINK" /> als je foto's wilt toevoegen.</translation>
+<translation id="2294577623958216786">Huidige planning is ingesteld op <ph name="SUNRISE" />-<ph name="SUNSET" />. Als je de planning voor zonsondergang en zonsopgang automatisch wilt updaten, zet je locatietoegang voor het systeem aan.</translation>
 <translation id="2305172810646967500">zwart</translation>
 <translation id="2307344026739914387">Huidig sleutelpaar gebruiken</translation>
 <translation id="2308243864813041101">Koppel de USB-kabel van je <ph name="DEVICE_NAME" /> los om door te gaan met het updateproces</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">duin</translation>
 <translation id="2619761439309613843">Dagelijks vernieuwen</translation>
 <translation id="2620436844016719705">Systeem</translation>
+<translation id="2637303424821734920">UIT: Als je het lokale weer wilt weergeven, <ph name="BEGIN_LINK" />zet je locatietoegang aan voor het systeem<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Inlogafbeelding</translation>
 <translation id="2640549051766135490">Album geselecteerd: <ph name="TITLE" /> (<ph name="DESC" />)</translation>
 <translation id="2645380101799517405">Bedieningselementen</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Achtergrond</translation>
 <translation id="3027578600144895987">Camera sluiten</translation>
 <translation id="3031560714565892478">Apparaat is een videocamera.</translation>
+<translation id="3051968340259309715">Hiermee kunnen systeemservices Locatienauwkeurigheid gebruiken om je locatie te bepalen. Locatienauwkeurigheid gebruikt informatie over draadloze signalen, zoals wifi-toegangspunten, mobiele-netwerktorens en gps, samen met de gegevens van apparaatsensoren, zoals de versnellingsmeter en gyroscoop, om de apparaatlocatie te schatten. Je kunt de locatie uitzetten via Instellingen &gt; Privacy en beveiliging &gt; Privacyopties &gt; Locatietoegang. <ph name="LINK_BEGIN" />Meer informatie<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Eindpunt</translation>
 <translation id="3060579846059757016">Details</translation>
+<translation id="3061850252076394168">Selecteer om voor te lezen aanzetten</translation>
 <translation id="3069085583900247081">Test mislukt</translation>
 <translation id="3078740164268491126">tabel</translation>
 <translation id="3081652522083185657">licht</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Kan niet alle hosts omzetten</translation>
 <translation id="4593212453765072419">Proxyverificatie vereist</translation>
 <translation id="4609350030397390689">Helderheid van toetsenbord verlagen</translation>
-<translation id="4617553623719764431">Weer wordt niet getoond omdat je locatie niet bekend is. Als je het lokale weer wilt tonen, <ph name="BEGIN_LINK" />zet je Locatietoegang aan<ph name="END_LINK" />.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> van <ph name="TOTAL_PAGE_NUMBER" />. Druk op Enter om de afdruktaak te annuleren.</translation>
 <translation id="463791356324567266">Scannen annuleren…</translation>
 <translation id="4646949265910132906">Beveiligde wifi-verbinding</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Uitvoeren</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Pagina's</translation>
+<translation id="4989542687859782284">Niet beschikbaar</translation>
 <translation id="4999333166442584738">Rapport verbergen</translation>
 <translation id="500920857929044050">Test stoppen</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">helderheid toetsenbord</translation>
 <translation id="6412715219990689313">Geïntegreerd toetsenbord</translation>
 <translation id="6417265370957905582">Google Assistent</translation>
+<translation id="6419454453018688975">Locatietoegang voor het systeem aanzetten</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Hiermee krijgen systeemservices toestemming om je locatie te gebruiken. Voor de schatting van je apparaatlocatie kunnen bronnen worden gebruikt zoals wifi, mobiele netwerken en sensoren. <ph name="LINK_BEGIN" />Meer informatie<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Zwak (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Naar Accountinstellingen gaan</translation>
 <translation id="6462978824459367242">De knop APN toevoegen staat nu aan</translation>

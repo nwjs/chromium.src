@@ -77,6 +77,9 @@ EXCLUDED_TESTS = [
     os.path.join('tests', 'ui', 'asm', 'inline-syntax.rs'),
     # TODO(https://crbug.com/324853415): benign failure; remove when fixed.
     os.path.join('tests', 'codegen', 'iter-repeat-n-trivial-drop.rs'),
+    # TODO(crbug.com/342026487): benign failure; remove when fixed.
+    os.path.join('tests', 'codegen', 'vec-in-place.rs'),
+
 ]
 EXCLUDED_TESTS_WINDOWS = [
     # https://github.com/rust-lang/rust/issues/96464
@@ -105,6 +108,7 @@ RUST_GIT_URL = ('https://chromium.googlesource.com/external/' +
                 'github.com/rust-lang/rust')
 
 RUST_SRC_DIR = os.path.join(THIRD_PARTY_DIR, 'rust-src')
+RUST_BUILD_DIR = os.path.join(RUST_SRC_DIR, 'build')
 RUST_BOOTSTRAP_DIST_RS = os.path.join(RUST_SRC_DIR, 'src', 'bootstrap',
                                       'dist.rs')
 STAGE0_JSON_PATH = os.path.join(RUST_SRC_DIR, 'src', 'stage0.json')
@@ -796,9 +800,11 @@ def main():
     building_on_host_triple = RustTargetTriple()
     xpy_args = ['--build', building_on_host_triple]
 
+    # Delete the build directory.
     if not args.skip_clean:
-        print('Cleaning build artifacts...')
-        xpy.run('clean', xpy_args)
+        print('Clearing build directory...')
+        if os.path.exists(BUILD_DIR):
+            RmTree(BUILD_DIR)
 
     if not args.skip_test:
         print(f'Building stage 2 artifacts and running tests...')

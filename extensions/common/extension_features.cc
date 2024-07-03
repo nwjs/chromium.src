@@ -11,6 +11,10 @@ namespace extensions_features {
 // API Features
 ///////////////////////////////////////////////////////////////////////////////
 
+BASE_FEATURE(kApiActionOpenPopup,
+             "ApiActionOpenPopup",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kApiContentSettingsClipboard,
              "ApiContentSettingsClipboard",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -19,9 +23,9 @@ BASE_FEATURE(kApiEnterpriseKioskInput,
              "ApiEnterpriseKioskInput",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kApiReadingList,
-             "ApiReadingList",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kApiPermissionsSiteAccessRequests,
+             "ApiPermissionsSiteAccessRequests",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiUserScriptsMultipleWorlds,
              "ApiUserScriptsMultipleWorlds",
@@ -63,6 +67,10 @@ BASE_FEATURE(kEnableWebHidInWebView,
 
 BASE_FEATURE(kExtensionDynamicURLRedirection,
              "ExtensionDynamicURLRedirection",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kExtensionIconVariants,
+             "ExtensionIconVariants",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionManifestV2DeprecationWarning,
@@ -159,8 +167,16 @@ BASE_FEATURE(kDeclarativeNetRequestResponseHeaderMatching,
              "DeclarativeNetRequestResponseHeaderMatching",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kIncludeJSCallStackInExtensionApiRequest,
+             "IncludeJSCallStackInExtensionApiRequest",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kUseItemSnippetsAPI,
              "UseItemSnippetsAPI",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseNewServiceWorkerTaskQueue,
+             "UseNewServiceWorkerTaskQueue",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace extensions_features

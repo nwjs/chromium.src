@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">ପେଷ୍ଟେଲ ହଳଦିଆ</translation>
 <translation id="1056898198331236512">ଚେତାବନୀ</translation>
 <translation id="1059913517121127803">ସ୍କାନିଂ ଆରମ୍ଭ କରାଯାଇପାରିଲା ନାହିଁ</translation>
+<translation id="1061864016440983342">ଲୋକେସନ ବିନା ବ୍ୟବହାର କରନ୍ତୁ</translation>
 <translation id="1062823486781306604"><ph name="COUNT" />ଟିରୁ <ph name="INDEX" />, <ph name="NAME" />।</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">ଫାୟାରୱାଲ୍ ଥିବାର ଚିହ୍ନଟ କରାଯାଇଛି</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">ଅଧିକ ସେଟିଂ</translation>
 <translation id="2082932131694554252">ଆସାଇନ କରାଯାଇଥିବା କୀବୋର୍ଡ କୀ</translation>
 <translation id="2085089206770112532">ଡିସପ୍ଲେର ଉଜ୍ଜ୍ୱଳତା କମ୍ କରନ୍ତୁ</translation>
+<translation id="2086091080968010660">ସମୟ ଆଧାରିତ ପରିବର୍ତ୍ତନଗୁଡ଼ିକ ସଠିକ ହୋଇନପାରେ। ସେଟିଂସରେ ସିଷ୍ଟମ ଲୋକେସନ ଆକ୍ସେସକୁ ଚାଲୁ କରନ୍ତୁ।</translation>
 <translation id="2102231663024125441">ଟେକ୍ସଟ ଏଡିଟିଂ</translation>
 <translation id="2105810540595158374">ଡିଭାଇସଟି ଏକ ଗେମ କଣ୍ଟ୍ରୋଲର ଅଟେ।</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, ସଂସ୍କରଣ <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN ବିବରଣୀକୁ ଏଡିଟ କରନ୍ତୁ</translation>
 <translation id="2195732836444333448">ବର୍ତ୍ତମାନ କୌଣସି ରିସୋର୍ସ ନାହିଁ। ଶୀଘ୍ର ଫେରି ଆସନ୍ତୁ।</translation>
 <translation id="2201758491318984023">ବାଇସାଇକେଲ</translation>
-<translation id="2203222757805818543">ବର୍ତ୍ତମାନର ସିଡୁଲ <ph name="SUNRISE" /> - <ph name="SUNSET" />ରେ ସେଟ ହୋଇଛି। ଡାର୍କ ମୋଡ ସିଡୁଲକୁ ସ୍ୱତଃ ଅପଡେଟ କରିବା ପାଇଁ <ph name="BEGIN_LINK" />ଲୋକେସନ ଆକ୍ସେସକୁ ଚାଲୁ କରନ୍ତୁ<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">ହଟ ସ୍ପ୍ରିଙ୍ଗ</translation>
 <translation id="2203642483788377106">କ୍ଲିଫ</translation>
 <translation id="2208388655216963643">ଇମ୍ପ୍ରେସନିଷ୍ଟ</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">ଡିଫଲ୍ଟଗୁଡ଼ିକୁ ରିଷ୍ଟୋର କରନ୍ତୁ</translation>
 <translation id="2286454467119466181">ସରଳ</translation>
 <translation id="2287186687001756809">କୌଣସି ଇମେଜ ଉପଲବ୍ଧ ନାହିଁ। ଫଟୋଗୁଡ଼ିକୁ ଯୋଗ କରିବା ପାଇଁ <ph name="LINK" />କୁ ଯାଆନ୍ତୁ</translation>
+<translation id="2294577623958216786">ବର୍ତ୍ତମାନର ସିଡୁଲକୁ ଏଥିରେ ସେଟ କରାଯାଇଛି <ph name="SUNRISE" />-<ph name="SUNSET" />। ସୂର୍ଯ୍ୟାସ୍ତ ଏବଂ ସୂର୍ଯ୍ୟୋଦୟ ସିଡୁଲ ସ୍ୱତଃ ଅପଡେଟ ହେବା ପାଇଁ ସିଷ୍ଟମ ଲୋକେସନ ଆକ୍ସେସକୁ ଚାଲୁ କରନ୍ତୁ।</translation>
 <translation id="2305172810646967500">କଳା</translation>
 <translation id="2307344026739914387">ବର୍ତ୍ତମାନର କୀପେୟାର ବ୍ୟବହାର କରନ୍ତୁ</translation>
 <translation id="2308243864813041101">ଅପଡେଟ ପ୍ରକ୍ରିୟା ଜାରି ରଖିବାକୁ <ph name="DEVICE_NAME" />ର USB କେବୁଲକୁ ଅନପ୍ଲଗ କରନ୍ତୁ</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">ସେଣ୍ଡ ଡ୍ୟୁନ</translation>
 <translation id="2619761439309613843">ଦୈନିକ ରିଫ୍ରେଶ୍</translation>
 <translation id="2620436844016719705">ସିଷ୍ଟମ୍‌</translation>
+<translation id="2637303424821734920">ବନ୍ଦ ଅଛି - ସ୍ଥାନୀୟ ପାଣିପାଗ ଡିସପ୍ଲେ କରିବା ପାଇଁ <ph name="BEGIN_LINK" />ସିଷ୍ଟମର ଲୋକେସନ ଆକ୍ସେସ ଚାଲୁ କରନ୍ତୁ<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">ସାଇନ୍-ଇନ୍ ଛବି</translation>
 <translation id="2640549051766135490">ଆଲବମ୍ <ph name="TITLE" /> <ph name="DESC" /> ଚୟନ କରାଯାଇଛି</translation>
 <translation id="2645380101799517405">ନିୟନ୍ତ୍ରଣଗୁଡ଼ିକ</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">ପୃଷ୍ଠପଟ</translation>
 <translation id="3027578600144895987">କ୍ୟାମେରା ବନ୍ଦ କରନ୍ତୁ</translation>
 <translation id="3031560714565892478">ଡିଭାଇସଟି ଏକ ଭିଡିଓ କ୍ୟାମେରା ଅଟେ।</translation>
+<translation id="3051968340259309715">ଏହା ସିଷ୍ଟମ ସାର୍ଭିସକୁ ଆପଣଙ୍କ ଲୋକେସନ ନିର୍ଦ୍ଧାରଣ କରିବା ପାଇଁ ଲୋକେସନ ସଠିକତା ବ୍ୟବହାର କରିବା ପାଇଁ ଅନୁମତି ଦିଏ। ଲୋକେସନ ସଠିକତା ଡିଭାଇସ ଲୋକେସନ ଆକଳନ କରିବାକୁ ଆକ୍ସିଲିରୋମିଟର ଏବଂ ଜାଇରୋସ୍କୋପ ପରି ଡିଭାଇସ ସେନ୍ସର ଡାଟା ସହିତ ୱାଇ-ଫାଇ ଆକ୍ସେସ ପଏଣ୍ଟ, ସେଲୁଲାର ନେଟୱାର୍କ ଟାୱାର ଏବଂ GPS ପରି ୱାୟାରଲେସ ସିଗନାଲ ବିଷୟରେ ସୂଚନାକୁ ବ୍ୟବହାର କରେ। ଆପଣ ସେଟିଂସ&gt; ଗୋପନୀୟତା ଏବଂ ସୁରକ୍ଷା &gt; ଗୋପନୀୟତା ନିୟନ୍ତ୍ରଣ &gt; ଲୋକେସନ ଆକ୍ସେସରେ ଲୋକେସନକୁ ବନ୍ଦ କରିପାରିବେ। <ph name="LINK_BEGIN" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">ଏଣ୍ଡପଏଣ୍ଟ</translation>
 <translation id="3060579846059757016">ଆଉଟଲାଇନଗୁଡ଼ିକ</translation>
+<translation id="3061850252076394168">ସିଲେକ୍ଟ ଟୁ ସ୍ପିକ ସକ୍ଷମ କରନ୍ତୁ</translation>
 <translation id="3069085583900247081">ଟେଷ୍ଟ ବିଫଳ ହୋଇଛି</translation>
 <translation id="3078740164268491126">ଟେବଲ୍</translation>
 <translation id="3081652522083185657">ଲାଇଟ</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">ହୋଷ୍ଟ ସମ୍ବନ୍ଧିତ ସମସ୍ତ ସମସ୍ୟାର ସମାଧାନ କରିବାରେ ବିଫଳ ହୋଇଛି</translation>
 <translation id="4593212453765072419">ପ୍ରକ୍ସି ପ୍ରାମାଣିକତା ଆବଶ୍ୟକ</translation>
 <translation id="4609350030397390689">କୀବୋର୍ଡର ଉଜ୍ଜ୍ୱଳତା କମ୍ କରନ୍ତୁ</translation>
-<translation id="4617553623719764431">Weather ଆପଣଙ୍କ ଲୋକେସନ ଜାଣିନଥିବା ଯୋଗୁଁ ଏହା ଡିସପ୍ଲେ ହେଉନାହିଁ। ସ୍ଥାନୀୟ ପାଣିପାଗ ଡିସପ୍ଲେ କରିବା ପାଇଁ <ph name="BEGIN_LINK" />ଲୋକେସନ ଆକ୍ସେସକୁ ଚାଲୁ କରନ୍ତୁ<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="TOTAL_PAGE_NUMBER" />ଟି ମଧ୍ୟରୁ <ph name="PRINTED_PAGE_NUMBER" /> ନମ୍ବର ପୃଷ୍ଠା। ପ୍ରିଣ୍ଟ କାର୍ଯ୍ୟ ବାତିଲ୍ କରିବାକୁ Enter ଦବାନ୍ତୁ।</translation>
 <translation id="463791356324567266">ସ୍କାନିଂ ବାତିଲ୍ କରାଯାଉଛି...</translation>
 <translation id="4646949265910132906">ସୁରକ୍ଷିତ ୱାଇଫାଇ ସଂଯୋଗ</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">ଚଲାନ୍ତୁ</translation>
 <translation id="4987769320337599931">ଫାୟାରୱାଲ୍</translation>
 <translation id="4988526792673242964">ପୃଷ୍ଠାଗୁଡ଼ିକ</translation>
+<translation id="4989542687859782284">ଉପଲବ୍ଧ ନାହିଁ</translation>
 <translation id="4999333166442584738">ରିପୋର୍ଟ ଲୁଚାନ୍ତୁ</translation>
 <translation id="500920857929044050">ଟେଷ୍ଟ ବନ୍ଦ କରନ୍ତୁ</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">କୀବୋର୍ଡକୁ ଉଜ୍ଜ୍ଵଳ କରନ୍ତୁ</translation>
 <translation id="6412715219990689313">ବିଲ୍ଟ-ଇନ କୀବୋର୍ଡ</translation>
 <translation id="6417265370957905582">Google Assistant</translation>
+<translation id="6419454453018688975">ସିଷ୍ଟମର ଲୋକେସନ ଆକ୍ସେସକୁ ଚାଲୁ କରନ୍ତୁ</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">ଏହା ସିଷ୍ଟମ ସେବାଗୁଡ଼ିକୁ ଆପଣଙ୍କ ଲୋକେସନ ବ୍ୟବହାର କରିବାକୁ ଅନୁମତି ଦିଏ। ଲୋକେସନ, ଆପଣଙ୍କ ଡିଭାଇସର ଲୋକେସନ ଆକଳନ କରିବାରେ ସାହାଯ୍ୟ କରିବାକୁ ୱାଇ-ଫାଇ, ମୋବାଇଲ ନେଟୱାର୍କ ଏବଂ ସେନ୍ସରଗୁଡ଼ିକ ପରି ସୋର୍ସ ବ୍ୟବହାର କରିପାରେ। <ph name="LINK_BEGIN" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">ଦୁର୍ବଳ (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">ଆକାଉଣ୍ଟ ସେଟିଂସକୁ ଯାଆନ୍ତୁ</translation>
 <translation id="6462978824459367242">'APN ଯୋଗ କରନ୍ତୁ' ବଟନକୁ ବର୍ତ୍ତମାନ ସକ୍ଷମ କରାଯାଇଛି</translation>

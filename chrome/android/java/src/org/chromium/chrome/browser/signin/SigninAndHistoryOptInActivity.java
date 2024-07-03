@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import org.chromium.base.Promise;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.back_press.SecondaryActivityBackPressUma;
 import org.chromium.chrome.browser.device_lock.DeviceLockActivityLauncherImpl;
 import org.chromium.chrome.browser.firstrun.FirstRunActivityBase;
@@ -54,8 +55,12 @@ import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
         implements SigninAndHistoryOptInCoordinator.Delegate, UpgradePromoCoordinator.Delegate {
     private static final String ARGUMENT_ACCESS_POINT = "SigninAndHistoryOptInActivity.AccessPoint";
-    private static final String ARGUMENT_BOTTOM_SHEET_STRINGS =
-            "SigninAndHistoryOptInActivity.BottomSheetStrings";
+    private static final String ARGUMENT_BOTTOM_SHEET_STRINGS_TITLE =
+            "SigninAndHistoryOptInActivity.BottomSheetStringsTitle";
+    private static final String ARGUMENT_BOTTOM_SHEET_STRINGS_SUBTITLE =
+            "SigninAndHistoryOptInActivity.BottomSheetStringsSubtitle";
+    private static final String ARGUMENT_BOTTOM_SHEET_STRINGS_DISMISS =
+            "SigninAndHistoryOptInActivity.BottomSheetStringsDismiss";
     private static final String ARGUMENT_NO_ACCOUNT_SIGNIN_MODE =
             "SigninAndHistoryOptInActivity.NoAccountSigninMode";
     private static final String ARGUMENT_WITH_ACCOUNT_SIGNIN_MODE =
@@ -80,6 +85,10 @@ public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
     @Override
     protected void onPreCreate() {
         super.onPreCreate();
+        Intent intent = getIntent();
+        if (intent.getBooleanExtra(ARGUMENT_IS_UPGRADE_PROMO, false)) {
+            setTheme(org.chromium.chrome.R.style.Theme_Chromium_DialogWhenLarge);
+        }
         // Temporarily ensure that the native is initialized before calling super.onCreate().
         // TODO(crbug.com/41493758): Handle the case where the UI is shown before the end of
         // native initialization.
@@ -100,20 +109,29 @@ public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
                             PrivacyPreferencesManagerImpl.getInstance(),
                             this);
 
-            setContentView(mUpgradePromoCoordinator.getViewSwitcher());
+            setContentView(mUpgradePromoCoordinator.getView());
             onInitialLayoutInflationComplete();
             return;
         }
 
         int signinAccessPoint = intent.getIntExtra(ARGUMENT_ACCESS_POINT, SigninAccessPoint.MAX);
         assert signinAccessPoint != SigninAccessPoint.MAX : "Cannot find SigninAccessPoint!";
+
+        // TODO(crbug.com/346709145): Get Parcelable extra instead of parsing individual properties
+        // when the classloader issue will be fixed.
+        int titleStringId = intent.getIntExtra(ARGUMENT_BOTTOM_SHEET_STRINGS_TITLE, 0);
+        int subtitleStringId = intent.getIntExtra(ARGUMENT_BOTTOM_SHEET_STRINGS_SUBTITLE, 0);
+        int dismissStringId = intent.getIntExtra(ARGUMENT_BOTTOM_SHEET_STRINGS_DISMISS, 0);
         AccountPickerBottomSheetStrings bottomSheetStrings =
-                (AccountPickerBottomSheetStrings)
-                        intent.getParcelableExtra(ARGUMENT_BOTTOM_SHEET_STRINGS);
+                new AccountPickerBottomSheetStrings.Builder(titleStringId)
+                        .setSubtitleStringId(subtitleStringId)
+                        .setDismissButtonStringId(dismissStringId)
+                        .build();
+
         @NoAccountSigninMode
         int noAccountSigninMode =
                 intent.getIntExtra(
-                        ARGUMENT_NO_ACCOUNT_SIGNIN_MODE, NoAccountSigninMode.ADD_ACCOUNT);
+                        ARGUMENT_NO_ACCOUNT_SIGNIN_MODE, NoAccountSigninMode.BOTTOM_SHEET);
         @WithAccountSigninMode
         int withAccountSigninMode =
                 intent.getIntExtra(
@@ -186,12 +204,22 @@ public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
         mNativeInitializationPromise.fulfill(null);
     }
 
+    /**
+     * Implements {@link SigninAndHistoryOptInCoordinator.Delegate} and {@link
+     * UpgradePromoCoordinator.Delegate}.
+     */
     @Override
     public void onFlowComplete() {
         finish();
         // Override activity animation to avoid visual glitches due to the semi-transparent
         // background.
-        overridePendingTransition(0, android.R.anim.fade_out);
+        overridePendingTransition(0, R.anim.fast_fade_out);
+    }
+
+    /** Implements {@link SigninAndHistoryOptInCoordinator.Delegate}. */
+    @Override
+    public boolean isHistorySyncShownFullScreen() {
+        return !isTablet();
     }
 
     @Override
@@ -201,7 +229,7 @@ public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
             mCoordinator.switchHistorySyncLayout();
         } else {
             mUpgradePromoCoordinator.recreateLayoutAfterConfigurationChange();
-            setContentView(mUpgradePromoCoordinator.getViewSwitcher());
+            setContentView(mUpgradePromoCoordinator.getView());
         }
     }
 
@@ -241,7 +269,15 @@ public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
         assert bottomSheetStrings != null;
 
         Intent intent = new Intent(context, SigninAndHistoryOptInActivity.class);
-        intent.putExtra(ARGUMENT_BOTTOM_SHEET_STRINGS, bottomSheetStrings);
+
+        // TODO(crbug.com/346709145): Get Parcelable extra instead of parsing individual properties
+        // when the classloader issue will be fixed.
+        intent.putExtra(ARGUMENT_BOTTOM_SHEET_STRINGS_TITLE, bottomSheetStrings.titleStringId);
+        intent.putExtra(
+                ARGUMENT_BOTTOM_SHEET_STRINGS_SUBTITLE, bottomSheetStrings.subtitleStringId);
+        intent.putExtra(
+                ARGUMENT_BOTTOM_SHEET_STRINGS_DISMISS, bottomSheetStrings.dismissButtonStringId);
+
         intent.putExtra(ARGUMENT_NO_ACCOUNT_SIGNIN_MODE, noAccountSigninMode);
         intent.putExtra(ARGUMENT_WITH_ACCOUNT_SIGNIN_MODE, withAccountSigninMode);
         intent.putExtra(ARGUMENT_HISTORY_OPT_IN_MODE, historyOptInMode);
@@ -283,13 +319,15 @@ public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
         // IntentCallback to resume the flow when Chrome is killed.
         final WindowAndroid.IntentCallback onAddAccountCompleted =
                 (int resultCode, Intent data) -> {
-                    final String accountEmail =
-                            data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
-                    if (resultCode != Activity.RESULT_OK || accountEmail == null) {
+                    if (data == null
+                            || resultCode != Activity.RESULT_OK
+                            || data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME) == null) {
                         onFlowComplete();
                         return;
                     }
 
+                    final String accountEmail =
+                            data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
                     if (mUpgradePromoCoordinator != null) {
                         mUpgradePromoCoordinator.onAccountSelected(accountEmail);
                     } else {

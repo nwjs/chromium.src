@@ -2,8 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/renderer/render_thread_impl.h"
 
+#include <atomic>
 #include <limits>
 #include <map>
 #include <memory>
@@ -27,6 +33,7 @@
 #include "base/message_loop/message_pump.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/metrics/field_trial.h"
+#include "base/metrics/histogram.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/histogram_macros_local.h"
@@ -615,14 +622,7 @@ void RenderThreadImpl::Init() {
       discardable_memory_allocator_.get());
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  // The SandboxedProcessThreadTypeHandler isn't created in
-  // render_thread_impl_browsertest.cc, nor in --single-process mode.
-  if (SandboxedProcessThreadTypeHandler* sandboxed_process_thread_type_handler =
-          SandboxedProcessThreadTypeHandler::Get()) {
-    sandboxed_process_thread_type_handler->HandleThreadTypeChange(
-        ChildProcess::current()->io_thread_id(),
-        base::ThreadType::kCompositing);
-  }
+  ChildProcess::current()->SetIOThreadType(base::ThreadType::kCompositing);
 #endif
 
   process_foregrounded_count_ = 0;
@@ -631,8 +631,7 @@ void RenderThreadImpl::Init() {
     BindHostReceiver(compositing_mode_reporter_.BindNewPipeAndPassReceiver());
 
     compositing_mode_reporter_->AddCompositingModeWatcher(
-        compositing_mode_watcher_receiver_.BindNewPipeAndPassRemote(
-            main_thread_scheduler_->CompositorTaskRunner()));
+        compositing_mode_watcher_receiver_.BindNewPipeAndPassRemote());
   }
 
   variations_observer_ = std::make_unique<VariationsRenderThreadObserver>();
@@ -1313,7 +1312,7 @@ void RenderThreadImpl::OnProcessFinalRelease() {
   // caused race conditions, where the browser process was reusing renderer
   // processes that were shutting down.
   // See https://crbug.com/535246 or https://crbug.com/873541/#c8.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 #if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
@@ -1456,6 +1455,15 @@ void RenderThreadImpl::CreateAssociatedAgentSchedulingGroup(
       *this, std::move(agent_scheduling_group), std::move(broker_remote)));
 }
 
+void RenderThreadImpl::TransferSharedLastForegroundTime(
+    base::ReadOnlySharedMemoryRegion last_foreground_time_region) {
+  last_foreground_time_mapping_ = last_foreground_time_region.Map();
+  CHECK(last_foreground_time_mapping_.IsValid());
+  base::internal::SetSharedLastForegroundTimeForMetrics(
+      last_foreground_time_mapping_
+          .GetMemoryAs<std::atomic<base::TimeTicks>>());
+}
+
 void RenderThreadImpl::OnNetworkConnectionChanged(
     net::NetworkChangeNotifier::ConnectionType type,
     double max_bandwidth_mbps) {
@@ -1486,7 +1494,7 @@ void RenderThreadImpl::SetWebKitSharedTimersSuspended(bool suspend) {
     main_thread_scheduler_->ResumeTimersForAndroidWebView();
   }
 #else
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 #endif
 }
 
@@ -1506,7 +1514,7 @@ void RenderThreadImpl::UpdateScrollbarTheme(
 #if BUILDFLAG(IS_APPLE)
   is_elastic_overscroll_enabled_ = params->scroll_view_rubber_banding;
 #else
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 #endif  // BUILDFLAG(IS_APPLE)
 }
 
@@ -1518,7 +1526,7 @@ void RenderThreadImpl::OnSystemColorsChanged(int32_t aqua_color_variant) {
   // that rely on system colors, such as the accent and highlight colors.
   blink::SystemColorsChanged();
 #else
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 #endif
 }
 
@@ -1545,7 +1553,7 @@ void RenderThreadImpl::PurgePluginListCache(bool reload_pages) {
   for (auto& observer : observers_)
     observer.PluginListChanged();
 #else
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 #endif
 }
 

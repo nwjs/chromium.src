@@ -267,6 +267,18 @@ void OnGoatTeleported() {
       .SetGoatType(goat_type)
       .Record(ukm_recorder);
 }
+
+// You can also use the UKM builder as an interim data structure.
+void OnKangarooJumped() {
+  ukm::builder::Kangaroo_Jumped builder(source_id);
+  builder.SetJumpHeight(3)
+      .SetJumpLength(4);
+
+  // Some other calculations...
+  builder.SetJumpLength(5);
+  // Records only one `Kangaroo.Jumped` event with metric JumpLength = 5.
+  builder.Record(ukm_recorder);
+}
 ```
 
 If the event name in the XML contains a period (`.`), it is replaced with an underscore (`_`) in the method name.
@@ -380,7 +392,7 @@ And in the UKM enum.xml:
 <enum name="WebFrameworkName">
   <int value="0" label="Unknown"/>
   <int value="1" label="WebFramework1"/>
-  <int value="1" label="WebFramework2"/>
+  <int value="2" label="WebFramework2"/>
   ...
 </enum>
 ```

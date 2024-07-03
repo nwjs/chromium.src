@@ -364,7 +364,6 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
 
   // PageScheduler::Delegate implementation.
   bool IsOrdinary() const override;
-  void ReportIntervention(const String& message) override;
   bool RequestBeginMainFrameNotExpected(bool new_state) override;
   void OnSetPageFrozen(bool is_frozen) override;
 
@@ -376,7 +375,13 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
   void SetIsPrerendering(bool is_prerendering) {
     is_prerendering_ = is_prerendering;
   }
+  void SetPrerenderMetricSuffix(const String& suffix) {
+    prerender_metric_suffix_ = suffix;
+  }
   bool IsPrerendering() const { return is_prerendering_; }
+  const String& PrerenderMetricSuffix() const {
+    return prerender_metric_suffix_;
+  }
 
   void SetTextAutosizerPageInfo(
       const mojom::blink::TextAutosizerPageInfo& page_info) {
@@ -490,8 +495,6 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
  private:
   friend class ScopedPagePauser;
   class CloseTaskHandler;
-
-  void InitGroup();
 
   // SettingsDelegate overrides.
   void SettingsChanged(SettingsDelegate::ChangeType) override;
@@ -618,10 +621,6 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
   // The Page that opened this Page.
   WeakMember<Page> opener_;
 
-  // A handle to notify the scheduler whether this page has other related
-  // pages or not.
-  FrameScheduler::SchedulingAffectingFeatureHandle has_related_pages_;
-
   std::unique_ptr<PageScheduler> page_scheduler_;
 
   // Overrides for various media features, set from DevTools.
@@ -642,6 +641,7 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
   // this Page. Once initialized, it can only transition from true to false on
   // prerender activation; it does not go from false to true.
   bool is_prerendering_ = false;
+  String prerender_metric_suffix_;
 
   // Whether the the Page's main document is a Fenced Frame document. This is
   // only set for the MPArch implementation and is true when the corresponding

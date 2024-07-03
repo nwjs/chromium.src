@@ -51,6 +51,7 @@
 #include "chrome/common/url_constants.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/infobars/core/infobar.h"
+#include "components/input/native_web_keyboard_event.h"
 #include "components/javascript_dialogs/app_modal_dialog_manager.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
@@ -79,7 +80,6 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/input/native_web_keyboard_event.h"
 #include "content/public/common/url_constants.h"
 #include "net/cert/x509_certificate.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -176,10 +176,9 @@ class DevToolsToolboxDelegate
           navigation_handle_callback) override;
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
       content::WebContents* source,
-      const content::NativeWebKeyboardEvent& event) override;
-  bool HandleKeyboardEvent(
-      content::WebContents* source,
-      const content::NativeWebKeyboardEvent& event) override;
+      const input::NativeWebKeyboardEvent& event) override;
+  bool HandleKeyboardEvent(content::WebContents* source,
+                           const input::NativeWebKeyboardEvent& event) override;
   void WebContentsDestroyed() override;
 
  private:
@@ -218,7 +217,7 @@ content::WebContents* DevToolsToolboxDelegate::OpenURLFromTab(
 content::KeyboardEventProcessingResult
 DevToolsToolboxDelegate::PreHandleKeyboardEvent(
     content::WebContents* source,
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   BrowserWindow* window = GetInspectedBrowserWindow();
   if (window)
     return window->PreHandleKeyboardEvent(event);
@@ -227,7 +226,7 @@ DevToolsToolboxDelegate::PreHandleKeyboardEvent(
 
 bool DevToolsToolboxDelegate::HandleKeyboardEvent(
     content::WebContents* source,
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   if (event.windows_key_code == 0x08) {
     // Do not navigate back in history on Windows (http://crbug.com/74156).
     return false;
@@ -289,7 +288,7 @@ class DevToolsEventForwarder {
 
   // Forwards a keyboard event to the DevTools frontend if it is whitelisted.
   // Returns |true| if the event has been forwarded, |false| otherwise.
-  bool ForwardEvent(const content::NativeWebKeyboardEvent& event);
+  bool ForwardEvent(const input::NativeWebKeyboardEvent& event);
 
  private:
   static bool KeyWhitelistingAllowed(int key_code, int modifiers);
@@ -321,7 +320,7 @@ void DevToolsEventForwarder::SetWhitelistedShortcuts(
 }
 
 bool DevToolsEventForwarder::ForwardEvent(
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   std::string event_type;
   switch (event.GetType()) {
     case WebInputEvent::Type::kKeyDown:
@@ -1375,6 +1374,10 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
       if (blocked_reason.blocked_by_rollout) {
         url += "&ci_blockedByRollout=true";
       }
+      if (base::FeatureList::IsEnabled(
+              ::features::kDevToolsFreestylerDogfood)) {
+        url += "&freestyler_dogfood=true";
+      }
       break;
     case kFrontendWorker:
       url = kWorkerFrontendURL + remote_base;
@@ -1593,7 +1596,7 @@ void DevToolsWindow::BeforeUnloadFired(WebContents* tab,
 
 content::KeyboardEventProcessingResult DevToolsWindow::PreHandleKeyboardEvent(
     WebContents* source,
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   BrowserWindow* inspected_window = GetInspectedBrowserWindow();
   if (inspected_window) {
     return inspected_window->PreHandleKeyboardEvent(event);
@@ -1603,7 +1606,7 @@ content::KeyboardEventProcessingResult DevToolsWindow::PreHandleKeyboardEvent(
 
 bool DevToolsWindow::HandleKeyboardEvent(
     WebContents* source,
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   if (event.windows_key_code == 0x08) {
     // Do not navigate back in history on Windows (http://crbug.com/74156).
     return true;
@@ -1998,7 +2001,7 @@ void DevToolsWindow::DoAction(const DevToolsToggleAction& action) {
       break;
     }
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 }
@@ -2037,7 +2040,7 @@ void DevToolsWindow::SetLoadCompletedCallback(base::OnceClosure closure) {
 }
 
 bool DevToolsWindow::ForwardKeyboardEvent(
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   return event_forwarder_->ForwardEvent(event);
 }
 

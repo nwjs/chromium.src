@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/renderer/pepper/event_conversion.h"
 
 #include <stddef.h>
@@ -22,7 +27,7 @@
 #include "base/strings/utf_string_conversion_utils.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "content/common/input/web_touch_event_traits.h"
+#include "components/input/web_touch_event_traits.h"
 #include "content/public/common/content_features.h"
 #include "device/gamepad/public/cpp/gamepads.h"
 #include "ppapi/c/pp_input_event.h"
@@ -267,12 +272,10 @@ enum IncludedTouchPointTypes {
   ACTIVE,  // Only pointers that are currently down.
   CHANGED  // Only pointers that have changed since the previous event.
 };
-void SetPPTouchPoints(const WebTouchPoint* touches,
-                      uint32_t touches_length,
+void SetPPTouchPoints(base::span<const WebTouchPoint> touches,
                       IncludedTouchPointTypes included_types,
                       std::vector<TouchPointWithTilt>* result) {
-  for (uint32_t i = 0; i < touches_length; i++) {
-    const WebTouchPoint& touch_point = touches[i];
+  for (const WebTouchPoint& touch_point : touches) {
     if (included_types == ACTIVE &&
         (touch_point.state == WebTouchPoint::State::kStateReleased ||
          touch_point.state == WebTouchPoint::State::kStateCancelled)) {
@@ -315,12 +318,15 @@ void AppendTouchEvent(const WebInputEvent& event,
     }
   }
 
-  SetPPTouchPoints(touch_event.touches, touch_event.touches_length, ACTIVE,
-                   &result.touches);
-  SetPPTouchPoints(touch_event.touches, touch_event.touches_length, CHANGED,
-                   &result.changed_touches);
-  SetPPTouchPoints(touch_event.touches, touch_event.touches_length, ALL,
-                   &result.target_touches);
+  SetPPTouchPoints(
+      base::make_span(touch_event.touches).first(touch_event.touches_length),
+      ACTIVE, &result.touches);
+  SetPPTouchPoints(
+      base::make_span(touch_event.touches).first(touch_event.touches_length),
+      CHANGED, &result.changed_touches);
+  SetPPTouchPoints(
+      base::make_span(touch_event.touches).first(touch_event.touches_length),
+      ALL, &result.target_touches);
 
   result_events->push_back(result);
 }
@@ -398,21 +404,21 @@ WebTouchEvent* BuildTouchEvent(const InputEventData& event) {
       state = WebTouchPoint::State::kStateCancelled;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
-  WebTouchEventTraits::ResetType(
+  input::WebTouchEventTraits::ResetType(
       type, base::TimeTicks() + base::Seconds(event.event_time_stamp),
       web_event);
   web_event->touches_length = 0;
 
   // First add all changed touches, then add only the remaining unset
   // (stationary) touches.
-  SetWebTouchPointsIfNotYetSet(event.changed_touches, state, web_event->touches,
+  SetWebTouchPointsIfNotYetSet(event.changed_touches, state,
+                               web_event->touches.data(),
                                &web_event->touches_length);
-  SetWebTouchPointsIfNotYetSet(event.touches,
-                               WebTouchPoint::State::kStateStationary,
-                               web_event->touches, &web_event->touches_length);
-
+  SetWebTouchPointsIfNotYetSet(
+      event.touches, WebTouchPoint::State::kStateStationary,
+      web_event->touches.data(), &web_event->touches_length);
   return web_event;
 }
 
@@ -429,7 +435,7 @@ WebKeyboardEvent* BuildKeyEvent(const InputEventData& event) {
       type = WebInputEvent::Type::kKeyUp;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   WebKeyboardEvent* key_event = new WebKeyboardEvent(
       type, event.event_modifiers,
@@ -477,7 +483,7 @@ WebMouseEvent* BuildMouseEvent(const InputEventData& event) {
       type = WebInputEvent::Type::kContextMenu;
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   WebMouseEvent* mouse_event = new WebMouseEvent(
       type, event.event_modifiers,
@@ -667,7 +673,7 @@ WebInputEvent* CreateWebInputEvent(const InputEventData& event) {
     case PP_INPUTEVENT_TYPE_IME_TEXT:
       // TODO(kinaba) implement in WebKit an event structure to handle
       // composition events.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
     case PP_INPUTEVENT_TYPE_TOUCHSTART:
     case PP_INPUTEVENT_TYPE_TOUCHMOVE:

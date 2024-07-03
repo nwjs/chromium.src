@@ -25,6 +25,7 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kUseGles2ForOopR);
 // alongside the definition of their values in the .cc file.
 #if BUILDFLAG(IS_ANDROID)
 GPU_EXPORT BASE_DECLARE_FEATURE(kAndroidSurfaceControl);
+GPU_EXPORT BASE_DECLARE_FEATURE(kEnableGpuMemoryBufferImplAHB);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControl);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControlForTV);
 GPU_EXPORT BASE_DECLARE_FEATURE(kAImageReader);
@@ -41,15 +42,9 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kCanvasOopRasterization);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kCanvasOopWithoutGpuTileRaster);
 
-#if BUILDFLAG(IS_OZONE)
-GPU_EXPORT BASE_DECLARE_FEATURE(kOzoneFrontBufferUsage);
-#endif
-
 GPU_EXPORT BASE_DECLARE_FEATURE(kEnableMSAAOnNewIntelGPUs);
 
-GPU_EXPORT BASE_DECLARE_FEATURE(kDefaultEnableANGLEValidation);
-
-GPU_EXPORT BASE_DECLARE_FEATURE(kCanvasContextLostInBackground);
+GPU_EXPORT BASE_DECLARE_FEATURE(kDawnSIRepsUseClientProvidedInternalUsages);
 
 #if BUILDFLAG(IS_WIN)
 GPU_EXPORT BASE_DECLARE_FEATURE(kGpuProcessHighPriorityWin);
@@ -95,8 +90,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kForceRestartGpuKillSwitch);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kPruneOldTransferCacheEntries);
 
-GPU_EXPORT BASE_DECLARE_FEATURE(kPurgeOldCacheEntriesOnTimer);
-
 GPU_EXPORT BASE_DECLARE_FEATURE(kUseGpuSchedulerDfs);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -118,11 +111,14 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kGpuCleanupInBackground);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kDeferredOverlaysRelease);
 
+#if BUILDFLAG(IS_WIN)
+GPU_EXPORT BASE_DECLARE_FEATURE(kD3DBackingUploadWithUpdateSubresource);
+#endif
+
 GPU_EXPORT bool UseGles2ForOopR();
 GPU_EXPORT bool IsUsingVulkan();
 GPU_EXPORT bool IsDrDcEnabled();
 GPU_EXPORT bool NeedThreadSafeAndroidMedia();
-GPU_EXPORT bool IsANGLEValidationEnabled();
 GPU_EXPORT bool IsSkiaGraphiteEnabled(const base::CommandLine* command_line);
 GPU_EXPORT bool EnablePurgeGpuImageDecodeCache();
 GPU_EXPORT bool EnablePruneOldTransferCacheEntries();

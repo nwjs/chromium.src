@@ -37,6 +37,7 @@
 #include "ui/gfx/animation/tween.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/scoped_canvas.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/animation_builder.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/image_view.h"
@@ -329,7 +330,7 @@ void ReturnToAppButton::UpdateAccessibleName() {
                   : VIDEO_CONFERENCE_RETURN_TO_APP_COLLAPSED_ACCESSIBLE_NAME);
   }
 
-  SetAccessibleName(accessible_name);
+  GetViewAccessibility().SetName(accessible_name);
 }
 
 BEGIN_METADATA(ReturnToAppButton)
@@ -434,11 +435,13 @@ END_METADATA
 ReturnToAppPanel::ReturnToAppPanel(const MediaApps& apps) {
   SetID(BubbleViewID::kReturnToApp);
 
-  SetLayoutManager(std::make_unique<views::FlexLayout>())
-      ->SetOrientation(views::LayoutOrientation::kVertical)
-      .SetMainAxisAlignment(views::LayoutAlignment::kCenter)
-      .SetCrossAxisAlignment(views::LayoutAlignment::kStretch)
-      .SetInteriorMargin(gfx::Insets::TLBR(16, 16, 0, 16));
+  SetOrientation(views::LayoutOrientation::kVertical);
+  SetMainAxisAlignment(views::LayoutAlignment::kCenter);
+  SetCrossAxisAlignment(views::LayoutAlignment::kStretch);
+  SetInteriorMargin(gfx::Insets::TLBR(16, 16, 0, 16));
+
+  // TODO(crbug.com/40232718): See View::SetLayoutManagerUseConstrainedSpace
+  SetLayoutManagerUseConstrainedSpace(false);
 
   auto container_view = std::make_unique<ReturnToAppContainer>();
   container_view_ = AddChildView(std::move(container_view));

@@ -13,6 +13,7 @@
 #include "content/public/browser/render_frame_metadata_provider.h"
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "ui/android/view_android_observer.h"
 #include "ui/android/window_android_observer.h"
 #include "ui/events/back_gesture_event.h"
 #include "ui/gfx/animation/keyframe/keyframe_effect.h"
@@ -37,6 +38,7 @@ class RenderFrameHostImpl;
 // the user touches the screen to start a gesture a new instance is created.
 class CONTENT_EXPORT BackForwardTransitionAnimator
     : public RenderFrameMetadataProvider::Observer,
+      public ui::ViewAndroidObserver,
       public ui::WindowAndroidObserver,
       public WebContentsObserver,
       public RenderWidgetHostObserver,
@@ -71,10 +73,13 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
   void OnGestureCancelled();
   void OnGestureInvoked();
   void OnDidNavigatePrimaryMainFramePreCommit(
-      const NavigationRequest& navigation_request,
+      NavigationRequest* navigation_request,
       RenderFrameHostImpl* old_host,
       RenderFrameHostImpl* new_host);
   void OnNavigationCancelledBeforeStart(NavigationHandle* navigation_handle);
+  void OnContentForNavigationEntryShown();
+  BackForwardTransitionAnimationManager::AnimationStage
+  GetCurrentAnimationStage();
 
  protected:
   BackForwardTransitionAnimator(
@@ -93,6 +98,10 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
   void OnRenderFrameSubmission() override {}
   void OnLocalSurfaceIdChanged(
       const cc::RenderFrameMetadata& metadata) override {}
+
+  // `ui::ViewAndroidObserver`:
+  void OnAttachedToWindow() override {}
+  void OnDetachedFromWindow() override;
 
   // `ui::WindowAndroidObserver`:
   void OnRootWindowVisibilityChanged(bool visible) override;
@@ -184,6 +193,12 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
     // completely.
     kWaitingForNewRendererToDraw,
 
+    // A state only reachable from `kDisplayingInvokeAnimation`: at
+    // the end of the invoke animation, the animator is waiting for the
+    // embedder content to be fully visible. The animator will continue or
+    // end after the content becomes fully visible.
+    kWaitingForContentForNavigationEntryShown,
+
     // Reachable from the end of `kDisplayingInvokeAnimation` or from
     // `kWaitingForNewRendererToDraw`. Cross-fading from the screenshot to the
     // new page.
@@ -249,12 +264,11 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
   // `NavigationRequests` by their IDs. Returns true if the requests are
   // successfully created and false otherwise. The caller should play the invoke
   // or cancel animation based on the return value.
-  bool StartNavigationAndTrackRequest();
+  [[nodiscard]] bool StartNavigationAndTrackRequest();
 
   // Forwards the calls to `CompositorImpl`.
   cc::UIResourceId CreateUIResource(cc::UIResourceClient* client);
-  void RemoveWindowAndroidObserverAndDeleteUIResource(
-      cc::UIResourceId resource_id);
+  void DeleteUIResource(cc::UIResourceId resource_id);
 
   // Apply the `result` to the screenshot and the web page, and tick the
   // animation effector. Returns a boolean indicating if both the `PhysicsModel`

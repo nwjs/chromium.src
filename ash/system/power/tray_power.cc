@@ -37,6 +37,7 @@
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/view.h"
@@ -129,12 +130,15 @@ void PowerTrayView::OnPowerStatusChanged() {
 void PowerTrayView::UpdateStatus(bool icon_color_changed) {
   UpdateImage(icon_color_changed);
   SetVisible(PowerStatus::Get()->IsBatteryPresent());
-  SetAccessibleName(
+  GetViewAccessibility().SetName(
       PowerStatus::Get()->GetAccessibleNameString(/* full_description */ true));
   tooltip_ = PowerStatus::Get()->GetInlinedStatusString();
   // Currently ChromeVox only reads the inner view when touching the icon.
   // As a result this node's accessible node data will not be read.
-  image_view()->SetAccessibleName(GetAccessibleName());
+  // TODO(crbug.com/325137417): This line should not be needed. Investigate to
+  // confirm and remove.
+  image_view()->GetViewAccessibility().SetName(
+      GetViewAccessibility().GetCachedName());
 }
 
 void PowerTrayView::UpdateImage(bool icon_color_changed) {

@@ -7,11 +7,13 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 
 #include "ash/constants/ash_pref_names.h"
 #include "base/memory/ref_counted.h"
 #include "base/time/time_override.h"
 #include "chromeos/ash/components/audio/audio_device.h"
+#include "chromeos/ash/components/audio/audio_device_id.h"
 #include "chromeos/ash/components/audio/audio_devices_pref_handler.h"
 #include "chromeos/ash/components/dbus/audio/audio_node.h"
 #include "components/prefs/scoped_user_pref_update.h"
@@ -323,6 +325,10 @@ TEST_P(AudioDevicesPrefHandlerTest, PrefsRegistered) {
       pref_service_->FindPreference(prefs::kAudioInputDevicesUserPriority));
   EXPECT_TRUE(
       pref_service_->FindPreference(prefs::kAudioOutputDevicesUserPriority));
+  EXPECT_TRUE(
+      pref_service_->FindPreference(prefs::kAudioInputDevicePreferenceSet));
+  EXPECT_TRUE(
+      pref_service_->FindPreference(prefs::kAudioOutputDevicePreferenceSet));
 }
 
 TEST_P(AudioDevicesPrefHandlerTest, SoundLevel) {
@@ -601,6 +607,100 @@ TEST_P(AudioDevicesPrefHandlerTest, DropLeastRecentlySeenDevices) {
   EXPECT_EQ(kUserPriorityNone, GetUserPriority(d[0]));
   EXPECT_EQ(kUserPriorityNone, GetUserPriority(d[1]));
   EXPECT_NE(kUserPriorityNone, GetUserPriority(d[2]));
+}
+
+// Tests read and write audio device preference set pref.
+TEST_P(AudioDevicesPrefHandlerTest, PreferenceSet) {
+  AudioDevice device = GetDeviceWithVersion(2);
+  AudioDevice device2 = GetSecondaryDeviceWithVersion(2);
+  AudioDeviceList devices = {device, device2};
+
+  // No preferred device among this set of devices yet.
+  EXPECT_EQ(std::nullopt,
+            audio_pref_handler_->GetPreferredDeviceFromPreferenceSet(
+                device.is_input, devices));
+
+  // Set preferred device and verify.
+  audio_pref_handler_->UpdateDevicePreferenceSet(devices, device);
+  EXPECT_EQ(device.stable_device_id,
+            audio_pref_handler_->GetPreferredDeviceFromPreferenceSet(
+                device.is_input, devices));
+
+  // Set a different preferred device and verify.
+  audio_pref_handler_->UpdateDevicePreferenceSet(devices, device2);
+  EXPECT_EQ(device2.stable_device_id,
+            audio_pref_handler_->GetPreferredDeviceFromPreferenceSet(
+                device.is_input, devices));
+
+  // Set back to the first device and verify.
+  audio_pref_handler_->UpdateDevicePreferenceSet(devices, device);
+  EXPECT_EQ(device.stable_device_id,
+            audio_pref_handler_->GetPreferredDeviceFromPreferenceSet(
+                device.is_input, devices));
+}
+
+// Tests preference set pref shouldn't be updated if the preferred device does
+// not exist in the given device set.
+TEST_P(AudioDevicesPrefHandlerTest, PreferredDeviceNotExist) {
+  AudioDevice device = GetDeviceWithVersion(2);
+  AudioDevice device2 = GetSecondaryDeviceWithVersion(2);
+  AudioDevice device3 = GetBTDeviceWithVersion(2);
+  AudioDeviceList devices = {device, device2};
+
+  // No preferred device among this set of devices yet.
+  EXPECT_EQ(std::nullopt,
+            audio_pref_handler_->GetPreferredDeviceFromPreferenceSet(
+                device.is_input, devices));
+
+  // Set a preferred device which is not in the device set.
+  audio_pref_handler_->UpdateDevicePreferenceSet(devices, device3);
+
+  // Expect that no preferred device is set.
+  EXPECT_EQ(std::nullopt,
+            audio_pref_handler_->GetPreferredDeviceFromPreferenceSet(
+                device.is_input, devices));
+}
+
+// Tests read and write most recent activated device id list pref.
+TEST_P(AudioDevicesPrefHandlerTest, MostRecentActivatedDeviceIdList) {
+  AudioDevice device = GetDeviceWithVersion(2);
+  AudioDevice device2 = GetSecondaryDeviceWithVersion(2);
+
+  // No activated device yet.
+  EXPECT_TRUE(
+      audio_pref_handler_->GetMostRecentActivatedDeviceIdList(device.is_input)
+          .empty());
+
+  // Activate first device.
+  audio_pref_handler_->UpdateMostRecentActivatedDeviceIdList(device);
+  EXPECT_EQ(1u, audio_pref_handler_
+                    ->GetMostRecentActivatedDeviceIdList(device.is_input)
+                    .size());
+  EXPECT_EQ(
+      GetDeviceIdString(device),
+      audio_pref_handler_->GetMostRecentActivatedDeviceIdList(device.is_input)
+          .back());
+
+  // Activate second device.
+  audio_pref_handler_->UpdateMostRecentActivatedDeviceIdList(device2);
+  EXPECT_EQ(2u, audio_pref_handler_
+                    ->GetMostRecentActivatedDeviceIdList(device2.is_input)
+                    .size());
+  EXPECT_EQ(
+      GetDeviceIdString(device2),
+      audio_pref_handler_->GetMostRecentActivatedDeviceIdList(device2.is_input)
+          .back());
+
+  // Activate the first device again. Expect there are still two devices in the
+  // list. Expect this device is now in the end of the list.
+  audio_pref_handler_->UpdateMostRecentActivatedDeviceIdList(device);
+  EXPECT_EQ(2u, audio_pref_handler_
+                    ->GetMostRecentActivatedDeviceIdList(device.is_input)
+                    .size());
+  EXPECT_EQ(
+      GetDeviceIdString(device),
+      audio_pref_handler_->GetMostRecentActivatedDeviceIdList(device.is_input)
+          .back());
 }
 
 }  // namespace ash

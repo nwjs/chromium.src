@@ -21,6 +21,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/geometry_mapper.h"
 #include "third_party/blink/renderer/platform/graphics/paint/scroll_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/transform_paint_property_node.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -458,8 +459,8 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
         transform_tree_.EnsureStickyPositionData(id);
     sticky_data.constraints = *sticky_constraint;
     const auto& scroll_ancestor = transform_node.NearestScrollTranslationNode();
-    sticky_data.scroll_ancestor =
-        EnsureCompositorScrollAndTransformNode(scroll_ancestor);
+    sticky_data.scroll_ancestor = EnsureCompositorScrollAndTransformNode(
+        scroll_ancestor, InfiniteIntRect());
     const auto& scroll_ancestor_compositor_node =
         *scroll_tree_.Node(sticky_data.scroll_ancestor);
     if (scroll_ancestor_compositor_node.scrolls_outer_viewport)
@@ -628,10 +629,15 @@ int PropertyTreeManager::EnsureCompositorScrollNodeInternal(
 }
 
 int PropertyTreeManager::EnsureCompositorScrollAndTransformNode(
-    const TransformPaintPropertyNode& scroll_translation) {
+    const TransformPaintPropertyNode& scroll_translation,
+    const gfx::Rect& scrolling_contents_cull_rect) {
   const auto* scroll_node = scroll_translation.ScrollNode();
   DCHECK(scroll_node);
   EnsureCompositorTransformNode(scroll_translation);
+  if (!scrolling_contents_cull_rect.Contains(scroll_node->ContentsRect())) {
+    scroll_tree_.SetScrollingContentsCullRect(
+        scroll_node->GetCompositorElementId(), scrolling_contents_cull_rect);
+  }
   int id = scroll_node->CcNodeId(new_sequence_number_);
   DCHECK(scroll_tree_.Node(id));
   return id;
@@ -639,14 +645,16 @@ int PropertyTreeManager::EnsureCompositorScrollAndTransformNode(
 
 int PropertyTreeManager::EnsureCompositorInnerScrollAndTransformNode(
     const TransformPaintPropertyNode& scroll_translation) {
-  int node_id = EnsureCompositorScrollAndTransformNode(scroll_translation);
+  int node_id = EnsureCompositorScrollAndTransformNode(scroll_translation,
+                                                       InfiniteIntRect());
   scroll_tree_.Node(node_id)->scrolls_inner_viewport = true;
   return node_id;
 }
 
 int PropertyTreeManager::EnsureCompositorOuterScrollAndTransformNode(
     const TransformPaintPropertyNode& scroll_translation) {
-  int node_id = EnsureCompositorScrollAndTransformNode(scroll_translation);
+  int node_id = EnsureCompositorScrollAndTransformNode(scroll_translation,
+                                                       InfiniteIntRect());
   scroll_tree_.Node(node_id)->scrolls_outer_viewport = true;
   return node_id;
 }
@@ -689,7 +697,7 @@ void PropertyTreeManager::EmitClipMaskLayer() {
   mask_layer->SetTransformTreeIndex(
       EnsureCompositorTransformNode(*current_.transform));
   int scroll_id = EnsureCompositorScrollAndTransformNode(
-      current_.transform->NearestScrollTranslationNode());
+      current_.transform->NearestScrollTranslationNode(), InfiniteIntRect());
   mask_layer->SetScrollTreeIndex(scroll_id);
   mask_layer->SetClipTreeIndex(mask_effect.clip_id);
   mask_layer->SetEffectTreeIndex(mask_effect.id);
@@ -1025,7 +1033,7 @@ int PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
     if (pending_clip.type & CcEffectType::kSyntheticForNonTrivialClip) {
       if (clip_id == cc::kInvalidPropertyNodeId) {
         const auto* clip = pending_clip.clip;
-        // Some virtual/view-transition/external/wpt/css/css-view-transitions/*
+        // Some virtual/threaded/external/wpt/css/css-view-transitions/*
         // tests will fail without the following condition.
         // TODO(crbug.com/1345805): Investigate the reason and remove the
         // condition if possible.

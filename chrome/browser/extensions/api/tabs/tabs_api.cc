@@ -290,7 +290,7 @@ ui::WindowShowState ConvertToWindowShowState(windows::WindowState state) {
     case windows::WindowState::kNone:
       return ui::SHOW_STATE_DEFAULT;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return ui::SHOW_STATE_DEFAULT;
 }
 
@@ -316,7 +316,7 @@ bool IsValidStateForWindowsCreateFunction(
     case windows::WindowState::kHidden:
       return true;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return true;
 }
 
@@ -445,7 +445,8 @@ void NotifyExtensionTelemetry(Profile* profile,
                               const Extension* extension,
                               safe_browsing::TabsApiInfo::ApiMethod api_method,
                               const std::string& current_url,
-                              const std::string& new_url) {
+                              const std::string& new_url,
+                              const std::optional<StackTrace>& js_callstack) {
 #if 0
   // Ignore API calls that are not invoked by extensions.
   if (!extension) {
@@ -468,7 +469,8 @@ void NotifyExtensionTelemetry(Profile* profile,
   }
 
   auto tabs_api_signal = std::make_unique<safe_browsing::TabsApiSignal>(
-      extension->id(), api_method, current_url, new_url);
+      extension->id(), api_method, current_url, new_url,
+      js_callstack.value_or(StackTrace()));
   extension_telemetry_service->AddSignal(std::move(tabs_api_signal));
 #endif
 }
@@ -1614,7 +1616,8 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
     NotifyExtensionTelemetry(Profile::FromBrowserContext(browser_context()),
                              extension(), safe_browsing::TabsApiInfo::CREATE,
                              /*current_url=*/std::string(),
-                             options.url.value_or(std::string()));
+                             options.url.value_or(std::string()),
+                             js_callstack());
 
     // Return data about the newly created tab.
     return has_callback() ? WithArguments(std::move(*result)) : NoArguments();
@@ -1948,7 +1951,7 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
 
     NotifyExtensionTelemetry(Profile::FromBrowserContext(browser_context()),
                              extension(), safe_browsing::TabsApiInfo::UPDATE,
-                             current_url, updated_url);
+                             current_url, updated_url, js_callstack());
   }
 
   return RespondNow(GetResult());
@@ -2245,7 +2248,8 @@ bool TabsRemoveFunction::RemoveTab(int tab_id, std::string* error) {
                                 : std::string();
   NotifyExtensionTelemetry(Profile::FromBrowserContext(browser_context()),
                            extension(), safe_browsing::TabsApiInfo::REMOVE,
-                           current_url, /*new_url=*/std::string());
+                           current_url, /*new_url=*/std::string(),
+                           js_callstack());
 
   // The tab might not immediately close after calling Close() below, so we
   // should wait until WebContentsDestroyed is called before responding.
@@ -2556,10 +2560,10 @@ ExtensionFunction::ResponseAction TabsCaptureVisibleTabFunction::Run() {
   std::string current_url = contents->GetLastCommittedURL().is_valid()
                                 ? contents->GetLastCommittedURL().spec()
                                 : std::string();
-  NotifyExtensionTelemetry(Profile::FromBrowserContext(browser_context()),
-                           extension(),
-                           safe_browsing::TabsApiInfo::CAPTURE_VISIBLE_TAB,
-                           current_url, /*new_url=*/std::string());
+  NotifyExtensionTelemetry(
+      Profile::FromBrowserContext(browser_context()), extension(),
+      safe_browsing::TabsApiInfo::CAPTURE_VISIBLE_TAB, current_url,
+      /*new_url=*/std::string(), js_callstack());
 
   // NOTE: CaptureAsync() may invoke its callback from a background thread,
   // hence the BindPostTask().
@@ -2643,8 +2647,9 @@ std::string TabsCaptureVisibleTabFunction::CaptureResultToErrorMessage(
     case FAILURE_REASON_SCREEN_SHOTS_DISABLED_BY_DLP:
       return tabs_constants::kScreenshotsDisabledByDlp;
     case OK:
-      NOTREACHED() << "CaptureResultToErrorMessage should not be called"
-                      " with a successful result";
+      NOTREACHED_IN_MIGRATION()
+          << "CaptureResultToErrorMessage should not be called"
+             " with a successful result";
       return kUnknownErrorDoNotUse;
   }
   return ErrorUtils::FormatErrorMessage("Failed to capture tab: *",

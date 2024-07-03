@@ -26,6 +26,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -36,6 +37,7 @@
 #include "base/types/optional_util.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "net/base/features.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/http_user_agent_settings.h"
 #include "net/base/load_flags.h"
@@ -55,6 +57,7 @@
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_access_delegate.h"
 #include "net/cookies/cookie_constants.h"
+#include "net/cookies/cookie_setting_override.h"
 #include "net/cookies/cookie_store.h"
 #include "net/cookies/cookie_util.h"
 #include "net/cookies/parsed_cookie.h"
@@ -248,7 +251,49 @@ enum class HttpRequestStsState {
   kMaxValue = kProtectedHttp,
 };
 
-void RecordSTSHistogram(bool sts_enabled, bool is_secure, int load_flags) {
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(HttpRequestSSLUpgradeDecision)
+enum class HttpRequestSSLUpgradeDecision {
+  // The request was insecure and was not upgraded to use SSL.
+  kInsecureNoUpgrade = 0,
+  // The request used SSL. It would not have been upgraded if it was insecure.
+  kSSLNoUpgrade = 1,
+  // The request was insecure but upgraded to use SSL using static data.
+  kInsecureStaticUpgrade = 2,
+  // The request used SSL. If was insecure, it would have been upgraded using
+  // static data.
+  kSSLStaticUpgrade = 3,
+  // The request was insecure but upgraded to use SSL using dynamic data. It
+  // would not have been upgraded using only static data.
+  kInsecureDynamicUpgrade = 4,
+  // The request used SSL. If it was insecure, it would have been upgraded using
+  // dynamic data but not with only static data.
+  kSSLDynamicUpgrade = 5,
+  kMaxValue = kSSLDynamicUpgrade,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/enums.xml:HttpRequestSSLUpgradeDecision)
+
+HttpRequestSSLUpgradeDecision GetMetricForSSLUpgradeDecision(
+    net::SSLUpgradeDecision upgrade_decision,
+    bool is_secure) {
+  switch (upgrade_decision) {
+    case net::SSLUpgradeDecision::kNoUpgrade:
+      return is_secure ? HttpRequestSSLUpgradeDecision::kSSLNoUpgrade
+                       : HttpRequestSSLUpgradeDecision::kInsecureNoUpgrade;
+    case net::SSLUpgradeDecision::kStaticUpgrade:
+      return is_secure ? HttpRequestSSLUpgradeDecision::kSSLStaticUpgrade
+                       : HttpRequestSSLUpgradeDecision::kInsecureStaticUpgrade;
+    case net::SSLUpgradeDecision::kDynamicUpgrade:
+      return is_secure ? HttpRequestSSLUpgradeDecision::kSSLDynamicUpgrade
+                       : HttpRequestSSLUpgradeDecision::kInsecureDynamicUpgrade;
+  }
+  NOTREACHED_NORETURN();
+}
+
+void RecordSTSHistograms(net::SSLUpgradeDecision upgrade_decision,
+                         bool is_secure,
+                         int load_flags) {
   // Embrace the layering violation and only record the histogram for main frame
   // navigations. It's possible to record this outside of net/, but the code is
   // a lot more complicated, and while this flag is deprecated, there are no
@@ -256,6 +301,8 @@ void RecordSTSHistogram(bool sts_enabled, bool is_secure, int load_flags) {
   if (!(load_flags & net::LOAD_MAIN_FRAME_DEPRECATED)) {
     return;
   }
+  const bool sts_enabled =
+      upgrade_decision != net::SSLUpgradeDecision::kNoUpgrade;
   HttpRequestStsState sts_state = HttpRequestStsState::kUnknown;
   if (is_secure) {
     sts_state = (sts_enabled ? HttpRequestStsState::kProtectedHttps
@@ -265,6 +312,10 @@ void RecordSTSHistogram(bool sts_enabled, bool is_secure, int load_flags) {
                              : HttpRequestStsState::kUnprotectedHttp);
   }
   UMA_HISTOGRAM_ENUMERATION("Net.HttpRequestStsState", sts_state);
+
+  UMA_HISTOGRAM_ENUMERATION(
+      "Net.HttpRequestSSLUpgradeDecision",
+      GetMetricForSSLUpgradeDecision(upgrade_decision, is_secure));
 }
 
 }  // namespace
@@ -278,9 +329,12 @@ std::unique_ptr<URLRequestJob> URLRequestHttpJob::Create(URLRequest* request) {
   DCHECK(request->context()->http_transaction_factory());
   DCHECK(url.SchemeIsHTTPOrHTTPS() || url.SchemeIsWSOrWSS());
 
-  TransportSecurityState* hsts = request->context()->transport_security_state();
-  bool should_upgrade_to_ssl =
-      hsts && hsts->ShouldUpgradeToSSL(url.host(), request->net_log());
+  SSLUpgradeDecision upgrade_decision = SSLUpgradeDecision::kNoUpgrade;
+  if (TransportSecurityState* hsts =
+          request->context()->transport_security_state()) {
+    upgrade_decision =
+        hsts->GetSSLUpgradeDecision(url.host(), request->net_log());
+  }
 
   // Check for reasons not to return a URLRequestHttpJob. These don't apply to
   // https and wss requests.
@@ -294,9 +348,9 @@ std::unique_ptr<URLRequestJob> URLRequestHttpJob::Create(URLRequest* request) {
       CHECK(request->allow_credentials() == false);
     } else {
       // Check for HSTS upgrade.
-      if (should_upgrade_to_ssl) {
-        RecordSTSHistogram(/*sts_enabled=*/true, /*is_secure=*/false,
-                           request->load_flags());
+      if (upgrade_decision != SSLUpgradeDecision::kNoUpgrade) {
+        RecordSTSHistograms(upgrade_decision,
+                            /*is_secure=*/false, request->load_flags());
         return std::make_unique<URLRequestRedirectJob>(
             request, UpgradeSchemeToCryptographic(url),
             // Use status code 307 to preserve the method, so POST requests
@@ -311,16 +365,16 @@ std::unique_ptr<URLRequestJob> URLRequestHttpJob::Create(URLRequest* request) {
     // ERR_CLEARTEXT_NOT_PERMITTED if not.
     if (request->context()->check_cleartext_permitted() &&
         !android::IsCleartextPermitted(url.host_piece())) {
-      RecordSTSHistogram(/*sts_enabled=*/false, /*is_secure=*/false,
-                         request->load_flags());
+      RecordSTSHistograms(SSLUpgradeDecision::kNoUpgrade,
+                          /*is_secure=*/false, request->load_flags());
       return std::make_unique<URLRequestErrorJob>(request,
                                                   ERR_CLEARTEXT_NOT_PERMITTED);
     }
 #endif
   }
 
-  RecordSTSHistogram(should_upgrade_to_ssl, url.SchemeIsCryptographic(),
-                     request->load_flags());
+  RecordSTSHistograms(upgrade_decision, url.SchemeIsCryptographic(),
+                      request->load_flags());
   return base::WrapUnique<URLRequestJob>(new URLRequestHttpJob(
       request, request->context()->http_user_agent_settings()));
 }
@@ -376,7 +430,7 @@ void URLRequestHttpJob::Start() {
   // url and initiator are same-site, to prevent cross-site sibling iframes
   // benefit from each other's storage access API grants.
   request()->cookie_setting_overrides().PutOrRemove(
-      net::CookieSettingOverride::kStorageAccessGrantEligible,
+      CookieSettingOverride::kStorageAccessGrantEligible,
       request()->has_storage_access() && request_initiator_site().has_value() &&
           IsSameSiteIgnoringWebSocketProtocol(request_initiator_site().value(),
                                               request()->url()));
@@ -509,7 +563,7 @@ PrivacyMode URLRequestHttpJob::DeterminePrivacyMode() const {
     case NetworkDelegate::PrivacySetting::kStateDisallowed:
       return PRIVACY_MODE_ENABLED;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return PRIVACY_MODE_ENABLED;
 }
 
@@ -977,18 +1031,9 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
 
     num_cookie_lines_left_++;
 
-    // For the block_truncated parameter, the value shouldn't matter here
-    // because HTTP requests containing NULLs causes an error before this code
-    // can be reached and unpaired carriage returns and line feed characters
-    // cause truncation during HTTP header processing before reaching this
-    // point, so DCHECK this assumption and just pass true for this parameter.
-    DCHECK(cookie_string.find('\0') == std::string::npos);
-    DCHECK(cookie_string.find('\r') == std::string::npos);
-    DCHECK(cookie_string.find('\n') == std::string::npos);
     std::unique_ptr<CanonicalCookie> cookie = net::CanonicalCookie::Create(
         request_->url(), cookie_string, base::Time::Now(), server_time,
-        request_->cookie_partition_key(),
-        /*block_truncated=*/true, net::CookieSourceType::kHTTP,
+        request_->cookie_partition_key(), net::CookieSourceType::kHTTP,
         &returned_status);
 
     std::optional<CanonicalCookie> cookie_to_return = std::nullopt;
@@ -1414,7 +1459,7 @@ std::unique_ptr<SourceStream> URLRequestHttpJob::SetUpSourceStream() {
         break;
       case SourceStream::TYPE_NONE:
       case SourceStream::TYPE_UNKNOWN:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         return nullptr;
     }
     if (downstream == nullptr)
@@ -1450,6 +1495,11 @@ bool URLRequestHttpJob::IsSafeRedirect(const GURL& location) {
 }
 
 bool URLRequestHttpJob::NeedsAuth() {
+  if (!transaction_.get()) {
+    // If we synthesized a redirect (for `DNS_NAME_HTTPS_ONLY`, e.g.), we aren't
+    // guaranteed to have a transaction here.
+    return false;
+  }
   int code = GetResponseCode();
   if (code == -1)
     return false;
@@ -1469,6 +1519,25 @@ bool URLRequestHttpJob::NeedsAuth() {
       return true;
   }
   return false;
+}
+
+bool URLRequestHttpJob::NeedsRetryWithStorageAccess() {
+  if (!base::FeatureList::IsEnabled(features::kStorageAccessHeaders)) {
+    return false;
+  }
+  if (!ShouldAddCookieHeader() ||
+      request_->cookie_setting_overrides().Has(
+          CookieSettingOverride::kStorageAccessGrantEligible) ||
+      request_->cookie_setting_overrides().Has(
+          CookieSettingOverride::kStorageAccessGrantEligibleViaHeader)) {
+    // We're not allowed to read cookies for this request, or this request
+    // already had all the relevant settings overrides, so retrying it wouldn't
+    // change anything.
+    return false;
+  }
+
+  HttpResponseHeaders* headers = request_->response_headers();
+  return headers && headers->HasStorageAccessRetryHeader();
 }
 
 std::unique_ptr<AuthChallengeInfo> URLRequestHttpJob::GetAuthChallengeInfo() {
@@ -1657,13 +1726,20 @@ void URLRequestHttpJob::DoneReadingRedirectResponse() {
   DoneWithRequest(FINISHED);
 }
 
+void URLRequestHttpJob::DoneReadingRetryResponse() {
+  // We don't bother calling `transaction_->DoneReading()` here, since that
+  // marks the cache entry as valid but we know that we're about to retry the
+  // request and bypass the cache regardless.
+  DoneWithRequest(FINISHED);
+}
+
 IPEndPoint URLRequestHttpJob::GetResponseRemoteEndpoint() const {
   return response_info_ ? response_info_->remote_endpoint : IPEndPoint();
 }
 
 void URLRequestHttpJob::RecordTimer() {
   if (request_creation_time_.is_null()) {
-    NOTREACHED()
+    NOTREACHED_IN_MIGRATION()
         << "The same transaction shouldn't start twice without new timing.";
     return;
   }
@@ -1692,8 +1768,7 @@ void URLRequestHttpJob::RecordTimer() {
 
 void URLRequestHttpJob::ResetTimer() {
   if (!request_creation_time_.is_null()) {
-    NOTREACHED()
-        << "The timer was reset before it was recorded.";
+    NOTREACHED_IN_MIGRATION() << "The timer was reset before it was recorded.";
     return;
   }
   request_creation_time_ = base::Time::Now();

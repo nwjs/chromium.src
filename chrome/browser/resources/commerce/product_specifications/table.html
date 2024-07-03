@@ -1,4 +1,9 @@
-<style>
+<style include="cr-icons cr-hidden-style">
+  table {
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
   .separator {
     height: 16px;
   }
@@ -8,49 +13,101 @@
     width: 220px;
   }
 
-  .col-card {
-    display: flex;
-    justify-content: flex-start;
+  img {
+    height: inherit;
+    object-fit: cover;
+  }
+
+  #imgContainer {
+    border-radius: 8px;
+    height: 123px;
+    margin-top: 6px;
+    position: relative;
+  }
+
+  #openTabButton {
+    --cr-icon-button-fill-color: var(--color-product-specifications-icon);
+    --cr-icon-button-icon-size: 16px;
+    --cr-icon-button-size: 20px;
+    position: absolute;
+    top: 11px;
+    right: 11px;
+    z-index: 1;
+  }
+
+  .row-border {
+    border-bottom: 1px solid var(--color-product-specifications-divider);
   }
 
   .row-header {
     font-weight: 500;
+    padding-bottom: 4px;
   }
 
-  .row-content {
-    padding-bottom: 24px;
+  .row-content,
+  .row-summary {
+    color: var(--cr-secondary-text-color);
+    padding: 4px 6px 24px 6px;
+  }
+
+  td:first-child {
+    padding-inline-start: 0px;
   }
 </style>
 
-<table>
+<table on-pointerleave="onHideOpenTabButton_">
   <thead>
     <template is="dom-repeat" items="[[columns]]" as="column">
-      <th class="col">
+      <th class="col" on-pointerenter="onShowOpenTabButton_">
         <product-selector
             selected-item="[[column.selectedItem]]"
-            on-selected-url-change="onSelectedUrlChange_">
+            excluded-urls="[[getUrls_(columns)]]"
+            on-selected-url-change="onSelectedUrlChange_"
+            on-remove-url="onUrlRemove_">
         </product-selector>
-        <img is="cr-auto-img"
-            auto-src="[[column.selectedItem.imageUrl]]"
-            draggable="false" />
+        <div id="imgContainer">
+          <img is="cr-auto-img"
+              auto-src="[[column.selectedItem.imageUrl]]"
+              draggable="false" />
+          <cr-icon-button id="openTabButton" class="icon-external"
+              hidden$="[[!shouldShowOpenTabButton_(index,
+                  hoveredColumnIndex_)]]"
+              on-click="onOpenTabButtonClick_">
+          </cr-icon-button>
+        </div>
       </th>
     </template>
   </thead>
   <tbody>
-    <tr class="separator"> </tr>
+    <tr class="separator"></tr>
     <template is="dom-repeat" items="[[rows]]" as="row">
-      <tr class="row">
-        <td class="row-header">
-          <div>[[row.title]]</div>
-        </td>
-      </tr>
-      <tr class="row">
-        <template is="dom-repeat" items="[[row.values]]" as="value">
-          <td class="row-content">
-            <div>[[value]]</div>
+      <template is="dom-if" if="[[shouldShowRow_(row)]]">
+        <tr class="row row-border">
+          <td class="row-header">
+            <div>[[row.title]]</div>
           </td>
+        </tr>
+        <template is="dom-if" if="[[shouldShowDescriptionRow_(row)]]">
+          <tr class="row">
+            <template is="dom-repeat"
+                items="[[row.descriptions]]"
+                as="description">
+              <td class="row-content" on-pointerenter="onShowOpenTabButton_">
+                <div>[[description]]</div>
+              </td>
+            </template>
+          </tr>
         </template>
-      </tr>
+        <template is="dom-if" if="[[shouldShowSummaryRow_(row)]]">
+          <tr class="row">
+            <template is="dom-repeat" items="[[row.summaries]]" as="summary">
+              <td class="row-summary" on-pointerenter="onShowOpenTabButton_">
+                <div>[[summary]]</div>
+              </td>
+            </template>
+          </tr>
+        </template>
+      </template>
     </template>
   </tbody>
 </table>

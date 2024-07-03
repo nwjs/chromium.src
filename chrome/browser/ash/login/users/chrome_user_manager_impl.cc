@@ -122,57 +122,10 @@ namespace {
 
 using ::content::BrowserThread;
 
-// Callback that is called after user removal is complete.
-void OnRemoveUserComplete(const AccountId& account_id,
-                          std::optional<AuthenticationError> error) {
-  if (error.has_value()) {
-    LOG(ERROR) << "Removal of cryptohome for " << account_id.Serialize()
-               << " failed, return code: " << error->get_cryptohome_error();
-  }
-}
-
 policy::MinimumVersionPolicyHandler* GetMinimumVersionPolicyHandler() {
   return g_browser_process->platform_part()
       ->browser_policy_connector_ash()
       ->GetMinimumVersionPolicyHandler();
-}
-
-void CheckCryptohomeIsMounted(
-    std::optional<user_data_auth::IsMountedReply> result) {
-  if (!result.has_value()) {
-    LOG(ERROR) << "IsMounted call failed.";
-    return;
-  }
-
-  LOG_IF(ERROR, !result->is_mounted()) << "Cryptohome is not mounted.";
-}
-
-// If we don't have a mounted profile directory we're in trouble.
-// TODO(davemoore): Once we have better api this check should ensure that
-// our profile directory is the one that's mounted, and that it's mounted
-// as the current user.
-void CheckProfileForSanity() {
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          ::switches::kTestType)) {
-    return;
-  }
-
-  UserDataAuthClient::Get()->IsMounted(
-      user_data_auth::IsMountedRequest(),
-      base::BindOnce(&CheckCryptohomeIsMounted));
-
-  // Confirm that we hadn't loaded the new profile previously.
-  const auto* user = user_manager::UserManager::Get()->GetActiveUser();
-  if (!user) {
-    // No active user means there's no new profile for the active user.
-    return;
-  }
-  base::FilePath user_profile_dir =
-      ash::BrowserContextHelper::Get()->GetBrowserContextPathByUserIdHash(
-          user->username_hash());
-  CHECK(
-      !g_browser_process->profile_manager()->GetProfileByPath(user_profile_dir))
-      << "The user profile was loaded before we mounted the cryptohome.";
 }
 
 user_manager::UserManager::EphemeralModeConfig CreateEphemeralModeConfig(
@@ -228,8 +181,7 @@ ChromeUserManagerImpl::ChromeUserManagerImpl()
               : nullptr,
           g_browser_process ? g_browser_process->local_state() : nullptr,
           CrosSettings::Get()),
-      device_local_account_policy_service_(nullptr),
-      mount_performer_(std::make_unique<MountPerformer>()) {
+      device_local_account_policy_service_(nullptr) {
   // UserManager instance should be used only on UI thread.
   // (or in unit tests)
   if (base::SingleThreadTaskRunner::HasCurrentDefault()) {
@@ -345,46 +297,6 @@ void ChromeUserManagerImpl::Shutdown() {
   cloud_external_data_policy_handlers_.clear();
 }
 
-void ChromeUserManagerImpl::RemoveUserInternal(
-    const AccountId& account_id,
-    user_manager::UserRemovalReason reason) {
-  auto callback =
-      base::BindOnce(&ChromeUserManagerImpl::RemoveUserInternal,
-                     weak_factory_.GetWeakPtr(), account_id, reason);
-
-  // Ensure the value of owner email has been fetched.
-  if (CrosSettingsProvider::TRUSTED !=
-      cros_settings()->PrepareTrustedValues(std::move(callback))) {
-    // Value of owner email is not fetched yet.  RemoveUserInternal will be
-    // called again after fetch completion.
-    return;
-  }
-  std::string owner;
-  cros_settings()->GetString(kDeviceOwner, &owner);
-  if (account_id == AccountId::FromUserEmail(owner)) {
-    // Owner is not allowed to be removed from the device.
-    return;
-  }
-  g_browser_process->profile_manager()
-      ->GetProfileAttributesStorage()
-      .RemoveProfileByAccountId(account_id);
-  RemoveNonOwnerUserInternal(account_id, reason);
-}
-
-void ChromeUserManagerImpl::SaveUserOAuthStatus(
-    const AccountId& account_id,
-    user_manager::User::OAuthTokenStatus oauth_token_status) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  UserManagerBase::SaveUserOAuthStatus(account_id, oauth_token_status);
-}
-
-void ChromeUserManagerImpl::SaveUserDisplayName(
-    const AccountId& account_id,
-    const std::u16string& display_name) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  UserManagerBase::SaveUserDisplayName(account_id, display_name);
-}
-
 void ChromeUserManagerImpl::StopPolicyObserverForTesting() {
   cloud_external_data_policy_handlers_.clear();
 }
@@ -434,7 +346,7 @@ void ChromeUserManagerImpl::LoadDeviceLocalAccounts(
   for (const AccountId& account_id : device_local_accounts) {
     auto type = policy::GetDeviceLocalAccountType(account_id.GetUserEmail());
     if (!type.has_value()) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       continue;
     }
 
@@ -442,12 +354,6 @@ void ChromeUserManagerImpl::LoadDeviceLocalAccounts(
         CreateUserFromDeviceLocalAccount(account_id, *type));
     users_.push_back(user_storage_.back().get());
   }
-}
-
-bool ChromeUserManagerImpl::IsDeviceLocalAccountMarkedForRemoval(
-    const AccountId& account_id) const {
-  return account_id == AccountId::FromUserEmail(GetLocalState()->GetString(
-                           prefs::kDeviceLocalAccountPendingDataRemoval));
 }
 
 void ChromeUserManagerImpl::RetrieveTrustedDevicePolicies() {
@@ -506,24 +412,6 @@ void ChromeUserManagerImpl::RetrieveTrustedDevicePolicies() {
   if (changed) {
     NotifyLocalStateChanged();
   }
-}
-
-bool ChromeUserManagerImpl::IsEphemeralAccountIdByPolicy(
-    const AccountId& account_id) const {
-  const bool device_is_owned =
-      ash::InstallAttributes::Get()->IsEnterpriseManaged() ||
-      GetOwnerAccountId().is_valid();
-
-  return device_is_owned &&
-         GetEphemeralModeConfig().IsAccountIdIncluded(account_id);
-}
-
-void ChromeUserManagerImpl::NotifyOnLogin() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
-  UserManagerBase::NotifyOnLogin();
-
-  CheckProfileForSanity();
 }
 
 void ChromeUserManagerImpl::RemoveNonCryptohomeData(
@@ -709,24 +597,6 @@ void ChromeUserManagerImpl::UpdatePublicAccountDisplayName(
   }
 }
 
-bool ChromeUserManagerImpl::IsGuestSessionAllowed() const {
-  // In tests CrosSettings might not be initialized.
-  if (!cros_settings()) {
-    return false;
-  }
-
-  bool is_guest_allowed = false;
-  cros_settings()->GetBoolean(kAccountsPrefAllowGuest, &is_guest_allowed);
-  return is_guest_allowed;
-}
-
-bool ChromeUserManagerImpl::IsGaiaUserAllowed(
-    const user_manager::User& user) const {
-  DCHECK(user.HasGaiaAccount());
-  return cros_settings()->IsUserAllowlisted(user.GetAccountId().GetUserEmail(),
-                                            nullptr, user.GetType());
-}
-
 void ChromeUserManagerImpl::OnMinimumVersionStateChanged() {
   NotifyUsersSignInConstraintsChanged();
 }
@@ -790,35 +660,6 @@ void ChromeUserManagerImpl::OnProfileManagerDestroying() {
   profile_manager_observation_.Reset();
 }
 
-bool ChromeUserManagerImpl::IsUserAllowed(
-    const user_manager::User& user) const {
-  DCHECK(user.GetType() == user_manager::UserType::kRegular ||
-         user.GetType() == user_manager::UserType::kGuest ||
-         user.GetType() == user_manager::UserType::kChild);
-
-  return chrome_user_manager_util::IsUserAllowed(
-      user, IsGuestSessionAllowed(),
-      user.HasGaiaAccount() && IsGaiaUserAllowed(user));
-}
-
-void ChromeUserManagerImpl::AsyncRemoveCryptohome(
-    const AccountId& account_id) const {
-  cryptohome::AccountIdentifier identifier =
-      cryptohome::CreateAccountIdentifierFromAccountId(account_id);
-  mount_performer_->RemoveUserDirectoryByIdentifier(
-      identifier, base::BindOnce(&OnRemoveUserComplete, account_id));
-}
-
-bool ChromeUserManagerImpl::IsDeprecatedSupervisedAccountId(
-    const AccountId& account_id) const {
-  return gaia::ExtractDomainName(account_id.GetUserEmail()) ==
-         user_manager::kSupervisedUserDomain;
-}
-
-bool ChromeUserManagerImpl::IsValidDefaultUserImageId(int image_index) const {
-  return default_user_image::IsValidIndex(image_index);
-}
-
 std::unique_ptr<user_manager::User>
 ChromeUserManagerImpl::CreateUserFromDeviceLocalAccount(
     const AccountId& account_id,
@@ -834,9 +675,6 @@ ChromeUserManagerImpl::CreateUserFromDeviceLocalAccount(
       break;
     case policy::DeviceLocalAccountType::kKioskApp:
       user.reset(user_manager::User::CreateKioskAppUser(account_id));
-      break;
-    case policy::DeviceLocalAccountType::kArcKioskApp:
-      user.reset(user_manager::User::CreateArcKioskAppUser(account_id));
       break;
     case policy::DeviceLocalAccountType::kWebKioskApp:
       user.reset(user_manager::User::CreateWebKioskAppUser(account_id));

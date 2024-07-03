@@ -26,6 +26,7 @@ import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
+import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {SettingsRadioGroupElement} from '../controls/settings_radio_group.js';
@@ -94,9 +95,9 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         value: ContentSettingsTypes.COOKIES,
       },
 
-      exceptionListsReadOnly_: {
-        type: Boolean,
-        value: false,
+      trackingProtectionContentSettingType_: {
+        type: String,
+        value: ContentSettingsTypes.TRACKING_PROTECTION,
       },
 
       blockAllPref_: {
@@ -116,6 +117,12 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         value: () => loadTimeData.getBoolean('firstPartySetsUIEnabled'),
       },
 
+      enableTrackingProtectionRolloutUx_: {
+        type: Boolean,
+        value: () =>
+            loadTimeData.getBoolean('enableTrackingProtectionRolloutUx'),
+      },
+
       is3pcdRedesignEnabled_: {
         type: Boolean,
         value: () =>
@@ -132,27 +139,16 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         value: () =>
             loadTimeData.getBoolean('isFingerprintingProtectionEnabled'),
       },
-
-      showTrackingProtectionRollbackNotice_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean(
-            'showTrackingProtectionSettingsRollbackNotice'),
-      },
     };
-  }
-
-  static get observers() {
-    return [`onGeneratedPrefsUpdated_(prefs.generated.cookie_session_only,
-        prefs.generated.cookie_primary_setting,
-        prefs.generated.cookie_default_content_setting)`];
   }
 
   searchTerm: string;
   private cookiesContentSettingType_: ContentSettingsTypes;
-  private exceptionListsReadOnly_: boolean;
+  private trackingProtectionContentSettingType_: ContentSettingsTypes;
   private blockAllPref_: chrome.settingsPrivate.PrefObject;
   focusConfig: FocusConfig;
   private enableFirstPartySetsUI_: boolean;
+  private enableTrackingProtectionRolloutUx_: boolean;
   private is3pcdRedesignEnabled_: boolean;
   private isIpProtectionAvailable_: boolean;
   private isFingerprintingProtectionAvailable_: boolean;
@@ -208,14 +204,9 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
     Router.getInstance().navigateTo(routes.SITE_SETTINGS_ALL);
   }
 
-  private onGeneratedPrefsUpdated_() {
-    // If the default cookie content setting is managed, the exception lists
-    // should be disabled. `profile.cookie_controls_mode` doesn't control the
-    // ability to create exceptions but the content setting does.
-    const defaultContentSettingPref =
-        this.getPref('generated.cookie_default_content_setting');
-    this.exceptionListsReadOnly_ = defaultContentSettingPref.enforcement ===
-        chrome.settingsPrivate.Enforcement.ENFORCED;
+  private onIpProtectionLearnMoreClicked_() {
+    OpenWindowProxyImpl.getInstance().openUrl(
+        loadTimeData.getString('ipProtectionLearnMoreUrl'));
   }
 
   private onBlockAll3pcToggleChanged_(event: Event) {

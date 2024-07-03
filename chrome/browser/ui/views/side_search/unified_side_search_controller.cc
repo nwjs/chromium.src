@@ -80,7 +80,7 @@ UnifiedSideSearchController::~UnifiedSideSearchController() {
 
 bool UnifiedSideSearchController::HandleKeyboardEvent(
     content::WebContents* source,
-    const content::NativeWebKeyboardEvent& event) {
+    const input::NativeWebKeyboardEvent& event) {
   auto* browser_view = GetBrowserView();
   return browser_view ? unhandled_keyboard_event_handler_.HandleKeyboardEvent(
                             event, browser_view->GetFocusManager())
@@ -277,8 +277,7 @@ void UnifiedSideSearchController::UpdateSidePanelRegistry(bool is_available) {
       SidePanelEntry::Key(SidePanelEntry::Id::kSideSearch));
   if (!current_entry && is_available) {
     auto entry = std::make_unique<SidePanelEntry>(
-        SidePanelEntry::Id::kSideSearch, GetSideSearchName(),
-        GetSideSearchIcon(),
+        SidePanelEntry::Id::kSideSearch,
         base::BindRepeating(&UnifiedSideSearchController::GetSideSearchView,
                             base::Unretained(this)),
         base::BindRepeating(&UnifiedSideSearchController::GetOpenInNewTabURL,

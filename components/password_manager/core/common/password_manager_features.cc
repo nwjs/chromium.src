@@ -18,14 +18,6 @@ BASE_FEATURE(kEnableOverwritingPlaceholderUsernames,
              "EnableOverwritingPlaceholderUsernames",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-// When enabled, initial sync will be forced during startup if the password
-// store has encryption service failures.
-BASE_FEATURE(kForceInitialSyncWhenDecryptionFails,
-             "ForceInitialSyncWhenDecryptionFails",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 // When enabled, username fields for forgot password flows are recognized
 // and filled.
 BASE_FEATURE(kForgotPasswordFormSupport,
@@ -54,9 +46,7 @@ BASE_FEATURE(kPasswordIssuesInSpecificsMetadata,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables sending credentials from the settings UI.
-BASE_FEATURE(kSendPasswords,
-             "SendPasswords",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSendPasswords, "SendPasswords", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables filling and saving for forms in shadow DOM.
 BASE_FEATURE(kShadowDomSupport,
@@ -85,11 +75,6 @@ BASE_FEATURE(kShowWebauthnSuggestionsOnAutofocus,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-// Enables the Password generation bottom sheet.
-BASE_FEATURE(kPasswordGenerationBottomSheet,
-             "PasswordGenerationBottomSheet",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables the refactored Password Suggestion bottom sheet (Touch-To-Fill).
 // The goal of the refactoring is to transfer the knowledge about the
 // Touch-To-Fill feature to the browser code completely and so to simplify the

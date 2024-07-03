@@ -141,6 +141,51 @@ struct ProductSpecifications {
   ProductSpecifications(const ProductSpecifications&);
   ~ProductSpecifications();
 
+  // Text content with a URL for more context.
+  struct DescriptionText {
+   public:
+    DescriptionText();
+    DescriptionText(const DescriptionText&);
+    ~DescriptionText();
+    std::string text;
+    GURL url;
+  };
+
+  struct Description {
+   public:
+    Description();
+    Description(const Description&);
+    ~Description();
+
+    struct Option {
+      Option();
+      Option(const Option&);
+      ~Option();
+
+      // The primary descriptions to display for this option.
+      std::vector<DescriptionText> descriptions;
+    };
+
+    // A list of options that apply to this description.
+    std::vector<Option> options;
+
+    // Optional label or title for the descriptions.
+    std::string label;
+
+    // Optional alternative text with additional context for the descriptions.
+    std::string alt_text;
+  };
+
+  struct Value {
+   public:
+    Value();
+    Value(const Value&);
+    ~Value();
+
+    std::vector<Description> descriptions;
+    std::vector<DescriptionText> summary;
+  };
+
   struct Product {
    public:
     Product();
@@ -151,9 +196,8 @@ struct ProductSpecifications {
     std::string mid;
     std::string title;
     GURL image_url;
-    std::map<ProductDimensionId, std::vector<std::string>>
-        product_dimension_values;
-    std::string summary;
+    std::map<ProductDimensionId, Value> product_dimension_values;
+    std::vector<DescriptionText> summary;
   };
 
   // A map of each product dimension ID to its human readable name.
@@ -196,7 +240,7 @@ struct UrlInfo {
 // Class representing the tap strip entry point.
 struct EntryPointInfo {
   EntryPointInfo(const std::string& title,
-                 std::set<GURL> similar_candidate_products_urls);
+                 std::map<GURL, uint64_t> similar_candidate_products);
   ~EntryPointInfo();
   EntryPointInfo(const EntryPointInfo&);
   EntryPointInfo& operator=(const EntryPointInfo&);
@@ -204,9 +248,10 @@ struct EntryPointInfo {
   // Title of the product group to be clustered.
   std::string title;
 
-  // Set of URLs of candidate products that are similar and can
-  // be clustered into one product group.
-  std::set<GURL> similar_candidate_products_urls;
+  // Map of candidate products that are similar and can
+  // be clustered into one product group. Key is the product URL and value is
+  // the product cluster ID.
+  std::map<GURL, uint64_t> similar_candidate_products;
 };
 
 // Callbacks and typedefs for various accessors in the shopping service.

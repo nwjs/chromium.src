@@ -29,6 +29,7 @@ import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tab_ui.TabUiThemeUtils;
+import org.chromium.chrome.browser.tasks.tab_groups.TabGroupColorUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabGroupInfo;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.tab_ui.R;
@@ -38,7 +39,6 @@ import org.chromium.ui.widget.ViewLookupCachingFrameLayout;
 
 /** {@link org.chromium.ui.modelutil.SimpleRecyclerViewMcp.ViewBinder} for tab List. */
 class TabListViewBinder {
-    private static final int INVALID_COLOR_ID = -1;
     private static final int TAB_GROUP_ICON_COLOR_LEVEL = 1;
 
     /**
@@ -218,12 +218,12 @@ class TabListViewBinder {
         // colored so it should use the unselected color. This will be addressed in a fixit.
 
         // Shared by both classes, from tab_list_card_item.
-        View cardView = view.findViewById(R.id.content_view);
-        cardView.getBackground().mutate();
+        View contentView = view.findViewById(R.id.content_view);
+        contentView.getBackground().mutate();
         final @ColorInt int backgroundColor =
                 TabUiThemeUtils.getCardViewBackgroundColor(
                         view.getContext(), isIncognito, /* isSelected= */ false);
-        ViewCompat.setBackgroundTintList(cardView, ColorStateList.valueOf(backgroundColor));
+        ViewCompat.setBackgroundTintList(contentView, ColorStateList.valueOf(backgroundColor));
 
         final @ColorInt int textColor =
                 TabUiThemeUtils.getTitleTextColor(
@@ -282,7 +282,6 @@ class TabListViewBinder {
             endButton.setOnLongClickListener(onLongClickListener);
             endButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         } else if (TabProperties.TAB_SELECTION_DELEGATE == propertyKey) {
-            assert model.get(TabProperties.TAB_SELECTION_DELEGATE) != null;
             tabListView.setSelectionDelegate(model.get(TabProperties.TAB_SELECTION_DELEGATE));
             tabListView.setItem(tabId);
         } else if (TabProperties.IS_SELECTED == propertyKey) {
@@ -318,7 +317,8 @@ class TabListViewBinder {
 
             // If the tab is a single tab item, a tab that is part of a group but shown in the
             // TabGridDialogView list representation, or an invalid case, do not set/show.
-            if (model.get(TabProperties.TAB_GROUP_COLOR_ID) == INVALID_COLOR_ID) {
+            if (model.get(TabProperties.TAB_GROUP_COLOR_ID)
+                    == TabGroupColorUtils.INVALID_COLOR_ID) {
                 colorIconView.setVisibility(View.GONE);
                 return;
             }

@@ -142,7 +142,10 @@ BrowserNonClientFrameViewChromeOS::BrowserNonClientFrameViewChromeOS(
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   frame->GetNativeWindow()->SetEventTargeter(
-      std::make_unique<chromeos::InteriorResizeHandleTargeter>());
+      std::make_unique<chromeos::InteriorResizeHandleTargeter>(
+          base::BindRepeating([](const aura::Window* window) {
+            return window->GetProperty(chromeos::kWindowStateTypeKey);
+          })));
 #endif
 
   // TODO: b/330360595 - Confirm if this is needed in Lacros.
@@ -275,18 +278,17 @@ int BrowserNonClientFrameViewChromeOS::GetTopInset(bool restored) const {
     }
   }
 
+  if (browser_view()->GetTabStripVisible()) {
+    return 0;
+  }
+
   Browser* browser = browser_view()->browser();
 
   int header_height = frame_header_ ? frame_header_->GetHeaderHeight() : 0;
-  auto toolbar_size = browser_view()->GetWebAppFrameToolbarPreferredSize();
+  const gfx::Size toolbar_size =
+      browser_view()->GetWebAppFrameToolbarPreferredSize();
   if (!toolbar_size.IsEmpty()) {
     header_height = std::max(header_height, toolbar_size.height());
-  }
-  if (browser_view()->GetTabStripVisible()) {
-    if (features::IsChromeRefresh2023()) {
-      return 0;
-    }
-    return header_height - browser_view()->GetTabStripHeight();
   }
 
   return UsePackagedAppHeaderStyle(browser)
@@ -341,11 +343,6 @@ SkColor BrowserNonClientFrameViewChromeOS::GetFrameColor(
   }
 
   return color.value_or(fallback_color);
-}
-
-TabSearchBubbleHost*
-BrowserNonClientFrameViewChromeOS::GetTabSearchBubbleHost() {
-  return tab_search_bubble_host_;
 }
 
 void BrowserNonClientFrameViewChromeOS::UpdateMinimumSize() {

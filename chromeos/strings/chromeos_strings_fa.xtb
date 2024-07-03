@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">زرد پاستیلی</translation>
 <translation id="1056898198331236512">اخطار</translation>
 <translation id="1059913517121127803">اسکن شروع نشد</translation>
+<translation id="1061864016440983342">استفاده بدون مکان</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> از <ph name="COUNT" />، <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">دیوار آتش شناسایی شد</translation>
@@ -166,7 +167,7 @@
 <translation id="1801418420130173017">غیرفعال کردن زمینه تاریک</translation>
 <translation id="1807246157184219062">روشن</translation>
 <translation id="1808803439260407870">هنر کلاسیک</translation>
-<translation id="1815850098929213707">کلید انتخاب‌شده <ph name="KEYS" /> است. برای ویرایش کنترل، روی دکمه ضربه بزنید</translation>
+<translation id="1815850098929213707">کلید انتخاب‌شده <ph name="KEYS" /> است. برای ویرایش کنترل، روی دکمه تک‌ضرب بزنید</translation>
 <translation id="1823120442877418684">شخصیت‌ها</translation>
 <translation id="1827738518074806965">گالری هنری</translation>
 <translation id="1836553715834333258">رنگ سیستم</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">تنظیمات بیشتر</translation>
 <translation id="2082932131694554252">کلید صفحه‌کلید تخصیص‌یافته</translation>
 <translation id="2085089206770112532">کاهش روشنایی نمایشگر</translation>
+<translation id="2086091080968010660">ممکن است تغییرات مبتنی بر زمان درست نباشد. دسترسی مکان سیستم را در تنظیمات روشن کنید.</translation>
 <translation id="2102231663024125441">ویرایش نوشتار</translation>
 <translation id="2105810540595158374">دستگاه کنترل بازی است.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />، نسخه <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">ویرایش جزئیات «نام نقطه دستیابی»</translation>
 <translation id="2195732836444333448">به حداکثر ظرفیت رسیده‌ایم. به‌زودی دوباره برمی‌گردیم.</translation>
 <translation id="2201758491318984023">دوچرخه</translation>
-<translation id="2203222757805818543">زمان‌بندی فعلی روی <ph name="SUNRISE" /> تا <ph name="SUNSET" /> تنظیم شده است. برای به‌روزرسانی خودکار زمان‌بندی «حالت تاریک»، <ph name="BEGIN_LINK" />دسترسی به مکان را روشن کنید<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">چشمه آب‌گرم</translation>
 <translation id="2203642483788377106">صخره</translation>
 <translation id="2208388655216963643">امپرسیونیست</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">بازیابی موارد پیش‌فرض</translation>
 <translation id="2286454467119466181">ساده</translation>
 <translation id="2287186687001756809">تصویری وجود ندارد. برای افزودن عکس به <ph name="LINK" /> بروید</translation>
+<translation id="2294577623958216786">زمان‌بندی فعلی روی <ph name="SUNRISE" />-<ph name="SUNSET" /> تنظیم شده است. برای به‌روزرسانی خودکار زمان‌بندی غروب و طلوع آفتاب، دسترسی مکان سیستم را روشن کنید.</translation>
 <translation id="2305172810646967500">سياه</translation>
 <translation id="2307344026739914387">استفاده از جفت‌کلید فعلی</translation>
 <translation id="2308243864813041101">‏برای ادامه فرایند به‌روزرسانی، کابل USB دستگاه <ph name="DEVICE_NAME" /> را جدا کنید</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">تپه شنی</translation>
 <translation id="2619761439309613843">بازآوری روزانه</translation>
 <translation id="2620436844016719705">سیستم</translation>
+<translation id="2637303424821734920">خاموش - برای نمایش آب‌وهوای محلی، <ph name="BEGIN_LINK" />دسترسی مکان سیستم را روشن کنید<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">تصویر ورود به سیستم</translation>
 <translation id="2640549051766135490">آلبوم <ph name="TITLE" /> <ph name="DESC" /> انتخاب شد</translation>
 <translation id="2645380101799517405">کنترل‌ها</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">پس‌زمینه</translation>
 <translation id="3027578600144895987">بستن دوربین</translation>
 <translation id="3031560714565892478">دستگاه دوربین ویدیویی است.</translation>
+<translation id="3051968340259309715">‏با این کار، خدمات سیستم می‌تواند برای تعیین مکان شما از «دقت مکان» استفاده کند. «دقت مکان» از اطلاعات مربوط به سیگنال‌های بی‌سیم، مثل نقاط دسترسی Wi-Fi، دکل‌های شبکه تلفن همراه، و GPS، همراه با داده‌های حسگر دستگاه، مثل شتاب‌سنج و ژیروسکوپ، برای تخمین زدن مکان دستگاه استفاده می‌کند. می‌توانید مکان را در «تنظیمات &gt; حریم خصوصی و امنیت &gt; تنظیمات حریم خصوصی &gt; دسترسی به مکان» خاموش کنید. <ph name="LINK_BEGIN" />بیشتر بدانید<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> میلی‌آمپر</translation>
 <translation id="3056720590588772262">نقطه پایان</translation>
 <translation id="3060579846059757016">رئوس مطالب</translation>
+<translation id="3061850252076394168">فعال کردن «انتخاب برای شنیدن»</translation>
 <translation id="3069085583900247081">آزمایش ناموفق بود</translation>
 <translation id="3078740164268491126">جدول</translation>
 <translation id="3081652522083185657">روشن</translation>
@@ -546,7 +551,7 @@
 <translation id="4130035430755296270">برای گزینه‌های طرح‌بندی بیشتر، همچنان نشانگر را نگه دارید</translation>
 <translation id="4130750466177569591">موافقم</translation>
 <translation id="4131410914670010031">سیاه و سفید</translation>
-<translation id="4143226836069425823">برای جایگزین کردن کلیدی دیگر، روی آن کلید در صفحه‌کلید ضربه بزنید</translation>
+<translation id="4143226836069425823">برای جایگزین کردن کلیدی دیگر، روی آن کلید در صفحه‌کلید تک‌ضرب بزنید</translation>
 <translation id="4145784616224233563">‏دیوار آتش HTTPS</translation>
 <translation id="4147897805161313378">Google Photos</translation>
 <translation id="4150201353443180367">صفحه‌نمایش</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">تبدیل همه میزبانان ناموفق بود</translation>
 <translation id="4593212453765072419">راستی‌آزمایی پروکسی مورد نیاز است</translation>
 <translation id="4609350030397390689">کاهش روشنایی صفحه‌کلید</translation>
-<translation id="4617553623719764431">«آب‌وهوا» نمایش داده نمی‌شود زیرا مکانتان برای آن مشخص نیست. برای نمایش آب‌وهوای محلی، <ph name="BEGIN_LINK" />دسترسی به مکان را روشن کنید<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576">‏<ph name="DOCUMENT_TITLE" />، <ph name="PRINTER_NAME" />، <ph name="CREATION_TIME" />، <ph name="PRINTED_PAGE_NUMBER" /> از مجموع <ph name="TOTAL_PAGE_NUMBER" />. برای لغو کار چاپ، Enter را فشار دهید.</translation>
 <translation id="463791356324567266">درحال لغو اسکن کردن…</translation>
 <translation id="4646949265910132906">‏اتصال Wi-Fi امن</translation>
@@ -642,7 +646,7 @@
 <translation id="4665014895760275686">سازنده</translation>
 <translation id="467510802200863975">گذرواژه‌ها با هم مطابقت ندارند</translation>
 <translation id="467715984478005772">احتمال وجود مشکل در دیوار آتش</translation>
-<translation id="4683762547447150570">برای کانونی کردن اختصاص کلید، روی دکمه ضربه بزنید</translation>
+<translation id="4683762547447150570">برای کانونی کردن اختصاص کلید، روی دکمه تک‌ضرب بزنید</translation>
 <translation id="4691278870498629773">متوقف شد - سینی موجود نیست</translation>
 <translation id="469379815867856270">قدرت سیگنال</translation>
 <translation id="4697260493945012995">نوع کنترل را انتخاب کنید</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">اجرا</translation>
 <translation id="4987769320337599931">دیوار آتش</translation>
 <translation id="4988526792673242964">صفحات</translation>
+<translation id="4989542687859782284">دردسترس نیست</translation>
 <translation id="4999333166442584738">پنهان کردن گزارش</translation>
 <translation id="500920857929044050">توقف آزمایش</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -848,7 +853,7 @@
 <translation id="5860491529813859533">روشن کردن</translation>
 <translation id="5876385649737594562">برای انتخاب گزینه‌ها، این حالت را روشن کنید</translation>
 <translation id="588258955323874662">تمام صفحه</translation>
-<translation id="5893975327266416093">برای اختصاص دادن، روی یکی از کلیدهای صفحه‌کلید ضربه بزنید.</translation>
+<translation id="5893975327266416093">برای اختصاص دادن، روی یکی از کلیدهای صفحه‌کلید تک‌ضرب بزنید.</translation>
 <translation id="5895138241574237353">راه‌اندازی مجدد</translation>
 <translation id="5901630391730855834">زرد</translation>
 <translation id="5903200662178656908">دستگاه ترکیبی از صفحه‌کلید و موشواره است.</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">روشنایی صفحه‌کلید</translation>
 <translation id="6412715219990689313">صفحه‌کلید داخلی</translation>
 <translation id="6417265370957905582">‏دستیار Google</translation>
+<translation id="6419454453018688975">روشن کردن دسترسی مکان سیستم</translation>
 <translation id="6423239382391657905">‏باز کردن VPN</translation>
-<translation id="6438073885402882007">‏با این کار، به خدمات سیستم اجازه می‌دهید از مکانتان استفاده کند. «مکان» ممکن است برای تخمین زدن مکان دستگاهتان از منابعی مثل Wi-Fi، شبکه‌های تلفن همراه، و حسگرها استفاده کند. <ph name="LINK_BEGIN" />بیشتر بدانید<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">ضعیف (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">رفتن به تنظیمات حساب</translation>
 <translation id="6462978824459367242">دکمه «افزودن نام نقطه دستیابی» اکنون فعال است</translation>
@@ -1470,7 +1475,7 @@
 <translation id="9188992814426075118">صفحه‌کلیدتان می‌تواند به‌طور خودکار با کاغذدیواری منطبق شود</translation>
 <translation id="9189000703457422362">نمی‌توان بااستفاده از نقطه‌های «نام نقطه دستیابی» که به‌طور خودکار شناسایی شده است به این شبکه متصل شد. برای کسب اطلاعات بیشتر با شرکت مخابراتی‌تان تماس بگیرید.</translation>
 <translation id="9193744392140377127">«نام نقطه دستیابی»*</translation>
-<translation id="9195918315673527512">کلیدهای دسته کنترل انتخاب‌شده <ph name="KEYS" /> هستند. برای ویرایش کنترل، روی دکمه ضربه بزنید</translation>
+<translation id="9195918315673527512">کلیدهای دسته کنترل انتخاب‌شده <ph name="KEYS" /> هستند. برای ویرایش کنترل، روی دکمه تک‌ضرب بزنید</translation>
 <translation id="9204237731135241582">‏نمی‌توان از برنامه‌های Android با دروازه تماس گرفت</translation>
 <translation id="921080052717160800">تصویر به‌عنوان پس‌زمینه دوربین تنظیم شد</translation>
 <translation id="9211490828691860325">همه میزکارها</translation>

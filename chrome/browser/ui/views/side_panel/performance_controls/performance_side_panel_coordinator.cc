@@ -10,8 +10,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/side_panel/performance_controls/performance_side_panel_model.h"
-#include "chrome/browser/ui/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/views/side_panel/performance_controls/performance_side_panel_model.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_content_proxy.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
@@ -56,14 +56,8 @@ PerformanceSidePanelCoordinator::~PerformanceSidePanelCoordinator() {
 
 void PerformanceSidePanelCoordinator::CreateAndRegisterEntry(
     SidePanelRegistry* global_registry) {
-  const int icon_size = ChromeLayoutProvider::Get()->GetDistanceMetric(
-      ChromeDistanceMetric::DISTANCE_SIDE_PANEL_HEADER_VECTOR_ICON_SIZE);
-
   global_registry->Register(std::make_unique<SidePanelEntry>(
       SidePanelEntry::Id::kPerformance,
-      l10n_util::GetStringUTF16(IDS_SHOW_PERFORMANCE),
-      ui::ImageModel::FromVectorIcon(kMemorySaverIcon, ui::kColorIcon,
-                                     icon_size),
       base::BindRepeating(
           &PerformanceSidePanelCoordinator::CreatePerformanceWebUIView,
           base::Unretained(this))));

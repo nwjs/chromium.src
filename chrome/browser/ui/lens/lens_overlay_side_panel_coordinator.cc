@@ -10,10 +10,10 @@
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_dismissal_source.h"
 #include "chrome/browser/ui/lens/lens_overlay_invocation_source.h"
+#include "chrome/browser/ui/lens/lens_overlay_side_panel_web_view.h"
 #include "chrome/browser/ui/lens/lens_overlay_url_builder.h"
 #include "chrome/browser/ui/lens/lens_untrusted_ui.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui.h"
-#include "chrome/browser/ui/views/side_panel/lens/lens_overlay_side_panel_web_view.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_content_proxy.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
@@ -26,6 +26,7 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/common/referrer.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
@@ -190,11 +191,13 @@ void LensOverlaySidePanelCoordinator::DidOpenRequestedURL(
   // https://issuetracker.google.com/285038653
   content::OpenURLParams params(url, referrer, disposition, transition,
                                 /*is_renderer_initiated=*/false);
-  Browser* browser = chrome::FindBrowserWithTab(GetTabWebContents());
-  if (!browser) {
-    return;
-  }
-  browser->OpenURL(params, /*navigation_handle_callback=*/{});
+
+  // We can't open a new tab while the observer is running because it might
+  // destroy this WebContents. Post as task instead.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&LensOverlaySidePanelCoordinator::OpenURLInBrowser,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(params)));
 }
 
 void LensOverlaySidePanelCoordinator::DidStartNavigation(
@@ -250,6 +253,21 @@ void LensOverlaySidePanelCoordinator::DOMContentLoaded(
   lens_overlay_controller_->SetSidePanelIsLoadingResults(false);
 }
 
+void LensOverlaySidePanelCoordinator::OpenURLInBrowser(
+    const content::OpenURLParams& params) {
+  auto* controller = LensOverlayController::GetController(GetTabWebContents());
+  if (!controller) {
+    return;
+  }
+
+  auto* browser_window =
+      controller->GetTabInterface()->GetBrowserWindowInterface();
+  if (!browser_window) {
+    return;
+  }
+  browser_window->OpenURL(params.url, params.disposition);
+}
+
 void LensOverlaySidePanelCoordinator::RegisterEntry() {
   auto* registry = SidePanelRegistry::Get(GetTabWebContents());
   CHECK(registry);
@@ -260,10 +278,6 @@ void LensOverlaySidePanelCoordinator::RegisterEntry() {
     // TODO(b/328295358): Change title and icon when available.
     auto entry = std::make_unique<SidePanelEntry>(
         SidePanelEntry::Id::kLensOverlayResults,
-        l10n_util::GetStringUTF16(IDS_SIDE_PANEL_COMPANION_TITLE),
-        ui::ImageModel::FromVectorIcon(vector_icons::kSearchIcon,
-                                       ui::kColorIcon,
-                                       /*icon_size=*/16),
         base::BindRepeating(
             &LensOverlaySidePanelCoordinator::CreateLensOverlayResultsView,
             base::Unretained(this)),

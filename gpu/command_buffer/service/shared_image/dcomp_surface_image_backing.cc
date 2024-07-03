@@ -119,7 +119,7 @@ class DCompSurfaceImageBacking::D3DTextureGLSurfaceEGL
 
   gfx::SwapResult SwapBuffers(PresentationCallback callback,
                               gfx::FrameData data) override {
-    NOTREACHED()
+    NOTREACHED_IN_MIGRATION()
         << "Attempted to call SwapBuffers on a D3DTextureGLSurfaceEGL.";
     return gfx::SwapResult::SWAP_FAILED;
   }
@@ -406,7 +406,7 @@ sk_sp<SkSurface> DCompSurfaceImageBacking::BeginDrawGanesh(
       framebuffer_info.fFormat = GL_BGRA8_EXT;
       break;
     default:
-      NOTREACHED() << "color_type: " << color_type;
+      NOTREACHED_IN_MIGRATION() << "color_type: " << color_type;
   }
 
   auto render_target = GrBackendRenderTargets::MakeGL(
@@ -431,6 +431,7 @@ void DCompSurfaceImageBacking::EndDrawGanesh() {
 wgpu::Texture DCompSurfaceImageBacking::BeginDrawDawn(
     const wgpu::Device& device,
     const wgpu::TextureUsage usage,
+    const wgpu::TextureUsage internal_usage,
     const gfx::Rect& update_rect) {
   auto draw_texture = BeginDraw(update_rect, dcomp_update_offset_);
 
@@ -488,8 +489,9 @@ wgpu::Texture DCompSurfaceImageBacking::BeginDrawDawn(
   desc.initialized = true;
   desc.nextInChain = &swapchain_begin_state;
 
-  wgpu::Texture texture = CreateDawnSharedTexture(shared_texture_memory_, usage,
-                                                  /*view_formats=*/{});
+  wgpu::Texture texture =
+      CreateDawnSharedTexture(shared_texture_memory_, usage, internal_usage,
+                              /*view_formats=*/{});
   if (!texture || !shared_texture_memory_.BeginAccess(texture, &desc)) {
     LOG(ERROR) << "Failed to begin access and produce WGPUTexture";
     return nullptr;

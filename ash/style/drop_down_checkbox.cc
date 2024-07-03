@@ -80,7 +80,7 @@ class CheckboxMenuOptionGroup : public CheckboxGroup {
                       0,
                       kMenuItemInnerPadding,
                       kCheckmarkLabelSpacing) {
-    SetAccessibilityProperties(ax::mojom::Role::kListBox);
+    GetViewAccessibility().SetProperties(ax::mojom::Role::kListBox);
   }
 
   // CheckboxGroup:
@@ -304,7 +304,7 @@ DropDownCheckbox::DropDownCheckbox(const std::u16string& title,
 
   event_handler_ = std::make_unique<EventHandler>(this);
 
-  SetAccessibilityProperties(ax::mojom::Role::kPopUpButton);
+  GetViewAccessibility().SetProperties(ax::mojom::Role::kPopUpButton);
 }
 
 DropDownCheckbox::~DropDownCheckbox() = default;
@@ -330,8 +330,9 @@ bool DropDownCheckbox::IsMenuRunning() const {
 }
 
 void DropDownCheckbox::SetCallback(PressedCallback callback) {
-  NOTREACHED() << "Clients shouldn't modify this. Maybe you want to use "
-                  "SetSelectedAction?";
+  NOTREACHED_IN_MIGRATION()
+      << "Clients shouldn't modify this. Maybe you want to use "
+         "SetSelectedAction?";
 }
 
 void DropDownCheckbox::OnBoundsChanged(const gfx::Rect& previous_bounds) {
@@ -439,7 +440,9 @@ void DropDownCheckbox::ShowDropDownMenu() {
   auto menu_view = std::make_unique<MenuView>(this);
   menu_view_ = menu_view.get();
 
-  views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
+  views::Widget::InitParams params(
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_POPUP);
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.shadow_type = views::Widget::InitParams::ShadowType::kDrop;
   params.shadow_elevation = kMenuShadowElevation;

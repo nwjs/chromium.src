@@ -85,6 +85,10 @@ enum class DocumentPermission {
   kPrintHighQuality,
 };
 
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+class PdfProgressiveSearchifier;
+#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+
 // Do one time initialization of the SDK.
 // If `enable_v8` is false, then the PDFEngine will not be able to run
 // JavaScript.
@@ -381,6 +385,8 @@ class PDFEngine {
       const std::string& destination) = 0;
   // Gets the index of the most visible page, or -1 if none are visible.
   virtual int GetMostVisiblePage() = 0;
+  // Returns whether the page at `index` is visible or not.
+  virtual bool IsPageVisible(int index) const = 0;
   // Gets the rectangle of the page not including the shadow.
   virtual gfx::Rect GetPageBoundsRect(int index) = 0;
   // Gets the rectangle of the page excluding any additional areas.
@@ -595,6 +601,10 @@ class PDFEngineExports {
       base::span<const uint8_t> pdf_buffer,
       base::RepeatingCallback<screen_ai::mojom::VisualAnnotationPtr(
           const SkBitmap& bitmap)> perform_ocr_callback) = 0;
+  // Creates a PDF searchifier for future operations, such as adding and
+  // deleting pages, and saving PDFs.
+  virtual std::unique_ptr<PdfProgressiveSearchifier>
+  CreateProgressiveSearchifier() = 0;
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 };
 

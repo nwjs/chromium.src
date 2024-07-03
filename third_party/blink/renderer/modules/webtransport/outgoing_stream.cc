@@ -300,7 +300,7 @@ void OutgoingStream::OnHandleReady(MojoResult result,
       HandlePipeClosed();
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -314,7 +314,7 @@ void OutgoingStream::OnPeerClosed(MojoResult result,
       HandlePipeClosed();
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -338,7 +338,7 @@ ScriptPromise<IDLUndefined> OutgoingStream::SinkWrite(
   auto* buffer_source = V8BufferSource::Create(
       script_state_->GetIsolate(), chunk.V8Value(), exception_state);
   if (exception_state.HadException())
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   DCHECK(buffer_source);
 
   if (!data_pipe_) {
@@ -438,7 +438,7 @@ size_t OutgoingStream::WriteDataSynchronously(base::span<const uint8_t> data) {
       return 0;
 
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return 0;
   }
 }

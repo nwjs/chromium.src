@@ -4,6 +4,7 @@
 
 #include "device/fido/fido_request_handler_base.h"
 
+#include <string_view>
 #include <utility>
 
 #include "base/containers/contains.h"
@@ -11,7 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/strings/string_piece.h"
+#include "base/notreached.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -35,6 +36,24 @@
 #endif
 
 namespace device {
+
+namespace {
+bool IsGpmPasskeyAuthenticator(const FidoAuthenticator& authenticator) {
+  switch (authenticator.GetType()) {
+    case AuthenticatorType::kWinNative:
+    case AuthenticatorType::kTouchID:
+    case AuthenticatorType::kChromeOS:
+    case AuthenticatorType::kPhone:
+    case AuthenticatorType::kICloudKeychain:
+    case AuthenticatorType::kOther:
+      return false;
+    case AuthenticatorType::kEnclave:
+    case AuthenticatorType::kChromeOSPasskeys:
+      return true;
+  }
+  NOTREACHED_NORETURN();
+}
+}  // namespace
 
 // TransportAvailabilityCallbackReadiness stores state that tracks whether
 // |FidoRequestHandlerBase| is ready to call
@@ -119,13 +138,23 @@ FidoRequestHandlerBase::FidoRequestHandlerBase()
 FidoRequestHandlerBase::FidoRequestHandlerBase(
     FidoDiscoveryFactory* fido_discovery_factory,
     const base::flat_set<FidoTransportProtocol>& available_transports)
+    : device::FidoRequestHandlerBase(fido_discovery_factory,
+                                     /*additional_discoveries=*/{},
+                                     available_transports) {}
+
+FidoRequestHandlerBase::FidoRequestHandlerBase(
+    FidoDiscoveryFactory* fido_discovery_factory,
+    std::vector<std::unique_ptr<FidoDiscoveryBase>> additional_discoveries,
+    const base::flat_set<FidoTransportProtocol>& available_transports)
     : FidoRequestHandlerBase() {
-  InitDiscoveries(fido_discovery_factory, available_transports,
+  InitDiscoveries(fido_discovery_factory, std::move(additional_discoveries),
+                  available_transports,
                   /*consider_enclave=*/true);
 }
 
 void FidoRequestHandlerBase::InitDiscoveries(
     FidoDiscoveryFactory* fido_discovery_factory,
+    std::vector<std::unique_ptr<FidoDiscoveryBase>> additional_discoveries,
     base::flat_set<FidoTransportProtocol> available_transports,
     bool consider_enclave) {
 #if BUILDFLAG(IS_WIN)
@@ -179,6 +208,18 @@ void FidoRequestHandlerBase::InitDiscoveries(
       discovery->set_observer(this);
       discoveries_.emplace_back(std::move(discovery));
     }
+  }
+
+  // `additional_discoveries` are injected by
+  // AuthenticatorRequestClientDelegate.
+  for (auto& discovery : additional_discoveries) {
+    // TODO: Make this work better for non-standard discoveries like Windows,
+    // which currently pretends to be `kInternal`.
+    if (!base::Contains(available_transports, discovery->transport())) {
+      continue;
+    }
+    discovery->set_observer(this);
+    discoveries_.emplace_back(std::move(discovery));
   }
 
   if (consider_enclave) {
@@ -377,7 +418,10 @@ void FidoRequestHandlerBase::DiscoveryStarted(
       transport_availability_callback_readiness_->platform_discovery_succeeded =
           true;
       for (FidoAuthenticator* platform_authenticator : authenticators) {
-        if (platform_authenticator->GetType() == AuthenticatorType::kEnclave) {
+        if (IsGpmPasskeyAuthenticator(*platform_authenticator)) {
+          // GPM credential availability is checked in
+          // ChromeAuthenticatorRequestDelegate, so the authenticators don't
+          // implement GetPlatformCredentialStatus.
           continue;
         }
         transport_availability_info_.has_icloud_keychain |=
@@ -401,7 +445,7 @@ void FidoRequestHandlerBase::AuthenticatorAdded(
   std::tie(std::ignore, was_inserted) =
       active_authenticators_.insert({authenticator->GetId(), authenticator});
   if (!was_inserted) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     FIDO_LOG(ERROR) << "Authenticator with duplicate ID "
                     << authenticator->GetId();
     return;

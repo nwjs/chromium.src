@@ -28,6 +28,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/events/event.h"
 #include "ui/gfx/geometry/point.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/test/test_platform_native_widget.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/unique_widget_ptr.h"
@@ -45,10 +46,9 @@ class PriceTrackingViewTest : public BrowserWithTestWindowTest {
 
     anchor_widget_ = std::make_unique<ChromeTestWidget>();
     views::Widget::InitParams widget_params(
+        views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
         views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
     widget_params.context = GetContext();
-    widget_params.ownership =
-        views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
     anchor_widget_->Init(std::move(widget_params));
   }
 
@@ -122,7 +122,8 @@ class PriceTrackingViewTest : public BrowserWithTestWindowTest {
   void VerifyToggleState(bool expected_toggle_on) {
     EXPECT_EQ(price_tracking_view_->IsToggleOn(), expected_toggle_on);
 
-    EXPECT_EQ(price_tracking_view_->toggle_button_->GetAccessibleName(),
+    EXPECT_EQ(price_tracking_view_->toggle_button_->GetViewAccessibility()
+                  .GetCachedName(),
               l10n_util::GetStringUTF16(
                   IDS_PRICE_TRACKING_TRACK_PRODUCT_ACCESSIBILITY));
   }

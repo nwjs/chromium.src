@@ -19,6 +19,7 @@
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/select_control_util.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/strings/grit/components_strings.h"
@@ -471,7 +472,9 @@ std::u16string GetFillingValueForCreditCard(
     mojom::ActionPersistence action_persistence,
     const AutofillField& field,
     std::string* failure_to_fill) {
-  CHECK(field.Type().group() == FieldTypeGroup::kCreditCard);
+  CHECK(FieldTypeGroupSet::is_one_of(
+      field.Type().group(),
+      {FieldTypeGroup::kCreditCard, FieldTypeGroup::kStandaloneCvcField}));
   std::u16string value =
       credit_card.record_type() == CreditCard::RecordType::kVirtualCard &&
               action_persistence == mojom::ActionPersistence::kPreview

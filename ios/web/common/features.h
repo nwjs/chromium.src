@@ -77,8 +77,15 @@ BASE_DECLARE_FEATURE(kForceSynthesizedRestoreSession);
 // Feature flag to remove the UnsafeRestore code path.
 BASE_DECLARE_FEATURE(kRemoveOldWebStateRestoration);
 
+// Feature flag to enable detecting destroyed NavigationContexts. This is
+// intended to be used as a kill switch.
+BASE_DECLARE_FEATURE(kDetectDestroyedNavigationContexts);
+
 // Feature flag to enable intent detection in viewport only.
 BASE_DECLARE_FEATURE(kEnableViewportIntents);
+
+// Feature flag to enable improve tracking number detection.
+BASE_DECLARE_FEATURE(kEnableNewParcelTrackingNumberDetection);
 
 // When true, an option to enable Web Inspector should be present in Settings.
 bool IsWebInspectorSupportEnabled();

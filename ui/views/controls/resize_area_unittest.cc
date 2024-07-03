@@ -133,7 +133,8 @@ void ResizeAreaTest::SetUp() {
   resize_area->SetBounds(0, 0, size.width(), size.height());
 
   views::Widget::InitParams init_params(
-      CreateParams(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS));
+      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+                   views::Widget::InitParams::TYPE_WINDOW_FRAMELESS));
   init_params.bounds = gfx::Rect(size);
 
   widget_ = new views::Widget();
@@ -214,13 +215,15 @@ TEST_F(ResizeAreaTest, AccessibleRole) {
   ui::AXNodeData data;
   resize_area->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.role, ax::mojom::Role::kSplitter);
-  EXPECT_EQ(resize_area->GetAccessibleRole(), ax::mojom::Role::kSplitter);
+  EXPECT_EQ(resize_area->GetViewAccessibility().GetCachedRole(),
+            ax::mojom::Role::kSplitter);
 
   data = ui::AXNodeData();
-  resize_area->SetAccessibleRole(ax::mojom::Role::kButton);
+  resize_area->GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
   resize_area->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.role, ax::mojom::Role::kButton);
-  EXPECT_EQ(resize_area->GetAccessibleRole(), ax::mojom::Role::kButton);
+  EXPECT_EQ(resize_area->GetViewAccessibility().GetCachedRole(),
+            ax::mojom::Role::kButton);
 }
 
 #endif  // !BUILDFLAG(IS_MAC)

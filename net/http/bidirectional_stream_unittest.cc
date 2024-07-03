@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "net/http/bidirectional_stream.h"
 
 #include <memory>
@@ -333,11 +338,11 @@ class DeleteStreamDelegate : public TestDelegateBase {
     }
   }
 
-  void OnDataSent() override { NOTREACHED(); }
+  void OnDataSent() override { NOTREACHED_IN_MIGRATION(); }
 
   void OnDataRead(int bytes_read) override {
     if (phase_ == ON_HEADERS_RECEIVED) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
     }
     TestDelegateBase::OnDataRead(bytes_read);
@@ -349,7 +354,7 @@ class DeleteStreamDelegate : public TestDelegateBase {
 
   void OnTrailersReceived(const spdy::Http2HeaderBlock& trailers) override {
     if (phase_ == ON_HEADERS_RECEIVED || phase_ == ON_DATA_READ) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
     }
     TestDelegateBase::OnTrailersReceived(trailers);
@@ -361,7 +366,7 @@ class DeleteStreamDelegate : public TestDelegateBase {
 
   void OnFailed(int error) override {
     if (phase_ != ON_FAILED) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
     }
     TestDelegateBase::OnFailed(error);
@@ -459,10 +464,10 @@ TEST_F(BidirectionalStreamTest, CreateInsecureStream) {
   request_info->method = "GET";
   request_info->url = GURL("http://www.example.org/");
 
-  TestDelegateBase delegate(nullptr, 0);
   auto session = std::make_unique<HttpNetworkSession>(
       SpdySessionDependencies::CreateSessionParams(&session_deps_),
       SpdySessionDependencies::CreateSessionContext(&session_deps_));
+  TestDelegateBase delegate(nullptr, 0);
   delegate.SetRunUntilCompletion(true);
   delegate.Start(std::move(request_info), session.get());
 
@@ -490,7 +495,7 @@ TEST_F(BidirectionalStreamTest, SimplePostRequest) {
   auto request_info = std::make_unique<BidirectionalStreamRequestInfo>();
   request_info->method = "POST";
   request_info->url = default_url_;
-  request_info->extra_headers.SetHeader(net::HttpRequestHeaders::kContentLength,
+  request_info->extra_headers.SetHeader(HttpRequestHeaders::kContentLength,
                                         base::NumberToString(kBodyDataSize));
   auto read_buffer = base::MakeRefCounted<IOBufferWithSize>(kReadBufferSize);
   auto delegate =
@@ -609,8 +614,9 @@ TEST_F(BidirectionalStreamTest, ClientAuthRequestIgnored) {
   spdy::SpdySerializedFrame body_frame(
       spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead reads[] = {
-      CreateMockRead(resp, 1), CreateMockRead(body_frame, 2),
-      MockRead(SYNCHRONOUS, net::OK, 3),
+      CreateMockRead(resp, 1),
+      CreateMockRead(body_frame, 2),
+      MockRead(SYNCHRONOUS, OK, 3),
   };
 
   SSLSocketDataProvider ssl_data2(ASYNC, OK);
@@ -774,7 +780,7 @@ TEST_F(BidirectionalStreamTest, TestNetLogContainEntries) {
   request_info->url = default_url_;
   request_info->priority = LOWEST;
   request_info->extra_headers.SetHeader(
-      net::HttpRequestHeaders::kContentLength,
+      HttpRequestHeaders::kContentLength,
       base::NumberToString(kBodyDataSize * 3));
 
   auto read_buffer = base::MakeRefCounted<IOBufferWithSize>(kReadBufferSize);
@@ -910,7 +916,7 @@ TEST_F(BidirectionalStreamTest, TestInterleaveReadDataAndSendData) {
   request_info->url = default_url_;
   request_info->priority = LOWEST;
   request_info->extra_headers.SetHeader(
-      net::HttpRequestHeaders::kContentLength,
+      HttpRequestHeaders::kContentLength,
       base::NumberToString(kBodyDataSize * 3));
 
   auto read_buffer = base::MakeRefCounted<IOBufferWithSize>(kReadBufferSize);
@@ -1000,7 +1006,7 @@ TEST_F(BidirectionalStreamTest, TestCoalesceSmallDataBuffers) {
   request_info->url = default_url_;
   request_info->priority = LOWEST;
   request_info->extra_headers.SetHeader(
-      net::HttpRequestHeaders::kContentLength,
+      HttpRequestHeaders::kContentLength,
       base::NumberToString(kBodyDataSize * 1));
 
   auto read_buffer = base::MakeRefCounted<IOBufferWithSize>(kReadBufferSize);
@@ -1296,7 +1302,7 @@ TEST_F(BidirectionalStreamTest, DeleteStreamAfterSendData) {
   request_info->url = default_url_;
   request_info->priority = LOWEST;
   request_info->extra_headers.SetHeader(
-      net::HttpRequestHeaders::kContentLength,
+      HttpRequestHeaders::kContentLength,
       base::NumberToString(kBodyDataSize * 3));
 
   auto read_buffer = base::MakeRefCounted<IOBufferWithSize>(kReadBufferSize);
@@ -1358,7 +1364,7 @@ TEST_F(BidirectionalStreamTest, DeleteStreamDuringReadData) {
   request_info->url = default_url_;
   request_info->priority = LOWEST;
   request_info->extra_headers.SetHeader(
-      net::HttpRequestHeaders::kContentLength,
+      HttpRequestHeaders::kContentLength,
       base::NumberToString(kBodyDataSize * 3));
 
   auto read_buffer = base::MakeRefCounted<IOBufferWithSize>(kReadBufferSize);
@@ -1417,7 +1423,7 @@ TEST_F(BidirectionalStreamTest, PropagateProtocolError) {
   request_info->method = "POST";
   request_info->url = default_url_;
   request_info->extra_headers.SetHeader(
-      net::HttpRequestHeaders::kContentLength,
+      HttpRequestHeaders::kContentLength,
       base::NumberToString(kBodyDataSize * 3));
 
   auto read_buffer = base::MakeRefCounted<IOBufferWithSize>(kReadBufferSize);
@@ -1747,7 +1753,7 @@ TEST_F(BidirectionalStreamTest, Tagging) {
   auto request_info = std::make_unique<BidirectionalStreamRequestInfo>();
   request_info->method = "POST";
   request_info->url = default_url_;
-  request_info->extra_headers.SetHeader(net::HttpRequestHeaders::kContentLength,
+  request_info->extra_headers.SetHeader(HttpRequestHeaders::kContentLength,
                                         base::NumberToString(kBodyDataSize));
   request_info->socket_tag = tag;
   auto read_buffer = base::MakeRefCounted<IOBufferWithSize>(kReadBufferSize);

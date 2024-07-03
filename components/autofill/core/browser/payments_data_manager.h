@@ -440,6 +440,8 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // when Chrome is restarted.
   const std::string& GetCountryCodeForExperimentGroup() const;
 
+  const std::string& app_locale() const { return app_locale_; }
+
   // Returns if there are any pending queries to the web database.
   bool HasPendingPaymentQueries() const;
 
@@ -464,6 +466,9 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Add the credit-card-linked benefit to local cache for tests. This does
   // not affect data in the real database.
   void AddCreditCardBenefitForTest(CreditCardBenefit benefit);
+
+  // Returns the value of the FacilitatedPaymentsPix user pref.
+  bool IsFacilitatedPaymentsPixUserPrefEnabled() const;
 
  protected:
   friend class PaymentsDataManagerTestApi;

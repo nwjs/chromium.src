@@ -50,7 +50,7 @@ public class IncognitoTabSwitcherPane extends TabSwitcherPaneBase {
                                 : "isFocused requires a non-null PaneHubController.";
                         controller.focusPane(PaneId.TAB_SWITCHER);
                     }
-                    resetWithTabList(null, false);
+                    destroyTabSwitcherPaneCoordinator();
                 }
             };
 
@@ -192,6 +192,11 @@ public class IncognitoTabSwitcherPane extends TabSwitcherPaneBase {
     }
 
     @Override
+    public boolean shouldEagerlyCreateCoordinator() {
+        return mReferenceButtonDataSupplier.get() != null;
+    }
+
+    @Override
     public boolean resetWithTabList(@Nullable TabList tabList, boolean quickMode) {
         @Nullable TabSwitcherPaneCoordinator coordinator = getTabSwitcherPaneCoordinator();
         if (coordinator == null) return false;
@@ -236,6 +241,11 @@ public class IncognitoTabSwitcherPane extends TabSwitcherPaneBase {
         }
 
         super.requestAccessibilityFocusOnCurrentTab();
+    }
+
+    @Override
+    protected Runnable getOnTabGroupCreationRunnable() {
+        return null;
     }
 
     private IncognitoTabModel getIncognitoTabModel() {

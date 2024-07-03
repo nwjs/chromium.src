@@ -182,9 +182,7 @@ class MockNetworkLayer;
 // find data for the request URL.  It supports IO operations that complete
 // synchronously or asynchronously to help exercise different code paths in the
 // HttpCache implementation.
-class MockNetworkTransaction
-    : public HttpTransaction,
-      public base::SupportsWeakPtr<MockNetworkTransaction> {
+class MockNetworkTransaction final : public HttpTransaction {
   typedef WebSocketHandshakeStreamBase::CreateHelper CreateHelper;
 
  public:
@@ -244,8 +242,7 @@ class MockNetworkTransaction
   void SetEarlyResponseHeadersCallback(ResponseHeadersCallback) override {}
 
   void SetModifyRequestHeadersCallback(
-      base::RepeatingCallback<void(net::HttpRequestHeaders*)> callback)
-      override;
+      base::RepeatingCallback<void(HttpRequestHeaders*)> callback) override;
 
   void SetIsSharedDictionaryReadAllowedCallback(
       base::RepeatingCallback<bool()> callback) override {}
@@ -262,6 +259,10 @@ class MockNetworkTransaction
   }
 
   RequestPriority priority() const { return priority_; }
+
+  base::WeakPtr<MockNetworkTransaction> AsWeakPtr() {
+    return weak_factory_.GetWeakPtr();
+  }
 
   // Bogus value that will be returned by GetTotalReceivedBytes() if the
   // MockNetworkTransaction was started.
@@ -338,14 +339,13 @@ class MockNetworkTransaction
 
   CompletionOnceCallback resume_start_callback_;  // used for pause and restart.
 
-  base::RepeatingCallback<void(net::HttpRequestHeaders*)>
+  base::RepeatingCallback<void(HttpRequestHeaders*)>
       modify_request_headers_callback_;
 
   base::WeakPtrFactory<MockNetworkTransaction> weak_factory_{this};
 };
 
-class MockNetworkLayer : public HttpTransactionFactory,
-                         public base::SupportsWeakPtr<MockNetworkLayer> {
+class MockNetworkLayer final : public HttpTransactionFactory {
  public:
   MockNetworkLayer();
   ~MockNetworkLayer() override;
@@ -394,6 +394,10 @@ class MockNetworkLayer : public HttpTransactionFactory,
   // The current time (will use clock_ if it is non NULL).
   base::Time Now();
 
+  base::WeakPtr<MockNetworkLayer> AsWeakPtr() {
+    return weak_factory_.GetWeakPtr();
+  }
+
  private:
   int transaction_count_ = 0;
   bool done_reading_called_ = false;
@@ -405,6 +409,8 @@ class MockNetworkLayer : public HttpTransactionFactory,
   raw_ptr<base::Clock> clock_ = nullptr;
 
   base::WeakPtr<MockNetworkTransaction> last_transaction_;
+
+  base::WeakPtrFactory<MockNetworkLayer> weak_factory_{this};
 };
 
 //-----------------------------------------------------------------------------

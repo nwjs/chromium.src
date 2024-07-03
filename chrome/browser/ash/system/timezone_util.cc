@@ -172,7 +172,6 @@ bool CanSetSystemTimezone(const user_manager::User* user) {
   switch (user->GetType()) {
     case user_manager::UserType::kRegular:
     case user_manager::UserType::kKioskApp:
-    case user_manager::UserType::kArcKioskApp:
     case user_manager::UserType::kWebKioskApp:
     case user_manager::UserType::kChild:
       return true;
@@ -185,7 +184,7 @@ bool CanSetSystemTimezone(const user_manager::User* user) {
 
       // No default case means the compiler makes sure we handle new types.
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return false;
 }
 
@@ -279,7 +278,8 @@ bool IsTimezonePrefsManaged(const std::string& pref_name) {
       return true;
   }
   // Default for unknown policy value.
-  NOTREACHED() << "Unrecognized policy value: " << resolve_policy_value;
+  NOTREACHED_IN_MIGRATION()
+      << "Unrecognized policy value: " << resolve_policy_value;
   return true;
 }
 
@@ -410,7 +410,7 @@ void SetTimezoneFromUI(Profile* profile, const std::string& timezone_id) {
   }
 
   // Time zone UI should be blocked for non-primary users.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 }
 
 bool FineGrainedTimeZoneDetectionEnabled() {

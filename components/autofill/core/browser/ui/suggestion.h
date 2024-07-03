@@ -85,9 +85,11 @@ struct Suggestion {
     kDelete,
     kDevice,
     kEdit,
+    kEmail,
     kEmpty,
     kGlobe,
     kGoogle,
+    kGoogleMonochrome,
     kGooglePasswordManager,
     kGooglePay,
     kGooglePayDark,
@@ -99,6 +101,8 @@ struct Suggestion {
     kOfferTag,
     kPenSpark,
     kPlusAddress,
+    // TODO(b/342125189): Rename to `kPlusAddress` when UI changes are launched.
+    kPlusAddressSmall,
     kScanCreditCard,
     kSettings,
     kSettingsAndroid,
@@ -213,7 +217,7 @@ struct Suggestion {
   // the second line, third column in the grid view of label).
   std::vector<std::vector<Text>> labels;
 
-  // Used only for passwords to show the password value.
+  // Used only for passwords to show the credential signon realm if applicable.
   // Also used to display an extra line of information if two line
   // display is enabled.
   std::u16string additional_label;

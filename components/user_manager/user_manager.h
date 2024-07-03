@@ -392,13 +392,10 @@ class USER_MANAGER_EXPORT UserManager {
   // Returns true if we're logged in as a kiosk app.
   virtual bool IsLoggedInAsKioskApp() const = 0;
 
-  // Returns true if we're logged in as an ARC kiosk app.
-  virtual bool IsLoggedInAsArcKioskApp() const = 0;
-
   // Returns true if we're logged in as a Web kiosk app.
   virtual bool IsLoggedInAsWebKioskApp() const = 0;
 
-  // Returns true if we're logged in as chrome, ARC or Web kiosk app.
+  // Returns true if we're logged in as chrome, or Web kiosk app.
   virtual bool IsLoggedInAsAnyKioskApp() const = 0;
 
   // Returns true if we're logged in as the stub user used for testing on Linux.
@@ -464,9 +461,6 @@ class USER_MANAGER_EXPORT UserManager {
   // Returns true if this is first exec after boot.
   virtual bool IsFirstExecAfterBoot() const = 0;
 
-  // Actually removes cryptohome.
-  virtual void AsyncRemoveCryptohome(const AccountId& account_id) const = 0;
-
   // Returns true if |account_id| is deprecated supervised.
   // TODO(crbug.com/40735554): Check it is not used anymore and remove it.
   virtual bool IsDeprecatedSupervisedAccountId(
@@ -484,9 +478,6 @@ class USER_MANAGER_EXPORT UserManager {
   // user's session.
   virtual bool HasBrowserRestarted() const = 0;
 
-  // Returns true if |image_index| is a valid default user image index.
-  virtual bool IsValidDefaultUserImageId(int image_index) const = 0;
-
   // Returns the instance of multi user sign-in policy controller.
   virtual MultiUserSignInPolicyController*
   GetMultiUserSignInPolicyController() = 0;
@@ -495,6 +486,12 @@ class USER_MANAGER_EXPORT UserManager {
                              const User* user,
                              bool browser_restart,
                              bool is_child) const;
+
+  // Returns true if `user` is allowed, according to the given constraints.
+  // Accepted user types: kRegular, kGuest, kChild.
+  static bool IsUserAllowed(const User& user,
+                            bool is_guest_allowed,
+                            bool is_user_allowlisted);
 
  protected:
   // Sets UserManager instance.

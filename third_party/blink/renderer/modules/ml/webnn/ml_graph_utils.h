@@ -31,37 +31,15 @@ class MLOperator;
 MODULES_EXPORT HeapVector<Member<const MLOperator>>*
 GetOperatorsInTopologicalOrder(const MLNamedOperands& named_outputs);
 
-// Stores information about a transferred `ArrayBufferView`. This struct doesn't
-// include Blink GC objects, and can be accessed by any threads.
-//
-// The information is used to recreate `ArrayBufferView` when computation
-// completes.
-struct ArrayBufferViewInfo {
-  ArrayBufferViewInfo() = default;
-  ~ArrayBufferViewInfo() = default;
-
-  ArrayBufferViewInfo(ArrayBufferViewInfo&& other) = default;
-  ArrayBufferViewInfo& operator=(ArrayBufferViewInfo&& other) = default;
-
-  ArrayBufferViewInfo(const ArrayBufferViewInfo&) = delete;
-  ArrayBufferViewInfo& operator=(const ArrayBufferViewInfo&) = delete;
-
-  DOMArrayBufferView::ViewType type;
-  size_t offset;
-  size_t length;
-  ArrayBufferContents contents;
-};
-
 // `TransferNamedArrayBufferViews()` and `CreateNamedArrayBufferViews()`
 // implement the MLNamedArrayBufferViews transfer algorithm of WebNN spec:
 // https://www.w3.org/TR/webnn/#mlnamedarraybufferviews-transfer
 //
 // The `NamedArrayBufferViewsInfo` returned by `TransferNamedArrayBufferViews()`
 // doesn't contain any GC objects, so it is safe to be posted to a background
-// thread that invokes the XNNPACK Runtime. After that,
-// `NamedArrayBufferViewsInfo` should be posted back to the calling thread and
-// call `CreateNamedArrayBufferViews()` to create `MLNamedArrayBufferViews` from
-// the info.
+// thread. After that, the `NamedArrayBufferViewsInfo` should be posted back to
+// the calling thread and call `CreateNamedArrayBufferViews()` to create
+// `MLNamedArrayBufferViews` from the info.
 //
 // If it fails to transfer an `ArrayBufferView` of the
 // `MLNamedArrayBufferViews`, the current implementation leaves the
@@ -115,10 +93,6 @@ webnn::Size2d<uint32_t> CalculateConvTransposeOutputSize2D(
     uint32_t dilation_width,
     uint32_t output_padding_height,
     uint32_t output_padding_width);
-
-// Helper to validate gemm options.
-base::expected<void, String> ValidateGemmOptions(const MLGemmOptions* options,
-                                                 uint32_t output_channels);
 
 }  // namespace blink
 

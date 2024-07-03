@@ -108,6 +108,13 @@ class AuthenticatorDialogTest : public DialogBrowserTest {
           /*contact_phone_callback=*/base::DoNothing(), "fido://qrcode");
       controller_->SetCurrentStepForTesting(
           AuthenticatorRequestDialogModel::Step::kMechanismSelection);
+    } else if (name == "mechanisms_create") {
+      transport_availability.make_credential_attachment =
+          device::AuthenticatorAttachment::kAny;
+      transport_availability.request_type =
+          device::FidoRequestType::kMakeCredential;
+      controller_->SetCurrentStepForTesting(
+          AuthenticatorRequestDialogModel::Step::kMechanismSelection);
     } else if (name == "activate_usb") {
       controller_->SetCurrentStepForTesting(
           AuthenticatorRequestDialogModel::Step::kUsbInsertAndActivate);
@@ -382,6 +389,10 @@ IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest,
 }
 
 IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest, InvokeUi_mechanisms) {
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest, InvokeUi_mechanisms_create) {
   ShowAndVerifyUi();
 }
 
@@ -763,7 +774,7 @@ class GPMPasskeysAuthenticatorDialogTest : public AuthenticatorDialogTest {
       controller_->SetCurrentStepForTesting(
           AuthenticatorRequestDialogModel::Step::kGPMConfirmOffTheRecordCreate);
     } else {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
     }
     controller_->StartFlow(std::move(transport_availability),
                            /*is_conditional_mediation=*/false);

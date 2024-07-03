@@ -73,7 +73,8 @@ class VirtualCardEnrollmentManagerTest : public testing::Test {
     card_->set_card_art_url(autofill_client_->form_origin());
     card_->set_instrument_id(112233445566);
     card_->set_guid("00000000-0000-0000-0000-000000000001");
-    personal_data_manager().AddServerCreditCard(*card_.get());
+    personal_data_manager().test_payments_data_manager().AddServerCreditCard(
+        *card_.get());
   }
 
   void SetValidCardArtImageForCard(const CreditCard& card) {
@@ -285,7 +286,8 @@ TEST_F(VirtualCardEnrollmentManagerTest, OnRiskDataLoadedForVirtualCard) {
   EXPECT_EQ(request_details.instrument_id,
             state->virtual_card_enrollment_fields.credit_card.instrument_id());
   EXPECT_EQ(request_details.billing_customer_number,
-            payments::GetBillingCustomerId(&personal_data_manager()));
+            payments::GetBillingCustomerId(
+                &personal_data_manager().payments_data_manager()));
   EXPECT_EQ(
       request_details.source,
       state->virtual_card_enrollment_fields.virtual_card_enrollment_source);
@@ -518,7 +520,7 @@ TEST_F(VirtualCardEnrollmentManagerTest, Enroll) {
         suffix = "SettingsPage";
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
 
     // Verifies the logging.

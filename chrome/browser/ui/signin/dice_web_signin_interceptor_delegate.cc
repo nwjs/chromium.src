@@ -11,8 +11,10 @@
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
@@ -66,15 +68,20 @@ class ForcedEnterpriseSigninInterceptionHandle
         /*is_oidc_account=*/bubble_parameters.interception_type ==
             WebSigninInterceptor::SigninInterceptionType::kEnterpriseOIDC,
         profile_creation_required_by_policy_, show_link_data_option_,
+        /*process_user_choice_callback=*/
         base::BindOnce(&ForcedEnterpriseSigninInterceptionHandle::
                            OnEnterpriseInterceptionDialogClosed,
-                       weak_ptr_factory_.GetWeakPtr()));
+                       weak_ptr_factory_.GetWeakPtr()),
+        /*done_callback=*/
+        base::BindOnce(&SigninViewController::CloseModalSignin,
+                       browser_->signin_view_controller()->AsWeakPtr()));
   }
 
   ~ForcedEnterpriseSigninInterceptionHandle() override {
-    if (browser_) {
-      browser_->signin_view_controller()->CloseModalSignin();
+    if (!browser_) {
+      return;
     }
+    browser_->signin_view_controller()->CloseModalSignin();
     if (callback_) {
       DiceWebSigninInterceptorDelegate::RecordInterceptionResult(
           bubble_parameters_, browser_->profile(),
@@ -101,7 +108,7 @@ class ForcedEnterpriseSigninInterceptionHandle
         break;
       case signin::SIGNIN_CHOICE_SIZE:
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
         break;
     }
     DiceWebSigninInterceptorDelegate::RecordInterceptionResult(
@@ -205,28 +212,34 @@ void DiceWebSigninInterceptorDelegate::RecordInterceptionResult(
     Profile* profile,
     SigninInterceptionResult result) {
   std::string histogram_base_name =
-      "Signin.InterceptResult" +
-      GetHistogramSuffix(bubble_parameters.interception_type);
+      base::StrCat({"Signin.InterceptResult",
+                    GetHistogramSuffix(bubble_parameters.interception_type)});
   // Record aggregated histogram for each interception type.
   base::UmaHistogramEnumeration(histogram_base_name, result);
-  // Record histogram sliced by Sync status.
+  // Record histogram sliced by Sync.
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
   std::string sync_suffix =
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync)
           ? ".Sync"
           : ".NoSync";
-  base::UmaHistogramEnumeration(histogram_base_name + sync_suffix, result);
+  base::UmaHistogramEnumeration(
+      base::StrCat({histogram_base_name, sync_suffix}), result);
+  // Record Signin Pending status.
+  if (signin_util::IsSigninPending(identity_manager)) {
+    base::UmaHistogramEnumeration(
+        base::StrCat({histogram_base_name, ".SigninPending"}), result);
+  }
   // For Enterprise, slice per enterprise status for each account.
   if (bubble_parameters.interception_type ==
       WebSigninInterceptor::SigninInterceptionType::kEnterprise) {
     if (bubble_parameters.intercepted_account.IsManaged()) {
-      std::string histogram_name = histogram_base_name + ".NewIsEnterprise";
-      base::UmaHistogramEnumeration(histogram_name, result);
+      base::UmaHistogramEnumeration(
+          base::StrCat({histogram_base_name, ".NewIsEnterprise"}), result);
     }
     if (bubble_parameters.primary_account.IsManaged()) {
-      std::string histogram_name = histogram_base_name + ".PrimaryIsEnterprise";
-      base::UmaHistogramEnumeration(histogram_name, result);
+      base::UmaHistogramEnumeration(
+          base::StrCat({histogram_base_name, ".PrimaryIsEnterprise"}), result);
     }
   }
 }

@@ -68,7 +68,7 @@ display::Display::Rotation WaylandTransformToRotation(int32_t transform) {
       NOTIMPLEMENTED_LOG_ONCE();
       return display::Display::ROTATE_0;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return display::Display::ROTATE_0;
 }
 
@@ -361,7 +361,7 @@ display::Display WaylandScreen::GetDisplayForAcceleratedWidget(
 
   if (display_id_map_.find(entered_output_id.value()) ==
       display_id_map_.end()) {
-    DUMP_WILL_BE_NOTREACHED_NORETURN();
+    DUMP_WILL_BE_NOTREACHED();
     return GetPrimaryDisplay();
   }
 
@@ -373,7 +373,7 @@ display::Display WaylandScreen::GetDisplayForAcceleratedWidget(
       return display;
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return GetPrimaryDisplay();
 }
 

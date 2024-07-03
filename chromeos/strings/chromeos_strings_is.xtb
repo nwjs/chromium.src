@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">ljósgul(ur)</translation>
 <translation id="1056898198331236512">Viðvörun</translation>
 <translation id="1059913517121127803">Ekki tókst að skanna</translation>
+<translation id="1061864016440983342">Nota án staðsetningar</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> af <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Eldveggur greindist</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Fleiri stillingar</translation>
 <translation id="2082932131694554252">Úthlutaður lykill á lyklaborði</translation>
 <translation id="2085089206770112532">Draga úr birtustigi skjás</translation>
+<translation id="2086091080968010660">Breytingar sem byggja á tímasetningu eru hugsanlega ekki nákvæmar. Kveiktu á aðgangi kerfisins að staðsetningu í stillingunum.</translation>
 <translation id="2102231663024125441">Breytingar á texta</translation>
 <translation id="2105810540595158374">Tækið er leikjafjarstýring.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, útgáfa <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Breyta upplýsingum um aðgangsstað</translation>
 <translation id="2195732836444333448">Við getum ekki tekið meira að okkur eins og er. Komdu fljótt aftur.</translation>
 <translation id="2201758491318984023">reiðhjól</translation>
-<translation id="2203222757805818543">Núverandi stilling er á bilinu <ph name="SUNRISE" /> - <ph name="SUNSET" />. Til að uppfæra sjálfvirkt dökku stillinguna skaltu <ph name="BEGIN_LINK" />kveikja á aðgangi að staðsetningu<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">náttúrulaug</translation>
 <translation id="2203642483788377106">kletti</translation>
 <translation id="2208388655216963643">impressjónískum stíl</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Endurheimta sjálfgildi</translation>
 <translation id="2286454467119466181">Einfalt</translation>
 <translation id="2287186687001756809">Engin mynd tiltæk. Opnaðu <ph name="LINK" /> til að bæta við myndum</translation>
+<translation id="2294577623958216786">Núverandi áætlun er stillt á <ph name="SUNRISE" />-<ph name="SUNSET" />. Kveiktu á aðgangi kerfisins að staðsetningu til að uppfæra áætlun sólarlags og sólarupprásar sjálfkrafa.</translation>
 <translation id="2305172810646967500">Svartur</translation>
 <translation id="2307344026739914387">Nota núverandi lyklasett</translation>
 <translation id="2308243864813041101">Taktu USB-snúru <ph name="DEVICE_NAME" /> úr sambandi til að halda uppfærsluferlinu áfram</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">sandöldu</translation>
 <translation id="2619761439309613843">Uppfæra daglega</translation>
 <translation id="2620436844016719705">Kerfi</translation>
+<translation id="2637303424821734920">SLÖKKT - <ph name="BEGIN_LINK" />Kveiktu á aðgangi kerfis að staðsetningu<ph name="END_LINK" /> til að sýna staðbundið veður</translation>
 <translation id="2638662041295312666">Innskráningarmynd</translation>
 <translation id="2640549051766135490">Albúmið <ph name="TITLE" /> <ph name="DESC" /> valið</translation>
 <translation id="2645380101799517405">Stýringar</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Bakgrunnur</translation>
 <translation id="3027578600144895987">Loka myndavélinni</translation>
 <translation id="3031560714565892478">Tækið er kvikmyndatökuvél.</translation>
+<translation id="3051968340259309715">Þetta gerir kerfisþjónustunni kleift að nota staðsetningarnákvæmni til að finna staðsetninguna þína. Staðsetningarnákvæmni notar upplýsingar um þráðlaus merki, t.d. Wi-Fi aðgangsstaði, farsímakerfi og GPS, ásamt skynjaragögnum tækis, t.d. frá hraðamæli og snúðvísi, til að meta staðsetningu tækisins. Hægt er að slökkva á staðsetningu í Stillingar &gt; Persónuvernd og öryggi &gt; Persónuverndarstillingar &gt; Aðgangur að staðsetningu. <ph name="LINK_BEGIN" />Nánar<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">Endastaður</translation>
 <translation id="3060579846059757016">Útlínur</translation>
+<translation id="3061850252076394168">kveikja á textaupplestri</translation>
 <translation id="3069085583900247081">Próf mistókst</translation>
 <translation id="3078740164268491126">tafla</translation>
 <translation id="3081652522083185657">björtu</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Ekki tókst að leysa úr öllum hýslum</translation>
 <translation id="4593212453765072419">Auðkenningar staðgengilsþjóns krafist</translation>
 <translation id="4609350030397390689">Draga úr birtustigi lyklaborðs</translation>
-<translation id="4617553623719764431">Veður er ekki sýnt því það veit ekki staðsetningu þína. Til að birta staðbundið veður <ph name="BEGIN_LINK" />skaltu kveikja á aðgangi að staðsetningu<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> af <ph name="TOTAL_PAGE_NUMBER" />. Ýttu á færslulykilinn til að hætta við prentverkið.</translation>
 <translation id="463791356324567266">Hættir við að skanna...</translation>
 <translation id="4646949265910132906">Örugg Wi-Fi tenging</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Keyra</translation>
 <translation id="4987769320337599931">Eldveggur</translation>
 <translation id="4988526792673242964">Síður</translation>
+<translation id="4989542687859782284">Ekki tiltækt</translation>
 <translation id="4999333166442584738">Fela skýrslu</translation>
 <translation id="500920857929044050">Stöðva próf</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">birtustig lyklaborðs</translation>
 <translation id="6412715219990689313">Innbyggt lyklaborð</translation>
 <translation id="6417265370957905582">Google-hjálpari</translation>
+<translation id="6419454453018688975">Kveiktu á aðgangi kerfisins að staðsetningu</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Þetta gerir kerfisþjónustum með þessa heimild kleift að nota staðsetninguna þína. Staðsetning kann að nota tækni á borð við Wi-Fi, farsímakerfi og skynjara til að áætla staðsetningu tækisins. <ph name="LINK_BEGIN" />Nánar<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Lítill (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Fara í reikningsstillingar</translation>
 <translation id="6462978824459367242">Nú er hægt að bæta við hnappi fyrir aðgangsstað</translation>

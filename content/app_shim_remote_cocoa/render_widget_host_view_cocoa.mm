@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #import "content/app_shim_remote_cocoa/render_widget_host_view_cocoa.h"
 
 #include <AppKit/AppKit.h>
@@ -20,6 +25,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/sys_string_conversions.h"
+#include "components/input/web_input_event_builders_mac.h"
 #include "components/remote_cocoa/app_shim/ns_view_ids.h"
 #import "content/browser/accessibility/browser_accessibility_cocoa.h"
 #import "content/browser/accessibility/browser_accessibility_mac.h"
@@ -29,7 +35,6 @@
 #include "content/browser/renderer_host/render_widget_host_view_mac.h"
 #import "content/browser/renderer_host/render_widget_host_view_mac_editcommand_helper.h"
 #include "content/common/features.h"
-#include "content/common/input/web_input_event_builders_mac.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #import "content/public/browser/render_widget_host_view_mac_delegate.h"
 #include "content/public/common/content_features.h"
@@ -53,19 +58,19 @@
 #include "ui/events/platform/platform_event_source.h"
 #include "ui/gfx/mac/coordinate_conversion.h"
 
-using content::NativeWebKeyboardEvent;
-using content::RenderWidgetHostViewMacEditCommandHelper;
-using content::WebGestureEventBuilder;
-using content::WebMouseEventBuilder;
-using content::WebMouseWheelEventBuilder;
-using content::WebTouchEventBuilder;
+using blink::WebGestureEvent;
 using blink::WebInputEvent;
 using blink::WebMouseEvent;
 using blink::WebMouseWheelEvent;
-using blink::WebGestureEvent;
 using blink::WebTouchEvent;
-using remote_cocoa::mojom::RenderWidgetHostNSViewHost;
+using content::RenderWidgetHostViewMacEditCommandHelper;
+using input::NativeWebKeyboardEvent;
+using input::WebGestureEventBuilder;
+using input::WebMouseEventBuilder;
+using input::WebMouseWheelEventBuilder;
+using input::WebTouchEventBuilder;
 using remote_cocoa::RenderWidgetHostNSViewHostHelper;
+using remote_cocoa::mojom::RenderWidgetHostNSViewHost;
 
 namespace content {
   extern bool g_force_cpu_draw;
@@ -99,10 +104,10 @@ class DummyHostHelper : public RenderWidgetHostNSViewHostHelper {
   id GetRootBrowserAccessibilityElement() override { return nil; }
   id GetFocusedBrowserAccessibilityElement() override { return nil; }
   void SetAccessibilityWindow(NSWindow* window) override {}
-  void ForwardKeyboardEvent(const NativeWebKeyboardEvent& key_event,
+  void ForwardKeyboardEvent(const input::NativeWebKeyboardEvent& key_event,
                             const ui::LatencyInfo& latency_info) override {}
   void ForwardKeyboardEventWithCommands(
-      const NativeWebKeyboardEvent& key_event,
+      const input::NativeWebKeyboardEvent& key_event,
       const ui::LatencyInfo& latency_info,
       const std::vector<blink::mojom::EditCommandPtr> commands) override {}
   void RouteOrProcessMouseEvent(

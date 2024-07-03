@@ -23,7 +23,7 @@
 #include "partition_alloc/pointers/instance_tracer.h"
 #include "partition_alloc/raw_ptr_buildflags.h"
 
-#if BUILDFLAG(IS_WIN)
+#if PA_BUILDFLAG(IS_WIN)
 #include "partition_alloc/partition_alloc_base/win/win_handle_types.h"
 #endif
 
@@ -57,7 +57,12 @@
 #endif
 
 namespace cc {
+class ImageDecodeCache;
 class Scheduler;
+class TextureLayerImpl;
+}  // namespace cc
+namespace gpu {
+class SchedulerDfs;
 }
 namespace base::internal {
 class DelayTimerBase;
@@ -222,6 +227,20 @@ template <>
 struct IsSupportedType<blink::scheduler::NonMainThreadTaskQueue> {
   static constexpr bool value = false;
 };
+// The ones below were identified from MotionMark. See crbug.com/335556942 for
+// more info.
+template <>
+struct IsSupportedType<cc::ImageDecodeCache> {
+  static constexpr bool value = false;
+};
+template <>
+struct IsSupportedType<cc::TextureLayerImpl> {
+  static constexpr bool value = false;
+};
+template <>
+struct IsSupportedType<gpu::SchedulerDfs> {
+  static constexpr bool value = false;
+};
 
 #if __OBJC__
 // raw_ptr<T> is not compatible with pointers to Objective-C classes for a
@@ -236,7 +255,7 @@ struct IsSupportedType<T, std::enable_if_t<std::is_convertible_v<T*, id>>> {
 };
 #endif  // __OBJC__
 
-#if BUILDFLAG(IS_WIN)
+#if PA_BUILDFLAG(IS_WIN)
 // raw_ptr<HWND__> is unsafe at runtime - if the handle happens to also
 // represent a valid pointer into a PartitionAlloc-managed region then it can
 // lead to manipulating random memory when treating it as BackupRefPtr

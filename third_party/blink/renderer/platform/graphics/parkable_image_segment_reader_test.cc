@@ -143,7 +143,7 @@ TEST_F(ParkableImageSegmentReaderTest, GetAsSkDataLongLived) {
   segment_reader = nullptr;
   parkable_image = nullptr;
 
-  EXPECT_FALSE(memcmp(shared_buffer->Data(), sk_data->bytes(), kDataSize));
+  EXPECT_FALSE(memcmp(data, sk_data->bytes(), kDataSize));
 }
 
 }  // namespace blink

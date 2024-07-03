@@ -68,7 +68,6 @@ include_rules = [
   "+chrome/browser/platform_util.h",
   "+chrome/browser/policy",
   "+chrome/browser/profiles",
-  "+chrome/browser/resources/preinstalled_web_apps/internal",
   "+chrome/browser/sharesheet",
   "+chrome/browser/signin",
   "+chrome/browser/speech",

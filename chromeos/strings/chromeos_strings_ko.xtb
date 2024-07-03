@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">밝은 노란색</translation>
 <translation id="1056898198331236512">경고</translation>
 <translation id="1059913517121127803">스캔을 시작할 수 없음</translation>
+<translation id="1061864016440983342">위치 정보 없이 사용</translation>
 <translation id="1062823486781306604"><ph name="COUNT" />개 중 <ph name="INDEX" />번째인 <ph name="NAME" />입니다.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">방화벽 감지됨</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">설정 더보기</translation>
 <translation id="2082932131694554252">할당된 키보드 키</translation>
 <translation id="2085089206770112532">디스플레이 밝기 낮추기</translation>
+<translation id="2086091080968010660">시간 기반 변경사항은 정확하지 않을 수 있습니다. 설정에서 시스템 위치 액세스를 사용 설정하세요.</translation>
 <translation id="2102231663024125441">텍스트 수정</translation>
 <translation id="2105810540595158374">게임 컨트롤러 기기입니다.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, 버전 <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">APN 세부정보 수정</translation>
 <translation id="2195732836444333448">현재 요청이 너무 많습니다. 나중에 다시 시도해 주세요.</translation>
 <translation id="2201758491318984023">자전거</translation>
-<translation id="2203222757805818543">현재 일정은 <ph name="SUNRISE" />~<ph name="SUNSET" />(으)로 설정되어 있습니다. 어두운 모드 일정을 자동으로 업데이트하려면 <ph name="BEGIN_LINK" />위치 액세스를 사용 설정<ph name="END_LINK" />하세요.</translation>
 <translation id="2203272733515928691">온천</translation>
 <translation id="2203642483788377106">절벽</translation>
 <translation id="2208388655216963643">인상파</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">기본값 복원</translation>
 <translation id="2286454467119466181">단순</translation>
 <translation id="2287186687001756809">사용할 수 있는 이미지가 없습니다. 사진을 추가하려면 <ph name="LINK" />(으)로 이동하세요.</translation>
+<translation id="2294577623958216786">현재 설정된 일정은 <ph name="SUNRISE" />~<ph name="SUNSET" />입니다. 일몰 및 일출 일정을 자동으로 업데이트하려면 시스템 위치 액세스를 사용 설정하세요.</translation>
 <translation id="2305172810646967500">블랙</translation>
 <translation id="2307344026739914387">현재 키 쌍 사용</translation>
 <translation id="2308243864813041101">업데이트를 계속하려면 <ph name="DEVICE_NAME" />에서 USB 케이블을 분리하세요.</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">모래 언덕</translation>
 <translation id="2619761439309613843">매일 새로고침</translation>
 <translation id="2620436844016719705">시스템</translation>
+<translation id="2637303424821734920">사용 안함 - 현지 날씨를 표시하려면 <ph name="BEGIN_LINK" />시스템 위치 액세스를 사용 설정<ph name="END_LINK" />하세요.</translation>
 <translation id="2638662041295312666">로그인 이미지</translation>
 <translation id="2640549051766135490">앨범 <ph name="TITLE" /> <ph name="DESC" /> 선택됨</translation>
 <translation id="2645380101799517405">컨트롤</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">배경</translation>
 <translation id="3027578600144895987">카메라 종료</translation>
 <translation id="3031560714565892478">비디오 카메라 기기입니다.</translation>
+<translation id="3051968340259309715">이렇게 하면 시스템 서비스에서 위치 정확도를 사용하여 내 위치를 파악할 수 있습니다. 위치 정확도는 무선 신호에 대한 정보(예: Wi-Fi 액세스 포인트, 셀룰러 네트워크 타워, GPS)와 기기 센서 데이터(예: 가속도계 및 자이로스코프)를 사용합니다. 설정 &gt; 개인 정보 보호 및 보안 &gt; 개인 정보 보호 설정 &gt; 위치 정보 액세스에서 위치를 사용 중지할 수 있습니다. <ph name="LINK_BEGIN" />자세히 알아보기<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
 <translation id="3056720590588772262">엔드포인트</translation>
 <translation id="3060579846059757016">개요</translation>
+<translation id="3061850252076394168">텍스트 읽어주기 사용 설정</translation>
 <translation id="3069085583900247081">테스트 실패</translation>
 <translation id="3078740164268491126">표</translation>
 <translation id="3081652522083185657">밝은</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">모든 호스트를 확인할 수 없습니다.</translation>
 <translation id="4593212453765072419">프록시 인증이 필요합니다.</translation>
 <translation id="4609350030397390689">키보드 밝기 낮추기</translation>
-<translation id="4617553623719764431">서비스에서 내 위치를 알지 못하기 때문에 날씨가 표시되지 않습니다. 현지 날씨를 표시하려면 <ph name="BEGIN_LINK" />위치 액세스를 사용 설정<ph name="END_LINK" />하세요.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" /> 인쇄 작업을 취소하려면 Enter를 누릅니다.</translation>
 <translation id="463791356324567266">스캔 취소 중…</translation>
 <translation id="4646949265910132906">보안 Wi-Fi 연결</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">실행</translation>
 <translation id="4987769320337599931">방화벽</translation>
 <translation id="4988526792673242964">페이지</translation>
+<translation id="4989542687859782284">사용할 수 없음</translation>
 <translation id="4999333166442584738">보고서 숨기기</translation>
 <translation id="500920857929044050">테스트 중지</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">키보드 밝기</translation>
 <translation id="6412715219990689313">내장 키보드</translation>
 <translation id="6417265370957905582">Google 어시스턴트</translation>
+<translation id="6419454453018688975">시스템 위치 액세스 사용 설정</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">이렇게 하면 권한이 있는 시스템 서비스에서 위치를 사용할 수 있습니다. 기기의 위치를 추정하는 데 Wi-Fi, 모바일 네트워크, 센서 등의 데이터가 사용될 수 있습니다. <ph name="LINK_BEGIN" />자세히 알아보기<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">약함(<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">계정 설정으로 이동</translation>
 <translation id="6462978824459367242">이제 APN 추가 버튼이 사용 설정되었습니다</translation>

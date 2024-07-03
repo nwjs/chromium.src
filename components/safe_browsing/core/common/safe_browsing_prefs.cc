@@ -44,7 +44,7 @@ void RecordExtendedReportingPrefChanged(
                             pref_value);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -105,10 +105,6 @@ bool IsEnhancedProtectionEnabled(const PrefService& prefs) {
   // of sync or not on a version that includes SafeBrowsingEnhanced pref.
   return prefs.GetBoolean(prefs::kSafeBrowsingEnhanced) &&
          IsSafeBrowsingEnabled(prefs);
-}
-
-bool ExtendedReportingPrefExists(const PrefService& prefs) {
-  return prefs.HasPrefPath(prefs::kSafeBrowsingScoutReportingEnabled);
 }
 
 ExtendedReportingLevel GetExtendedReportingLevel(const PrefService& prefs) {

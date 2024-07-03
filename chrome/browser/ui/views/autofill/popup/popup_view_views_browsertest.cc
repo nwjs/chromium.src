@@ -108,7 +108,7 @@ std::vector<Suggestion> CreateAutofillProfileSuggestions() {
   suggestions.emplace_back(SuggestionType::kSeparator);
 
   Suggestion settings(l10n_util::GetStringUTF16(IDS_AUTOFILL_MANAGE_ADDRESSES));
-  settings.type = SuggestionType::kAutofillOptions;
+  settings.type = SuggestionType::kManageAddress;
   settings.icon = Suggestion::Icon::kSettings;
   suggestions.push_back(std::move(settings));
 
@@ -127,7 +127,7 @@ std::vector<Suggestion> CreateCreditCardSuggestions() {
 
   Suggestion settings(
       l10n_util::GetStringUTF16(IDS_AUTOFILL_MANAGE_PAYMENT_METHODS));
-  settings.type = SuggestionType::kAutofillOptions;
+  settings.type = SuggestionType::kManageCreditCard;
   settings.icon = Suggestion::Icon::kSettings;
   suggestions.push_back(std::move(settings));
 
@@ -140,7 +140,8 @@ std::vector<Suggestion> CreatePasswordSuggestions() {
 
   suggestions.emplace_back(u"Password main text",
                            SuggestionType::kPasswordEntry);
-  suggestions.back().additional_label = u"example.username@gmail.com";
+  suggestions.back().labels = {
+      {Suggestion::Text(u"example.username@gmail.com")}};
   suggestions.back().icon = Suggestion::Icon::kGlobe;
 
   suggestions.emplace_back(autofill::SuggestionType::kSeparator);
@@ -173,7 +174,7 @@ class PopupViewViewsBrowsertestBase
       EXPECT_CALL(controller(), ViewDestroyed);
     }
 
-    search_bar_config_ = {};
+    search_bar_config_ = std::nullopt;
     popup_has_parent_ = false;
     popup_parent_.reset();
     PopupPixelTest::TearDownOnMainThread();
@@ -199,9 +200,10 @@ class PopupViewViewsBrowsertestBase
   }
 
   void ShowAndVerifyUi(bool popup_has_parent = false,
-                       PopupViewSearchBarConfig search_bar_config = {}) {
+                       std::optional<AutofillPopupView::SearchBarConfig>
+                           search_bar_config = std::nullopt) {
     popup_has_parent_ = popup_has_parent;
-    search_bar_config_ = search_bar_config;
+    search_bar_config_ = std::move(search_bar_config);
     PopupPixelTest::ShowAndVerifyUi();
   }
 
@@ -222,7 +224,7 @@ class PopupViewViewsBrowsertestBase
 
   // Controls whether the view is created as a sub-popup (i.e. having a parent).
   bool popup_has_parent_ = false;
-  PopupViewSearchBarConfig search_bar_config_;
+  std::optional<AutofillPopupView::SearchBarConfig> search_bar_config_;
   std::unique_ptr<PopupViewViews> popup_parent_;
 };
 
@@ -332,8 +334,8 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
   std::vector<Suggestion> suggestions;
   Suggestion entry1(u"User1");
   entry1.main_text.is_primary = Suggestion::Text::IsPrimary(true);
-  entry1.additional_label =
-      std::u16string(10, gfx::RenderText::kPasswordReplacementChar);
+  entry1.labels = {{Suggestion::Text(
+      std::u16string(10, gfx::RenderText::kPasswordReplacementChar))}};
   entry1.type = SuggestionType::kAccountStoragePasswordEntry;
   entry1.icon = Suggestion::Icon::kGlobe;
   entry1.trailing_icon = Suggestion::Icon::kGoogle;
@@ -342,8 +344,8 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
   // A profile store entry.
   Suggestion entry2(u"User2");
   entry2.main_text.is_primary = Suggestion::Text::IsPrimary(true);
-  entry2.additional_label =
-      std::u16string(6, gfx::RenderText::kPasswordReplacementChar);
+  entry2.labels = {{Suggestion::Text(
+      std::u16string(6, gfx::RenderText::kPasswordReplacementChar))}};
   entry2.type = SuggestionType::kPasswordEntry;
   entry2.icon = Suggestion::Icon::kGlobe;
   entry2.trailing_icon = Suggestion::Icon::kNoIcon;
@@ -376,7 +378,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
                        NoScrollingForNonExcessiveHeightRootPopup) {
   controller().set_suggestions(
       {SuggestionType::kAddressEntry, SuggestionType::kAddressEntry,
-       SuggestionType::kSeparator, SuggestionType::kAutofillOptions});
+       SuggestionType::kSeparator, SuggestionType::kManageAddress});
   ShowAndVerifyUi(/*popup_has_parent=*/false);
 }
 
@@ -384,7 +386,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
                        NoScrollingForNonExcessiveHeightNonRootPopup) {
   controller().set_suggestions(
       {SuggestionType::kAddressEntry, SuggestionType::kAddressEntry,
-       SuggestionType::kSeparator, SuggestionType::kAutofillOptions});
+       SuggestionType::kSeparator, SuggestionType::kManageAddress});
   ShowAndVerifyUi(/*popup_has_parent=*/true);
 }
 
@@ -400,7 +402,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
   // Create many suggestions that don't fit the height and activate scrolling.
   std::vector<SuggestionType> suggestions(20, SuggestionType::kAddressEntry);
   suggestions.push_back(SuggestionType::kSeparator);
-  suggestions.push_back(SuggestionType::kAutofillOptions);
+  suggestions.push_back(SuggestionType::kManageAddress);
   controller().set_suggestions(std::move(suggestions));
   ShowAndVerifyUi();
 }
@@ -418,7 +420,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
   // Create many suggestions that don't fit the height and activate scrolling.
   std::vector<SuggestionType> suggestions(20, SuggestionType::kAddressEntry);
   suggestions.push_back(SuggestionType::kSeparator);
-  suggestions.push_back(SuggestionType::kAutofillOptions);
+  suggestions.push_back(SuggestionType::kManageAddress);
   controller().set_suggestions(std::move(suggestions));
   ShowAndVerifyUi(/*popup_has_parent=*/true);
 }
@@ -427,20 +429,20 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest, SearchBarViewProvided) {
   controller().set_suggestions({SuggestionType::kAddressEntry});
   ShowAndVerifyUi(
       /*popup_has_parent=*/false,
-      PopupViewSearchBarConfig{.enabled = true, .placeholder = u"Search"});
+      AutofillPopupView::SearchBarConfig{.placeholder = u"Search",
+                                         .no_results_message = u""});
 }
 
 IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
                        SearchBarViewNoSuggestionsFound) {
   // This set imitates empty search result, it contains footer suggestions only.
   controller().set_suggestions(
-      {SuggestionType::kSeparator, SuggestionType::kAutofillOptions});
+      {SuggestionType::kSeparator, SuggestionType::kManageAddress});
   ON_CALL(controller(), HasFilteredOutSuggestions).WillByDefault(Return(true));
   ShowAndVerifyUi(
       /*popup_has_parent=*/false,
-      PopupViewSearchBarConfig{.enabled = true,
-                               .placeholder = u"Search",
-                               .no_results_message = u"No suggestions"});
+      AutofillPopupView::SearchBarConfig{
+          .placeholder = u"Search", .no_results_message = u"No suggestions"});
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

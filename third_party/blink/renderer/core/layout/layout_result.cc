@@ -122,13 +122,20 @@ LayoutResult::LayoutResult(LineBoxFragmentBuilderPassKey passkey,
     EnsureRareData()->SetLineBoxBfcBlockOffset(
         *builder->line_box_bfc_block_offset_);
   }
+
+  // `EnsureLineData()` must be done before `EnsureLineSmallData()`.
+  DCHECK(!rare_data_ || !rare_data_->HasData(RareData::kLineSmallData));
   if (builder->annotation_block_offset_adjustment_) {
     EnsureRareData()->EnsureLineData()->annotation_block_offset_adjustment =
         builder->annotation_block_offset_adjustment_;
   }
   if (builder->clearance_after_line_) {
-    EnsureRareData()->EnsureLineData()->clearance_after_line =
-        builder->clearance_after_line_;
+    EnsureRareData()->EnsureLineSmallData()->clearance_after_line =
+        *builder->clearance_after_line_;
+  }
+  if (builder->trim_block_end_by_) {
+    EnsureRareData()->EnsureLineSmallData()->trim_block_end_by =
+        *builder->trim_block_end_by_;
   }
 }
 
@@ -239,8 +246,11 @@ LayoutResult::LayoutResult(const PhysicalFragment* physical_fragment,
   }
   if (builder->lines_until_clamp_)
     EnsureRareData()->lines_until_clamp = *builder->lines_until_clamp_;
-  if (builder->is_text_box_trim_applied_) {
-    EnsureRareData()->set_text_box_trim_is_applied();
+  if (builder->is_block_start_trimmed_) {
+    EnsureRareData()->set_is_block_start_trimmed();
+  }
+  if (builder->is_block_end_trimmed_) {
+    EnsureRareData()->set_is_block_end_trimmed();
   }
 
   if (builder->tallest_unbreakable_block_size_ >= LayoutUnit()) {
@@ -376,6 +386,7 @@ void LayoutResult::Trace(Visitor* visitor) const {
 
 void LayoutResult::RareData::Trace(Visitor* visitor) const {
   visitor->Trace(early_break);
+  visitor->Trace(non_overflowing_scroll_ranges);
   // This will not cause TOCTOU issue because data_union_type is set in the
   // constructor and never changed.
   if (const BlockData* data = GetBlockData())

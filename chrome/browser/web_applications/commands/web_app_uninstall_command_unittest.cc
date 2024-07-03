@@ -5,6 +5,7 @@
 #include "chrome/browser/web_applications/commands/web_app_uninstall_command.h"
 
 #include <memory>
+#include <optional>
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -27,9 +28,11 @@
 #include "chrome/browser/web_applications/user_uninstalled_preinstalled_web_app_prefs.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
+#include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
+#include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
@@ -86,7 +89,7 @@ TEST_F(WebAppUninstallCommandTest, SimpleUninstallInternal) {
       app_id, webapps::WebappUninstallSource::kAppMenu,
       result_future.GetCallback());
   ASSERT_TRUE(result_future.Wait());
-  EXPECT_EQ(webapps::UninstallResultCode::kSuccess, result_future.Get());
+  EXPECT_EQ(webapps::UninstallResultCode::kAppRemoved, result_future.Get());
   EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 
@@ -111,7 +114,7 @@ TEST_F(WebAppUninstallCommandTest, SimpleUninstallExternal) {
       app_id, webapps::WebappUninstallSource::kAppMenu,
       result_future.GetCallback());
   ASSERT_TRUE(result_future.Wait());
-  EXPECT_EQ(webapps::UninstallResultCode::kSuccess, result_future.Get());
+  EXPECT_EQ(webapps::UninstallResultCode::kAppRemoved, result_future.Get());
   EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 
@@ -212,7 +215,7 @@ TEST_F(WebAppUninstallCommandTest, UserUninstalledPrefsFilled) {
   provider()->scheduler().RemoveUserUninstallableManagements(
       app_id, webapps::WebappUninstallSource::kAppMenu, future.GetCallback());
   ASSERT_TRUE(future.Wait());
-  EXPECT_EQ(webapps::UninstallResultCode::kSuccess, future.Get());
+  EXPECT_EQ(webapps::UninstallResultCode::kAppRemoved, future.Get());
   EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
   EXPECT_TRUE(UserUninstalledPreinstalledWebAppPrefs(profile()->GetPrefs())
                   .DoesAppIdExist(app_id));
@@ -239,7 +242,7 @@ TEST_F(WebAppUninstallCommandTest, ExternalConfigMapMissing) {
   provider()->scheduler().RemoveUserUninstallableManagements(
       app_id, webapps::WebappUninstallSource::kAppMenu, future.GetCallback());
   ASSERT_TRUE(future.Wait());
-  EXPECT_EQ(webapps::UninstallResultCode::kSuccess, future.Get());
+  EXPECT_EQ(webapps::UninstallResultCode::kAppRemoved, future.Get());
   EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 
   EXPECT_THAT(histogram_tester_.GetAllSamples(
@@ -250,9 +253,11 @@ TEST_F(WebAppUninstallCommandTest, ExternalConfigMapMissing) {
 TEST_F(WebAppUninstallCommandTest, RemoveSourceAndTriggerOSUninstallation) {
   auto web_app = test::CreateWebApp(GURL("https://www.example.com"),
                                     WebAppManagement::kDefault);
-  web_app->AddSource(WebAppManagement::kPolicy);
   web_app->AddInstallURLToManagementExternalConfigMap(
       WebAppManagement::kDefault, GURL("https://example.com/install"));
+  web_app->AddSource(WebAppManagement::kPolicy);
+  web_app->AddInstallURLToManagementExternalConfigMap(
+      WebAppManagement::kPolicy, GURL("https://example.com/install"));
   EXPECT_FALSE(web_app->CanUserUninstallWebApp());
   webapps::AppId app_id = web_app->app_id();
   {
@@ -272,7 +277,7 @@ TEST_F(WebAppUninstallCommandTest, RemoveSourceAndTriggerOSUninstallation) {
       webapps::WebappUninstallSource::kExternalPolicy, *profile(), app_id,
       {WebAppManagement::kPolicy},
       base::BindLambdaForTesting([&](webapps::UninstallResultCode code) {
-        EXPECT_EQ(webapps::UninstallResultCode::kSuccess, code);
+        EXPECT_EQ(webapps::UninstallResultCode::kInstallSourceRemoved, code);
         run_loop.Quit();
       }));
 
@@ -289,6 +294,15 @@ TEST_F(WebAppUninstallCommandTest, RemoveSourceAndTriggerOSUninstallation) {
 
   provider()->command_manager().ScheduleCommand(std::move(command));
   run_loop.Run();
+
+  // It should still be around from the default install.
+  EXPECT_THAT(provider()->registrar_unsafe().LookUpAppIdByInstallUrl(
+                  GURL("https://example.com/install")),
+              testing::Eq(app_id));
+  // But it shouldn't be there for policy.
+  EXPECT_EQ(provider()->registrar_unsafe().LookUpAppByInstallSourceInstallUrl(
+                WebAppManagement::kPolicy, GURL("https://example.com/install")),
+            nullptr);
 }
 
 TEST_F(WebAppUninstallCommandTest, Shutdown) {
@@ -354,7 +368,7 @@ TEST_P(WebAppUninstallCommandSourceTest, RunTestForUninstallSource) {
   provider()->scheduler().RemoveUserUninstallableManagements(
       app_id, GetParam().source, result_future.GetCallback());
   ASSERT_TRUE(result_future.Wait());
-  EXPECT_EQ(webapps::UninstallResultCode::kSuccess, result_future.Get());
+  EXPECT_EQ(webapps::UninstallResultCode::kAppRemoved, result_future.Get());
   EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 

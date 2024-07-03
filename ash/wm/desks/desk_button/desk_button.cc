@@ -155,7 +155,7 @@ void DeskButton::Layout(PassKey) {
 void DeskButton::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   // Avoid failing accessibility checks if we don't have a name.
   Button::GetAccessibleNodeData(node_data);
-  if (GetAccessibleName().empty()) {
+  if (GetViewAccessibility().GetCachedName().empty()) {
     node_data->SetNameExplicitlyEmpty();
   }
 
@@ -308,13 +308,13 @@ void DeskButton::UpdateLocaleSpecificSettings() {
   DesksController* desk_controller = DesksController::Get();
   const Desk* active_desk = desk_controller->active_desk();
   if (IsShowingAvatar()) {
-    SetAccessibleName(l10n_util::GetStringFUTF16(
+    GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
         IDS_SHELF_DESK_BUTTON_TITLE_WITH_PROFILE_AVATAR, active_desk->name(),
         profile_.name, profile_.email,
         base::NumberToString16(desk_controller->GetDeskIndex(active_desk) + 1),
         base::NumberToString16(desk_controller->GetNumberOfDesks())));
   } else {
-    SetAccessibleName(l10n_util::GetStringFUTF16(
+    GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
         IDS_SHELF_DESK_BUTTON_TITLE_NO_PROFILE_AVATAR, active_desk->name(),
         base::NumberToString16(desk_controller->GetDeskIndex(active_desk) + 1),
         base::NumberToString16(desk_controller->GetNumberOfDesks())));

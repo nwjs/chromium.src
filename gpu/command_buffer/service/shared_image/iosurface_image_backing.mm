@@ -25,6 +25,7 @@
 #include "gpu/command_buffer/service/shared_image/shared_image_gl_utils.h"
 #include "gpu/command_buffer/service/shared_image/skia_graphite_dawn_image_representation.h"
 #include "gpu/command_buffer/service/skia_utils.h"
+#include "gpu/config/gpu_finch_features.h"
 #include "third_party/libyuv/include/libyuv/planar_functions.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/gpu/GrContextThreadSafeProxy.h"
@@ -82,7 +83,7 @@ gfx::BufferFormat GetBufferFormatForPlane(viz::SharedImageFormat format,
       return num_channels == 2 ? gfx::BufferFormat::RG_1616
                                : gfx::BufferFormat::R_16;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return gfx::BufferFormat::RGBA_8888;
 }
 
@@ -91,7 +92,8 @@ wgpu::Texture CreateWGPUTexture(wgpu::SharedTextureMemory shared_texture_memory,
                                 const gfx::Size& io_surface_size,
                                 wgpu::TextureFormat wgpu_format,
                                 std::vector<wgpu::TextureFormat> view_formats,
-                                wgpu::TextureUsage wgpu_texture_usage) {
+                                wgpu::TextureUsage wgpu_texture_usage,
+                                wgpu::TextureUsage internal_usage) {
   const std::string debug_label =
       "IOSurface(" + CreateLabelForSharedImageUsage(shared_image_usage) + ")";
 
@@ -109,16 +111,21 @@ wgpu::Texture CreateWGPUTexture(wgpu::SharedTextureMemory shared_texture_memory,
   texture_descriptor.viewFormatCount = view_formats.size();
   texture_descriptor.viewFormats = view_formats.data();
 
-  // We need to have internal usages of CopySrc for copies. If texture is not
-  // for video frame import, which has bi-planar format, we also need
-  // RenderAttachment usage for clears, and TextureBinding for
-  // copyTextureForBrowser.
   wgpu::DawnTextureInternalUsageDescriptor internalDesc;
-  internalDesc.internalUsage =
-      wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding;
-  if (wgpu_format != wgpu::TextureFormat::R8BG8Biplanar420Unorm &&
-      wgpu_format != wgpu::TextureFormat::R10X6BG10X6Biplanar420Unorm) {
-    internalDesc.internalUsage |= wgpu::TextureUsage::RenderAttachment;
+  if (base::FeatureList::IsEnabled(
+          features::kDawnSIRepsUseClientProvidedInternalUsages)) {
+    internalDesc.internalUsage = internal_usage;
+  } else {
+    // We need to have internal usages of CopySrc for copies. If texture is not
+    // for video frame import, which has bi-planar format, we also need
+    // RenderAttachment usage for clears, and TextureBinding for
+    // copyTextureForBrowser.
+    internalDesc.internalUsage =
+        wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding;
+    if (wgpu_format != wgpu::TextureFormat::R8BG8Biplanar420Unorm &&
+        wgpu_format != wgpu::TextureFormat::R10X6BG10X6Biplanar420Unorm) {
+      internalDesc.internalUsage |= wgpu::TextureUsage::RenderAttachment;
+    }
   }
 
   texture_descriptor.nextInChain = &internalDesc;
@@ -751,7 +758,8 @@ class IOSurfaceImageBacking::DawnRepresentation final
   }
   ~DawnRepresentation() override { EndAccess(); }
 
-  wgpu::Texture BeginAccess(wgpu::TextureUsage usage) final;
+  wgpu::Texture BeginAccess(wgpu::TextureUsage usage,
+                            wgpu::TextureUsage internal_usage) final;
   void EndAccess() final;
   bool SupportsMultipleConcurrentReadAccess() final;
 
@@ -771,7 +779,8 @@ class IOSurfaceImageBacking::DawnRepresentation final
 };
 
 wgpu::Texture IOSurfaceImageBacking::DawnRepresentation::BeginAccess(
-    wgpu::TextureUsage wgpu_texture_usage) {
+    wgpu::TextureUsage wgpu_texture_usage,
+    wgpu::TextureUsage internal_usage) {
   const bool readonly = (wgpu_texture_usage & ~kReadOnlyUsage) == 0;
   IOSurfaceImageBacking* iosurface_backing =
       static_cast<IOSurfaceImageBacking*>(backing());
@@ -792,9 +801,9 @@ wgpu::Texture IOSurfaceImageBacking::DawnRepresentation::BeginAccess(
 
   texture_ = iosurface_backing->GetCachedWGPUTexture(device_, usage_);
   if (!texture_) {
-    texture_ =
-        CreateWGPUTexture(shared_texture_memory_, usage(), io_surface_size_,
-                          wgpu_format_, view_formats_, wgpu_texture_usage);
+    texture_ = CreateWGPUTexture(shared_texture_memory_, usage(),
+                                 io_surface_size_, wgpu_format_, view_formats_,
+                                 wgpu_texture_usage, internal_usage);
     iosurface_backing->MaybeCacheWGPUTexture(device_, texture_);
   }
 
@@ -1465,25 +1474,17 @@ std::unique_ptr<DawnImageRepresentation> IOSurfaceImageBacking::ProduceDawn(
         LOG(ERROR) << "Unable to create SharedTextureMemory - device lost?";
         return nullptr;
       }
-      // NOTE: We currently do not cache SharedTextureMemory objects that are
-      // associated with devices created for WebGPU. The reason is that
-      // SharedTextureMemory holds on to a reference for the device, and
-      // WebGPUDecoderImpl does not currently destroy devices that it creates
-      // on its own destruction. Hence, caching SharedTextureMemory objects for
-      // these devices could lead to memory leakage over time (e.g., for
-      // SharedImages maintained in a client-side pool on which WebGPU is used
-      // repeatedly). If Graphite is being used, however, we can and do cache
-      // the SharedTextureMemory instance that is associated with the Graphite
-      // device.
-      // TODO(crbug.com/40936879): Cache SharedTextureMemory objects for WebGPU
-      // as well once crbug.com/1515822 is resolved.
+
+      // We cache the SharedTextureMemory instance that is associated with the
+      // Graphite device.
+      // TODO(crbug.com/345674550): Extend caching to WebGPU devices as well.
       // NOTE: `dawn_context_provider` may be null if Graphite is not being
       // used.
       auto* dawn_context_provider = context_state->dawn_context_provider();
       if (dawn_context_provider &&
           dawn_context_provider->GetDevice().Get() == device.Get()) {
-        // This is the Graphite device, so its SharedTextureMemory instance can
-        // and should be cached.
+        // This is the Graphite device, so we cache its SharedTextureMemory
+        // instance.
         SharedTextureData shared_texture_data;
         shared_texture_data.memory = shared_texture_memory;
         shared_texture_data_cache_.emplace(device.Get(),

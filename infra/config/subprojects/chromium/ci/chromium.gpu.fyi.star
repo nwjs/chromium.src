@@ -5,7 +5,7 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "reclient", "sheriff_rotations")
+load("//lib/builders.star", "gardener_rotations", "siso")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -15,19 +15,18 @@ ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
     builder_group = "chromium.gpu.fyi",
     pool = ci.gpu.POOL,
-    sheriff_rotations = sheriff_rotations.CHROMIUM_GPU,
     contact_team_email = "chrome-gpu-infra@google.com",
     execution_timeout = 6 * time.hour,
+    gardener_rotations = gardener_rotations.CHROMIUM_GPU,
     health_spec = health_spec.DEFAULT,
     properties = {
         "perf_dashboard_machine_group": "ChromiumGPUFYI",
     },
-    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
-    reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.gpu.SERVICE_ACCOUNT,
     shadow_service_account = ci.gpu.SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
-    siso_remote_jobs = reclient.jobs.DEFAULT,
+    siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
     thin_tester_cores = 2,
 )
 
@@ -374,7 +373,7 @@ ci.gpu.linux_builder(
             "ozone_headless",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             "dcheck_off",
             "no_symbols",
         ],
@@ -386,7 +385,7 @@ ci.gpu.linux_builder(
     # Runs a lot of tests + VMs are slower than real hardware, so increase the
     # timeout.
     execution_timeout = 8 * time.hour,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.gpu.linux_builder(
@@ -426,7 +425,7 @@ ci.gpu.linux_builder(
             "ozone_headless",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             "dcheck_off",
             "no_symbols",
             "is_skylab",
@@ -436,7 +435,7 @@ ci.gpu.linux_builder(
         category = "ChromeOS|Intel",
         short_name = "vlt",
     ),
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.gpu.linux_builder(
@@ -494,7 +493,7 @@ ci.gpu.linux_builder(
             "android_builder",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             "static_angle",
         ],
     ),
@@ -502,7 +501,7 @@ ci.gpu.linux_builder(
         category = "Android|Builder",
         short_name = "arm",
     ),
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.gpu.linux_builder(
@@ -532,7 +531,7 @@ ci.gpu.linux_builder(
             "android_builder",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             "arm64",
             "static_angle",
         ],
@@ -541,7 +540,7 @@ ci.gpu.linux_builder(
         category = "Android|Builder",
         short_name = "arm64",
     ),
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.gpu.linux_builder(
@@ -567,14 +566,14 @@ ci.gpu.linux_builder(
             "ozone_linux_non_x11",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Lacros|Builder",
         short_name = "rel",
     ),
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.gpu.linux_builder(
@@ -600,14 +599,14 @@ ci.gpu.linux_builder(
             "gpu_fyi_tests",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Linux|Builder",
         short_name = "rel",
     ),
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.gpu.linux_builder(
@@ -630,14 +629,14 @@ ci.gpu.linux_builder(
         configs = [
             "gpu_fyi_tests",
             "debug_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Linux|Builder",
         short_name = "dbg",
     ),
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 ci.gpu.linux_builder(
@@ -662,7 +661,7 @@ ci.gpu.linux_builder(
             "gpu_fyi_tests",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             "tsan",
         ],
     ),
@@ -693,7 +692,7 @@ ci.gpu.mac_builder(
             "gpu_fyi_tests",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             "x64",
         ],
     ),
@@ -724,7 +723,7 @@ ci.gpu.mac_builder(
             "gpu_fyi_tests",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             "asan",
             "x64",
         ],
@@ -755,7 +754,7 @@ ci.gpu.mac_builder(
         configs = [
             "gpu_fyi_tests",
             "debug_builder",
-            "reclient",
+            "remoteexec",
             "x64",
         ],
     ),
@@ -787,7 +786,7 @@ ci.gpu.mac_builder(
             "gpu_fyi_tests",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             "arm64",
         ],
     ),
@@ -1125,10 +1124,10 @@ ci.thin_tester(
         run_tests_serially = True,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "Mac|AMD|Retina",
-        short_name = "exp",
-    ),
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "Mac|AMD|Retina",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -1748,14 +1747,14 @@ gpu_fyi_windows_builder(
             "gpu_fyi_tests",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Windows|Builder|Release",
         short_name = "a64",
     ),
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 gpu_fyi_windows_builder(
@@ -1779,7 +1778,7 @@ gpu_fyi_windows_builder(
             "gpu_fyi_tests",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             "x86",
         ],
     ),
@@ -1787,7 +1786,7 @@ gpu_fyi_windows_builder(
         category = "Windows|Builder|Release",
         short_name = "x86",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 gpu_fyi_windows_builder(
@@ -1811,7 +1810,7 @@ gpu_fyi_windows_builder(
             "gpu_fyi_tests",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
             # Remove this once the decision to use cross-compilation or not in
             # crbug.com/1510985 is made.
             "win_cross",
@@ -1821,7 +1820,7 @@ gpu_fyi_windows_builder(
         category = "Windows|Builder|Release",
         short_name = "x64",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 gpu_fyi_windows_builder(
@@ -1844,14 +1843,14 @@ gpu_fyi_windows_builder(
         configs = [
             "gpu_fyi_tests",
             "debug_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Windows|Builder|Debug",
         short_name = "x64",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 gpu_fyi_windows_builder(
@@ -1876,14 +1875,14 @@ gpu_fyi_windows_builder(
             "dx12vk",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Windows|Builder|dx12vk",
         short_name = "rel",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 gpu_fyi_windows_builder(
@@ -1907,14 +1906,14 @@ gpu_fyi_windows_builder(
             "gpu_fyi_tests",
             "dx12vk",
             "debug_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Windows|Builder|dx12vk",
         short_name = "dbg",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
 gpu_fyi_windows_builder(
@@ -1945,12 +1944,12 @@ gpu_fyi_windows_builder(
             "gpu_fyi_tests",
             "release_builder",
             "try_builder",
-            "reclient",
+            "remoteexec",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Windows|Builder|XR",
         short_name = "x64",
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )

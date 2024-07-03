@@ -7,53 +7,99 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
-#include <initializer_list>
 #include <memory>
 #include <optional>
+#include <ostream>  // IWYU pragma: keep (https://github.com/clangd/clangd/issues/2053)
+#include <string>  // IWYU pragma: keep (for String::Utf8())
 #include <type_traits>
+#include <utility>
+#include <vector>
 
+#include "base/check.h"
 #include "base/check_deref.h"
-#include "base/logging.h"
+#include "base/check_op.h"
+#include "base/compiler_specific.h"
+#include "base/containers/span.h"
+#include "base/feature_list.h"
+#include "base/location.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/numerics/checked_math.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/task/single_thread_task_runner.h"
-#include "cc/paint/paint_filter.h"
+#include "base/time/time.h"
+#include "base/trace_event/trace_event.h"
+#include "cc/paint/paint_canvas.h"
 #include "cc/paint/paint_flags.h"
+#include "cc/paint/paint_image.h"
+#include "cc/paint/record_paint_canvas.h"
 #include "cc/paint/refcounted_buffer.h"
+#include "gpu/command_buffer/common/sync_token.h"
+#include "media/base/video_frame.h"
+#include "media/base/video_frame_metadata.h"
+#include "media/base/video_transformation.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/privacy_budget/identifiability_metrics.h"
+#include "third_party/blink/public/common/metrics/document_update_reason.h"
+#include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
+#include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_object_objectarray_string.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_begin_layer_options.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_webgpu_access_option.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_2d_gpu_transfer_option.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_font_stretch.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_text_rendering.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_texture_format.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_typedefs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_union_canvasfilter_string.h"
-#include "third_party/blink/renderer/core/css/cssom/css_color_value.h"
+#include "third_party/blink/renderer/core/css/css_property_names.h"
+#include "third_party/blink/renderer/core/css/css_value.h"
+#include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_mode.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/css/resolver/style_builder_converter.h"
+#include "third_party/blink/renderer/core/css/style_color.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/text_link_colors.h"
+#include "third_party/blink/renderer/core/event_type_names.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
+#include "third_party/blink/renderer/core/geometry/dom_matrix.h"
+#include "third_party/blink/renderer/core/geometry/dom_matrix_read_only.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_context_creation_attributes_core.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_font_cache.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_image_source.h"
+#include "third_party/blink/renderer/core/html/canvas/canvas_performance_monitor.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
+#include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context_host.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
+#include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/canvas/text_metrics.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/paint/filter_effect_builder.h"
+#include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/core/style/filter_operations.h"
+#include "third_party/blink/renderer/core/typed_arrays/array_buffer_view_helpers.h"
+#include "third_party/blink/renderer/core/typed_arrays/dom_typed_array.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_filter.h"
-#include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_filter_operation_resolver.h"
+#include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_gradient.h"
+#include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_image_source_util.h"
+#include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_path.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_pattern.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d_state.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_style.h"
+#include "third_party/blink/renderer/modules/canvas/canvas2d/identifiability_study_helper.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/mesh_2d_index_buffer.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/mesh_2d_uv_buffer.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/mesh_2d_vertex_buffer.h"
@@ -65,32 +111,118 @@
 #include "third_party/blink/renderer/modules/webgpu/gpu.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_device.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_texture.h"
-#include "third_party/blink/renderer/modules/webgpu/gpu_texture_usage.h"
-#include "third_party/blink/renderer/platform/bindings/string_resource.h"
+#include "third_party/blink/renderer/platform/bindings/exception_code.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/fonts/font.h"
+#include "third_party/blink/renderer/platform/fonts/font_description.h"
+#include "third_party/blink/renderer/platform/fonts/font_selection_types.h"
 #include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
+#include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/graphics/filters/paint_filter_builder.h"
-#include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/dawn_control_client_holder.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/webgpu_cpp.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_mailbox_texture.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
+#include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/image_data_buffer.h"
+#include "third_party/blink/renderer/platform/graphics/image_orientation.h"
+#include "third_party/blink/renderer/platform/graphics/interpolation_space.h"
+#include "third_party/blink/renderer/platform/graphics/memory_managed_paint_canvas.h"  // IWYU pragma: keep (https://github.com/clangd/clangd/issues/2044)
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
+#include "third_party/blink/renderer/platform/graphics/paint/paint_filter.h"
+#include "third_party/blink/renderer/platform/graphics/path.h"
+#include "third_party/blink/renderer/platform/graphics/pattern.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/stroke_data.h"
 #include "third_party/blink/renderer/platform/graphics/video_frame_image_util.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/image-encoders/image_encoder_utils.h"
+#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/heap/visitor.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/privacy_budget/identifiability_digest_helpers.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/text/text_direction.h"
+#include "third_party/blink/renderer/platform/text/text_run.h"
+#include "third_party/blink/renderer/platform/text/unicode_bidi.h"
+#include "third_party/blink/renderer/platform/timer.h"
+#include "third_party/blink/renderer/platform/transforms/affine_transform.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "third_party/blink/renderer/platform/wtf/math_extras.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_view.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
+#include "third_party/perfetto/include/perfetto/tracing/event_context.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
+#include "third_party/skia/include/core/SkAlphaType.h"
+#include "third_party/skia/include/core/SkBitmap.h"
+#include "third_party/skia/include/core/SkBlendMode.h"
+#include "third_party/skia/include/core/SkClipOp.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "third_party/skia/include/core/SkImageInfo.h"
+#include "third_party/skia/include/core/SkM44.h"
+#include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/core/SkPath.h"
+#include "third_party/skia/include/core/SkPathTypes.h"
+#include "third_party/skia/include/core/SkPixmap.h"
+#include "third_party/skia/include/core/SkPoint.h"
+#include "third_party/skia/include/core/SkRect.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
+#include "third_party/skia/include/core/SkSamplingOptions.h"
+#include "third_party/skia/include/core/SkScalar.h"
+#include "third_party/skia/include/private/base/SkTo.h"
+#include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/quad_f.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/size.h"
+#include "ui/gfx/geometry/size_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
+#include "ui/gfx/geometry/vector2d.h"
+#include "ui/gfx/geometry/vector2d_f.h"
+#include "v8/include/v8-local-handle.h"
+
+// Including "base/time/time.h" triggers a bug in IWYU.
+// https://github.com/include-what-you-use/include-what-you-use/issues/1122
+// IWYU pragma: no_include "base/numerics/clamped_math.h"
+
+// UMA Histogram macros trigger a bug in IWYU.
+// https://github.com/include-what-you-use/include-what-you-use/issues/1546
+// IWYU pragma: no_include <atomic>
+// IWYU pragma: no_include <string_view>
+// IWYU pragma: no_include "base/metrics/histogram_base.h"
+
+// `base::HashingLRUCache` uses a std::list internally and a bug in IWYU leaks
+// that implementation detail.
+// https://github.com/include-what-you-use/include-what-you-use/issues/1539
+// IWYU pragma: no_include <list>
+
+enum SkColorType : int;
+
+namespace gpu {
+struct Mailbox;
+}  // namespace gpu
+
+namespace v8 {
+class Isolate;
+class Value;
+}  // namespace v8
 
 namespace blink {
+
+class DOMMatrixInit;
+class FontSelector;
+class ImageDataSettings;
+class ScriptState;
+class SimpleFontData;
+
+using ::cc::UsePaintCache;
 
 BASE_FEATURE(kDisableCanvasOverdrawOptimization,
              "DisableCanvasOverdrawOptimization",
@@ -250,8 +382,9 @@ void BaseRenderingContext2D::beginLayer(ScriptState* script_state,
       return;
     }
 
+    const gfx::SizeF canvas_viewport(Width(), Height());
     FilterEffectBuilder filter_effect_builder(
-        gfx::RectF(Width(), Height()),
+        gfx::RectF(canvas_viewport), canvas_viewport,
         1.0f,  // Deliberately ignore zoom on the canvas element.
         Color::kBlack, mojom::blink::ColorScheme::kLight);
 
@@ -313,20 +446,19 @@ class ScopedResetCtm {
   ScopedResetCtm(const CanvasRenderingContext2DState& state,
                  cc::PaintCanvas& canvas) : canvas_(canvas) {
     if (!state.GetTransform().IsIdentity()) {
-      ctm_to_restore_ = canvas_.getLocalToDevice();
-      ctm_to_restore_->dump();
-      canvas_.save();
-      canvas_.setMatrix(SkM44());
+      ctm_to_restore_ = canvas_->getLocalToDevice();
+      canvas_->save();
+      canvas_->setMatrix(SkM44());
     }
   }
   ~ScopedResetCtm() {
     if (ctm_to_restore_.has_value()) {
-      canvas_.setMatrix(*ctm_to_restore_);
+      canvas_->setMatrix(*ctm_to_restore_);
     }
   }
 
  private:
-  cc::PaintCanvas& canvas_;
+  const raw_ref<cc::PaintCanvas> canvas_;
   std::optional<SkM44> ctm_to_restore_;
 };
 
@@ -574,12 +706,16 @@ void BaseRenderingContext2D::ResetInternal() {
     recorder->RestartRecording();
   }
 
-  // If we are in WebGPU access, orphan the texture. The canvas no longer needs
-  // it, but the Javascript program can continue using the texture indefinitely.
-  // The texture will eventually be garbage collected when there are no more
-  // Javascript references. From the canvas' perspective, nulling out this
-  // texture effectively ends the WebGPU access session.
-  webgpu_access_texture_ = nullptr;
+  // If a WebGPU transfer texture exists, we must destroy it immediately. We
+  // can't allow it to continue to exist, as it would be subject to Javascript
+  // garbage-collection and could vanish any time Oilpan runs a sweep. Normally
+  // it's okay for Oilpan to delete GPUTextures, since Dawn maintains its own
+  // ownership graph of GPU resources, but in our case, destruction of the
+  // GPUTexture will also result in destruction of the associated SharedImage.
+  if (webgpu_access_texture_) {
+    webgpu_access_texture_->destroy();
+    webgpu_access_texture_ = nullptr;
+  }
 
   // Clear the frame in case a flush previously drew to the canvas surface.
   if (cc::PaintCanvas* c = GetPaintCanvas()) {
@@ -1389,7 +1525,7 @@ static SkPathFillType ParseWinding(const String& winding_rule_string) {
   if (winding_rule_string == "evenodd")
     return SkPathFillType::kEvenOdd;
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return SkPathFillType::kEvenOdd;
 }
 
@@ -1980,7 +2116,8 @@ void BaseRenderingContext2D::drawImage(CanvasImageSource* image_source,
     }
   } else {
     image = image_source->GetSourceImageForCanvas(
-        FlushReason::kDrawImage, &source_image_status, default_object_size);
+        FlushReason::kDrawImage, &source_image_status, default_object_size,
+        kPremultiplyAlpha);
     if (source_image_status == kUndecodableSourceImageStatus) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kInvalidStateError,
@@ -2181,7 +2318,8 @@ CanvasPattern* BaseRenderingContext2D::createPattern(
   gfx::SizeF default_object_size(Width(), Height());
   scoped_refptr<Image> image_for_rendering =
       image_source->GetSourceImageForCanvas(FlushReason::kCreatePattern,
-                                            &status, default_object_size);
+                                            &status, default_object_size,
+                                            kPremultiplyAlpha);
 
   switch (status) {
     case kNormalSourceImageStatus:
@@ -2217,7 +2355,7 @@ CanvasPattern* BaseRenderingContext2D::createPattern(
           "layers are open in the source canvas.");
       return nullptr;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return nullptr;
   }
 
@@ -2310,7 +2448,7 @@ void BaseRenderingContext2D::drawMesh(
   SourceImageStatus source_image_status = kInvalidSourceImageStatus;
   scoped_refptr<Image> image = image_source->GetSourceImageForCanvas(
       FlushReason::kDrawMesh, &source_image_status,
-      gfx::SizeF(Width(), Height()));
+      gfx::SizeF(Width(), Height()), kPremultiplyAlpha);
   switch (source_image_status) {
     case kUndecodableSourceImageStatus:
       exception_state.ThrowDOMException(
@@ -2435,6 +2573,7 @@ ImageData* BaseRenderingContext2D::getImageData(
   return getImageDataInternal(sx, sy, sw, sh, image_data_settings,
                               exception_state);
 }
+perfetto::EventContext GetEventContext();
 
 ImageData* BaseRenderingContext2D::getImageDataInternal(
     int sx,
@@ -2699,7 +2838,8 @@ void BaseRenderingContext2D::putImageData(ImageData* data,
         return;
       }
       if (!converted_bitmap.writePixels(data_pixmap, 0, 0))
-        NOTREACHED() << "Failed to convert ImageData with writePixels.";
+        NOTREACHED_IN_MIGRATION()
+            << "Failed to convert ImageData with writePixels.";
 
       PutByteArray(converted_bitmap.pixmap(), source_rect, dest_offset);
       if (GetPaintCanvas()) {
@@ -3031,7 +3171,7 @@ static inline TextDirection ToTextDirection(
     case CanvasRenderingContext2DState::kDirectionLTR:
       return TextDirection::kLtr;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return TextDirection::kLtr;
 }
 
@@ -3465,8 +3605,8 @@ V8GPUTextureFormat BaseRenderingContext2D::getTextureFormat() const {
   return *format;
 }
 
-GPUTexture* BaseRenderingContext2D::beginWebGPUAccess(
-    const CanvasWebGPUAccessOption* access_options,
+GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
+    const Canvas2dGPUTransferOption* access_options,
     ExceptionState& exception_state) {
   if (!OriginClean()) {
     exception_state.ThrowSecurityError(
@@ -3478,15 +3618,6 @@ GPUTexture* BaseRenderingContext2D::beginWebGPUAccess(
   if (!blink_device) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "GPUDevice cannot be null.");
-    return nullptr;
-  }
-
-  // Prevent unbalanced calls to beginWebGPUAccess without a later call to
-  // endWebGPUAccess.
-  if (webgpu_access_texture_) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
-        "This canvas is already in use by WebGPU.");
     return nullptr;
   }
 
@@ -3502,19 +3633,45 @@ GPUTexture* BaseRenderingContext2D::beginWebGPUAccess(
     return nullptr;
   }
 
-  // We can't rely on the HTMLCanvasElement, because the canvas may not actually
-  // exist in the HTML. (e.g. `new OffscreenCanvas` has no HTML element.)
-  // We also can't use GetImage() here, because that will return null if the
-  // canvas is brand new. We always want an image, even if the canvas doesn't
-  // have a bridge yet.
+  // Prepare to flush the canvas to a WebGPU texture.
   FinalizeFrame(FlushReason::kWebGPUTexture);
+
+  // We will need to access the canvas' resource provider in order to snapshot
+  // its image below.
   CanvasRenderingContextHost* host = GetCanvasRenderingContextHost();
-  scoped_refptr<StaticBitmapImage> image =
-      host->GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU)
-          ->Snapshot(FlushReason::kWebGPUTexture);
-  if (!image) {
+  if (!host) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Unable to access canvas image.");
+    return nullptr;
+  }
+
+  // Ensure that the canvas host lives on the GPU. This call is a no-op if the
+  // host is already accelerated.
+  // TODO(crbug.com/340911120): if the user requested WillReadFrequently, do we
+  // want to behave differently here?
+  const bool host_is_accelerated = host->EnableAcceleration();
+
+  // A texture needs to exist on the GPU. If we aren't able to enable
+  // acceleration, the canvas pixels live on the CPU and we weren't able to
+  // transfer them; in that case, WebGPU access is not possible.
+  CanvasResourceProvider* provider =
+      host->GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU);
+  if (!host_is_accelerated || !provider || !provider->IsAccelerated()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Unable to transfer canvas to GPU.");
+    return nullptr;
+  }
+
+  // Snapshot the image from the CanvasResourceProvider.
+  // We use Snapshot instead of GetImage here to ensure that we get an image,
+  // even if the canvas is empty.
+  // TODO(crbug.com/340922308): when possible, we should steal the existing
+  // texture from the resource provider, instead of cloning it.
+  scoped_refptr<StaticBitmapImage> image =
+      provider->Snapshot(FlushReason::kWebGPUTexture);
+  if (!image) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Unable to snapshot the canvas image.");
     return nullptr;
   }
 
@@ -3527,13 +3684,23 @@ GPUTexture* BaseRenderingContext2D::beginWebGPUAccess(
           /*is_dummy_mailbox_texture=*/false);
   if (!texture) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "Unable to access canvas texture.");
+                                      "Unable to transfer canvas to WebGPU.");
     return nullptr;
+  }
+
+  // If `transferToGPUTexture` is called twice without an intervening call to
+  // `transferBackFromGPUTexture`, the previously-generated texture is
+  // immediately destroyed.
+  if (webgpu_access_texture_) {
+    webgpu_access_texture_->destroy();
   }
 
   webgpu_access_texture_ = MakeGarbageCollected<GPUTexture>(
       blink_device, AsDawnType(image_info.colorType()), tex_usage,
       std::move(texture), access_options->getLabelOr(String()));
+
+  // TODO(crbug.com/343211830): we should take away the canvas' resource
+  // provider here.
 
   return webgpu_access_texture_;
 }
@@ -3542,7 +3709,7 @@ bool BaseRenderingContext2D::CopyGPUTextureToResourceProvider(
     GPUTexture& texture,
     CanvasResourceProvider& resource_provider) {
   // Get the GPU mailbox associated with the WebGPU access texture. This texture
-  // always originates from `beginWebGPUAccess`, so we should always find a
+  // always originates from `transferToWebGPU`, so we should always find a
   // shared-image mailbox here.
   scoped_refptr<WebGPUMailboxTexture> mailbox_texture =
       texture.GetMailboxTexture();
@@ -3578,29 +3745,39 @@ bool BaseRenderingContext2D::CopyGPUTextureToResourceProvider(
   return true;
 }
 
-void BaseRenderingContext2D::endWebGPUAccess(ExceptionState& exception_state) {
+void BaseRenderingContext2D::transferBackFromGPUTexture(
+    ExceptionState& exception_state) {
   // If the context is lost or doesn't exist, this call should be a no-op.
   // We don't want to throw an exception or attempt any changes if
-  // `endWebGPUAccess` is called during teardown.
+  // `transferBackFromWebGPU` is called during teardown.
   CanvasRenderingContextHost* host = GetCanvasRenderingContextHost();
   if (UNLIKELY(!host) || UNLIKELY(isContextLost())) {
     return;
   }
+
+  // Prevent unbalanced calls to transferBackFromGPUTexture without an earlier
+  // call to transferToGPUTexture.
+  if (!webgpu_access_texture_) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "This canvas is not currently in use by WebGPU.");
+    return;
+  }
+
+  if (webgpu_access_texture_->Destroyed()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "The texture has been destroyed.");
+    return;
+  }
+
+  // TODO(crbug.com/343211830): if this canvas already has a resource provider,
+  // we should raise an exception and prevent transferring back.
 
   // Get the CanvasResourceProvider of this canvas. As above, if the canvas
   // resource provider doesn't exist, this call becomes a no-op.
   CanvasResourceProvider* resource_provider =
       host->GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU);
   if (UNLIKELY(!resource_provider)) {
-    return;
-  }
-
-  // Prevent unbalanced calls to endWebGPUAccess without an earlier call to
-  // beginWebGPUAccess.
-  if (!webgpu_access_texture_) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
-        "This canvas is not currently in use by WebGPU.");
     return;
   }
 
@@ -3612,7 +3789,7 @@ void BaseRenderingContext2D::endWebGPUAccess(ExceptionState& exception_state) {
   }
 
   // Destroy the WebGPU texture to prevent it from being used after
-  // endWebGPUAccess.
+  // `transferBackFromGPUTexture`.
   webgpu_access_texture_->destroy();
 
   // We are finished with the WebGPU texture and its associated device.

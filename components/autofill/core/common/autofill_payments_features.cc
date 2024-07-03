@@ -4,24 +4,9 @@
 
 #include "components/autofill/core/common/autofill_payments_features.h"
 
-#include <string>
-
-#include "base/command_line.h"
-#include "base/feature_list.h"
-#include "base/metrics/field_trial_params.h"
-#include "base/strings/string_number_conversions.h"
-#include "base/strings/string_util.h"
-#include "base/strings/utf_string_conversions.h"
-#include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "components/autofill/core/common/autofill_prefs.h"
-#include "components/autofill/core/common/autofill_switches.h"
-#include "components/prefs/pref_service.h"
-#include "ui/base/l10n/l10n_util.h"
 
 namespace autofill::features {
-
-// Features
 
 // When enabled, Android N+ devices will be supported for FIDO authentication.
 BASE_FEATURE(kAutofillEnableAndroidNKeyForFidoAuthentication,
@@ -32,11 +17,7 @@ BASE_FEATURE(kAutofillEnableAndroidNKeyForFidoAuthentication,
 // Payments Autofill UI.
 BASE_FEATURE(kAutofillEnableCardArtImage,
              "AutofillEnableCardArtImage",
-#if BUILDFLAG(IS_IOS)
              base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 // When enabled, server will return card art images of the exact required
 // dimension.
@@ -66,11 +47,7 @@ BASE_FEATURE(kAutofillEnableCardBenefitsSync,
 // Payments Autofill UI.
 BASE_FEATURE(kAutofillEnableCardProductName,
              "AutofillEnableCardProductName",
-#if BUILDFLAG(IS_IOS)
              base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 // When enabled, we will store CVC for both local and server credit cards. This
 // will also allow the users to autofill their CVCs on checkout pages.
@@ -209,7 +186,11 @@ BASE_FEATURE(kAutofillEnableVerveCardSupport,
 // when the virtual card is presented to users.
 BASE_FEATURE(kAutofillEnableVirtualCardMetadata,
              "AutofillEnableVirtualCardMetadata",
+#if BUILDFLAG(IS_IOS)
              base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 // When enabled, Autofill will attempt to find standalone CVC fields for VCN
 // card on file when parsing forms.
@@ -225,12 +206,6 @@ BASE_FEATURE(kAutofillSkipAndroidBottomSheetForIban,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-// When enabled, GPay-related links direct to the newer GPay Web site instead of
-// the legacy Payments Center.
-BASE_FEATURE(kAutofillUpdateChromeSettingsLinkToGPayWeb,
-             "AutofillUpdateChromeSettingsLinkToGPayWeb",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Controls offering credit card upload to Google Payments. Cannot ever be
 // ENABLED_BY_DEFAULT because the feature state depends on the user's country.
 // The set of launched countries is listed in autofill_experiments.cc, and this
@@ -239,6 +214,14 @@ BASE_FEATURE(kAutofillUpdateChromeSettingsLinkToGPayWeb,
 BASE_FEATURE(kAutofillUpstream,
              "AutofillUpstream",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, shows different text and images in the UI of the credit card
+// upload save bubble.
+BASE_FEATURE(kAutofillUpstreamUpdatedUi,
+             "AutofillUpstreamUpdatedUi",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kAutofillUpstreamUpdatedUiTreatment{
+    &kAutofillUpstreamUpdatedUi, "autofill_upstream_updated_ui_treatment", 0};
 
 #if BUILDFLAG(IS_IOS)
 // When enabled, use two '•' when displaying the last four digits of a credit
@@ -253,6 +236,14 @@ BASE_FEATURE(kAutofillEnableVirtualCards,
              "AutofillEnableVirtualCards",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, eWallet accounts are synced from the Google Payments servers
+// and displayed on the payment methods settings page.
+BASE_FEATURE(kAutofillSyncEwalletAccounts,
+             "AutofillSyncEwalletAccounts",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 bool ShouldShowImprovedUserConsentForCreditCardSave() {
 // TODO(crbug.com/40118868): Revisit the macro expression once build flag switch

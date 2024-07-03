@@ -858,6 +858,10 @@ void FakeShillManagerClient::SetManagerProperty(const std::string& key,
   SetProperty(key, value, base::DoNothing(), base::BindOnce(&LogErrorCallback));
 }
 
+base::Value::Dict FakeShillManagerClient::GetStubProperties() {
+  return stub_properties_.Clone();
+}
+
 void FakeShillManagerClient::AddManagerService(const std::string& service_path,
                                                bool notify_observers) {
   VLOG(2) << "AddManagerService: " << service_path;
@@ -1406,6 +1410,7 @@ void FakeShillManagerClient::SetDefaultProperties() {
                shill::kP2PCapabilitiesGroupReadinessReady)
           .Set(shill::kP2PCapabilitiesClientReadinessProperty,
                shill::kP2PCapabilitiesClientReadinessReady)
+          .Set(shill::kP2PCapabilitiesP2PSupportedProperty, true)
           .Set(shill::kP2PCapabilitiesSupportedChannelsProperty,
                base::Value::List().Append(1).Append(2))
           .Set(shill::kP2PCapabilitiesPreferredChannelsProperty,

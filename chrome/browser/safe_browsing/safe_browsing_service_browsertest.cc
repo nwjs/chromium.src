@@ -197,7 +197,7 @@ std::string ContextTypeToString(ContextType context_type) {
       return "service-worker";
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return std::string();
 }
 
@@ -209,7 +209,7 @@ std::string JsRequestTypeToString(JsRequestType request_type) {
       return "fetch";
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return std::string();
 }
 
@@ -241,7 +241,7 @@ GURL ConstructJsRequestURL(const GURL& base_url, JsRequestType request_type) {
     case JsRequestType::kFetch:
       return base_url.Resolve(kMalwarePage);
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return GURL();
 }
 
@@ -437,12 +437,10 @@ class TestSBClient : public base::RefCountedThreadSafe<TestSBClient>,
 class V4SafeBrowsingServiceTest : public InProcessBrowserTest {
  public:
   V4SafeBrowsingServiceTest() {
-    // TODO(crbug.com/40941453): Remove kSafeBrowsingAsyncRealTimeCheck from
-    // disabled features list.
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{safe_browsing::
                                   kCreateWarningShownClientSafeBrowsingReports},
-        /*disabled_features=*/{safe_browsing::kSafeBrowsingAsyncRealTimeCheck});
+        /*disabled_features=*/{});
   }
 
   V4SafeBrowsingServiceTest(const V4SafeBrowsingServiceTest&) = delete;

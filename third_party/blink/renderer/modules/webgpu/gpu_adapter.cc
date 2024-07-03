@@ -59,6 +59,8 @@ std::optional<V8GPUFeatureName::Enum> ToV8FeatureNameEnum(wgpu::FeatureName f) {
       return V8GPUFeatureName::Enum::kShaderF16;
     case wgpu::FeatureName::Float32Filterable:
       return V8GPUFeatureName::Enum::kFloat32Filterable;
+    case wgpu::FeatureName::DualSourceBlending:
+      return V8GPUFeatureName::Enum::kDualSourceBlending;
     default:
       return std::nullopt;
   }
@@ -155,6 +157,20 @@ GPUAdapter::GPUAdapter(
 
   GetHandle().GetLimits(&limits);
   limits_ = MakeGarbageCollected<GPUSupportedLimits>(limits);
+
+  if (RuntimeEnabledFeatures::WebGPUDeveloperFeaturesEnabled()) {
+    // If WebGPU developer features have been enabled then provide all available
+    // adapter info values.
+    info_ = MakeGarbageCollected<GPUAdapterInfo>(
+        vendor_, architecture_, device_, description_, driver_,
+        FromDawnEnum(backend_type_), FromDawnEnum(adapter_type_),
+        d3d_shader_model_, vk_driver_version_);
+    for (GPUMemoryHeapInfo* memory_heap : memory_heaps_) {
+      info_->AppendMemoryHeapInfo(memory_heap);
+    }
+  } else {
+    info_ = MakeGarbageCollected<GPUAdapterInfo>(vendor_, architecture_);
+  }
 }
 
 void GPUAdapter::AddConsoleWarning(ExecutionContext* execution_context,
@@ -182,6 +198,10 @@ GPUSupportedFeatures* GPUAdapter::features() const {
   return features_.Get();
 }
 
+GPUAdapterInfo* GPUAdapter::info() const {
+  return info_.Get();
+}
+
 bool GPUAdapter::isFallbackAdapter() const {
   return is_fallback_adapter_;
 }
@@ -202,12 +222,9 @@ void GPUAdapter::OnRequestDeviceCallback(
     ScriptState* script_state,
     const GPUDeviceDescriptor* descriptor,
     ScriptPromiseResolver<GPUDevice>* resolver,
-    WGPURequestDeviceStatus cStatus,
-    WGPUDevice cDevice,
+    wgpu::RequestDeviceStatus status,
+    wgpu::Device dawn_device,
     const char* error_message) {
-  wgpu::RequestDeviceStatus status =
-      static_cast<wgpu::RequestDeviceStatus>(cStatus);
-  wgpu::Device dawn_device = wgpu::Device::Acquire(cDevice);
   switch (status) {
     case wgpu::RequestDeviceStatus::Success: {
       DCHECK(dawn_device);
@@ -327,7 +344,8 @@ ScriptPromise<GPUDevice> GPUAdapter::requestDevice(
       WTF::BindOnce(&GPUAdapter::OnRequestDeviceCallback, WrapPersistent(this),
                     WrapPersistent(script_state), WrapPersistent(descriptor))));
 
-  GetHandle().RequestDevice(&dawn_desc, callback->UnboundCallback(),
+  GetHandle().RequestDevice(&dawn_desc, wgpu::CallbackMode::AllowSpontaneous,
+                            callback->UnboundCallback(),
                             callback->AsUserdata());
   EnsureFlush(ToEventLoop(script_state));
 
@@ -336,28 +354,14 @@ ScriptPromise<GPUDevice> GPUAdapter::requestDevice(
 
 ScriptPromise<GPUAdapterInfo> GPUAdapter::requestAdapterInfo(
     ScriptState* script_state) {
-  GPUAdapterInfo* adapter_info;
-  if (RuntimeEnabledFeatures::WebGPUDeveloperFeaturesEnabled()) {
-    // If WebGPU developer features have been enabled then provide all available
-    // adapter info values.
-    adapter_info = MakeGarbageCollected<GPUAdapterInfo>(
-        vendor_, architecture_, device_, description_, driver_,
-        FromDawnEnum(backend_type_), FromDawnEnum(adapter_type_),
-        d3d_shader_model_, vk_driver_version_);
-    for (GPUMemoryHeapInfo* memory_heap : memory_heaps_) {
-      adapter_info->AppendMemoryHeapInfo(memory_heap);
-    }
-  } else {
-    adapter_info = MakeGarbageCollected<GPUAdapterInfo>(vendor_, architecture_);
-  }
-
-  return ToResolvedPromise<GPUAdapterInfo>(script_state, adapter_info);
+  return ToResolvedPromise<GPUAdapterInfo>(script_state, info_);
 }
 
 void GPUAdapter::Trace(Visitor* visitor) const {
   visitor->Trace(gpu_);
   visitor->Trace(features_);
   visitor->Trace(limits_);
+  visitor->Trace(info_);
   visitor->Trace(memory_heaps_);
   ScriptWrappable::Trace(visitor);
 }

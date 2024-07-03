@@ -50,6 +50,7 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.lifecycle.TopResumedActivityChangedObserver;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
+import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
 import org.chromium.chrome.browser.tab.TabCreationState;
@@ -65,7 +66,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
-import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
+import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
@@ -384,7 +385,8 @@ public class StripLayoutHelperManager
             // TODO(crbug.com/40939440): Avoid passing the ToolbarManager instance. Potentially
             // implement an interface to manage strip transition states.
             @NonNull ToolbarManager toolbarManager,
-            @Nullable DesktopWindowStateProvider desktopWindowStateProvider) {
+            @Nullable DesktopWindowStateProvider desktopWindowStateProvider,
+            ActionConfirmationManager actionConfirmationManager) {
         Resources res = context.getResources();
         mUpdateHost = updateHost;
         mLayerTitleCacheSupplier = layerTitleCacheSupplier;
@@ -482,7 +484,7 @@ public class StripLayoutHelperManager
         mTabStripObscured = false;
 
         mTabHoverCardViewStub = tabHoverCardViewStub;
-        if (TabUiFeatureUtilities.isTabDragEnabled()) {
+        if (MultiWindowUtils.isMultiInstanceApi31Enabled()) {
             mTabDragSource =
                     new TabDragSource(
                             context,
@@ -510,7 +512,9 @@ public class StripLayoutHelperManager
                         mModelSelectorButton,
                         mTabDragSource,
                         toolbarContainerView,
-                        windowAndroid);
+                        windowAndroid,
+                        actionConfirmationManager,
+                        toolbarManager.getTabStripHeightSupplier().get());
         mIncognitoHelper =
                 new StripLayoutHelper(
                         context,
@@ -521,7 +525,9 @@ public class StripLayoutHelperManager
                         mModelSelectorButton,
                         mTabDragSource,
                         toolbarContainerView,
-                        windowAndroid);
+                        windowAndroid,
+                        actionConfirmationManager,
+                        toolbarManager.getTabStripHeightSupplier().get());
 
         tabHoverCardViewStub.setOnInflateListener(
                 (viewStub, view) -> {
@@ -699,9 +705,6 @@ public class StripLayoutHelperManager
     }
 
     private int getStripTransitionScrimColor() {
-        if (!ToolbarFeatures.shouldUseToolbarBgColorForStripTransitionScrim()) {
-            return getBackgroundColor();
-        }
         return mToolbarManager.getPrimaryColor();
     }
 

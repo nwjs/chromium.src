@@ -10,7 +10,7 @@
 
 #include "base/observer_list.h"
 #include "base/supports_user_data.h"
-#include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_entry_key.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_observer.h"
 
@@ -69,7 +69,6 @@ class SidePanelRegistry final : public base::SupportsUserData::Data,
 
   // SidePanelEntryObserver:
   void OnEntryShown(SidePanelEntry* id) override;
-  void OnEntryIconUpdated(SidePanelEntry* entry) override;
 
  private:
   std::unique_ptr<SidePanelEntry> RemoveEntry(SidePanelEntry* entry);

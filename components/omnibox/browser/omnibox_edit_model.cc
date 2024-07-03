@@ -1244,8 +1244,7 @@ bool OmniboxEditModel::MaybeAccelerateKeywordSelection(
     char16_t ch) {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Only check for acceleration when the current input text is "@" exactly.
-  if (input_text.size() != 1 ||
-      !input_text.starts_with('@') ||
+  if (input_text.size() != 1 || !input_text.starts_with('@') ||
       !history_embeddings::kAtKeywordAcceleration.Get()) {
     return false;
   }
@@ -1700,6 +1699,13 @@ gfx::Image OmniboxEditModel::GetMatchIcon(const AutocompleteMatch& match,
     return controller_->client()->GetSizedIcon(extension_icon);
   }
 
+  const TemplateURL* turl =
+      match.associated_keyword
+          ? controller_->client()
+                ->GetTemplateURLService()
+                ->GetTemplateURLForKeyword(match.associated_keyword->keyword)
+          : nullptr;
+
   // Get the favicon for navigational suggestions.
   //
   // The starter pack suggestions are a unique case. These suggestions
@@ -1716,10 +1722,16 @@ gfx::Image OmniboxEditModel::GetMatchIcon(const AutocompleteMatch& match,
     // all run one after another. This seems to be harmless as the callback
     // just flips a flag to schedule a repaint. However, if it turns out to be
     // costly, we can optimize away the redundant extra callbacks.
-    gfx::Image favicon = controller_->client()->GetFaviconForPageUrl(
-        match.destination_url,
+    gfx::Image favicon;
+    auto on_icon_fetched =
         base::BindOnce(&OmniboxEditModel::OnFaviconFetched,
-                       weak_factory_.GetWeakPtr(), match.destination_url));
+                       weak_factory_.GetWeakPtr(), match.destination_url);
+    favicon =
+        (turl && AutocompleteMatch::IsFeaturedEnterpriseSearchType(match.type))
+            ? controller_->client()->GetFaviconForKeywordSearchProvider(
+                  turl, std::move(on_icon_fetched))
+            : controller_->client()->GetFaviconForPageUrl(
+                  match.destination_url, std::move(on_icon_fetched));
 
     // Extension icons are the correct size for non-touch UI but need to be
     // adjusted to be the correct size for touch mode.
@@ -1729,12 +1741,6 @@ gfx::Image OmniboxEditModel::GetMatchIcon(const AutocompleteMatch& match,
   }
 
   bool is_starred_match = IsStarredMatch(match);
-  const TemplateURL* turl =
-      match.associated_keyword
-          ? controller_->client()
-                ->GetTemplateURLService()
-                ->GetTemplateURLForKeyword(match.associated_keyword->keyword)
-          : nullptr;
   const auto& vector_icon_type = match.GetVectorIcon(is_starred_match, turl);
 
   return controller_->client()->GetSizedIcon(vector_icon_type,
@@ -1821,12 +1827,13 @@ void OmniboxEditModel::SetPopupSelection(OmniboxPopupSelection new_selection,
                        std::u16string(), keyword, is_keyword_hint,
                        std::u16string(), AutocompleteMatch());
   } else if (old_selection.line != popup_selection_.line ||
-             (old_selection.IsButtonFocused() &&
-              !new_selection.IsButtonFocused() &&
+             (old_selection.state != OmniboxPopupSelection::KEYWORD_MODE &&
               new_selection.state != OmniboxPopupSelection::KEYWORD_MODE)) {
-    // Otherwise, only update the edit model for line number changes, or
-    // when the old selection was a button and we're not entering keyword mode.
-    // Updating the edit model for every state change breaks keyword mode.
+    // Don't update the edit model if entering or leaving keyword mode; doing so
+    // breaks keyword mode. Updating when there is no line change is necessary
+    // because omnibox text changes when:
+    // a) Moving down from a header row.
+    // b) Focusing other states; e.g. the switch-to-tab chip.
     if (reset_to_default) {
       OnPopupDataChanged(std::u16string(),
                          /*is_temporary_text=*/false,
@@ -1976,7 +1983,9 @@ std::u16string OmniboxEditModel::GetPopupAccessibilityLabelForCurrentSelection(
       DCHECK(match.GetActionAt(0u));
       return match.GetActionAt(0u)->GetLabelStrings().accessibility_hint;
     case OmniboxPopupSelection::FOCUSED_BUTTON_REMOVE_SUGGESTION:
-      additional_message_id = IDS_ACC_REMOVE_SUGGESTION_FOCUSED_PREFIX;
+      additional_message_id = match.IsIPHSuggestion()
+                                  ? IDS_ACC_DISMISS_CHROME_TIP_FOCUSED_PREFIX
+                                  : IDS_ACC_REMOVE_SUGGESTION_FOCUSED_PREFIX;
       break;
     default:
       break;
@@ -1996,6 +2005,34 @@ std::u16string OmniboxEditModel::GetPopupAccessibilityLabelForCurrentSelection(
   return AutocompleteMatchType::ToAccessibilityLabel(
       match, match_text, line, total_matches, additional_message,
       label_prefix_length);
+}
+
+std::u16string OmniboxEditModel::GetPopupAccessibilityLabelForIPHSuggestion() {
+  DCHECK(popup_view_);
+  DCHECK_NE(popup_selection_.line, OmniboxPopupSelection::kNoMatch)
+      << "GetPopupAccessibilityLabelForIPHSuggestion should never be called "
+         "if the current selection is kNoMatch.";
+
+  std::u16string label = u"";
+  size_t next_line = popup_selection_.line + 1;
+  if (next_line < autocomplete_controller()->result().size()) {
+    const AutocompleteMatch& next_match =
+        autocomplete_controller()->result().match_at(next_line);
+    if (next_match.IsIPHSuggestion()) {
+      label =
+          l10n_util::GetStringFUTF16(IDS_ACC_CHROME_TIP, next_match.contents);
+    }
+    if (!label.empty() &&
+        OmniboxPopupSelection(
+            next_line, OmniboxPopupSelection::FOCUSED_BUTTON_REMOVE_SUGGESTION)
+            .IsControlPresentOnMatch(autocomplete_controller()->result(),
+                                     GetPrefService())) {
+      label =
+          l10n_util::GetStringFUTF16(IDS_ACC_DISMISS_CHROME_TIP_SUFFIX, label);
+    }
+  }
+
+  return label;
 }
 
 void OmniboxEditModel::OnPopupResultChanged() {
@@ -2728,7 +2765,7 @@ std::u16string OmniboxEditModel::GetText() const {
   if (view_) {
     return view_->GetText();
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return u"";
   }
 }

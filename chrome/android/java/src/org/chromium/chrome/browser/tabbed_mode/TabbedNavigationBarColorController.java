@@ -29,10 +29,12 @@ import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
+import org.chromium.chrome.browser.keyboard_accessory.AccessorySheetVisualStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
 import org.chromium.chrome.browser.layouts.LayoutType;
+import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsVisualState;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -44,10 +46,12 @@ import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeSupplier.ChangeObse
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
-import org.chromium.components.browser_ui.widget.InsetObserver;
+import org.chromium.ui.InsetObserver;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.interpolators.Interpolators;
 import org.chromium.ui.util.ColorUtils;
+
+import java.util.Optional;
 
 /** Controls the bottom system navigation bar color for the provided {@link Window}. */
 @RequiresApi(Build.VERSION_CODES.O_MR1)
@@ -85,6 +89,7 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
     private @Nullable Tab mActiveTab;
     private TabObserver mTabObserver;
     @Nullable private @ColorInt Integer mBottomAttachedUiColor;
+    private boolean mForceShowDivider;
 
     private ValueAnimator mNavbarColorTransitionAnimation;
 
@@ -109,6 +114,11 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
      *     for changes to contextual search and the overlay panel.
      * @param bottomSheetController A {@link BottomSheetController} to interact with and watch for
      *     changes to the bottom sheet.
+     * @param omniboxSuggestionsVisualState An optional {@link OmniboxSuggestionsVisualState} for
+     *     access to the visual state of the omnibox suggestions.
+     * @param accessorySheetVisualStateSupplier Supplies an {@link
+     *     AccessorySheetVisualStateProvider} to watch for visual changes to the keyboard accessory
+     *     sheet.
      * @param insetObserver An {@link InsetObserver} to listen for changes to the window insets.
      */
     TabbedNavigationBarColorController(
@@ -120,7 +130,11 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
             @NonNull BrowserControlsStateProvider browserControlsStateProvider,
             @NonNull Supplier<SnackbarManager> snackbarManagerSupplier,
             @NonNull ObservableSupplier<ContextualSearchManager> contextualSearchManagerSupplier,
-            BottomSheetController bottomSheetController,
+            @NonNull BottomSheetController bottomSheetController,
+            Optional<OmniboxSuggestionsVisualState> omniboxSuggestionsVisualState,
+            @NonNull
+                    ObservableSupplier<AccessorySheetVisualStateProvider>
+                            accessorySheetVisualStateSupplier,
             InsetObserver insetObserver) {
         this(
                 window,
@@ -134,6 +148,8 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
                                 snackbarManagerSupplier.get(),
                                 contextualSearchManagerSupplier,
                                 bottomSheetController,
+                                omniboxSuggestionsVisualState,
+                                accessorySheetVisualStateSupplier,
                                 insetObserver)
                         : null);
     }
@@ -179,7 +195,10 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
                 new EmptyTabObserver() {
                     @Override
                     public void onBackgroundColorChanged(Tab tab, int color) {
-                        updateNavigationBarColor(getBottomInset());
+                        updateNavigationBarColor(
+                                getBottomInset(),
+                                /* forceShowDivider= */ false,
+                                /* disableAnimation= */ false);
                     }
                 };
         mFullscreenObserver =
@@ -209,7 +228,10 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
                     mEdgeToEdgeController = controller;
                     mEdgeToEdgeChangeObserver =
                             (bottomInset) -> {
-                                updateNavigationBarColor(bottomInset);
+                                updateNavigationBarColor(
+                                        bottomInset,
+                                        /* forceShowDivider= */ false,
+                                        /* disableAnimation= */ false);
                             };
                     mEdgeToEdgeController.registerObserver(mEdgeToEdgeChangeObserver);
                 };
@@ -248,9 +270,10 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
     }
 
     @Override
-    public void onBottomAttachedColorChanged(@Nullable @ColorInt Integer color) {
+    public void onBottomAttachedColorChanged(
+            @Nullable @ColorInt Integer color, boolean forceShowDivider, boolean disableAnimation) {
         mBottomAttachedUiColor = color;
-        updateNavigationBarColor();
+        updateNavigationBarColor(null, forceShowDivider, disableAnimation);
     }
 
     /**
@@ -298,11 +321,13 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
         if (mActiveTab != null) mActiveTab.removeObserver(mTabObserver);
         mActiveTab = activeTab;
         if (mActiveTab != null) mActiveTab.addObserver(mTabObserver);
-        updateNavigationBarColor(getBottomInset());
+        updateNavigationBarColor(
+                getBottomInset(), /* forceShowDivider= */ false, /* disableAnimation= */ false);
     }
 
     @SuppressLint("NewApi")
-    private void updateNavigationBarColor(@Nullable Integer bottomInset) {
+    private void updateNavigationBarColor(
+            @Nullable Integer bottomInset, boolean forceShowDivider, boolean disableAnimation) {
         boolean toEdge = bottomInset != null && bottomInset != 0;
         boolean forceDarkNavigation = mTabModelSelector.isIncognitoSelected();
 
@@ -313,12 +338,17 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
         final @ColorInt int newNavigationBarColor =
                 toEdge ? Color.TRANSPARENT : getNavigationBarColor(mForceDarkNavigationBarColor);
 
-        if (mNavigationBarColor == newNavigationBarColor) return;
+        if (mNavigationBarColor == newNavigationBarColor && mForceShowDivider == forceShowDivider) {
+            return;
+        }
 
         @ColorInt int currentNavigationBarColor = mNavigationBarColor;
         mNavigationBarColor = newNavigationBarColor;
+        mForceShowDivider = forceShowDivider;
 
-        if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled() && !toEdge) {
+        if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()
+                && !toEdge
+                && !disableAnimation) {
             animateNavigationBarColor(currentNavigationBarColor, newNavigationBarColor);
         } else {
             mWindow.setNavigationBarColor(mNavigationBarColor);
@@ -326,7 +356,7 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
             if (toEdge) return;
 
             setNavigationBarDividerColor(
-                    getNavigationBarDividerColor(mForceDarkNavigationBarColor));
+                    getNavigationBarDividerColor(mForceDarkNavigationBarColor, mForceShowDivider));
             UiUtils.setNavigationBarIconColor(
                     mRootView, !mForceDarkNavigationBarColor && mLightNavigationBar);
         }
@@ -350,7 +380,13 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
                                     currentNavigationBarColor, newNavigationBarColor, fraction);
                     mWindow.setNavigationBarColor(blendedColor);
 
-                    setNavigationBarDividerColor(blendedColor);
+                    if (mForceShowDivider) {
+                        setNavigationBarDividerColor(
+                                getNavigationBarDividerColor(
+                                        mForceDarkNavigationBarColor, mForceShowDivider));
+                    } else {
+                        setNavigationBarDividerColor(blendedColor);
+                    }
                     UiUtils.setNavigationBarIconColor(
                             mRootView,
                             ColorUtils.isHighLuminance(
@@ -361,7 +397,8 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
 
     @SuppressLint("NewApi")
     private void updateNavigationBarColor() {
-        updateNavigationBarColor(null);
+        updateNavigationBarColor(
+                null, /* forceShowDivider= */ false, /* disableAnimation= */ false);
     }
 
     @SuppressLint("NewApi")
@@ -387,7 +424,7 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             mWindow.setNavigationBarDividerColor(
                     applyCurrentScrimToColor(
-                            getNavigationBarDividerColor(mForceDarkNavigationBarColor)));
+                            getNavigationBarDividerColor(mForceDarkNavigationBarColor, false)));
         }
 
         // Adjust the color of navigation bar icons based on color state of the navigation bar.
@@ -406,7 +443,6 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
         if (useActiveTabColor()) {
             return mActiveTab.getBackgroundColor();
         }
-
         return forceDarkNavigationBar
                 ? mContext.getColor(R.color.toolbar_background_primary_dark)
                 : SemanticColorUtils.getBottomSystemNavColor(mWindow.getContext());
@@ -414,11 +450,11 @@ class TabbedNavigationBarColorController implements BottomAttachedUiObserver.Obs
 
     @VisibleForTesting
     @ColorInt
-    int getNavigationBarDividerColor(boolean forceDarkNavigationBar) {
-        if (useBottomAttachedUiColor()) {
+    int getNavigationBarDividerColor(boolean forceDarkNavigationBar, boolean forceShowDivider) {
+        if (!forceShowDivider && useBottomAttachedUiColor()) {
             return mBottomAttachedUiColor;
         }
-        if (useActiveTabColor()) {
+        if (!forceShowDivider && useActiveTabColor()) {
             return mActiveTab.getBackgroundColor();
         }
         return forceDarkNavigationBar

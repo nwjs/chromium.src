@@ -93,7 +93,7 @@ class DummyImageProvider : public ImageProvider {
   ~DummyImageProvider() override = default;
   ImageProvider::ScopedResult GetRasterContent(
       const DrawImage& draw_image) override {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return ScopedResult();
   }
 };
@@ -140,6 +140,10 @@ HeadsUpDisplayLayerImpl::HeadsUpDisplayLayerImpl(
 
 HeadsUpDisplayLayerImpl::~HeadsUpDisplayLayerImpl() {
   ReleaseResources();
+}
+
+mojom::LayerType HeadsUpDisplayLayerImpl::GetLayerType() const {
+  return mojom::LayerType::kHeadsUpDisplay;
 }
 
 std::unique_ptr<LayerImpl> HeadsUpDisplayLayerImpl::CreateLayerImpl(
@@ -410,10 +414,10 @@ void HeadsUpDisplayLayerImpl::UpdateHudTexture(
       DummyImageProvider image_provider;
       size_t max_op_size_limit =
           gpu::raster::RasterInterface::kDefaultMaxOpSizeHint;
-      ri->RasterCHROMIUM(display_item_list.get(), &image_provider, size,
-                         gfx::Rect(size), gfx::Rect(size), post_translate,
-                         post_scale, /*requires_clear=*/false,
-                         &max_op_size_limit);
+      ri->RasterCHROMIUM(
+          display_item_list.get(), &image_provider, size, gfx::Rect(size),
+          gfx::Rect(size), post_translate, post_scale, /*requires_clear=*/false,
+          /*raster_inducing_scroll_offsets=*/nullptr, &max_op_size_limit);
       ri->EndRasterCHROMIUM();
     } else {
       // If not using |gpu_raster| but using gpu compositing, DrawHudContents()
@@ -1316,10 +1320,6 @@ SkRect HeadsUpDisplayLayerImpl::DrawSmoothnessMetrics(PaintCanvas* canvas,
                                  "95th Percentile DF", percentile_smoothness);
 
   return area;
-}
-
-const char* HeadsUpDisplayLayerImpl::LayerTypeAsString() const {
-  return "cc::HeadsUpDisplayLayerImpl";
 }
 
 void HeadsUpDisplayLayerImpl::AsValueInto(

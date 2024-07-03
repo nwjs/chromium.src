@@ -27,6 +27,8 @@ mojom("mojom_platform") {
   sources = [
     "ad_tagging/ad_evidence.mojom",
     "aggregation_service/aggregatable_report.mojom",
+    "ai/ai_manager.mojom",
+    "ai/ai_text_session.mojom",
     "annotation/annotation.mojom",
     "app_banner/app_banner.mojom",
     "array_buffer/array_buffer_contents.mojom",
@@ -151,8 +153,6 @@ mojom("mojom_platform") {
     "mediastream/media_devices.mojom",
     "mediastream/media_stream.mojom",
     "mime/mime_registry.mojom",
-    "model_execution/model_manager.mojom",
-    "model_execution/model_session.mojom",
     "navigation/navigation_api_history_entry_arrays.mojom",
     "navigation/navigation_initiator_activation_and_ad_status.mojom",
     "navigation/navigation_policy.mojom",
@@ -223,11 +223,6 @@ mojom("mojom_platform") {
     "smart_card/smart_card.mojom",
     "sms/webotp_service.mojom",
     "speculation_rules/speculation_rules.mojom",
-    "speech/speech_recognition_error.mojom",
-    "speech/speech_recognition_error_code.mojom",
-    "speech/speech_recognition_grammar.mojom",
-    "speech/speech_recognition_result.mojom",
-    "speech/speech_recognizer.mojom",
     "speech/speech_synthesis.mojom",
     "storage_access/storage_access_automation.mojom",
     "subapps/sub_apps_service.mojom",
@@ -376,7 +371,7 @@ mojom("mojom_platform") {
   if (use_ozone) {
     enabled_features += [ "is_selection_clipboard_buffer_possible" ]
   }
-  if (is_android || is_apple) {
+  if (is_android || is_ios) {
     enabled_features += [ "is_using_open_color_chooser" ]
   }
   if (is_android || is_ios) {
@@ -1344,6 +1339,7 @@ mojom("mojom_core") {
     "page/draggable_region.mojom",
     "page/page.mojom",
     "page/page_visibility_state.mojom",
+    "page/prerender_page_param.mojom",
     "page/widget.mojom",
     "page_state/page_state.mojom",
 
@@ -1399,6 +1395,7 @@ mojom("mojom_core") {
     "//gpu/ipc/common:interfaces",
     "//mojo/public/mojom/base",
     "//services/network/public/mojom",
+    "//services/network/public/mojom:mojom_source_location",
     "//services/service_manager/public/mojom",
     "//services/viz/public/mojom",
     "//skia/public/mojom",

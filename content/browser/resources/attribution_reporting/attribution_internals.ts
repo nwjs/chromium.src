@@ -12,11 +12,12 @@ import {AggregatableResult} from './aggregatable_result.mojom-webui.js';
 import type {TriggerVerification} from './attribution.mojom-webui.js';
 import {AttributionSupport} from './attribution.mojom-webui.js';
 import type {AttributionDetailTableElement} from './attribution_detail_table.js';
-import type {HandlerInterface, ObserverInterface, ReportID, ReportStatus, WebUIDebugReport, WebUIOsRegistration, WebUIRegistration, WebUIReport, WebUISource, WebUISourceRegistration, WebUITrigger} from './attribution_internals.mojom-webui.js';
+import type {HandlerInterface, ObserverInterface, ReportID, ReportStatus, WebUIAggregatableDebugReport, WebUIDebugReport, WebUIOsRegistration, WebUIRegistration, WebUIReport, WebUISource, WebUISourceRegistration, WebUITrigger} from './attribution_internals.mojom-webui.js';
 import {Factory, HandlerRemote, ObserverReceiver, WebUISource_Attributability} from './attribution_internals.mojom-webui.js';
 import type {AttributionInternalsTableElement, CompareFunc, DataColumn, InitOpts, RenderFunc} from './attribution_internals_table.js';
 import {OsRegistrationResult, RegistrationType} from './attribution_reporting.mojom-webui.js';
 import {EventLevelResult} from './event_level_result.mojom-webui.js';
+import {ProcessAggregatableDebugReportResult} from './process_aggregatable_debug_report_result.mojom-webui.js';
 import {SourceType} from './source_type.mojom-webui.js';
 import {StoreSourceResult} from './store_source_result.mojom-webui.js';
 import {TriggerDataMatching} from './trigger_data_matching.mojom-webui.js';
@@ -217,11 +218,13 @@ interface Source {
   dedupKeys: bigint[];
   priority: bigint;
   status: string;
-  aggregatableBudgetConsumed: bigint;
+  remainingAggregatableAttributionBudget: number;
   aggregatableDedupKeys: bigint[];
   triggerDataMatching: string;
   eventLevelEpsilon: number;
   debugCookieSet: boolean;
+  remainingAggregatableDebugBudget: number;
+  aggregatableDebugKeyPiece: string;
 }
 
 function newSource(mojo: WebUISource): Source {
@@ -244,12 +247,15 @@ function newSource(mojo: WebUISource): Source {
     aggregationKeys: JSON.stringify(mojo.aggregationKeys, bigintReplacer, ' '),
     debugKey: mojo.debugKey ?? undefined,
     dedupKeys: mojo.dedupKeys.sort(compareDefault),
-    aggregatableBudgetConsumed: mojo.aggregatableBudgetConsumed,
+    remainingAggregatableAttributionBudget:
+        mojo.remainingAggregatableAttributionBudget,
     aggregatableDedupKeys: mojo.aggregatableDedupKeys.sort(compareDefault),
     triggerDataMatching: triggerDataMatchingText[mojo.triggerDataMatching],
     eventLevelEpsilon: mojo.eventLevelEpsilon,
     status: attributabilityText[mojo.attributability],
     debugCookieSet: mojo.debugCookieSet,
+    remainingAggregatableDebugBudget: mojo.remainingAggregatableDebugBudget,
+    aggregatableDebugKeyPiece: mojo.aggregatableDebugKeyPiece,
   };
 }
 
@@ -290,10 +296,18 @@ function initSourceTable(panel: HTMLElement):
         valueColumn(
             'Report Window Time', 'aggregatableReportWindowTime', asDate),
         valueColumn(
-            'Budget Consumed', 'aggregatableBudgetConsumed',
+            'Remaining Aggregatable Attribution Budget',
+            'remainingAggregatableAttributionBudget',
             asCustomNumber((v) => `${v} / ${BUDGET_PER_SOURCE}`)),
         valueColumn('Aggregation Keys', 'aggregationKeys', asCode),
         valueColumn('Dedup Keys', 'aggregatableDedupKeys', asList(asNumber)),
+        valueColumn(
+            'Remaining Aggregatable Debug Budget',
+            'remainingAggregatableDebugBudget',
+            asCustomNumber((v) => `${v} / ${BUDGET_PER_SOURCE}`)),
+        valueColumn(
+            'Aggregatable Debug Key Piece', 'aggregatableDebugKeyPiece',
+            asStringOrBool),
       ]);
 }
 
@@ -663,6 +677,54 @@ function attributionSuccessDebugReport(mojo: WebUIReport): DebugReport {
   };
 }
 
+const processAggregatableDebugReportResultText:
+    Readonly<Record<ProcessAggregatableDebugReportResult, string>> = {
+      [ProcessAggregatableDebugReportResult.kSuccess]: 'Success',
+      [ProcessAggregatableDebugReportResult.kNoDebugData]: 'No debug data',
+      [ProcessAggregatableDebugReportResult.kInsufficientBudget]:
+          'Insufficient budget',
+      [ProcessAggregatableDebugReportResult.kExcessiveReports]:
+          'Excessive reports',
+      [ProcessAggregatableDebugReportResult.kGlobalRateLimitReached]:
+          'Global rate-limit reached',
+      [ProcessAggregatableDebugReportResult.kReportingSiteRateLimitReached]:
+          'Per reporting site rate-limit reached',
+      [ProcessAggregatableDebugReportResult.kBothRateLimitsReached]:
+          'Both rate-limits reached',
+      [ProcessAggregatableDebugReportResult.kInternalError]: 'Internal error',
+    };
+
+function aggregatableDebugReport(mojo: WebUIAggregatableDebugReport):
+    DebugReport {
+  const report: DebugReport = {
+    body: mojo.body,
+    url: mojo.url.url,
+    time: new Date(mojo.time),
+    status: '',
+    sendFailed: false,
+  };
+
+  const processStatus =
+      processAggregatableDebugReportResultText[mojo.processResult];
+  let sendStatus;
+
+  if (mojo.sendResult.httpResponseCode !== undefined) {
+    sendStatus = `HTTP ${mojo.sendResult.httpResponseCode}`;
+    report.sendFailed = isHttpError(mojo.sendResult.httpResponseCode);
+  } else if (mojo.sendResult.networkError !== undefined) {
+    sendStatus = `Network error: ${mojo.sendResult.networkError}`;
+    report.sendFailed = true;
+  } else if (mojo.sendResult.assemblyFailed !== undefined) {
+    sendStatus = 'Assembly failure';
+  } else {
+    throw new Error('invalid AggregatableDebugReportStatus union');
+  }
+
+  report.status = `${processStatus}, ${sendStatus}`;
+
+  return report;
+}
+
 function initDebugReportTable(panel: HTMLElement):
     AttributionInternalsTableElement<DebugReport> {
   return initPanel(
@@ -892,6 +954,10 @@ class AttributionInternals implements ObserverInterface {
 
   onDebugReportSent(mojo: WebUIDebugReport): void {
     this.debugReports.addRow(verboseDebugReport(mojo));
+  }
+
+  onAggregatableDebugReportSent(mojo: WebUIAggregatableDebugReport): void {
+    this.debugReports.addRow(aggregatableDebugReport(mojo));
   }
 
   onSourceHandled(mojo: WebUISourceRegistration): void {

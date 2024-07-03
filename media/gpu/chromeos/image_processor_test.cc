@@ -246,7 +246,7 @@ YuvSubsampling ToYuvSubsampling(VideoPixelFormat format) {
     case PIXEL_FORMAT_YUY2:
       return YuvSubsampling::kYuv422;
     default:
-      NOTREACHED() << "Invalid format " << format;
+      NOTREACHED_IN_MIGRATION() << "Invalid format " << format;
       return YuvSubsampling::kYuv444;
   }
 }
@@ -881,8 +881,8 @@ TEST(ImageProcessorBackendTest, VulkanDetileScaleTest) {
       &shared_image_manager, nullptr, false);
 
   // Wrap input and output frames in shared images.
-  auto input_mailbox = gpu::Mailbox::GenerateForSharedImage();
-  auto output_mailbox = gpu::Mailbox::GenerateForSharedImage();
+  auto input_mailbox = gpu::Mailbox::Generate();
+  auto output_mailbox = gpu::Mailbox::Generate();
   viz::SharedImageFormat format_nv12 = viz::SharedImageFormat::MultiPlane(
       viz::SharedImageFormat::PlaneConfig::kY_UV,
       viz::SharedImageFormat::Subsampling::k420,
@@ -907,10 +907,12 @@ TEST(ImageProcessorBackendTest, VulkanDetileScaleTest) {
 
   auto input_vulkan_representation = shared_image_manager.ProduceVulkan(
       input_mailbox, nullptr, vulkan_image_processor->GetVulkanDeviceQueue(),
-      vulkan_image_processor->GetVulkanImplementation());
+      vulkan_image_processor->GetVulkanImplementation(),
+      /*needs_detiling=*/true);
   auto output_vulkan_representation = shared_image_manager.ProduceVulkan(
       output_mailbox, nullptr, vulkan_image_processor->GetVulkanDeviceQueue(),
-      vulkan_image_processor->GetVulkanImplementation());
+      vulkan_image_processor->GetVulkanImplementation(),
+      /*needs_detiling=*/true);
   {
     std::vector<VkSemaphore> begin_semaphores;
     std::vector<VkSemaphore> end_semaphores;
@@ -1102,8 +1104,8 @@ TEST(ImageProcessorBackendTest, VulkanMT2TDetileScaleTest) {
       &shared_image_manager, nullptr, false);
 
   // Wrap input and output frames in shared images.
-  auto input_mailbox = gpu::Mailbox::GenerateForSharedImage();
-  auto output_mailbox = gpu::Mailbox::GenerateForSharedImage();
+  auto input_mailbox = gpu::Mailbox::Generate();
+  auto output_mailbox = gpu::Mailbox::Generate();
   viz::SharedImageFormat format_nv12 = viz::SharedImageFormat::MultiPlane(
       viz::SharedImageFormat::PlaneConfig::kY_UV,
       viz::SharedImageFormat::Subsampling::k420,
@@ -1129,10 +1131,12 @@ TEST(ImageProcessorBackendTest, VulkanMT2TDetileScaleTest) {
 
   auto input_vulkan_representation = shared_image_manager.ProduceVulkan(
       input_mailbox, nullptr, vulkan_image_processor->GetVulkanDeviceQueue(),
-      vulkan_image_processor->GetVulkanImplementation());
+      vulkan_image_processor->GetVulkanImplementation(),
+      /*needs_detiling=*/true);
   auto output_vulkan_representation = shared_image_manager.ProduceVulkan(
       output_mailbox, nullptr, vulkan_image_processor->GetVulkanDeviceQueue(),
-      vulkan_image_processor->GetVulkanImplementation());
+      vulkan_image_processor->GetVulkanImplementation(),
+      /*needs_detiling=*/true);
   {
     std::vector<VkSemaphore> begin_semaphores;
     std::vector<VkSemaphore> end_semaphores;

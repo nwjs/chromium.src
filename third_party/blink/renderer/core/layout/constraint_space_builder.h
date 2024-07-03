@@ -136,6 +136,15 @@ class CORE_EXPORT ConstraintSpaceBuilder final {
       space_.EnsureRareData()->fragmentainer_block_size = size;
   }
 
+  // This function may be called after having set available size (and thus
+  // converted to the destination writing mode, if necessary).
+  void SetFragmentainerBlockSizeFromAvailableSize() {
+#if DCHECK_IS_ON()
+    DCHECK(is_available_size_set_);
+#endif
+    SetFragmentainerBlockSize(space_.AvailableSize().block_size);
+  }
+
   // Shrink the fragmentainer block-size, to reserve space for repeated table
   // headers and footers. If there's a repeated header, the argument to
   // SetFragmentainerOffset() also needs to be compensated for the block-size
@@ -229,11 +238,6 @@ class CORE_EXPORT ConstraintSpaceBuilder final {
       space_.bitfields_.inline_auto_behavior =
           static_cast<unsigned>(auto_behavior);
     }
-  }
-
-  void SetOverrideMinMaxBlockSizes(const MinMaxSizes& min_max_sizes) {
-    if (!min_max_sizes.IsEmpty() || space_.HasRareData())
-      space_.EnsureRareData()->SetOverrideMinMaxBlockSizes(min_max_sizes);
   }
 
   void SetIsPaintedAtomically(bool b) {
@@ -491,12 +495,9 @@ class CORE_EXPORT ConstraintSpaceBuilder final {
     }
   }
 
-  void SetShouldTextBoxTrimStart() {
-    space_.EnsureRareData()->should_text_box_trim_start = true;
-  }
-  void SetShouldTextBoxTrimEnd() {
-    space_.EnsureRareData()->should_text_box_trim_end = true;
-  }
+  void SetShouldTextBoxTrimStart() { space_.SetShouldTextBoxTrimStart(); }
+  void SetShouldTextBoxTrimEnd() { space_.SetShouldTextBoxTrimEnd(); }
+  void SetShouldForceTextBoxTrimEnd() { space_.SetShouldForceTextBoxTrimEnd(); }
 
   void SetDecorationPercentageResolutionType(
       DecorationPercentageResolutionType type) {

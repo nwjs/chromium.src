@@ -10,7 +10,8 @@
 namespace data_controls {
 
 RulesService::RulesService(PrefService* pref_service) {
-  if (base::FeatureList::IsEnabled(kEnableDesktopDataControls)) {
+  if (base::FeatureList::IsEnabled(kEnableDesktopDataControls) ||
+      base::FeatureList::IsEnabled(kEnableScreenshotProtection)) {
     pref_registrar_.Init(pref_service);
     pref_registrar_.Add(
         kDataControlsRulesPref,
@@ -24,19 +25,24 @@ RulesService::~RulesService() = default;
 
 Verdict RulesService::GetVerdict(Rule::Restriction restriction,
                                  const ActionContext& context) const {
-  if (!base::FeatureList::IsEnabled(kEnableDesktopDataControls)) {
+  if (!base::FeatureList::IsEnabled(kEnableDesktopDataControls) &&
+      !base::FeatureList::IsEnabled(kEnableScreenshotProtection)) {
     return Verdict::NotSet();
   }
 
   Rule::Level max_level = Rule::Level::kNotSet;
   Verdict::TriggeredRules triggered_rules;
-  for (const auto& rule : rules_) {
+  for (size_t i = 0; i < rules_.size(); ++i) {
+    const auto& rule = rules_[i];
     Rule::Level level = rule.GetLevel(restriction, context);
     if (level > max_level) {
       max_level = level;
     }
-    if (level != Rule::Level::kNotSet && !rule.rule_id().empty()) {
-      triggered_rules[rule.rule_id()] = rule.name();
+    if (level != Rule::Level::kNotSet) {
+      triggered_rules[i] = {
+          .rule_id = rule.rule_id(),
+          .rule_name = rule.name(),
+      };
     }
   }
 
@@ -56,10 +62,6 @@ Verdict RulesService::GetVerdict(Rule::Restriction restriction,
 
 void RulesService::OnDataControlsRulesUpdate() {
   DCHECK(pref_registrar_.prefs());
-  if (!base::FeatureList::IsEnabled(kEnableDesktopDataControls)) {
-    return;
-  }
-
   rules_.clear();
 
   const base::Value::List& rules_list =

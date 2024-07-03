@@ -45,6 +45,7 @@
 #include "third_party/blink/public/common/loader/loading_behavior_flag.h"
 #include "third_party/blink/public/common/permissions_policy/document_policy.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
+#include "third_party/blink/public/common/scheduler/task_attribution_id.h"
 #include "third_party/blink/public/common/subresource_load_metrics.h"
 #include "third_party/blink/public/mojom/fenced_frame/fenced_frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/triggering_event_info.mojom-blink-forward.h"
@@ -78,6 +79,7 @@
 #include "third_party/blink/renderer/core/loader/preload_helper.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
 #include "third_party/blink/renderer/core/permissions_policy/policy_helper.h"
+#include "third_party/blink/renderer/core/speculation_rules/speculation_rule_set.h"
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_response.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
@@ -119,9 +121,6 @@ class SubresourceFilter;
 class WebServiceWorkerNetworkProvider;
 struct JavaScriptFrameworkDetectionResult;
 
-namespace scheduler {
-class TaskAttributionId;
-}  // namespace scheduler
 namespace mojom {
 enum class CommitResult : int32_t;
 }  // namespace mojom
@@ -248,7 +247,10 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
                                    scoped_refptr<SerializedScriptValue>,
                                    WebFrameLoadType,
                                    bool is_browser_initiated = false,
-                                   bool is_synchronously_committed = true);
+                                   bool is_synchronously_committed = true,
+                                   std::optional<scheduler::TaskAttributionId>
+                                       soft_navigation_heuristics_task_id =
+                                           std::nullopt);
 
   // |is_synchronously_committed| is described in comment for
   // CommitSameDocumentNavigation.
@@ -630,6 +632,8 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   // contents (currently only detected JavaScript frameworks). Configured by the
   // AutoSpeculationRules feature.
   void InjectAutoSpeculationRules(const JavaScriptFrameworkDetectionResult&);
+  void InjectSpeculationRulesFromString(const String&,
+                                        BrowserInjectedSpeculationRuleOptOut);
 
   // Params are saved in constructor and are cleared after StartLoading().
   // TODO(dgozman): remove once StartLoading is merged with constructor.
@@ -660,6 +664,7 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   const bool grant_load_local_resources_ = false;
   const std::optional<blink::mojom::FetchCacheMode> force_fetch_cache_mode_;
   const FramePolicy frame_policy_;
+  std::optional<uint64_t> visited_link_salt_;
 
   Member<LocalFrame> frame_;
 
@@ -697,13 +702,7 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   AtomicString origin_calculation_debug_info_;
 
   blink::BlinkStorageKey storage_key_;
-  // The storage key here is the one the browser process believes the renderer
-  // should use when binding session storage. This may differ from
-  // `storage_key_` as a deprecation trial can prevent the partitioning of
-  // session storage.
-  //
-  // TODO(crbug.com/1407150): Remove this when deprecation trial is complete.
-  blink::BlinkStorageKey session_storage_key_;
+
   WebNavigationType navigation_type_;
 
   DocumentLoadTiming document_load_timing_;

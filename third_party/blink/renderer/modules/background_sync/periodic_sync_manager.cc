@@ -36,7 +36,7 @@ ScriptPromise<IDLUndefined> PeriodicSyncManager::registerPeriodicSync(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
         "Registration failed - no active Service Worker");
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
@@ -44,7 +44,7 @@ ScriptPromise<IDLUndefined> PeriodicSyncManager::registerPeriodicSync(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotAllowedError,
         "Periodic Background Sync is not allowed in fenced frames.");
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(
@@ -144,7 +144,7 @@ void PeriodicSyncManager::RegisterCallback(
       resolver->Resolve();
       break;
     case mojom::blink::BackgroundSyncError::NOT_FOUND:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
     case mojom::blink::BackgroundSyncError::STORAGE:
       resolver->Reject(V8ThrowDOMException::CreateOrDie(
@@ -189,7 +189,7 @@ void PeriodicSyncManager::GetRegistrationsCallback(
     case mojom::blink::BackgroundSyncError::PERMISSION_DENIED:
       // These errors should never be returned from
       // BackgroundSyncManager::GetPeriodicSyncRegistrations
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
     case mojom::blink::BackgroundSyncError::STORAGE:
       resolver->Reject(V8ThrowDOMException::CreateOrDie(
@@ -224,7 +224,7 @@ void PeriodicSyncManager::UnregisterCallback(
     case mojom::blink::BackgroundSyncError::NOT_FOUND:
     case mojom::blink::BackgroundSyncError::NOT_ALLOWED:
     case mojom::BackgroundSyncError::PERMISSION_DENIED:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       break;
   }
 }

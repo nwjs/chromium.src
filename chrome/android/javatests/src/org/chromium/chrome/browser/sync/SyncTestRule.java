@@ -58,7 +58,7 @@ import java.util.concurrent.Callable;
  */
 public class SyncTestRule extends ChromeTabbedActivityTestRule {
     /** Simple activity that mimics a trusted vault key retrieval flow that succeeds immediately. */
-    public static class DummyKeyRetrievalActivity extends Activity {
+    public static class FakeKeyRetrievalActivity extends Activity {
         @Override
         protected void onCreate(@Nullable Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
@@ -72,7 +72,7 @@ public class SyncTestRule extends ChromeTabbedActivityTestRule {
      * Simple activity that mimics a trusted vault degraded recoverability fix flow that succeeds
      * immediately.
      */
-    public static class DummyRecoverabilityDegradedFixActivity extends Activity {
+    public static class FakeRecoverabilityDegradedFixActivity extends Activity {
         @Override
         protected void onCreate(@Nullable Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
@@ -85,12 +85,12 @@ public class SyncTestRule extends ChromeTabbedActivityTestRule {
     /**
      * A fake implementation of TrustedVaultClient.Backend. Allows to specify keys to be fetched.
      * Keys aren't populated through fetchKeys() unless startPopulateKeys() is called.
-     * startPopulateKeys() is called by DummyKeyRetrievalActivity before its completion to mimic
-     * real TrustedVaultClient.Backend implementation.
+     * startPopulateKeys() is called by FakeKeyRetrievalActivity before its completion to mimic real
+     * TrustedVaultClient.Backend implementation.
      *
-     * <p>Similarly, recoverability-degraded logic is implemented with a dummy activity. Tests can
+     * <p>Similarly, recoverability-degraded logic is implemented with a fake activity. Tests can
      * choose to enter this state via invoking setRecoverabilityDegraded(true), and the state can be
-     * resolved with DummyRecoverabilityDegradedFixActivity.
+     * resolved with FakeRecoverabilityDegradedFixActivity.
      */
     public static class FakeTrustedVaultClientBackend implements TrustedVaultClient.Backend {
         private static FakeTrustedVaultClientBackend sInstance;
@@ -121,7 +121,7 @@ public class SyncTestRule extends ChromeTabbedActivityTestRule {
         @Override
         public Promise<PendingIntent> createKeyRetrievalIntent(CoreAccountInfo accountInfo) {
             Context context = ApplicationProvider.getApplicationContext();
-            Intent intent = new Intent(context, DummyKeyRetrievalActivity.class);
+            Intent intent = new Intent(context, FakeKeyRetrievalActivity.class);
             return Promise.fulfilled(
                     PendingIntent.getActivity(
                             context,
@@ -150,7 +150,7 @@ public class SyncTestRule extends ChromeTabbedActivityTestRule {
         public Promise<PendingIntent> createRecoverabilityDegradedIntent(
                 CoreAccountInfo accountInfo) {
             Context context = ApplicationProvider.getApplicationContext();
-            Intent intent = new Intent(context, DummyRecoverabilityDegradedFixActivity.class);
+            Intent intent = new Intent(context, FakeRecoverabilityDegradedFixActivity.class);
             return Promise.fulfilled(
                     PendingIntent.getActivity(
                             context,
@@ -183,15 +183,6 @@ public class SyncTestRule extends ChromeTabbedActivityTestRule {
 
     public SigninTestRule getSigninTestRule() {
         return mSigninTestRule;
-    }
-
-    private void ruleTearDown() {
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mSyncService = null;
-                    mFakeServerHelper = null;
-                    FakeServerHelper.destroyInstance();
-                });
     }
 
     public SyncTestRule() {}
@@ -353,44 +344,39 @@ public class SyncTestRule extends ChromeTabbedActivityTestRule {
     }
 
     @Override
-    public Statement apply(final Statement statement, final Description desc) {
-        final Statement base =
-                super.apply(
-                        new Statement() {
-                            @Override
-                            public void evaluate() throws Throwable {
-                                TrustedVaultClient.setInstanceForTesting(
-                                        new TrustedVaultClient(
-                                                FakeTrustedVaultClientBackend.get()));
+    public Statement apply(final Statement base, final Description desc) {
+        final Statement superStatement = super.apply(base, desc);
+        return mSigninTestRule.apply(superStatement, desc);
+    }
 
-                                startMainActivityForSyncTest();
+    @Override
+    protected void before() throws Throwable {
+        super.before();
+        TrustedVaultClient.setInstanceForTesting(
+                new TrustedVaultClient(FakeTrustedVaultClientBackend.get()));
 
-                                TestThreadUtils.runOnUiThreadBlocking(
-                                        () -> {
-                                            SyncService syncService = createSyncServiceImpl();
-                                            if (syncService != null) {
-                                                SyncServiceFactory.setInstanceForTesting(
-                                                        syncService);
-                                            }
-                                            mSyncService =
-                                                    SyncTestUtil.getSyncServiceForLastUsedProfile();
-                                            mFakeServerHelper =
-                                                    FakeServerHelper.createInstanceAndGet();
-                                        });
+        startMainActivityForSyncTest();
 
-                                statement.evaluate();
-                            }
-                        },
-                        desc);
-        return mSigninTestRule.apply(
-                new Statement() {
-                    @Override
-                    public void evaluate() throws Throwable {
-                        base.evaluate();
-                        ruleTearDown();
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SyncService syncService = createSyncServiceImpl();
+                    if (syncService != null) {
+                        SyncServiceFactory.setInstanceForTesting(syncService);
                     }
-                },
-                desc);
+                    mSyncService = SyncTestUtil.getSyncServiceForLastUsedProfile();
+                    mFakeServerHelper = FakeServerHelper.createInstanceAndGet();
+                });
+    }
+
+    @Override
+    protected void after() {
+        super.after();
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mSyncService = null;
+                    mFakeServerHelper = null;
+                    FakeServerHelper.destroyInstance();
+                });
     }
 
     /*

@@ -74,11 +74,6 @@ struct GPU_EXPORT
     return input.driver_version;
   }
 
-  static int cuda_compute_capability_major(
-      const gpu::GPUInfo::GPUDevice& input) {
-    return input.cuda_compute_capability_major;
-  }
-
   static gl::GpuPreference gpu_preference(
       const gpu::GPUInfo::GPUDevice& input) {
     return input.gpu_preference;
@@ -260,6 +255,11 @@ struct GPU_EXPORT
   static gpu::OverlaySupport rgb10a2_overlay_support(
       const gpu::OverlayInfo& input) {
     return input.rgb10a2_overlay_support;
+  }
+
+  static gpu::OverlaySupport p010_overlay_support(
+      const gpu::OverlayInfo& input) {
+    return input.p010_overlay_support;
   }
 };
 

@@ -126,13 +126,6 @@ void Mp4MuxerDelegate::AddVideoFrame(
   DVLOG(1) << __func__ << ", " << params.AsHumanReadableString();
 
   if (!video_track_index_.has_value()) {
-    // TODO(crbug.com/333614631): Potential issue for the first frame.
-    if (!is_key_frame) {
-      CHECK_EQ(params.codec, VideoCodec::kVP9);
-      DVLOG(1) << __func__ << ", not a key frame";
-      return;
-    }
-
     CHECK(codec_description.has_value() || (params.codec == VideoCodec::kVP9));
     CHECK(is_key_frame);
     CHECK(start_video_time_.is_null());
@@ -186,7 +179,7 @@ void Mp4MuxerDelegate::BuildMovieVideoTrack(
     avc_config.avc_config_record = std::move(avc_config_record);
     visual_sample_entry.avc_decoder_configuration = std::move(avc_config);
 #else
-  NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
 #endif
   } else if (video_codec_ == VideoCodec::kVP9) {
     visual_sample_entry.compressor_name = "VPC Coding";
@@ -202,7 +195,7 @@ void Mp4MuxerDelegate::BuildMovieVideoTrack(
         color_space);
     visual_sample_entry.vp_decoder_configuration = std::move(vp_config);
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 
   description.video_sample_entry = std::move(visual_sample_entry);
@@ -295,7 +288,7 @@ void Mp4MuxerDelegate::BuildMovieAudioTrack(
     audio_sample_entry.elementary_stream_descriptor =
         std::move(elementary_stream_descriptor);
 #else
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
 #endif
   } else {
     // TODO(crbug.com/40281463): Ensure the below OpusSpecificBox is correct.

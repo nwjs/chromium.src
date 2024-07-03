@@ -80,15 +80,14 @@ bool WebCodecsEncodedChunkStreamParser::GetGenerateTimestampsFlag() const {
 }
 
 bool WebCodecsEncodedChunkStreamParser::AppendToParseBuffer(
-    const uint8_t* /* buf */,
-    size_t /* size */) {
+    base::span<const uint8_t> /* buf */) {
   // TODO(crbug.com/40155657): Protect against app reaching this (and similer
   // inverse case in other parsers) simply by using the wrong append method on
   // the SourceBuffer. Maybe a better MEDIA_LOG here would be sufficient?  Or
   // instead have the top-level SourceBuffer throw synchronous exception when
   // attempting the wrong append method, without causing parse/decode error?
-  NOTREACHED();  // ProcessChunks() is the method to use instead for this
-                 // parser.
+  NOTREACHED_IN_MIGRATION();  // ProcessChunks() is the method to use instead
+                              // for this parser.
   return true;   // Subsequent async Parse failure will occur below.
 }
 
@@ -99,8 +98,8 @@ StreamParser::ParseStatus WebCodecsEncodedChunkStreamParser::Parse(
   // the SourceBuffer. Maybe a better MEDIA_LOG here would be sufficient?  Or
   // instead have the top-level SourceBuffer throw synchronous exception when
   // attempting the wrong append method, without causing parse/decode error?
-  NOTREACHED();  // ProcessChunks() is the method to use instead for this
-                 // parser.
+  NOTREACHED_IN_MIGRATION();  // ProcessChunks() is the method to use instead
+                              // for this parser.
   return ParseStatus::kFailed;
 }
 

@@ -10,6 +10,8 @@
 #include "ash/clipboard/clipboard_history_item.h"
 #include "ash/clipboard/test_support/mock_clipboard_history_controller.h"
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
+#include "ash/picker/model/picker_action_type.h"
 #include "ash/picker/model/picker_model.h"
 #include "ash/picker/model/picker_search_results_section.h"
 #include "ash/picker/picker_test_util.h"
@@ -23,6 +25,8 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "components/prefs/scoped_user_pref_update.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "services/network/test/test_shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -43,7 +47,9 @@ namespace {
 
 using ::testing::_;
 using ::testing::Contains;
+using ::testing::ElementsAre;
 using ::testing::FieldsAre;
+using ::testing::IsEmpty;
 using ::testing::NiceMock;
 using ::testing::Not;
 using ::testing::Return;
@@ -139,17 +145,20 @@ class TestPickerClient : public MockPickerClient {
   explicit TestPickerClient(PickerController* controller)
       : controller_(controller) {
     controller_->SetClient(this);
+    prefs_.registry()->RegisterDictionaryPref(prefs::kEmojiPickerHistory);
     // Set default behaviours. These can be overridden with `WillOnce` and
     // `WillRepeatedly`.
     ON_CALL(*this, GetSharedURLLoaderFactory)
         .WillByDefault(
             base::MakeRefCounted<network::TestSharedURLLoaderFactory>);
     ON_CALL(*this, IsFeatureAllowedForDogfood).WillByDefault(Return(true));
+    ON_CALL(*this, GetPrefs).WillByDefault(Return(&prefs_));
   }
   ~TestPickerClient() override { controller_->SetClient(nullptr); }
 
  private:
   raw_ptr<PickerController> controller_ = nullptr;
+  sync_preferences::TestingPrefServiceSyncable prefs_;
 };
 
 TEST_F(PickerControllerTest, ToggleWidgetShowsWidgetIfClosed) {
@@ -381,7 +390,7 @@ TEST_F(PickerControllerTest, OpenDriveFileResult) {
       .Times(1);
 
   controller.OpenResult(PickerSearchResult::DriveFile(
-      u"title", GURL("http://foo.com"), ui::ImageModel{}));
+      u"title", GURL("http://foo.com"), base::FilePath()));
 }
 
 TEST_F(PickerControllerTest, OpenLocalFileResult) {
@@ -481,6 +490,11 @@ TEST_F(PickerControllerTest, ShowEditorCallsCallbackFromClient) {
 }
 
 TEST_F(PickerControllerTest, AvailableCategoriesContainsEditorWhenEnabled) {
+  auto* input_method =
+      Shell::GetPrimaryRootWindow()->GetHost()->GetInputMethod();
+  ui::FakeTextInputClient input_field(input_method,
+                                      {.type = ui::TEXT_INPUT_TYPE_TEXT});
+  input_field.Focus();
   PickerController controller;
   NiceMock<TestPickerClient> client(&controller);
   EXPECT_CALL(client, CacheEditorContext).WillOnce(Return(base::DoNothing()));
@@ -572,5 +586,201 @@ TEST_F(PickerControllerTest, GetSentenceCaseSelectedText) {
 
   EXPECT_EQ(input_field.text(), u"How are you? Fine. Thanks!  Ok");
 }
+
+TEST_F(PickerControllerTest, GetsRecentEmoji) {
+  PickerController controller;
+  NiceMock<TestPickerClient> client(&controller);
+  base::Value::List history_value;
+  history_value.Append(base::Value::Dict().Set("text", "abc"));
+  history_value.Append(base::Value::Dict().Set("text", "xyz"));
+  ScopedDictPrefUpdate update(client.GetPrefs(), prefs::kEmojiPickerHistory);
+  update->Set("emoji", std::move(history_value));
+
+  EXPECT_THAT(controller.GetRecentEmoji(ui::EmojiPickerCategory::kEmojis),
+              ElementsAre("abc", "xyz"));
+  EXPECT_THAT(controller.GetRecentEmoji(ui::EmojiPickerCategory::kEmoticons),
+              IsEmpty());
+}
+
+TEST_F(PickerControllerTest, AddsNewRecentEmoji) {
+  PickerController controller;
+  NiceMock<TestPickerClient> client(&controller);
+  base::Value::List history_value;
+  history_value.Append(base::Value::Dict().Set("text", "abc"));
+  history_value.Append(base::Value::Dict().Set("text", "xyz"));
+  ScopedDictPrefUpdate update(client.GetPrefs(), prefs::kEmojiPickerHistory);
+  update->Set("emoji", std::move(history_value));
+
+  controller.ToggleWidget();
+  controller.InsertResultOnNextFocus(PickerSearchResult::Emoji(u"def"));
+
+  EXPECT_THAT(controller.GetRecentEmoji(ui::EmojiPickerCategory::kEmojis),
+              ElementsAre("def", "abc", "xyz"));
+}
+
+TEST_F(PickerControllerTest, AddsExistingRecentEmoticon) {
+  PickerController controller;
+  NiceMock<TestPickerClient> client(&controller);
+  base::Value::List history_value;
+  history_value.Append(base::Value::Dict().Set("text", "abc"));
+  history_value.Append(base::Value::Dict().Set("text", "xyz"));
+  ScopedDictPrefUpdate update(client.GetPrefs(), prefs::kEmojiPickerHistory);
+  update->Set("emoticon", std::move(history_value));
+
+  controller.ToggleWidget();
+  controller.InsertResultOnNextFocus(PickerSearchResult::Emoticon(u"xyz"));
+
+  EXPECT_THAT(controller.GetRecentEmoji(ui::EmojiPickerCategory::kEmoticons),
+              ElementsAre("xyz", "abc"));
+}
+
+TEST_F(PickerControllerTest, AddsRecentSymbolToEmptyHistory) {
+  PickerController controller;
+  NiceMock<TestPickerClient> client(&controller);
+
+  controller.ToggleWidget();
+  controller.InsertResultOnNextFocus(PickerSearchResult::Symbol(u"abc"));
+
+  EXPECT_THAT(controller.GetRecentEmoji(ui::EmojiPickerCategory::kSymbols),
+              ElementsAre("abc"));
+}
+
+struct ActionTestCase {
+  PickerSearchResult result;
+  std::optional<PickerActionType> unfocused_action;
+  std::optional<PickerActionType> no_selection_action;
+  std::optional<PickerActionType> has_selection_action;
+};
+
+class PickerControllerActionTest
+    : public PickerControllerTest,
+      public testing::WithParamInterface<ActionTestCase> {};
+
+TEST_P(PickerControllerActionTest, GetActionForResultUnfocused) {
+  PickerController controller;
+  NiceMock<TestPickerClient> client(&controller);
+  controller.ToggleWidget();
+
+  if (GetParam().unfocused_action.has_value()) {
+    EXPECT_EQ(controller.GetActionForResult(GetParam().result),
+              GetParam().unfocused_action);
+  }
+}
+
+TEST_P(PickerControllerActionTest, GetActionForResultNoSelection) {
+  auto* input_method =
+      Shell::GetPrimaryRootWindow()->GetHost()->GetInputMethod();
+  ui::FakeTextInputClient input_field(input_method,
+                                      {.type = ui::TEXT_INPUT_TYPE_TEXT});
+  input_method->SetFocusedTextInputClient(&input_field);
+  PickerController controller;
+  NiceMock<TestPickerClient> client(&controller);
+  controller.ToggleWidget();
+
+  if (GetParam().no_selection_action.has_value()) {
+    EXPECT_EQ(controller.GetActionForResult(GetParam().result),
+              GetParam().no_selection_action);
+  }
+}
+
+TEST_P(PickerControllerActionTest, GetActionForResultHasSelection) {
+  auto* input_method =
+      Shell::GetPrimaryRootWindow()->GetHost()->GetInputMethod();
+  ui::FakeTextInputClient input_field(input_method,
+                                      {.type = ui::TEXT_INPUT_TYPE_TEXT});
+  input_method->SetFocusedTextInputClient(&input_field);
+  input_field.SetTextAndSelection(u"a", gfx::Range(0, 1));
+  PickerController controller;
+  NiceMock<TestPickerClient> client(&controller);
+  controller.ToggleWidget();
+
+  if (GetParam().has_selection_action.has_value()) {
+    EXPECT_EQ(controller.GetActionForResult(GetParam().result),
+              GetParam().has_selection_action);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    PickerControllerActionTest,
+    testing::ValuesIn<ActionTestCase>({
+        {
+            .result = PickerSearchResult::Text(u""),
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result = PickerSearchResult::Emoji(u""),
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result = PickerSearchResult::Symbol(u""),
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result = PickerSearchResult::Emoticon(u""),
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result = PickerSearchResult::Clipboard(
+                base::UnguessableToken::Create(),
+                PickerSearchResult::ClipboardData::DisplayFormat::kFile,
+                u"",
+                {}),
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result = PickerSearchResult::Gif({}, {}, {}, {}, {}, u""),
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result = PickerSearchResult::BrowsingHistory({}, u"", {}),
+            .unfocused_action = PickerActionType::kOpen,
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result = PickerSearchResult::LocalFile(u"", {}),
+            .unfocused_action = PickerActionType::kOpen,
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result = PickerSearchResult::DriveFile(u"", {}, {}),
+            .unfocused_action = PickerActionType::kOpen,
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result =
+                PickerSearchResult::Category(PickerCategory::kExpressions),
+            .unfocused_action = PickerActionType::kDo,
+            .no_selection_action = PickerActionType::kDo,
+            .has_selection_action = PickerActionType::kDo,
+        },
+        {
+            .result = PickerSearchResult::SearchRequest(u"", {}),
+            .unfocused_action = PickerActionType::kDo,
+            .no_selection_action = PickerActionType::kDo,
+            .has_selection_action = PickerActionType::kDo,
+        },
+        {
+            .result = PickerSearchResult::Editor(
+                PickerSearchResult::EditorData::Mode::kWrite,
+                u"",
+                {},
+                {},
+                {}),
+            .unfocused_action = PickerActionType::kCreate,
+            .no_selection_action = PickerActionType::kCreate,
+            .has_selection_action = PickerActionType::kCreate,
+        },
+    }));
+
 }  // namespace
 }  // namespace ash

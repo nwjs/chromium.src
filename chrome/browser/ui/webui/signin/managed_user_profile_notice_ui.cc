@@ -38,6 +38,7 @@ ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
       chrome::kChromeUIManagedUserProfileNoticeHost);
 
   static constexpr webui::ResourcePath kResources[] = {
+      {"icons.html.js", IDR_SIGNIN_ICONS_HTML_JS},
       {"legacy_managed_user_profile_notice_app.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_LEGACY_MANAGED_USER_PROFILE_NOTICE_APP_JS},
       {"legacy_managed_user_profile_notice_app.html.js",
@@ -46,6 +47,10 @@ ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_APP_JS},
       {"managed_user_profile_notice_app.html.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_APP_HTML_JS},
+      {"managed_user_profile_notice_disclosure.html.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_HTML_JS},
+      {"managed_user_profile_notice_disclosure.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_JS},
       {"managed_user_profile_notice_browser_proxy.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_BROWSER_PROXY_JS},
       {"signin_shared.css.js", IDR_SIGNIN_SIGNIN_SHARED_CSS_JS},
@@ -104,10 +109,12 @@ void ManagedUserProfileNoticeUI::Initialize(
     const AccountInfo& account_info,
     bool profile_creation_required_by_policy,
     bool show_link_data_option,
-    signin::SigninChoiceCallback proceed_callback) {
+    signin::SigninChoiceCallback process_user_choice_callback,
+    base::OnceClosure done_callback) {
   auto handler = std::make_unique<ManagedUserProfileNoticeHandler>(
       browser, type, profile_creation_required_by_policy, show_link_data_option,
-      account_info, std::move(proceed_callback));
+      account_info, std::move(process_user_choice_callback),
+      std::move(done_callback));
   handler_ = handler.get();
 
   base::Value::Dict update_data;
@@ -124,9 +131,9 @@ void ManagedUserProfileNoticeUI::Initialize(
     update_data.Set("showLinkDataCheckbox", show_link_data_option);
   } else if (type == ManagedUserProfileNoticeUI::ScreenType::kEnterpriseOIDC) {
     update_data.Set("isModalDialog", true);
-    update_data.Set("enterpriseProfileWelcomeTitle",
-                    l10n_util::GetStringUTF16(
-                        IDS_ENTERPRISE_WELCOME_PROFILE_REQUIRED_TITLE));
+    update_data.Set(
+        "enterpriseProfileWelcomeTitle",
+        l10n_util::GetStringUTF16(IDS_ENTERPRISE_WELCOME_PROFILE_SETUP_TITLE));
 
     update_data.Set("showLinkDataCheckbox", false);
 #if !BUILDFLAG(IS_CHROMEOS)

@@ -153,7 +153,7 @@ void ShowHelpImpl(Browser* browser, Profile* profile, HelpSource source) {
       app_launch_source = apps::LaunchSource::kFromOtherApp;
       break;
     default:
-      NOTREACHED() << "Unhandled help source" << source;
+      NOTREACHED_IN_MIGRATION() << "Unhandled help source" << source;
   }
 
   ash::SystemAppLaunchParams params;
@@ -191,7 +191,7 @@ void ShowHelpImpl(Browser* browser, Profile* profile, HelpSource source) {
       url = GURL(kChooserUsbOverviewURL);
       break;
     default:
-      NOTREACHED() << "Unhandled help source " << source;
+      NOTREACHED_IN_MIGRATION() << "Unhandled help source " << source;
   }
 #endif  // BUILDFLAG_IS_CHROMEOS_LACROS)
   if (browser) {
@@ -381,9 +381,11 @@ void ShowChromeTips(Browser* browser) {
   ShowSingletonTab(browser, GURL(kChromeTipsURL));
 }
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 void ShowChromeWhatsNew(Browser* browser) {
   ShowSingletonTab(browser, GURL(kChromeUIWhatsNewURL));
 }
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 void LaunchReleaseNotes(Profile* profile, apps::LaunchSource source) {

@@ -1,7 +1,9 @@
 include_rules = [
   "+components/keyed_service",
+  "+components/prefs",
   "+components/pref_registry",
   "+components/tab_groups",
   "+components/sync",
+  "+components/sync_device_info",
   "+ui/gfx"
 ]

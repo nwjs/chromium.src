@@ -46,7 +46,6 @@ import './wallpaper/index.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 
-import {isPersonalizationJellyEnabled} from './load_time_booleans.js';
 import {emptyState} from './personalization_state.js';
 import {PersonalizationStore} from './personalization_store.js';
 import {SeaPenStoreAdapter} from './sea_pen_store_adapter.js';
@@ -93,7 +92,7 @@ export {PersonalizationStore} from './personalization_store.js';
 export {SeaPenStoreAdapter} from './sea_pen_store_adapter.js';
 export {PersonalizationToastElement} from './personalization_toast_element.js';
 export {PersonalizationThemeElement} from './theme/personalization_theme_element.js';
-export {setDarkModeEnabledAction, SetDarkModeEnabledAction, SetGeolocationPermissionEnabledAction as SetGeolocationPermissionEnabledActionForTheme, setColorSchemeAction, setStaticColorAction, SetStaticColorAction, SetSampleColorSchemesAction, SetColorSchemeAction, ThemeActionName, ThemeActions} from './theme/theme_actions.js';
+export {SetColorModeAutoScheduleAction, setDarkModeEnabledAction, SetDarkModeEnabledAction, setGeolocationPermissionEnabledAction, SetGeolocationPermissionEnabledAction as SetGeolocationPermissionEnabledActionForTheme, setColorSchemeAction, setStaticColorAction, SetStaticColorAction, SetSampleColorSchemesAction, SetColorSchemeAction, ThemeActionName, ThemeActions} from './theme/theme_actions.js';
 export {setThemeProviderForTesting} from './theme/theme_interface_provider.js';
 export {ColorSchemeIconSvgElement} from './theme/color_scheme_icon_svg_element.js';
 export {DynamicColorElement} from './theme/dynamic_color_element.js';
@@ -119,7 +118,7 @@ export {GooglePhotosZeroStateElement} from './wallpaper/google_photos_zero_state
 export {DEFAULT_COLOR_SCHEME} from './theme/utils.js';
 export {LocalImagesElement} from './wallpaper/local_images_element.js';
 export * from 'chrome://resources/ash/common/sea_pen/sea_pen_actions.js';
-export {getRecentSeaPenImages, selectRecentSeaPenImage, searchSeaPenThumbnails, selectSeaPenWallpaper} from 'chrome://resources/ash/common/sea_pen/sea_pen_controller.js';
+export {getRecentSeaPenImageIds, selectRecentSeaPenImage, getSeaPenThumbnails, selectSeaPenThumbnail} from 'chrome://resources/ash/common/sea_pen/sea_pen_controller.js';
 export {SeaPenFeedbackElement} from 'chrome://resources/ash/common/sea_pen/sea_pen_feedback_element.js';
 export {SeaPenImageLoadingElement} from 'chrome://resources/ash/common/sea_pen/sea_pen_image_loading_element.js';
 export {SeaPenImagesElement} from 'chrome://resources/ash/common/sea_pen/sea_pen_images_element.js';
@@ -160,18 +159,4 @@ if (link) {
   link.href = '/hub_icon_192.png';
 }
 document.title = loadTimeData.getString('personalizationTitle');
-
-if (isPersonalizationJellyEnabled()) {
-  // After the Jelly experiment is launched, add the link directly to
-  // `index.html`.
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'chrome://theme/colors.css?sets=legacy,sys';
-  document.head.appendChild(link);
-  const fontLink = document.createElement('link');
-  fontLink.rel = 'stylesheet';
-  fontLink.href = 'chrome://theme/typography.css';
-  document.head.appendChild(fontLink);
-  document.body.classList.add('jelly-enabled');
-  ColorChangeUpdater.forDocument().start();
-}
+ColorChangeUpdater.forDocument().start();

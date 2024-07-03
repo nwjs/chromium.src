@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/platform/mediastream/media_stream_source.h"
 
 #include "base/synchronization/lock.h"
+#include "base/synchronization/lock_subtle.h"
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
 #include "third_party/blink/renderer/platform/audio/audio_bus.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
@@ -55,7 +56,7 @@ const char* StreamTypeToString(MediaStreamSource::StreamType type) {
     case MediaStreamSource::kTypeVideo:
       return "Video";
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   return "Invalid";
 }
@@ -69,7 +70,7 @@ const char* ReadyStateToString(MediaStreamSource::ReadyState state) {
     case MediaStreamSource::kReadyStateEnded:
       return "Ended";
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
   return "Invalid";
 }
@@ -316,6 +317,20 @@ void MediaStreamSource::ConsumeAudio(AudioBus* bus, int number_of_frames) {
                "MediaStreamSource::ConsumeAudio");
 
   DCHECK(requires_consumer_);
+
+  // The number of locks held simultaneously in this scope may exceed the
+  // fixed-sized storage used by `base::subtle::GetLocksHeldByCurrentThread()`.
+  // This was observed in these tests:
+  //
+  // - external/wpt/webrtc/RTCPeerConnection-*
+  // - external/wpt/webrtc/RTCDTMFSender-*
+  // - external/wpt/video-rvfc/request-video-frame-callback-webrtc.https.html
+  // - external/wpt/webrtc-stats/hardware-capability-stats.https.html
+  //
+  // Disable tracking, at the cost of not being able to use these locks to
+  // guarantee mutual exclusion in `SequenceChecker`.
+  base::subtle::DoNotTrackLocks do_not_track_locks;
+
   base::AutoLock locker(audio_consumer_lock_);
   if (!audio_consumer_)
     return;

@@ -19,7 +19,6 @@
 #import "base/time/time.h"
 #import "components/autofill/core/browser/data_model/credit_card.h"
 #import "components/breadcrumbs/core/breadcrumbs_status.h"
-#import "components/enterprise/idle/idle_features.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/infobars/core/infobar_manager.h"
@@ -1042,21 +1041,18 @@ void OnListFamilyMembersResponse(
                               userPolicyManager:userPolicyManager]];
   }
 
-  if (base::FeatureList::IsEnabled(enterprise_idle::kIdleTimeout)) {
-    enterprise_idle::IdleService* idleService =
-        enterprise_idle::IdleServiceFactory::GetForBrowserState(
-            mainBrowser->GetBrowserState());
-    id<SnackbarCommands> snackbarCommandsHandler =
-        static_cast<id<SnackbarCommands>>(mainCommandDispatcher);
+  enterprise_idle::IdleService* idleService =
+      enterprise_idle::IdleServiceFactory::GetForBrowserState(
+          mainBrowser->GetBrowserState());
+  id<SnackbarCommands> snackbarCommandsHandler =
+      static_cast<id<SnackbarCommands>>(mainCommandDispatcher);
 
-    [sceneState
-        addAgent:[[IdleTimeoutPolicySceneAgent alloc]
-                        initWithSceneUIProvider:self
-                     applicationCommandsHandler:applicationCommandsHandler
-                        snackbarCommandsHandler:snackbarCommandsHandler
-                                    idleService:idleService
-                                    mainBrowser:mainBrowser]];
-  }
+  [sceneState addAgent:[[IdleTimeoutPolicySceneAgent alloc]
+                              initWithSceneUIProvider:self
+                           applicationCommandsHandler:applicationCommandsHandler
+                              snackbarCommandsHandler:snackbarCommandsHandler
+                                          idleService:idleService
+                                          mainBrowser:mainBrowser]];
 
   // Now that the main browser's command dispatcher is created and the newly
   // started UI coordinators have registered with it, inject it into the
@@ -2052,16 +2048,20 @@ using UserFeedbackDataCallback =
 }
 
 - (void)prepareToPresentModal:(ProceduralBlock)completion {
+  __weak __typeof(self) weakSelf = self;
+  ProceduralBlock ensureNTP = ^{
+    [weakSelf ensureNTP];
+    completion();
+  };
   if (self.mainCoordinator.isTabGridActive ||
       (self.currentInterface.incognito && ![self isIncognitoForced])) {
-    __weak __typeof(self) weakSelf = self;
     [self closePresentedViews:YES
                    completion:^{
-                     [weakSelf openNonIncognitoTab:completion];
+                     [weakSelf openNonIncognitoTab:ensureNTP];
                    }];
     return;
   }
-  [self dismissModalDialogsWithCompletion:completion];
+  [self dismissModalDialogsWithCompletion:ensureNTP];
 }
 
 // Returns YES if the current Tab is available to present a view controller.
@@ -2104,7 +2104,7 @@ using UserFeedbackDataCallback =
   }
 
   if (self.currentInterface.incognito) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
   if (self.settingsNavigationController) {
@@ -2239,11 +2239,13 @@ using UserFeedbackDataCallback =
 
 - (void)showPasswordDetailsForCredential:
             (password_manager::CredentialUIEntry)credential
+                              inEditMode:(BOOL)editMode
                         showCancelButton:(BOOL)showCancelButton {
   UIViewController* baseViewController = self.currentInterface.viewController;
   if (self.settingsNavigationController) {
     [self.settingsNavigationController
         showPasswordDetailsForCredential:credential
+                              inEditMode:editMode
                         showCancelButton:showCancelButton];
     return;
   }
@@ -2252,6 +2254,7 @@ using UserFeedbackDataCallback =
       passwordDetailsControllerForBrowser:browser
                                  delegate:self
                                credential:credential
+                               inEditMode:editMode
                          showCancelButton:showCancelButton];
   [baseViewController presentViewController:self.settingsNavigationController
                                    animated:YES
@@ -2435,6 +2438,12 @@ using UserFeedbackDataCallback =
   [baseViewController presentViewController:self.settingsNavigationController
                                    animated:YES
                                  completion:nil];
+}
+
+- (void)showSafeBrowsingSettingsFromPromoInteraction {
+  DCHECK(self.settingsNavigationController);
+  [self.settingsNavigationController
+          showSafeBrowsingSettingsFromPromoInteraction];
 }
 
 - (void)showPasswordSearchPage {
@@ -3565,7 +3574,7 @@ using UserFeedbackDataCallback =
     }
     case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
     case AuthenticationService::ServiceStatus::SigninDisabledByUser: {
-      DUMP_WILL_BE_NOTREACHED_NORETURN()
+      DUMP_WILL_BE_NOTREACHED()
           << "Status service: " << static_cast<int>(statusService);
       break;
     }
@@ -3729,6 +3738,19 @@ using UserFeedbackDataCallback =
                                       dismissOmnibox:YES
                                           completion:completion];
   }
+}
+
+// Ensures that a non-incognito NTP tab is open. If incognito is forced, then
+// it will ensure an incognito NTP tab is open.
+- (void)ensureNTP {
+  // If the tab does not exist, open a new tab.
+  UrlLoadParams params = UrlLoadParams::InCurrentTab(GURL(kChromeUINewTabURL));
+  ApplicationMode mode = self.currentInterface.incognito
+                             ? ApplicationMode::INCOGNITO
+                             : ApplicationMode::NORMAL;
+  [self openOrReuseTabInMode:mode
+           withUrlLoadParams:params
+         tabOpenedCompletion:nil];
 }
 
 #pragma mark - IncognitoInterstitialCoordinatorDelegate

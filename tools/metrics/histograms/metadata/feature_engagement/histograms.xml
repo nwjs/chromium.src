@@ -219,6 +219,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_IncognitoWindow" summary="incognito window"/>
   <variant name="IPH_InstanceSwitcher" summary="instance switcher"/>
   <variant name="IPH_IntentChip" summary="opening a webpage in an app"/>
+  <variant name="IPH_iOSAddressPromoDesktop"
+      summary="showing the iOS address promo on desktop"/>
   <variant name="IPH_iOSChoiceScreenFeature"
       summary="(obsolete) showing the Choice screen on iOS"/>
   <variant name="IPH_iOSDefaultBrowserBadgeEligibility"
@@ -251,6 +253,8 @@ chromium-metrics-reviews@google.com.
       summary="showing the Parcel Tracking IPH on the Magic Stack"/>
   <variant name="IPH_iOSPasswordPromoDesktop"
       summary="showing the iOS password promo on desktop"/>
+  <variant name="IPH_iOSPaymentPromoDesktop"
+      summary="showing the iOS payment promo on desktop"/>
   <variant name="IPH_iOSPostDefaultAbandonmentPromo"
       summary="showing the iOS post-default browser abandonment promo on iOS"/>
   <variant name="IPH_iOSPromoAllTabs"
@@ -281,6 +285,9 @@ chromium-metrics-reviews@google.com.
       summary="the full screen IPH for pull to refresh"/>
   <variant name="IPH_iOSReplaceSyncPromosWithSignInPromos"
       summary="account row in settings page"/>
+  <variant name="IPH_iOSSavedTabGroupClosed"
+      summary="showing the IPH when closing a saved tab group for the first
+               time"/>
   <variant name="IPH_iOSShareToolbarItemFeature"
       summary="the share tool bar item (bottom on iPhone, top on iPad)"/>
   <variant name="IPH_iOSSwipeBackForward"
@@ -333,6 +340,9 @@ chromium-metrics-reviews@google.com.
       summary="the Autofill password suggestions on iOS"/>
   <variant name="IPH_PasswordsWebAppProfileSwitch"
       summary="profile switch in Password Manager web app"/>
+  <variant name="IPH_PerformanceInterventionDialog"
+      summary="triggering the performance intervention dialog and toolbar
+               button"/>
   <variant name="IPH_PerformanceNewBadge"
       summary="New badge shows next to performance item on the app menu"/>
   <variant name="IPH_PowerBookmarksSidePanel"
@@ -501,7 +511,17 @@ chromium-metrics-reviews@google.com.
       summary="educating user to drop one tab on another tab to create group"/>
   <variant name="IPH_TabGroupsQuicklyComparePages"
       summary="long pressing a link to open in a tab group"/>
+  <variant name="IPH_TabGroupsSaveV2CloseGroup"
+      summary="IPH for tab group closing adding them to a new location"/>
+  <variant name="IPH_TabGroupsSaveV2Intro"
+      summary="IPH for tab groups defaulting to saved"/>
+  <variant name="IPH_TabGroupsSurface" summary="IPH for tab groups surface"/>
+  <variant name="IPH_TabGroupsSurfaceOnHide"
+      summary="IPH for tab groups surface after hiding a tab group while on
+               the GTS"/>
   <variant name="IPH_TabGroupsTapToSeeAnotherTab" summary="tab strip"/>
+  <variant name="IPH_TabGroupSyncOnStrip"
+      summary="For tab group sync on tab strip."/>
   <variant name="IPH_TabGroupsYourTabsTogether"
       summary="tab switcher cards with multiple tab thumbnails"/>
   <variant name="IPH_TabOrganizationSuccess"
@@ -545,7 +565,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="InProductHelp.Config.ParsingEvent" enum="ConfigParsingEvent"
-    expires_after="2024-09-15">
+    expires_after="2024-11-17">
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records if in-product help configuration is parsed correctly, and the

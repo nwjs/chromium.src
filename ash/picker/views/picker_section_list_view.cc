@@ -8,6 +8,7 @@
 #include <memory>
 #include <utility>
 
+#include "ash/picker/picker_asset_fetcher.h"
 #include "ash/picker/views/picker_item_view.h"
 #include "ash/picker/views/picker_section_view.h"
 #include "base/ranges/algorithm.h"
@@ -19,8 +20,9 @@
 
 namespace ash {
 
-PickerSectionListView::PickerSectionListView(int section_width)
-    : section_width_(section_width) {
+PickerSectionListView::PickerSectionListView(int section_width,
+                                             PickerAssetFetcher* asset_fetcher)
+    : section_width_(section_width), asset_fetcher_(asset_fetcher) {
   SetLayoutManager(std::make_unique<views::FlexLayout>())
       ->SetOrientation(views::LayoutOrientation::kVertical)
       .SetCrossAxisAlignment(views::LayoutAlignment::kStretch);
@@ -28,28 +30,28 @@ PickerSectionListView::PickerSectionListView(int section_width)
 
 PickerSectionListView::~PickerSectionListView() = default;
 
-PickerItemView* PickerSectionListView::GetTopItem() {
+views::View* PickerSectionListView::GetTopItem() {
   return children().empty()
              ? nullptr
              : views::AsViewClass<PickerSectionView>(children().front().get())
                    ->GetTopItem();
 }
 
-PickerItemView* PickerSectionListView::GetBottomItem() {
+views::View* PickerSectionListView::GetBottomItem() {
   return children().empty()
              ? nullptr
              : views::AsViewClass<PickerSectionView>(children().back().get())
                    ->GetBottomItem();
 }
 
-PickerItemView* PickerSectionListView::GetItemAbove(PickerItemView* item) {
+views::View* PickerSectionListView::GetItemAbove(views::View* item) {
   PickerSectionView* section = GetSectionContaining(item);
   if (section == nullptr) {
     return nullptr;
   }
 
   // First check if there is an item above in the same section.
-  if (PickerItemView* item_below = section->GetItemAbove(item)) {
+  if (views::View* item_below = section->GetItemAbove(item)) {
     return item_below;
   }
 
@@ -58,7 +60,7 @@ PickerItemView* PickerSectionListView::GetItemAbove(PickerItemView* item) {
   for (auto section_it =
            std::make_reverse_iterator(base::ranges::find(children(), section));
        section_it != children().rend(); section_it = std::next(section_it)) {
-    if (PickerItemView* prev_section_bottom_item =
+    if (views::View* prev_section_bottom_item =
             views::AsViewClass<PickerSectionView>(section_it->get())
                 ->GetBottomItem()) {
       return prev_section_bottom_item;
@@ -68,14 +70,14 @@ PickerItemView* PickerSectionListView::GetItemAbove(PickerItemView* item) {
   return nullptr;
 }
 
-PickerItemView* PickerSectionListView::GetItemBelow(PickerItemView* item) {
+views::View* PickerSectionListView::GetItemBelow(views::View* item) {
   PickerSectionView* section = GetSectionContaining(item);
   if (section == nullptr) {
     return nullptr;
   }
 
   // First check if there is an item below in the same section.
-  if (PickerItemView* item_below = section->GetItemBelow(item)) {
+  if (views::View* item_below = section->GetItemBelow(item)) {
     return item_below;
   }
 
@@ -83,7 +85,7 @@ PickerItemView* PickerSectionListView::GetItemBelow(PickerItemView* item) {
   // one.
   for (auto section_it = std::next(base::ranges::find(children(), section));
        section_it != children().end(); section_it = std::next(section_it)) {
-    if (PickerItemView* next_section_top_item =
+    if (views::View* next_section_top_item =
             views::AsViewClass<PickerSectionView>(section_it->get())
                 ->GetTopItem()) {
       return next_section_top_item;
@@ -92,23 +94,25 @@ PickerItemView* PickerSectionListView::GetItemBelow(PickerItemView* item) {
   return nullptr;
 }
 
-PickerItemView* PickerSectionListView::GetItemLeftOf(PickerItemView* item) {
+views::View* PickerSectionListView::GetItemLeftOf(views::View* item) {
   PickerSectionView* section = GetSectionContaining(item);
   return section != nullptr ? section->GetItemLeftOf(item) : nullptr;
 }
 
-PickerItemView* PickerSectionListView::GetItemRightOf(PickerItemView* item) {
+views::View* PickerSectionListView::GetItemRightOf(views::View* item) {
   PickerSectionView* section = GetSectionContaining(item);
   return section != nullptr ? section->GetItemRightOf(item) : nullptr;
 }
 
 PickerSectionView* PickerSectionListView::AddSection() {
-  return AddChildView(std::make_unique<PickerSectionView>(section_width_));
+  return AddChildView(
+      std::make_unique<PickerSectionView>(section_width_, asset_fetcher_));
 }
 
 PickerSectionView* PickerSectionListView::AddSectionAt(size_t index) {
-  return AddChildViewAt(std::make_unique<PickerSectionView>(section_width_),
-                        index);
+  return AddChildViewAt(
+      std::make_unique<PickerSectionView>(section_width_, asset_fetcher_),
+      index);
 }
 
 void PickerSectionListView::ClearSectionList() {
@@ -116,7 +120,7 @@ void PickerSectionListView::ClearSectionList() {
 }
 
 PickerSectionView* PickerSectionListView::GetSectionContaining(
-    PickerItemView* item) {
+    views::View* item) {
   for (views::View* view = item->parent(); view != nullptr;
        view = view->parent()) {
     if (views::IsViewClass<PickerSectionView>(view) && view->parent() == this) {

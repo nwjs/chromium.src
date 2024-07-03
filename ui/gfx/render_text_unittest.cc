@@ -23,7 +23,6 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -7725,8 +7724,7 @@ TEST_F(RenderTextTest, SubpixelRenderingSuppressed) {
 #if !BUILDFLAG(IS_MAC)
   EXPECT_EQ(GetRendererFont().getEdging(), SkFont::Edging::kSubpixelAntiAlias);
 #else
-  if (features::IsChromeRefresh2023() &&
-      !base::FeatureList::IsEnabled(features::kCr2023MacFontSmoothing)) {
+  if (!base::FeatureList::IsEnabled(features::kCr2023MacFontSmoothing)) {
     EXPECT_EQ(GetRendererFont().getEdging(), SkFont::Edging::kAntiAlias);
   } else {
     EXPECT_EQ(GetRendererFont().getEdging(),

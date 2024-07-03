@@ -4,6 +4,7 @@
 
 import 'chrome://os-print/js/fakes/fake_print_preview_page_handler.js';
 
+import {getFakePreviewTicket} from 'chrome://os-print/js/fakes/fake_data.js';
 import {FAKE_PRINT_REQUEST_FAILURE_INVALID_SETTINGS_ERROR, FAKE_PRINT_REQUEST_SUCCESSFUL, FAKE_PRINT_SESSION_CONTEXT_SUCCESSFUL, FakePrintPreviewPageHandler} from 'chrome://os-print/js/fakes/fake_print_preview_page_handler.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {assertEquals} from 'chrome://webui-test/chromeos/chai_assert.js';
@@ -29,7 +30,7 @@ suite('FakePrintPreviewPageHandler', () => {
   test('default fake print request result return successful', async () => {
     const result = await printPreviewPageHandler.print();
     assertEquals(
-        FAKE_PRINT_REQUEST_SUCCESSFUL, result,
+        FAKE_PRINT_REQUEST_SUCCESSFUL, result.printRequestOutcome,
         `Print request should be successful`);
   });
 
@@ -39,7 +40,9 @@ suite('FakePrintPreviewPageHandler', () => {
     printPreviewPageHandler.setPrintResult(
         FAKE_PRINT_REQUEST_FAILURE_INVALID_SETTINGS_ERROR);
     const result = await printPreviewPageHandler.print();
-    assertEquals(FAKE_PRINT_REQUEST_FAILURE_INVALID_SETTINGS_ERROR, result);
+    assertEquals(
+        FAKE_PRINT_REQUEST_FAILURE_INVALID_SETTINGS_ERROR,
+        result.printRequestOutcome);
   });
 
   // Verify the fake PrintPreviewPageHandler cancel increases counter.
@@ -85,7 +88,16 @@ suite('FakePrintPreviewPageHandler', () => {
   // Verify the fake PrintPreviewHandler returns a successful SessionContext by
   // default.
   test('start session returns SessionContext', async () => {
-    const result = await printPreviewPageHandler.startSession();
-    assertEquals(FAKE_PRINT_SESSION_CONTEXT_SUCCESSFUL, result);
+    const result = await printPreviewPageHandler.startSession('fake-token');
+    assertEquals(FAKE_PRINT_SESSION_CONTEXT_SUCCESSFUL, result.sessionContext);
+  });
+
+  // Verify the fake PrintPreviewPageHandler correctly sets the preview ticket
+  // when generatePreview() is called.
+  test('call generate preview', async () => {
+    const expectedPreviewTicket = getFakePreviewTicket();
+    await printPreviewPageHandler.generatePreview(expectedPreviewTicket);
+    assertEquals(
+        expectedPreviewTicket, printPreviewPageHandler.getPreviewTicket());
   });
 });

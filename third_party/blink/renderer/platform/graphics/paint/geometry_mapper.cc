@@ -5,8 +5,6 @@
 #include "third_party/blink/renderer/platform/graphics/paint/geometry_mapper.h"
 
 #include "base/containers/adapters.h"
-#include "third_party/blink/renderer/platform/geometry/layout_rect.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 

@@ -32,7 +32,7 @@ constexpr size_t kFooDataSize = sizeof(uintptr_t);
 // A dummy node type so that we can exercise node attached storage code paths.
 class DummyNode : public NodeBase, public Node {
  public:
-  DummyNode() : NodeBase(NodeTypeEnum::kInvalidType) {}
+  DummyNode() = default;
 
   DummyNode(const DummyNode&) = delete;
   DummyNode& operator=(const DummyNode&) = delete;
@@ -44,6 +44,7 @@ class DummyNode : public NodeBase, public Node {
   void RemoveNodeAttachedData() override {}
 
   // Node implementation:
+  NodeTypeEnum GetNodeType() const override { return Type(); }
   Graph* GetGraph() const override { return graph(); }
   NodeState GetNodeState() const override { return NodeState::kActiveInGraph; }
   uintptr_t GetImplType() const override {
@@ -54,7 +55,10 @@ class DummyNode : public NodeBase, public Node {
     return static_cast<const NodeBase*>(this);
   }
 
-  static constexpr NodeTypeEnum Type() { return NodeTypeEnum::kInvalidType; }
+  static constexpr NodeTypeEnum Type() {
+    // Use an arbitrary valid type for this dummy node type.
+    return NodeTypeEnum::kFrame;
+  }
 
   // Internal storage for DummyData and FooData types. These would normally be
   // protected and the data classes friended, but we also want to access these

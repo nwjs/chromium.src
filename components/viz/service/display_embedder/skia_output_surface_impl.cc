@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -19,6 +20,7 @@
 #include "base/system/sys_info.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/sequence_local_storage_slot.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -57,7 +59,6 @@
 #include "third_party/skia/include/gpu/GrYUVABackendTextures.h"
 #include "third_party/skia/include/gpu/ganesh/SkImageGanesh.h"
 #include "third_party/skia/include/gpu/ganesh/gl/GrGLBackendSurface.h"
-#include "third_party/skia/include/gpu/ganesh/vk/GrVkBackendSurface.h"
 #include "third_party/skia/include/gpu/gl/GrGLTypes.h"
 #include "third_party/skia/include/gpu/graphite/Image.h"
 #include "third_party/skia/include/gpu/graphite/Recorder.h"
@@ -73,6 +74,8 @@
 #if BUILDFLAG(ENABLE_VULKAN)
 #include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "gpu/vulkan/vulkan_device_queue.h"
+#include "third_party/skia/include/gpu/ganesh/vk/GrVkBackendSurface.h"
+#include "third_party/skia/include/gpu/vk/VulkanTypes.h"
 #endif  // BUILDFLAG(ENABLE_VULKAN)
 
 #if BUILDFLAG(IS_WIN)
@@ -303,7 +306,7 @@ SkiaOutputSurfaceImpl::SkiaOutputSurfaceImpl(
       is_raw_draw_using_msaa_(features::IsRawDrawUsingMSAA()),
       skip_draw_for_tests_(base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableGLDrawingForTests)) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (is_using_raw_draw_) {
     auto* manager = dependency_->GetSharedImageManager();
     DCHECK(manager->is_thread_safe());
@@ -314,7 +317,7 @@ SkiaOutputSurfaceImpl::SkiaOutputSurfaceImpl(
 }
 
 SkiaOutputSurfaceImpl::~SkiaOutputSurfaceImpl() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("viz", __PRETTY_FUNCTION__);
   current_paint_.reset();
   root_ddl_recorder_.reset();
@@ -347,14 +350,14 @@ gpu::SurfaceHandle SkiaOutputSurfaceImpl::GetSurfaceHandle() const {
 }
 
 void SkiaOutputSurfaceImpl::BindToClient(OutputSurfaceClient* client) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(client);
   DCHECK(!client_);
   client_ = client;
 }
 
 void SkiaOutputSurfaceImpl::EnsureBackbuffer() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // impl_on_gpu_ is released on the GPU thread by a posted task from
   // SkiaOutputSurfaceImpl::dtor. So it is safe to use base::Unretained.
   auto callback = base::BindOnce(&SkiaOutputSurfaceImplOnGpu::EnsureBackbuffer,
@@ -363,7 +366,7 @@ void SkiaOutputSurfaceImpl::EnsureBackbuffer() {
 }
 
 void SkiaOutputSurfaceImpl::DiscardBackbuffer() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // impl_on_gpu_ is released on the GPU thread by a posted task from
   // SkiaOutputSurfaceImpl::dtor. So it is safe to use base::Unretained.
   auto callback = base::BindOnce(&SkiaOutputSurfaceImplOnGpu::DiscardBackbuffer,
@@ -387,7 +390,7 @@ void SkiaOutputSurfaceImpl::RecreateRootDDLRecorder() {
 }
 
 void SkiaOutputSurfaceImpl::Reshape(const ReshapeParams& params) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!params.size.IsEmpty());
 
   size_ = params.size;
@@ -418,14 +421,21 @@ void SkiaOutputSurfaceImpl::Reshape(const ReshapeParams& params) {
     sample_count_ = 1;
   }
 
-  SkImageInfo image_info = SkImageInfo::Make(
-      size_.width(), size_.height(), color_type_, alpha_type_, sk_color_space_);
+  const SkiaOutputDevice::ReshapeParams device_reshape_params = {
+      .image_info =
+          SkImageInfo::Make(size_.width(), size_.height(), color_type_,
+                            alpha_type_, sk_color_space_),
+      .color_space = params.color_space,
+      .sample_count = sample_count_,
+      .device_scale_factor = params.device_scale_factor,
+      .transform = GetDisplayTransform(),
+  };
   // impl_on_gpu_ is released on the GPU thread by a posted task from
   // SkiaOutputSurfaceImpl::dtor. So it is safe to use base::Unretained.
+
   auto task = base::BindOnce(&SkiaOutputSurfaceImplOnGpu::Reshape,
-                             base::Unretained(impl_on_gpu_.get()), image_info,
-                             params.color_space, sample_count_,
-                             params.device_scale_factor, GetDisplayTransform());
+                             base::Unretained(impl_on_gpu_.get()),
+                             device_reshape_params);
   EnqueueGpuTask(std::move(task), {}, /*make_current=*/true,
                  /*need_framebuffer=*/!dependency_->IsOffscreen());
   FlushGpuTasks(SyncMode::kNoWait);
@@ -459,7 +469,7 @@ gfx::OverlayTransform SkiaOutputSurfaceImpl::GetDisplayTransform() {
 }
 
 SkCanvas* SkiaOutputSurfaceImpl::BeginPaintCurrentFrame() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Make sure there is no unsubmitted PaintFrame or PaintRenderPass.
   CHECK(!current_paint_);
   CHECK(root_ddl_recorder_ || graphite_recorder_);
@@ -491,7 +501,7 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImage(
     ImageContext* image_context,
     const gfx::ColorSpace& color_space,
     bool force_rgbx) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(current_paint_);
   DCHECK(!image_context->mailbox_holder().mailbox.IsZero());
   TRACE_EVENT0("viz", "SkiaOutputSurfaceImpl::MakePromiseSkImage");
@@ -540,7 +550,7 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromYUV(
     sk_sp<SkColorSpace> image_color_space,
     SkYUVAInfo::PlaneConfig plane_config,
     SkYUVAInfo::Subsampling subsampling) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(current_paint_);
   DCHECK(static_cast<size_t>(SkYUVAInfo::NumPlanes(plane_config)) ==
          contexts.size());
@@ -560,10 +570,12 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromYUV(
       // texture info for fallback. Fallback textures are not considered YUV
       // planes since they are allocated separately and need write usage.
       context->SetImage(
-          nullptr, {gpu::GraphitePromiseTextureInfo(gr_context_type_, format)});
+          nullptr, {gpu::GraphitePromiseTextureInfo(
+                       gr_context_type_, format, /*ycbcr_info=*/std::nullopt)});
 
       texture_infos[i] =
           gpu::GraphitePromiseTextureInfo(gr_context_type_, format,
+                                          /*ycbcr_info=*/std::nullopt,
                                           /*plane_index=*/0);
       fulfills[i] = new FulfillForPlane(context);
     }
@@ -634,7 +646,8 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageSinglePlane(
 
   if (graphite_recorder_) {
     skgpu::graphite::TextureInfo texture_info = gpu::GraphitePromiseTextureInfo(
-        gr_context_type_, format, /*plane_index=*/0, mipmap);
+        gr_context_type_, format, image_context->ycbcr_info(),
+        /*plane_index=*/0, mipmap);
     SkColorInfo color_info(color_type, image_context->alpha_type(),
                            image_context->color_space());
     skgpu::Origin origin = image_context->origin() == kTopLeft_GrSurfaceOrigin
@@ -678,6 +691,15 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageMultiPlane(
   SkYUVAInfo yuva_info(gfx::SizeToSkISize(image_context->size()), plane_config,
                        subsampling, sk_yuv_color_space);
   if (graphite_recorder_) {
+    // This function is for per-plane sampling and is never used in conjunction
+    // with YCbCr sampling. In particular, on Android SharedImages used with
+    // YCbCr sampling always have RGBA format and on ChromeOS such SharedImages
+    // will have PrefersExternalSampler() set to true. Both of these cases are
+    // handled by MakePromiseSkImageSinglePlane().
+    // TODO(blundell): Hoist this CHECK up to apply universally for Ganesh as
+    // well as Graphite.
+    CHECK(!image_context->ycbcr_info());
+
     std::vector<skgpu::graphite::TextureInfo> texture_infos;
     void* fulfills[SkYUVAInfo::kMaxPlanes] = {};
     for (int plane_index = 0; plane_index < format.NumberOfPlanes();
@@ -685,7 +707,7 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageMultiPlane(
       CHECK_EQ(image_context->origin(), kTopLeft_GrSurfaceOrigin);
       fulfills[plane_index] = new FulfillForPlane(image_context, plane_index);
       texture_infos.emplace_back(gpu::GraphitePromiseTextureInfo(
-          gr_context_type_, format, plane_index));
+          gr_context_type_, format, /*ycbcr_info=*/std::nullopt, plane_index));
     }
 
     skgpu::graphite::YUVABackendTextureInfo yuva_backend_info(
@@ -756,7 +778,7 @@ DBG_FLAG_FBOOL("skia_gpu.swap_buffers.force_disable_makecurrent",
                force_disable_makecurrent)
 
 void SkiaOutputSurfaceImpl::SwapBuffers(OutputSurfaceFrame frame) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!current_paint_);
   // If the renderer allocates images then `current_buffer_modified_` isn't
   // updated, and we can't make this check.
@@ -832,7 +854,7 @@ void SkiaOutputSurfaceImpl::SwapBuffersSkipped(
 
 void SkiaOutputSurfaceImpl::ScheduleOutputSurfaceAsOverlay(
     OverlayProcessorInterface::OutputSurfaceOverlayPlane output_surface_plane) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // impl_on_gpu_ is released on the GPU thread by a posted task from
   // SkiaOutputSurfaceImpl::dtor. So it is safe to use base::Unretained.
   auto callback = base::BindOnce(
@@ -852,7 +874,7 @@ SkCanvas* SkiaOutputSurfaceImpl::BeginPaintRenderPass(
     sk_sp<SkColorSpace> color_space,
     bool is_overlay,
     const gpu::Mailbox& mailbox) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Make sure there is no unsubmitted PaintFrame or PaintRenderPass.
   CHECK(!current_paint_);
   CHECK(resource_sync_tokens_.empty());
@@ -900,7 +922,7 @@ SkCanvas* SkiaOutputSurfaceImpl::BeginPaintRenderPass(
 }
 
 SkCanvas* SkiaOutputSurfaceImpl::RecordOverdrawForCurrentPaint() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   DCHECK(debug_settings_->show_overdraw_feedback);
   DCHECK(current_paint_);
@@ -932,7 +954,7 @@ void SkiaOutputSurfaceImpl::EndPaint(
     base::OnceCallback<void(gfx::GpuFenceHandle)> return_release_fence_cb,
     const gfx::Rect& update_rect,
     bool is_overlay) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(current_paint_);
 
   sk_sp<GrDeferredDisplayList> ddl;
@@ -990,7 +1012,7 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromRenderPass(
     bool mipmap,
     sk_sp<SkColorSpace> color_space,
     const gpu::Mailbox& mailbox) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(current_paint_);
 
   auto& image_context = render_pass_image_cache_[id];
@@ -1016,7 +1038,7 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromRenderPass(
 
 void SkiaOutputSurfaceImpl::RemoveRenderPassResource(
     std::vector<AggregatedRenderPassId> ids) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!ids.empty());
 
   std::vector<std::unique_ptr<ExternalUseClient::ImageContext>> image_contexts;
@@ -1049,7 +1071,7 @@ void SkiaOutputSurfaceImpl::CopyOutput(
     const gfx::ColorSpace& color_space,
     std::unique_ptr<CopyOutputRequest> request,
     const gpu::Mailbox& mailbox) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (request->has_blit_request()) {
     for (const auto& mailbox_holder : request->blit_request().mailboxes()) {
@@ -1085,7 +1107,7 @@ void SkiaOutputSurfaceImpl::SetFrameRate(float frame_rate) {
 
 void SkiaOutputSurfaceImpl::SetCapabilitiesForTesting(
     gfx::SurfaceOrigin output_surface_origin) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(impl_on_gpu_);
   capabilities_.output_surface_origin = output_surface_origin;
   auto callback =
@@ -1096,7 +1118,7 @@ void SkiaOutputSurfaceImpl::SetCapabilitiesForTesting(
 }
 
 bool SkiaOutputSurfaceImpl::Initialize() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("viz", __PRETTY_FUNCTION__);
 
   weak_ptr_ = weak_ptr_factory_.GetWeakPtr();
@@ -1319,7 +1341,7 @@ void SkiaOutputSurfaceImpl::DidSwapBuffersComplete(
     gpu::SwapBuffersCompleteParams params,
     const gfx::Size& pixel_size,
     gfx::GpuFenceHandle release_fence) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(client_);
   last_swapped_mailbox_ = params.primary_plane_mailbox;
 
@@ -1352,7 +1374,7 @@ void SkiaOutputSurfaceImpl::ReleaseOverlays(
 
 void SkiaOutputSurfaceImpl::BufferPresented(
     const gfx::PresentationFeedback& feedback) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(client_);
   client_->DidReceivePresentationFeedback(feedback);
   if (update_vsync_parameters_callback_ &&
@@ -1370,7 +1392,7 @@ void SkiaOutputSurfaceImpl::BufferPresented(
 
 void SkiaOutputSurfaceImpl::AddChildWindowToBrowser(
     gpu::SurfaceHandle child_window) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(client_);
   client_->AddChildWindowToBrowser(child_window);
 }
@@ -1489,8 +1511,10 @@ void SkiaOutputSurfaceImpl::FlushGpuTasksWithImpl(
   gpu_task_sync_tokens_.clear();
   gpu_tasks_.clear();
 
-  if (event)
+  if (event) {
+    base::ScopedAllowBaseSyncPrimitives allow_wait;
     event->Wait();
+  }
 }
 
 GrBackendFormat SkiaOutputSurfaceImpl::GetGrBackendFormatForTexture(
@@ -1516,12 +1540,12 @@ GrBackendFormat SkiaOutputSurfaceImpl::GetGrBackendFormatForTexture(
                          ? gpu::ToVkFormatExternalSampler(si_format)
                          : gpu::ToVkFormatSinglePlanar(si_format);
     // Assume optimal tiling.
-    GrVkYcbcrConversionInfo gr_ycbcr_info =
-        CreateGrVkYcbcrConversionInfo(dependency_->GetVulkanContextProvider()
-                                          ->GetDeviceQueue()
-                                          ->GetVulkanPhysicalDevice(),
-                                      VK_IMAGE_TILING_OPTIMAL, vk_format,
-                                      si_format, yuv_color_space, ycbcr_info);
+    skgpu::VulkanYcbcrConversionInfo gr_ycbcr_info =
+        CreateVulkanYcbcrConversionInfo(dependency_->GetVulkanContextProvider()
+                                            ->GetDeviceQueue()
+                                            ->GetVulkanPhysicalDevice(),
+                                        VK_IMAGE_TILING_OPTIMAL, vk_format,
+                                        si_format, yuv_color_space, ycbcr_info);
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     // Textures that were allocated _on linux_ with ycbcr info came from
     // VaapiVideoDecoder, which exports using DRM format modifiers.
@@ -1554,7 +1578,7 @@ bool SkiaOutputSurfaceImpl::IsDisplayedAsOverlayPlane() const {
 }
 
 gpu::Mailbox SkiaOutputSurfaceImpl::GetOverlayMailbox() const {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return last_swapped_mailbox_;
 }
 
@@ -1616,7 +1640,7 @@ bool SkiaOutputSurfaceImpl::EnsureMinNumberOfBuffers(int n) {
 }
 
 void SkiaOutputSurfaceImpl::ContextLost() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DLOG(ERROR) << "SkiaOutputSurfaceImpl::ContextLost()";
   gr_context_thread_safe_.reset();
   for (auto& observer : observers_)
@@ -1674,9 +1698,9 @@ gpu::Mailbox SkiaOutputSurfaceImpl::CreateSharedImage(
     const gfx::ColorSpace& color_space,
     RenderPassAlphaType alpha_type,
     uint32_t usage,
-    base::StringPiece debug_label,
+    std::string_view debug_label,
     gpu::SurfaceHandle surface_handle) {
-  gpu::Mailbox mailbox = gpu::Mailbox::GenerateForSharedImage();
+  gpu::Mailbox mailbox = gpu::Mailbox::Generate();
 
   auto task =
       base::BindOnce(&SkiaOutputSurfaceImplOnGpu::CreateSharedImage,
@@ -1692,7 +1716,7 @@ gpu::Mailbox SkiaOutputSurfaceImpl::CreateSharedImage(
 gpu::Mailbox SkiaOutputSurfaceImpl::CreateSolidColorSharedImage(
     const SkColor4f& color,
     const gfx::ColorSpace& color_space) {
-  gpu::Mailbox mailbox = gpu::Mailbox::GenerateForSharedImage();
+  gpu::Mailbox mailbox = gpu::Mailbox::Generate();
 
   auto task = base::BindOnce(
       &SkiaOutputSurfaceImplOnGpu::CreateSolidColorSharedImage,
@@ -1743,11 +1767,12 @@ void SkiaOutputSurfaceImpl::DetileOverlay(gpu::Mailbox input,
                                           gpu::Mailbox output,
                                           const gfx::RectF& display_rect,
                                           const gfx::RectF& crop_rect,
-                                          gfx::OverlayTransform transform) {
+                                          gfx::OverlayTransform transform,
+                                          bool is_10bit) {
   auto task = base::BindOnce(&SkiaOutputSurfaceImplOnGpu::DetileOverlay,
                              base::Unretained(impl_on_gpu_.get()), input,
                              input_visible_size, output, display_rect,
-                             crop_rect, transform);
+                             crop_rect, transform, is_10bit);
   EnqueueGpuTask(std::move(task), {input_sync_token}, /*make_current=*/false,
                  /*need_framebuffer=*/false);
 }

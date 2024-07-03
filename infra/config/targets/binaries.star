@@ -787,6 +787,12 @@ targets.binaries.windowed_test_launcher(
 )
 
 targets.binaries.console_test_launcher(
+    name = "enterprise_companion_tests",
+    label = "//chrome/enterprise_companion:enterprise_companion_tests",
+    args = ["--gtest_shuffle"],
+)
+
+targets.binaries.console_test_launcher(
     name = "env_chromium_unittests",
     label = "//third_party/leveldatabase:env_chromium_unittests",
 )
@@ -1688,22 +1694,14 @@ targets.binaries.generated_script(
     ),
 )
 
-targets.binaries.script(
+targets.binaries.generated_script(
     name = "telemetry_gpu_integration_test",
     label = "//chrome/test:telemetry_gpu_integration_test",
-    script = "//testing/scripts/run_gpu_integration_test_as_googletest.py",
-    args = [
-        "../../content/test/gpu/run_gpu_integration_test.py",
-    ],
 )
 
-targets.binaries.script(
+targets.binaries.generated_script(
     name = "telemetry_gpu_integration_test_android_chrome",
     label = "//chrome/test:telemetry_gpu_integration_test_android_chrome",
-    script = "//testing/scripts/run_gpu_integration_test_as_googletest.py",
-    args = [
-        "../../content/test/gpu/run_gpu_integration_test.py",
-    ],
 )
 
 targets.binaries.script(
@@ -2104,6 +2102,9 @@ targets.binaries.script(
         "apks/SystemWebView.apk",
         "--use-apk-under-test-flags-file",
         "-v",
+        # Required for stack.py to find build artifacts for symbolization.
+        "--output-directory",
+        ".",
     ],
 )
 
@@ -2121,6 +2122,9 @@ targets.binaries.script(
         "apks/TrichromeWebView.apk",
         "--use-apk-under-test-flags-file",
         "-v",
+        # Required for stack.py to find build artifacts for symbolization.
+        "--output-directory",
+        ".",
     ],
 )
 
@@ -2138,6 +2142,9 @@ targets.binaries.script(
         "apks/TrichromeWebView64.apk",
         "--use-apk-under-test-flags-file",
         "-v",
+        # Required for stack.py to find build artifacts for symbolization.
+        "--output-directory",
+        ".",
     ],
 )
 
@@ -2170,6 +2177,9 @@ targets.binaries.script(
         "apks/SystemWebView64.apk",
         "--use-apk-under-test-flags-file",
         "-v",
+        # Required for stack.py to find build artifacts for symbolization.
+        "--output-directory",
+        ".",
     ],
 )
 

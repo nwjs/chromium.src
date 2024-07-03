@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">jaune pastel</translation>
 <translation id="1056898198331236512">Avertissement</translation>
 <translation id="1059913517121127803">Impossible de lancer la numérisation</translation>
+<translation id="1061864016440983342">Utiliser sans la localisation</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> sur <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Pare-feu détecté</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Plus de paramètres</translation>
 <translation id="2082932131694554252">Touche du clavier attribuée</translation>
 <translation id="2085089206770112532">Baisser la luminosité de l'écran</translation>
+<translation id="2086091080968010660">Les modifications basées sur l'heure peuvent être inexactes. Activez l'accès à la position dans les paramètres.</translation>
 <translation id="2102231663024125441">Modification de texte</translation>
 <translation id="2105810540595158374">L'appareil est une manette de jeu.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, version <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Modifier les détails de l'APN</translation>
 <translation id="2195732836444333448">Capacité maximale atteinte. Réessayez plus tard.</translation>
 <translation id="2201758491318984023">vélo</translation>
-<translation id="2203222757805818543">Programmation actuelle : <ph name="SUNRISE" /> – <ph name="SUNSET" />. Pour mettre à jour automatiquement la programmation du mode sombre, <ph name="BEGIN_LINK" />activez l'accès à la position<ph name="END_LINK" />.</translation>
 <translation id="2203272733515928691">source d'eau chaude</translation>
 <translation id="2203642483788377106">falaise</translation>
 <translation id="2208388655216963643">impressionniste</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Rétablir les paramètres par défaut</translation>
 <translation id="2286454467119466181">Simple</translation>
 <translation id="2287186687001756809">Aucune image disponible. Pour ajouter des photos, accédez à <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Programmation actuelle : <ph name="SUNRISE" /> - <ph name="SUNSET" />. Pour mettre à jour automatiquement la programmation du coucher au lever du soleil, activez l'accès à la position du système.</translation>
 <translation id="2305172810646967500">noir</translation>
 <translation id="2307344026739914387">Utiliser la paire de clés actuelle</translation>
 <translation id="2308243864813041101">Débranchez le câble USB du <ph name="DEVICE_NAME" /> pour poursuivre le processus de mise à jour</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">dune</translation>
 <translation id="2619761439309613843">Actualisation quotidienne</translation>
 <translation id="2620436844016719705">Système</translation>
+<translation id="2637303424821734920">DÉSACTIVÉ : pour afficher la météo locale, <ph name="BEGIN_LINK" />activez l'accès à la position du système<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Image de connexion</translation>
 <translation id="2640549051766135490">Album "<ph name="TITLE" />" (<ph name="DESC" />) sélectionné</translation>
 <translation id="2645380101799517405">Commandes</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Arrière-plan</translation>
 <translation id="3027578600144895987">Fermer la caméra</translation>
 <translation id="3031560714565892478">L'appareil est une caméra.</translation>
+<translation id="3051968340259309715">Cela permet aux services système d'utiliser la précision de la localisation pour déterminer votre position. La précision de la localisation utilise des informations concernant les signaux sans fil (points d'accès Wi-Fi, tours de réseau mobile et GPS, par exemple) ainsi que des données provenant des capteurs de l'appareil (accéléromètre et gyroscope, par exemple) pour estimer la position de l'appareil. Vous pouvez désactiver la localisation dans Paramètres &gt; Confidentialité et sécurité &gt; Paramètres de confidentialité &gt; Accès à la position. <ph name="LINK_BEGIN" />En savoir plus<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Point de terminaison</translation>
 <translation id="3060579846059757016">Grandes lignes</translation>
+<translation id="3061850252076394168">activer Sélectionner pour écouter</translation>
 <translation id="3069085583900247081">Échec du test</translation>
 <translation id="3078740164268491126">tableau</translation>
 <translation id="3081652522083185657">claire</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Impossible de résoudre tous les hôtes</translation>
 <translation id="4593212453765072419">L'authentification du proxy est requise.</translation>
 <translation id="4609350030397390689">Baisser la luminosité du clavier</translation>
-<translation id="4617553623719764431">La météo n'est pas affichée, car votre position est inconnue. Pour afficher la météo locale, <ph name="BEGIN_LINK" />activez l'accès à la position<ph name="END_LINK" />.</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> sur <ph name="TOTAL_PAGE_NUMBER" />. Appuyez sur Entrée pour annuler la tâche d'impression.</translation>
 <translation id="463791356324567266">Annulation de la numérisation…</translation>
 <translation id="4646949265910132906">Connexion Wi-Fi sécurisée</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Exécuter</translation>
 <translation id="4987769320337599931">Pare-feu</translation>
 <translation id="4988526792673242964">Pages</translation>
+<translation id="4989542687859782284">Indisponible</translation>
 <translation id="4999333166442584738">Masquer le rapport</translation>
 <translation id="500920857929044050">Arrêter le test</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">luminosité du clavier</translation>
 <translation id="6412715219990689313">Clavier intégré</translation>
 <translation id="6417265370957905582">Assistant Google</translation>
+<translation id="6419454453018688975">Activer l'accès à la position du système</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Cette autorisation permettra aux services système d'utiliser votre position. Les services de localisation peuvent utiliser des sources telles que le Wi-Fi, les réseaux mobiles et les capteurs pour estimer la position de votre appareil. <ph name="LINK_BEGIN" />En savoir plus<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Faible (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Accéder aux paramètres du compte</translation>
 <translation id="6462978824459367242">Le bouton "Ajouter un APN" est désormais activé</translation>
@@ -1254,7 +1259,7 @@
 <translation id="802154636333426148">Échec du téléchargement</translation>
 <translation id="8031884997696620457">HSPA+</translation>
 <translation id="80398733265834479">Activer le mode couleur auto</translation>
-<translation id="8041089156583427627">Envoyer</translation>
+<translation id="8041089156583427627">Envoyer des commentaires</translation>
 <translation id="8045012663542226664">Désactivation du micro</translation>
 <translation id="8054112564438735763">beige</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_SUBJECTS" /> <ph name="CHARACTERS_COLOR" /> sur un fond <ph name="CHARACTERS_BACKGROUND" /></translation>

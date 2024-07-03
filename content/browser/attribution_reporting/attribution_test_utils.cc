@@ -15,6 +15,7 @@
 #include "base/check.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
+#include "components/attribution_reporting/aggregatable_debug_reporting_config.h"
 #include "components/attribution_reporting/aggregatable_dedup_key.h"
 #include "components/attribution_reporting/aggregatable_trigger_config.h"
 #include "components/attribution_reporting/aggregatable_trigger_data.h"
@@ -176,9 +177,16 @@ SourceBuilder& SourceBuilder::SetAggregationKeys(
   return *this;
 }
 
-SourceBuilder& SourceBuilder::SetAggregatableBudgetConsumed(
-    int64_t aggregatable_budget_consumed) {
-  aggregatable_budget_consumed_ = aggregatable_budget_consumed;
+SourceBuilder& SourceBuilder::SetRemainingAggregatableAttributionBudget(
+    int remaining_aggregatable_attribution_budget) {
+  remaining_aggregatable_attribution_budget_ =
+      remaining_aggregatable_attribution_budget;
+  return *this;
+}
+
+SourceBuilder& SourceBuilder::SetRemainingAggregatableDebugBudget(
+    int remaining_aggregatable_debug_budget) {
+  remaining_aggregatable_debug_budget_ = remaining_aggregatable_debug_budget;
   return *this;
 }
 
@@ -229,6 +237,14 @@ SourceBuilder& SourceBuilder::SetDebugCookieSet(bool debug_cookie_set) {
   return *this;
 }
 
+SourceBuilder& SourceBuilder::SetAggregatableDebugReportingConfig(
+    attribution_reporting::SourceAggregatableDebugReportingConfig
+        aggregatable_debug_reporting_config) {
+  registration_.aggregatable_debug_reporting_config =
+      std::move(aggregatable_debug_reporting_config);
+  return *this;
+}
+
 StorableSource SourceBuilder::Build() const {
   StorableSource source(reporting_origin_, registration_, source_origin_,
                         source_type_, is_within_fenced_frame_);
@@ -247,8 +263,11 @@ StoredSource SourceBuilder::BuildStored() const {
       registration_.max_event_level_reports, registration_.priority,
       registration_.filter_data, registration_.debug_key,
       registration_.aggregation_keys, attribution_logic_, active_state_,
-      source_id_, aggregatable_budget_consumed_, randomized_response_rate_,
-      registration_.trigger_data_matching, registration_.event_level_epsilon);
+      source_id_, remaining_aggregatable_attribution_budget_,
+      randomized_response_rate_, registration_.trigger_data_matching,
+      registration_.event_level_epsilon,
+      registration_.aggregatable_debug_reporting_config.config().key_piece,
+      remaining_aggregatable_debug_budget_);
   source.dedup_keys() = dedup_keys_;
   source.aggregatable_dedup_keys() = aggregatable_dedup_keys_;
   return source;
@@ -371,6 +390,13 @@ TriggerBuilder& TriggerBuilder::SetTriggerContextId(
   return *this;
 }
 
+TriggerBuilder& TriggerBuilder::SetAggregatableDebugReportingConfig(
+    attribution_reporting::AggregatableDebugReportingConfig
+        aggregatable_trigger_config) {
+  aggregatable_debug_reporting_config_ = std::move(aggregatable_trigger_config);
+  return *this;
+}
+
 AttributionTrigger TriggerBuilder::Build(
     bool generate_event_trigger_data) const {
   attribution_reporting::TriggerRegistration reg;
@@ -392,6 +418,8 @@ AttributionTrigger TriggerBuilder::Build(
   reg.aggregatable_trigger_config =
       *attribution_reporting::AggregatableTriggerConfig::Create(
           source_registration_time_config_, trigger_context_id_);
+  reg.aggregatable_debug_reporting_config =
+      aggregatable_debug_reporting_config_;
 
   return AttributionTrigger(reporting_origin_, std::move(reg),
                             destination_origin_, verifications_,
@@ -530,9 +558,11 @@ bool operator==(const StoredSource& a, const StoredSource& b) {
         source.max_event_level_reports(), source.priority(),
         source.filter_data(), source.debug_key(), source.aggregation_keys(),
         source.attribution_logic(), source.active_state(), source.dedup_keys(),
-        source.aggregatable_budget_consumed(), source.aggregatable_dedup_keys(),
-        source.randomized_response_rate(), source.trigger_data_matching(),
-        source.event_level_epsilon());
+        source.remaining_aggregatable_attribution_budget(),
+        source.aggregatable_dedup_keys(), source.randomized_response_rate(),
+        source.trigger_data_matching(), source.event_level_epsilon(),
+        source.aggregatable_debug_key_piece(),
+        source.remaining_aggregatable_debug_budget());
   };
   return tie(a) == tie(b);
 }
@@ -680,12 +710,15 @@ std::ostream& operator<<(std::ostream& out, const StoredSource& source) {
       << ",attribution_logic=" << source.attribution_logic()
       << ",active_state=" << source.active_state()
       << ",source_id=" << *source.source_id()
-      << ",aggregatable_budget_consumed="
-      << source.aggregatable_budget_consumed()
+      << ",remaining_aggregatable_attribution_budget="
+      << source.remaining_aggregatable_attribution_budget()
       << ",randomized_response_rate=" << source.randomized_response_rate()
       << ",event_level_epsilon=" << source.event_level_epsilon()
       << ",trigger_data_matching=" << source.trigger_data_matching()
-      << ",dedup_keys=[";
+      << ",aggregatable_debug_key_piece="
+      << source.aggregatable_debug_key_piece()
+      << ",remaining_aggregatable_debug_budget="
+      << source.remaining_aggregatable_debug_budget() << ",dedup_keys=[";
 
   const char* separator = "";
   for (int64_t dedup_key : source.dedup_keys()) {
@@ -817,7 +850,7 @@ TestAggregatableSourceProvider::TestAggregatableSourceProvider(size_t size) {
   auto source =
       attribution_reporting::AggregationKeys::FromKeys(std::move(keys));
   DCHECK(source.has_value());
-  source_ = std::move(*source);
+  source_ = *std::move(source);
 }
 
 TestAggregatableSourceProvider::~TestAggregatableSourceProvider() = default;

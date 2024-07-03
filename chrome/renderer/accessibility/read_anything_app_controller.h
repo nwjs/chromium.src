@@ -15,15 +15,16 @@
 #include "base/memory/safe_ref.h"
 #include "chrome/common/accessibility/read_anything.mojom.h"
 #include "chrome/renderer/accessibility/read_anything_app_model.h"
+#include "content/public/renderer/render_frame_observer.h"
 #include "gin/wrappable.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
-#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_position.h"
+#include "ui/accessibility/ax_tree_observer.h"
 #include "ui/accessibility/ax_tree_update_forward.h"
 
 namespace content {
@@ -65,8 +66,10 @@ class ReadAnythingAppControllerTest;
 //     the content nodes, their descendants, and their ancestors.
 //
 class ReadAnythingAppController
-    : public gin::Wrappable<ReadAnythingAppController>,
-      public read_anything::mojom::UntrustedPage {
+    : public content::RenderFrameObserver,
+      public gin::Wrappable<ReadAnythingAppController>,
+      public read_anything::mojom::UntrustedPage,
+      public ui::AXTreeObserver {
  public:
   static gin::WrapperInfo kWrapperInfo;
 
@@ -78,6 +81,9 @@ class ReadAnythingAppController
   // to page.
   static ReadAnythingAppController* Install(content::RenderFrame* render_frame);
 
+  // content::RenderFrameObserver:
+  void OnDestruct() override;
+
  private:
   friend ReadAnythingAppControllerTest;
 
@@ -87,6 +93,15 @@ class ReadAnythingAppController
   // gin::WrappableBase:
   gin::ObjectTemplateBuilder GetObjectTemplateBuilder(
       v8::Isolate* isolate) override;
+
+  // ui::AXTreeObserver:
+  void OnNodeDataChanged(ui::AXTree* tree,
+                         const ui::AXNodeData& old_node_data,
+                         const ui::AXNodeData& new_node_data) override;
+
+  void OnNodeWillBeDeleted(ui::AXTree* tree, ui::AXNode* node) override;
+
+  void OnNodeDeleted(ui::AXTree* tree, ui::AXNodeID node) override;
 
   // read_anything::mojom::UntrustedPage:
   void AccessibilityEventReceived(
@@ -105,6 +120,7 @@ class ReadAnythingAppController
       const std::string& font,
       double font_size,
       bool links_enabled,
+      bool images_enabled,
       read_anything::mojom::Colors color,
       double speech_rate,
       base::Value::Dict voices,
@@ -127,10 +143,13 @@ class ReadAnythingAppController
   std::string FontName() const;
   float FontSize() const;
   bool LinksEnabled() const;
+  bool ImagesEnabled() const;
+  bool ImagesFeatureEnabled() const;
   float SpeechRate() const;
   void OnFontSizeChanged(bool increase);
   void OnFontSizeReset();
   void OnLinksEnabledToggled();
+  void OnImagesEnabledToggled();
   SkColor ForegroundColor() const;
   float LetterSpacing() const;
   float LineSpacing() const;
@@ -177,6 +196,7 @@ class ReadAnythingAppController
                          ui::AXNodeID focus_node_id,
                          int focus_offset) const;
   void OnCollapseSelection() const;
+  void OnRestartReadAloud();
   bool IsGoogleDocs() const;
   bool IsWebUIToolbarEnabled() const;
   bool IsReadAloudEnabled() const;
@@ -222,7 +242,7 @@ class ReadAnythingAppController
       const std::string& display_locale) const;
 
   void Distill();
-  void Draw();
+  void Draw(bool recompute_display_nodes);
   void DrawSelection();
 
   void ExecuteJavaScript(const std::string& script);
@@ -316,6 +336,7 @@ class ReadAnythingAppController
   void SetThemeForTesting(const std::string& font_name,
                           float font_size,
                           bool links_enabled,
+                          bool images_enabled,
                           SkColor foreground_color,
                           SkColor background_color,
                           int line_spacing,
@@ -323,16 +344,13 @@ class ReadAnythingAppController
   void SetLanguageForTesting(const std::string& language_code);
 
   // Helpers for logging UmaHistograms based on times recorded in WebUI.
-  void LogUmaHistogramTimes(int64_t time, std::string metric);
-  void LogUmaHistogramLongTimes(int64_t time, std::string metric);
-  void IncrementMetricCount(std::string metric);
+  void LogUmaHistogramTimes(int64_t time, const std::string& metric);
+  void LogUmaHistogramLongTimes(int64_t time, const std::string& metric);
+  void IncrementMetricCount(const std::string& metric);
   void LogSpeechEventCounts();
 
-  void LogSpeechErrorEvent(std::string error_code);
+  void LogSpeechErrorEvent(const std::string& error_code);
 
-  content::RenderFrame* GetRenderFrame();
-
-  const blink::LocalFrameToken frame_token_;
   std::unique_ptr<AXTreeDistiller> distiller_;
   mojo::Remote<read_anything::mojom::UntrustedPageHandlerFactory>
       page_handler_factory_;
@@ -341,6 +359,10 @@ class ReadAnythingAppController
 
   // Model that holds state for this controller.
   ReadAnythingAppModel model_;
+
+  // Set of nodes that will be deleted that are also displayed. A draw will
+  // occur when the set becomes empty.
+  std::set<ui::AXNodeID> displayed_nodes_pending_deletion_;
 
   // For metrics logging
 
@@ -351,6 +373,10 @@ class ReadAnythingAppController
 
   // The time when the WebUI connects i.e. when onConnected is called.
   base::TimeTicks web_ui_connected_time_ms_;
+
+  // A timer that causes a distillation after a user stops typing for a set
+  // number of seconds.
+  base::RetainingOneShotTimer post_user_entry_draw_timer_;
 
   base::WeakPtrFactory<ReadAnythingAppController> weak_ptr_factory_{this};
 };

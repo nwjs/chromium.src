@@ -53,6 +53,7 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/label_button_border.h"
@@ -97,10 +98,9 @@ SavedTabGroupButton::SavedTabGroupButton(const SavedTabGroup& group,
           base::BindRepeating(
               &SavedTabGroupUtils::CreateSavedTabGroupContextMenuModel,
               browser,
-              group.saved_guid(),
-              /*show_pin_unpin_option=*/true),
+              group.saved_guid()),
           views::MenuRunner::CONTEXT_MENU | views::MenuRunner::IS_NESTED) {
-  SetAccessibilityProperties(
+  GetViewAccessibility().SetProperties(
       ax::mojom::Role::kButton, /*name=*/GetAccessibleNameForButton(),
       /*description=*/std::nullopt,
       l10n_util::GetStringUTF16(
@@ -212,7 +212,7 @@ std::u16string SavedTabGroupButton::GetAccessibleNameForButton() const {
 }
 
 void SavedTabGroupButton::SetTextProperties(const SavedTabGroup& group) {
-  SetAccessibleName(GetAccessibleNameForButton());
+  GetViewAccessibility().SetName(GetAccessibleNameForButton());
   SetTooltipText(group.title());
   SetText(group.title());
 }

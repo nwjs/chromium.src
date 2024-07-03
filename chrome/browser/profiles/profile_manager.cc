@@ -131,6 +131,7 @@
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #else
 #include "chrome/browser/profiles/profile_manager_android.h"
+#include "chrome/browser/signin/signin_manager_android_factory.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -875,11 +876,7 @@ bool ProfileManager::IsAllowedProfilePath(const base::FilePath& path) const {
 }
 
 bool ProfileManager::CanCreateProfileAtPath(const base::FilePath& path) const {
-  bool is_allowed_path = IsAllowedProfilePath(path) ||
-                         base::CommandLine::ForCurrentProcess()->HasSwitch(
-                             switches::kAllowProfilesOutsideUserDir);
-
-  if (!is_allowed_path) {
+  if (!IsAllowedProfilePath(path)) {
     LOG(ERROR) << "Cannot create profile at path " << path.AsUTF8Unsafe();
     return false;
   }
@@ -910,7 +907,7 @@ Profile* ProfileManager::GetProfileFromProfileKey(ProfileKey* profile_key) {
       return otr;
   }
 
-  NOTREACHED() << "An invalid profile key is passed.";
+  NOTREACHED_IN_MIGRATION() << "An invalid profile key is passed.";
   return nullptr;
 }
 
@@ -1421,9 +1418,9 @@ void ProfileManager::UnloadProfileIfNoKeepAlive(const ProfileInfo* info) {
     return;
 
   if (!info->GetCreatedProfile()) {
-    NOTREACHED() << "Attempted to unload profile "
-                 << info->GetRawProfile()->GetDebugName()
-                 << " before it was loaded. This is not valid.";
+    NOTREACHED_IN_MIGRATION() << "Attempted to unload profile "
+                              << info->GetRawProfile()->GetDebugName()
+                              << " before it was loaded. This is not valid.";
   }
 
   VLOG(1) << "Unloading profile " << info->GetCreatedProfile()->GetDebugName();
@@ -1547,6 +1544,10 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
 
   IdentityManagerFactory::GetForProfile(profile)->OnNetworkInitialized();
   AccountReconcilorFactory::GetForProfile(profile);
+#if BUILDFLAG(IS_ANDROID)
+  // Should be after IdentityManager::OnNetworkInitialized.
+  SigninManagerAndroidFactory::GetForProfile(profile);
+#endif
 
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
   BoundSessionCookieRefreshServiceFactory::GetForProfile(profile);
@@ -1703,9 +1704,9 @@ bool ProfileManager::AddProfile(std::unique_ptr<Profile> profile) {
   // Make sure that we're not loading a profile with the same ID as a profile
   // that's already loaded.
   if (GetProfileByPathInternal(profile->GetPath())) {
-    NOTREACHED() << "Attempted to add profile with the same path ("
-                 << profile->GetPath().value()
-                 << ") as an already-loaded profile.";
+    NOTREACHED_IN_MIGRATION()
+        << "Attempted to add profile with the same path ("
+        << profile->GetPath().value() << ") as an already-loaded profile.";
     return false;
   }
 

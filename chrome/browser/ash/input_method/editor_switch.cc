@@ -52,7 +52,7 @@ constexpr chromeos::AppType kAppTypeDenylist[] = {
 const char* kWorkspaceDomainsWithPathDenylist[][2] = {
     {"calendar.google", ""}, {"docs.google", ""},      {"drive.google", ""},
     {"keep.google", ""},     {"mail.google", "/chat"}, {"mail.google", "/mail"},
-    {"meet.google", ""},
+    {"meet.google", ""},     {"script.google", ""},    {"sites.google", ""},
 };
 
 const char* kWorkspaceAppIdDenylist[] = {
@@ -129,14 +129,6 @@ bool IsProfileManaged(Profile* profile) {
           profile_policy_connector->IsManaged());
 }
 
-bool IsGoogleInternalAccountEmailFromProfile(Profile* profile) {
-  std::optional<std::string> user_email =
-      GetSignedInUserEmailFromProfile(profile);
-
-  return user_email.has_value() &&
-         gaia::IsGoogleInternalAccountEmail(*user_email);
-}
-
 bool IsCountryAllowed(std::string_view country_code) {
   return base::Contains(kCountryAllowlist, country_code);
 }
@@ -156,6 +148,10 @@ bool IsInputMethodEngineAllowed(const std::vector<std::string>& allowlist,
 }
 
 bool IsAppTypeAllowed(chromeos::AppType app_type) {
+  if (base::FeatureList::IsEnabled(features::kOrcaArc) &&
+      app_type == chromeos::AppType::ARC_APP) {
+    return true;
+  }
   return !base::Contains(kAppTypeDenylist, app_type);
 }
 
@@ -165,9 +161,8 @@ bool IsTriggerableFromConsentStatus(ConsentStatus consent_status) {
          consent_status == ConsentStatus::kUnset;
 }
 
-bool IsUrlAllowed(Profile* profile, GURL url) {
-  if (IsGoogleInternalAccountEmailFromProfile(profile) &&
-      base::FeatureList::IsEnabled(features::kOrcaOnWorkspace)) {
+bool IsUrlAllowed(GURL url) {
+  if (base::FeatureList::IsEnabled(features::kOrcaOnWorkspace)) {
     return true;
   }
 
@@ -177,16 +172,16 @@ bool IsUrlAllowed(Profile* profile, GURL url) {
       return false;
     }
   }
+
   return true;
 }
 
-bool IsAppAllowed(Profile* profile, std::string_view app_id) {
+bool IsAppAllowed(std::string_view app_id) {
   if (base::Contains(kNonWorkspaceAppIdDenylist, app_id)) {
     return false;
   }
 
-  return (IsGoogleInternalAccountEmailFromProfile(profile) &&
-          base::FeatureList::IsEnabled(features::kOrcaOnWorkspace)) ||
+  return base::FeatureList::IsEnabled(features::kOrcaOnWorkspace) ||
          !base::Contains(kWorkspaceAppIdDenylist, app_id);
 }
 
@@ -289,12 +284,17 @@ bool EditorSwitch::IsAllowedForUse() const {
 }
 
 EditorOpportunityMode EditorSwitch::GetEditorOpportunityMode() const {
-  if (IsAllowedForUse() && IsInputTypeAllowed(context_->input_type())) {
+  if (!IsAllowedForUse()) {
+    return EditorOpportunityMode::kNotAllowedForUse;
+  }
+
+  if (IsInputTypeAllowed(context_->input_type())) {
     return context_->selected_text_length() > 0
                ? EditorOpportunityMode::kRewrite
                : EditorOpportunityMode::kWrite;
   }
-  return EditorOpportunityMode::kNone;
+
+  return EditorOpportunityMode::kInvalidInput;
 }
 
 std::vector<EditorBlockedReason> EditorSwitch::GetBlockedReasons() const {
@@ -340,11 +340,11 @@ std::vector<EditorBlockedReason> EditorSwitch::GetBlockedReasons() const {
     blocked_reasons.push_back(EditorBlockedReason::kBlockedByTextLength);
   }
 
-  if (!IsUrlAllowed(profile_, context_->active_url())) {
+  if (!IsUrlAllowed(context_->active_url())) {
     blocked_reasons.push_back(EditorBlockedReason::kBlockedByUrl);
   }
 
-  if (!IsAppAllowed(profile_, context_->app_id())) {
+  if (!IsAppAllowed(context_->app_id())) {
     blocked_reasons.push_back(EditorBlockedReason::kBlockedByApp);
   }
 
@@ -386,8 +386,8 @@ bool EditorSwitch::CanBeTriggered() const {
          IsInputTypeAllowed(context_->input_type()) &&
          IsAppTypeAllowed(context_->app_type()) &&
          IsTriggerableFromConsentStatus(current_consent_status) &&
-         IsUrlAllowed(profile_, context_->active_url()) &&
-         IsAppAllowed(profile_, context_->app_id()) &&
+         IsUrlAllowed(context_->active_url()) &&
+         IsAppAllowed(context_->app_id()) &&
          !net::NetworkChangeNotifier::IsOffline() &&
          !context_->InTabletMode() &&
          // user pref value

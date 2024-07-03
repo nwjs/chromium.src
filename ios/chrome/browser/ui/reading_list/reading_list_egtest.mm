@@ -365,7 +365,7 @@ std::unique_ptr<net::test_server::HttpResponse> HandleQueryOrCloseSocket(
     response->set_content("<html><head><title>greens</title></head></html>");
     return std::move(response);
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return std::move(response);
 }
 
@@ -401,7 +401,7 @@ std::unique_ptr<net::test_server::HttpResponse> HandleImageQueryOrCloseSocket(
         static_cast<const char*>(image_data.bytes), image_data.length));
     return std::move(response);
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return std::move(response);
 }
 
@@ -461,26 +461,6 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 @implementation ReadingListTestCase
 @synthesize serverRespondsWithContent = _serverRespondsWithContent;
 @synthesize serverResponseDelay = _serverResponseDelay;
-
-- (AppLaunchConfiguration)appConfigurationForTestCase {
-  AppLaunchConfiguration config;
-
-  if ([self isRunningTest:@selector
-            (testReviewAccountSettingsPromoWithReadingListToggleDisabled)] ||
-      [self isRunningTest:@selector
-            (testAccountSettingsPromoIfSyncToSigninEnabledWithReadingListOn)] ||
-      [self isRunningTest:@selector
-            (testAccountSettingsViewedFroReadingListManager)] ||
-      [self isRunningTest:@selector
-            (testSignOutFromAccountSettingsFromReadingListManager)] ||
-      [self isRunningTest:@selector(testNoReviewAccountSettingsPromo)] ||
-      [self isRunningTest:@selector(testUndoSignInTypeDisabled)] ||
-      [self isRunningTest:@selector(testUndoSignInTypeEnabled)]) {
-    config.features_enabled.push_back(kEnableReviewAccountSettingsPromo);
-  }
-
-  return config;
-}
 
 - (void)setUp {
   [super setUp];
@@ -1356,10 +1336,9 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
       verifySigninPromoVisibleWithMode:SigninPromoViewModeNoAccounts];
 }
 
-// Tests that account settings promo is not displayed when the reading list view
+// Tests that account settings promo is displayed when the reading list view
 // is opened from an incognito tab.
-// TODO(crbug.com/339472472): When this bug will be fixed, this test needs to
-// be updated to make sure the account settings can be opened correctly.
+// See: crbug.com/339472472.
 - (void)testAccountSettingsHiddenFromIncognitoTab {
   FakeSystemIdentity* fakeIdentity1 = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity1];
@@ -1370,7 +1349,18 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
   [SigninEarlGrey setSelectedType:(syncer::UserSelectableType::kReadingList)
                           enabled:NO];
   OpenReadingList();
-  [SigninEarlGreyUI verifySigninPromoNotVisible];
+  [SigninEarlGreyUI verifySigninPromoVisibleWithMode:
+                        SigninPromoViewModeSignedInWithPrimaryAccount];
+
+  // Open the settings using the sign-in promo.
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(PrimarySignInButton(),
+                                          grey_sufficientlyVisible(), nil)]
+      performAction:grey_tap()];
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kManageSyncTableViewAccessibilityIdentifier)]
+      assertWithMatcher:grey_sufficientlyVisible()];
 }
 
 // Tests review account settings promo changes to a sign-in promo after signing

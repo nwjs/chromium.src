@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "net/quic/quic_test_packet_maker.h"
 
 #include <list>
@@ -411,6 +416,12 @@ QuicTestPacketMaker::MakeAckAndRetransmissionPacket(
     builder.AddPacketRetransmission(it);
   }
   return builder.Build();
+}
+
+quic::QuicFrames QuicTestPacketMaker::CloneSavedFrames(uint64_t packet_number) {
+  DCHECK(connection_state_.save_packet_frames);
+  return CloneFrames(
+      connection_state_.saved_frames[quic::QuicPacketNumber(packet_number)]);
 }
 
 std::unique_ptr<quic::QuicReceivedPacket>
@@ -946,8 +957,7 @@ std::unique_ptr<quic::QuicReceivedPacket> QuicTestPacketMaker::FinishPacket(
   if (data_producer != nullptr) {
     framer.set_data_producer(data_producer.get());
   }
-  size_t max_plaintext_size =
-      framer.GetMaxPlaintextSize(quic::kDefaultMaxPacketSize);
+  size_t max_plaintext_size = framer.GetMaxPlaintextSize(max_plaintext_size_);
   size_t packet_size =
       quic::GetPacketHeaderSize(version_.transport_version, header);
   size_t frames_size = 0;
@@ -1053,8 +1063,9 @@ QuicTestPacketBuilder::~QuicTestPacketBuilder() {
   DeleteFrames(&frames_);
 }
 
-QuicTestPacketBuilder& QuicTestPacketBuilder::AddPaddingFrame() {
-  quic::QuicPaddingFrame padding_frame;
+QuicTestPacketBuilder& QuicTestPacketBuilder::AddPaddingFrame(size_t length) {
+  quic::QuicPaddingFrame padding_frame =
+      (length > 0) ? quic::QuicPaddingFrame(length) : quic::QuicPaddingFrame();
   AddFrame(quic::QuicFrame(padding_frame));
   return *this;
 }

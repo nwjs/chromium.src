@@ -506,6 +506,7 @@ class CORE_EXPORT WebLocalFrameImpl final
   // allows us to navigate by pressing Enter after closing the Find box.
   void SetFindEndstateFocusAndSelection();
 
+  void DidCommitLoad();
   void DidFailLoad(const ResourceError&, WebHistoryCommitType);
   void DidFinish();
   void DidFinishLoadForPrinting();
@@ -545,9 +546,6 @@ class CORE_EXPORT WebLocalFrameImpl final
 
   // Returns true if the frame is focused.
   bool IsFocused() const;
-
-  // Returns true if our print context suggests using printing layout.
-  bool UsePrintingLayout() const;
 
   // Copy the current selection to the pboard.
   void CopyToFindPboard();

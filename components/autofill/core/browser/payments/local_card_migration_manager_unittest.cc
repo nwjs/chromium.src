@@ -28,6 +28,7 @@
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/local_card_migration_metrics.h"
+#include "components/autofill/core/browser/payments/iban_save_manager.h"
 #include "components/autofill/core/browser/payments/payments_customer_data.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/payments/test_credit_card_save_manager.h"
@@ -47,6 +48,7 @@
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/prefs/pref_service.h"
@@ -78,24 +80,23 @@ class LocalCardMigrationManagerTest : public testing::Test {
         ->set_test_payments_network_interface(
             std::unique_ptr<payments::TestPaymentsNetworkInterface>(
                 payments_network_interface_));
-    credit_card_save_manager_ = new TestCreditCardSaveManager(
-        autofill_driver_.get(), &autofill_client_, &personal_data());
+    auto credit_card_save_manager =
+        std::make_unique<TestCreditCardSaveManager>(&autofill_client_);
+    credit_card_save_manager_ = credit_card_save_manager.get();
     credit_card_save_manager_->SetCreditCardUploadEnabled(true);
-    local_card_migration_manager_ = new TestLocalCardMigrationManager(
-        autofill_driver_.get(), &autofill_client_, &personal_data());
+    auto local_card_migration_manager =
+        std::make_unique<TestLocalCardMigrationManager>(&autofill_client_,
+                                                        "en-US");
+    local_card_migration_manager_ = local_card_migration_manager.get();
     std::unique_ptr<TestStrikeDatabase> test_strike_database =
         std::make_unique<TestStrikeDatabase>();
     strike_database_ = test_strike_database.get();
     autofill_client_.set_test_strike_database(std::move(test_strike_database));
-    autofill::TestFormDataImporter* test_form_data_importer =
-        new TestFormDataImporter(
-            &autofill_client_,
-            std::unique_ptr<CreditCardSaveManager>(credit_card_save_manager_),
-            /*iban_save_manager=*/nullptr, &personal_data(), "en-US",
-            std::unique_ptr<LocalCardMigrationManager>(
-                local_card_migration_manager_));
     autofill_client_.set_test_form_data_importer(
-        std::unique_ptr<TestFormDataImporter>(test_form_data_importer));
+        std::make_unique<TestFormDataImporter>(
+            &autofill_client_, std::move(credit_card_save_manager),
+            /*iban_save_manager=*/nullptr, "en-US",
+            std::move(local_card_migration_manager)));
 
     browser_autofill_manager_ =
         std::make_unique<TestBrowserAutofillManager>(autofill_driver_.get());
@@ -265,7 +266,8 @@ class LocalCardMigrationManagerTest : public testing::Test {
     test::SetCreditCardInfo(&credit_card, "Jane Doe", "1111", "11",
                             test::NextYear().c_str(), "1");
     credit_card.SetNetworkForMaskedCard(kVisaCard);
-    personal_data().AddServerCreditCard(credit_card);
+    personal_data().test_payments_data_manager().AddServerCreditCard(
+        credit_card);
     // Add one valid local credit card, so it will trigger migration
     AddLocalCreditCard(personal_data(), "Jane Doe", "5555555555554444", "11",
                        test::NextYear().c_str(), "1",
@@ -294,7 +296,8 @@ class LocalCardMigrationManagerTest : public testing::Test {
     test::SetCreditCardInfo(&credit_card, "Jane Doe", "1111", "11",
                             test::NextYear().c_str(), "1");
     credit_card.SetNetworkForMaskedCard(kVisaCard);
-    personal_data().AddServerCreditCard(credit_card);
+    personal_data().test_payments_data_manager().AddServerCreditCard(
+        credit_card);
     // Add other invalid local credit cards (invalid card number or expired), so
     // it will not trigger migration.
     AddLocalCreditCard(personal_data(), "Jane Doe", "4111111111111112", "11",
@@ -461,7 +464,7 @@ TEST_F(LocalCardMigrationManagerTest,
   test::SetCreditCardInfo(&server_card, "Jane Doe", "1111", "11",
                           test::NextYear().c_str(), "1");
   server_card.SetNetworkForMaskedCard(kVisaCard);
-  personal_data().AddServerCreditCard(server_card);
+  personal_data().test_payments_data_manager().AddServerCreditCard(server_card);
   // Add a local card whose |TypeAndLastFourDigits| matches a masked server
   // card.
   AddLocalCreditCard(personal_data(), "Jane Doe", "4111111111111111", "11",
@@ -496,7 +499,7 @@ TEST_F(LocalCardMigrationManagerTest,
   CreditCard server_card(CreditCard::RecordType::kFullServerCard, "a123");
   test::SetCreditCardInfo(&server_card, "Jane Doe", "4111111111111111", "11",
                           test::NextYear().c_str(), "1");
-  personal_data().AddServerCreditCard(server_card);
+  personal_data().test_payments_data_manager().AddServerCreditCard(server_card);
   // Add a local credit card whose number matches a full server card.
   AddLocalCreditCard(personal_data(), "Jane Doe", "4111111111111111", "11",
                      test::NextYear().c_str(), "1",
@@ -1049,7 +1052,7 @@ TEST_F(
   test::SetCreditCardInfo(&credit_card, "Jane Doe", "1111", "11",
                           test::NextYear().c_str(), "1");
   credit_card.SetNetworkForMaskedCard(kVisaCard);
-  personal_data().AddServerCreditCard(credit_card);
+  personal_data().test_payments_data_manager().AddServerCreditCard(credit_card);
   // Add one valid local credit card, so it will trigger migration
   AddLocalCreditCard(personal_data(), "Jane Doe", "5555555555554444", "11",
                      test::NextYear().c_str(), "1",
@@ -1089,7 +1092,7 @@ TEST_F(
   test::SetCreditCardInfo(&credit_card, "Jane Doe", "1111", "11",
                           test::NextYear().c_str(), "1");
   credit_card.SetNetworkForMaskedCard(kVisaCard);
-  personal_data().AddServerCreditCard(credit_card);
+  personal_data().test_payments_data_manager().AddServerCreditCard(credit_card);
   // Add one valid local credit card, so it will trigger migration
   AddLocalCreditCard(personal_data(), "Jane Doe", "5555555555554444", "11",
                      test::NextYear().c_str(), "1",
@@ -1382,7 +1385,7 @@ TEST_F(LocalCardMigrationManagerTest,
   test::SetCreditCardInfo(&credit_card, "Jane Doe", "1111", "11",
                           test::NextYear().c_str(), "1");
   credit_card.SetNetworkForMaskedCard(kVisaCard);
-  personal_data().AddServerCreditCard(credit_card);
+  personal_data().test_payments_data_manager().AddServerCreditCard(credit_card);
   // Add one valid local credit card, so it will trigger migration
   AddLocalCreditCard(personal_data(), "Jane Doe", "5555555555554444", "11",
                      test::NextYear().c_str(), "1",
@@ -1425,7 +1428,7 @@ TEST_F(LocalCardMigrationManagerTest,
   test::SetCreditCardInfo(&credit_card, "Jane Doe", "1111", "11",
                           test::NextYear().c_str(), "1");
   credit_card.SetNetworkForMaskedCard(kVisaCard);
-  personal_data().AddServerCreditCard(credit_card);
+  personal_data().test_payments_data_manager().AddServerCreditCard(credit_card);
   // Add one valid local credit card, so it will trigger migration
   AddLocalCreditCard(personal_data(), "Jane Doe", "5555555555554444", "11",
                      test::NextYear().c_str(), "1",

@@ -13,6 +13,7 @@
 <translation id="1049663189809099096">kuning pastel</translation>
 <translation id="1056898198331236512">Peringatan</translation>
 <translation id="1059913517121127803">Tidak dapat memulai pemindaian</translation>
+<translation id="1061864016440983342">Gunakan tanpa lokasi</translation>
 <translation id="1062823486781306604"><ph name="INDEX" /> dari <ph name="COUNT" />, <ph name="NAME" />.</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Firewall terdeteksi</translation>
@@ -217,6 +218,7 @@
 <translation id="2080070583977670716">Setelan lain</translation>
 <translation id="2082932131694554252">Tombol keyboard yang ditetapkan</translation>
 <translation id="2085089206770112532">Kurangi kecerahan layar</translation>
+<translation id="2086091080968010660">Perubahan berbasis waktu mungkin tidak akurat. Aktifkan akses lokasi sistem di setelan.</translation>
 <translation id="2102231663024125441">Pengeditan teks</translation>
 <translation id="2105810540595158374">Perangkat adalah pengontrol game.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, versi <ph name="MILESTONE_VERSION" /></translation>
@@ -236,7 +238,6 @@
 <translation id="2189104374785738357">Edit detail APN</translation>
 <translation id="2195732836444333448">Saat ini sudah mencapai batas kapasitas. Coba lagi nanti.</translation>
 <translation id="2201758491318984023">sepeda</translation>
-<translation id="2203222757805818543">Jadwal saat ini disetel ke <ph name="SUNRISE" /> — <ph name="SUNSET" />. Untuk memperbarui jadwal mode gelap secara otomatis, <ph name="BEGIN_LINK" />aktifkan akses lokasi<ph name="END_LINK" /></translation>
 <translation id="2203272733515928691">mata air panas</translation>
 <translation id="2203642483788377106">tebing</translation>
 <translation id="2208388655216963643">impresionisme</translation>
@@ -259,6 +260,7 @@
 <translation id="2279051792571591988">Pulihkan default</translation>
 <translation id="2286454467119466181">Sederhana</translation>
 <translation id="2287186687001756809">Foto tidak tersedia. Untuk menambahkan foto, buka <ph name="LINK" /></translation>
+<translation id="2294577623958216786">Jadwal saat ini disetel ke <ph name="SUNRISE" />-<ph name="SUNSET" />. Untuk memperbarui jadwal matahari terbenam dan matahari terbit secara otomatis, aktifkan akses lokasi sistem.</translation>
 <translation id="2305172810646967500">hitam</translation>
 <translation id="2307344026739914387">Gunakan pasangan kunci saat ini</translation>
 <translation id="2308243864813041101">Cabut kabel USB <ph name="DEVICE_NAME" /> untuk melanjutkan proses update</translation>
@@ -313,6 +315,7 @@
 <translation id="2618015542787108131">bukit pasir</translation>
 <translation id="2619761439309613843">Muat Ulang Harian</translation>
 <translation id="2620436844016719705">Sistem</translation>
+<translation id="2637303424821734920">NONAKTIF - Untuk menampilkan cuaca lokal, <ph name="BEGIN_LINK" />aktifkan akses lokasi sistem<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Gambar login</translation>
 <translation id="2640549051766135490">Album <ph name="TITLE" /> <ph name="DESC" /> dipilih</translation>
 <translation id="2645380101799517405">Kontrol</translation>
@@ -361,9 +364,11 @@
 <translation id="3017079585324758401">Latar belakang</translation>
 <translation id="3027578600144895987">Tutup kamera</translation>
 <translation id="3031560714565892478">Perangkat adalah kamera video.</translation>
+<translation id="3051968340259309715">Hal ini memungkinkan layanan sistem menggunakan Akurasi Lokasi untuk menentukan lokasi Anda. Akurasi Lokasi menggunakan informasi tentang sinyal nirkabel, seperti titik akses Wi-Fi, menara BTS, dan GPS, serta data sensor perangkat, seperti akselerometer dan giroskop, untuk memperkirakan lokasi perangkat. Anda dapat menonaktifkan lokasi di Setelan &gt; Privasi dan keamanan &gt; Kontrol privasi &gt; Akses lokasi. <ph name="LINK_BEGIN" />Pelajari lebih lanjut<ph name="LINK_END" /></translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" /> mA</translation>
 <translation id="3056720590588772262">Endpoint</translation>
 <translation id="3060579846059757016">Kerangka</translation>
+<translation id="3061850252076394168">aktifkan fitur klik untuk diucapkan</translation>
 <translation id="3069085583900247081">Pengujian gagal</translation>
 <translation id="3078740164268491126">tabel</translation>
 <translation id="3081652522083185657">terang</translation>
@@ -630,7 +635,6 @@
 <translation id="458794348635939462">Gagal me-resolve semua host</translation>
 <translation id="4593212453765072419">Autentikasi Proxy dibutuhkan</translation>
 <translation id="4609350030397390689">Kurangi kecerahan keyboard</translation>
-<translation id="4617553623719764431">Cuaca tidak ditampilkan karena layanan tidak mengetahui lokasi Anda. Untuk menampilkan cuaca lokal, <ph name="BEGIN_LINK" />aktifkan Akses lokasi<ph name="END_LINK" /></translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" /> dari <ph name="TOTAL_PAGE_NUMBER" />. Tekan enter untuk membatalkan tugas pencetakan.</translation>
 <translation id="463791356324567266">Membatalkan pemindaian ...</translation>
 <translation id="4646949265910132906">Koneksi Wi-Fi aman</translation>
@@ -704,6 +708,7 @@
 <translation id="4985509611418653372">Jalankan</translation>
 <translation id="4987769320337599931">Firewall</translation>
 <translation id="4988526792673242964">Halaman</translation>
+<translation id="4989542687859782284">Tidak Tersedia</translation>
 <translation id="4999333166442584738">Sembunyikan laporan</translation>
 <translation id="500920857929044050">Hentikan pengujian</translation>
 <translation id="5017508259293544172">LEAP</translation>
@@ -959,8 +964,8 @@
 <translation id="6411934471898487866">kecerahan keyboard</translation>
 <translation id="6412715219990689313">Keyboard bawaan</translation>
 <translation id="6417265370957905582">Asisten Google</translation>
+<translation id="6419454453018688975">Aktifkan akses lokasi sistem</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
-<translation id="6438073885402882007">Tindakan ini memungkinkan layanan sistem yang memiliki izin untuk menggunakan lokasi Anda. Lokasi dapat menggunakan sumber seperti Wi-Fi, jaringan seluler, dan sensor untuk membantu memperkirakan lokasi perangkat Anda. <ph name="LINK_BEGIN" />Pelajari lebih lanjut<ph name="LINK_END" /></translation>
 <translation id="6439505561246192797">Lemah (<ph name="SIGNAL_STRENGTH" />)</translation>
 <translation id="6447630859861661624">Buka setelan akun</translation>
 <translation id="6462978824459367242">Tombol Tambahkan APN kini diaktifkan</translation>

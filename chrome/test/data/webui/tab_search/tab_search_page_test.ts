@@ -4,7 +4,7 @@
 
 import {MetricsReporterImpl} from 'chrome://resources/js/metrics_reporter/metrics_reporter.js';
 import {keyDownOn} from 'chrome://resources/polymer/v3_0/iron-test-helpers/mock-interactions.js';
-import type {ProfileData, RecentlyClosedTab, Tab, TabSearchItem, TabSearchPageElement} from 'chrome://tab-search.top-chrome/tab_search.js';
+import type {ProfileData, RecentlyClosedTab, Tab, TabSearchItemElement, TabSearchPageElement} from 'chrome://tab-search.top-chrome/tab_search.js';
 import {TabGroupColor, TabSearchApiProxyImpl} from 'chrome://tab-search.top-chrome/tab_search.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {MockedMetricsReporter} from 'chrome://webui-test/mocked_metrics_reporter.js';
@@ -141,12 +141,10 @@ suite('TabSearchAppTest', () => {
   });
 
   test('Search text changes tab items', async () => {
-    await setupTest(
-        createProfileData({
-          recentlyClosedTabs: SAMPLE_RECENTLY_CLOSED_DATA,
-          recentlyClosedSectionExpanded: true,
-        }),
-        {useFuzzySearch: false});
+    await setupTest(createProfileData({
+      recentlyClosedTabs: SAMPLE_RECENTLY_CLOSED_DATA,
+      recentlyClosedSectionExpanded: true,
+    }));
     setSearchText('bing');
     await flushTasks();
     verifyTabIds(queryRows(), [2]);
@@ -410,8 +408,9 @@ suite('TabSearchAppTest', () => {
   test('refresh on tab updated', async () => {
     await setupTest(createProfileData());
     verifyTabIds(queryRows(), [1, 5, 6, 2, 3, 4]);
-    let tabSearchItem = tabSearchPage.$.tabsList.querySelector<TabSearchItem>(
-        'tab-search-item[id="1"]')!;
+    let tabSearchItem =
+        tabSearchPage.$.tabsList.querySelector<TabSearchItemElement>(
+            'tab-search-item[id="1"]')!;
     assertEquals('Google', tabSearchItem.data.tab.title);
     assertEquals('https://www.google.com', tabSearchItem.data.tab.url.url);
     const updatedTab: Tab = createTab({
@@ -654,13 +653,6 @@ suite('TabSearchAppTest', () => {
       windows: [{active: true, height: SAMPLE_WINDOW_HEIGHT, tabs}],
     }));
     verifyTabIds(queryRows(), [3, 1, 2]);
-
-    await setupTest(
-        createProfileData({
-          windows: [{active: true, height: SAMPLE_WINDOW_HEIGHT, tabs}],
-        }),
-        {moveActiveTabToBottom: false});
-    verifyTabIds(queryRows(), [2, 3, 1]);
   });
 
   test('Tab associated with TabGroup data', async () => {
@@ -684,8 +676,9 @@ suite('TabSearchAppTest', () => {
       tabGroups: [tabGroup],
     }));
 
-    const tabSearchItem = tabSearchPage.$.tabsList.querySelector<TabSearchItem>(
-        'tab-search-item[id="1"]')!;
+    const tabSearchItem =
+        tabSearchPage.$.tabsList.querySelector<TabSearchItemElement>(
+            'tab-search-item[id="1"]')!;
     assertEquals('Google', tabSearchItem.data.tab.title);
     assertEquals('Search Engines', tabSearchItem.data.tabGroup!.title);
   });

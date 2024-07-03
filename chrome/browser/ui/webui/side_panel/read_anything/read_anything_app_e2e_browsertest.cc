@@ -8,7 +8,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -21,7 +21,7 @@ class ReadAnythingAppE2ETest : public InProcessBrowserTest {
  public:
   ReadAnythingAppE2ETest() {
     scoped_feature_list_.InitWithFeatures(
-        {features::kReadAnything, features::kReadAnythingLocalSidePanel}, {});
+        {features::kReadAnythingLocalSidePanel}, {});
   }
   ~ReadAnythingAppE2ETest() override = default;
   ReadAnythingAppE2ETest(const ReadAnythingAppE2ETest&) = delete;

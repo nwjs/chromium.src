@@ -4,9 +4,12 @@
 
 #include "chrome/browser/ui/views/webauthn/pin_options_button.h"
 
+#include "chrome/grit/generated_resources.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/models/simple_menu_model.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/vector_icons.h"
 
@@ -17,12 +20,12 @@ constexpr int kCheckIconSize = 16;
 std::u16string GetCommandIdLabel(int command_id) {
   switch (command_id) {
     case PinOptionsButton::CommandId::CHOOSE_SIX_DIGIT_PIN:
-      return u"Numbers (UT)";
+      return l10n_util::GetStringUTF16(IDS_WEBAUTHN_GPM_PIN_OPTION_NUMBERS);
     case PinOptionsButton::CommandId::CHOOSE_ARBITRARY_PIN:
-      // TODO(enclave): Replace `and` with `&amp;` when adding translation.
-      return u"Letters and numbers (UT)";
+      return l10n_util::GetStringUTF16(
+          IDS_WEBAUTHN_GPM_PIN_OPTION_ALPHANUMERIC);
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return u"";
   }
 }
@@ -38,7 +41,7 @@ PinOptionsButton::PinOptionsButton(const std::u16string& label,
           label),
       callback_(std::move(callback)),
       menu_model_(std::make_unique<ui::SimpleMenuModel>(this)) {
-  SetAccessibleName(label);
+  GetViewAccessibility().SetName(label);
   SetFocusBehavior(FocusBehavior::ALWAYS);
 
   for (int command_id = 0; command_id < CommandId::COMMAND_ID_COUNT;
@@ -75,7 +78,7 @@ void PinOptionsButton::ExecuteCommand(int command_id, int event_flags) {
       callback_.Run(/*is_arbitrary=*/true);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return;
   }
 }

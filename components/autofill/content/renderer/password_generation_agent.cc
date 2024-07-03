@@ -438,8 +438,8 @@ void PasswordGenerationAgent::TriggeredGeneratePassword(
     bool is_generation_element_password_type =
         current_generation_item_->generation_element_.IsPasswordField();
     password_generation::PasswordGenerationUIData password_generation_ui_data(
-        render_frame()->ElementBoundsInWindow(
-            current_generation_item_->generation_element_),
+        gfx::RectF(render_frame()->ConvertViewportToWindow(
+            current_generation_item_->generation_element_.BoundsInWidget())),
         current_generation_item_->generation_element_.MaxLength(),
         current_generation_item_->generation_element_.NameForAutofill().Utf16(),
         form_util::GetFieldRendererId(
@@ -563,6 +563,18 @@ void PasswordGenerationAgent::DidEndTextFieldEditing(
   }
 }
 
+void PasswordGenerationAgent::TextFieldCleared(
+    const blink::WebInputElement& element) {
+  if (current_generation_item_ &&
+      current_generation_item_->generation_element_ == element) {
+    if (current_generation_item_->password_is_generated_) {
+      PasswordNoLongerGenerated();
+    }
+    current_generation_item_->generation_element_.SetShouldRevealPassword(
+        false);
+  }
+}
+
 bool PasswordGenerationAgent::TextDidChangeInTextField(
     const WebInputElement& element) {
   if (!(current_generation_item_ &&
@@ -588,11 +600,6 @@ bool PasswordGenerationAgent::TextDidChangeInTextField(
       }
     }
     return false;
-  }
-
-  if (element.Value().IsEmpty()) {
-    current_generation_item_->generation_element_.SetShouldRevealPassword(
-        false);
   }
 
   if (!current_generation_item_->password_is_generated_ &&
@@ -663,8 +670,8 @@ void PasswordGenerationAgent::AutomaticGenerationAvailable() {
   bool is_generation_element_password_type =
       current_generation_item_->generation_element_.IsPasswordField();
   password_generation::PasswordGenerationUIData password_generation_ui_data(
-      render_frame()->ElementBoundsInWindow(
-          current_generation_item_->generation_element_),
+      gfx::RectF(render_frame()->ConvertViewportToWindow(
+          current_generation_item_->generation_element_.BoundsInWidget())),
       current_generation_item_->generation_element_.MaxLength(),
       current_generation_item_->generation_element_.NameForAutofill().Utf16(),
       form_util::GetFieldRendererId(
@@ -682,8 +689,8 @@ void PasswordGenerationAgent::ShowEditingPopup() {
   if (!render_frame())
     return;
 
-  gfx::RectF bounding_box = render_frame()->ElementBoundsInWindow(
-      current_generation_item_->generation_element_);
+  gfx::RectF bounding_box(render_frame()->ConvertViewportToWindow(
+      current_generation_item_->generation_element_.BoundsInWidget()));
 
   std::unique_ptr<FormData> form_data = CreateFormDataToPresave();
   DCHECK(form_data);

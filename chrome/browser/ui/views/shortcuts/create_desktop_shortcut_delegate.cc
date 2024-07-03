@@ -42,10 +42,12 @@ std::u16string AppendProfileNameToTitleIfNeeded(Profile* profile,
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(CreateDesktopShortcutDelegate,
                                       kCreateShortcutDialogOkButtonId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(CreateDesktopShortcutDelegate,
+                                      kCreateShortcutDialogTitleFieldId);
 
 CreateDesktopShortcutDelegate::CreateDesktopShortcutDelegate(
     content::WebContents* web_contents,
-    chrome::CreateShortcutDialogCallback final_callback)
+    CreateShortcutDialogCallback final_callback)
     : content::WebContentsObserver(web_contents),
       final_callback_(std::move(final_callback)) {}
 

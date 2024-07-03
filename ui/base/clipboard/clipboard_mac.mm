@@ -33,6 +33,7 @@
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/clipboard/clipboard_format_type.h"
 #include "ui/base/clipboard/clipboard_metrics.h"
+#include "ui/base/clipboard/clipboard_monitor.h"
 #include "ui/base/clipboard/clipboard_util_mac.h"
 #include "ui/base/clipboard/custom_data_helper.h"
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
@@ -471,6 +472,7 @@ void ClipboardMac::WritePortableAndPlatformRepresentationsInternal(
   if (privacy_types & Clipboard::PrivacyTypes::kNoDisplay) {
     WriteConfidentialDataForPassword();
   }
+  ClipboardMonitor::GetInstance()->NotifyClipboardDataChanged();
 }
 
 void ClipboardMac::WriteText(std::string_view text) {
@@ -587,7 +589,7 @@ void ClipboardMac::WriteBitmapInternal(const SkBitmap& bitmap,
 
   NSBitmapImageRep* image_rep = skia::SkBitmapToNSBitmapImageRep(bitmap);
   if (!image_rep) {
-    NOTREACHED() << "SkBitmapToNSBitmapImageRep failed";
+    NOTREACHED_IN_MIGRATION() << "SkBitmapToNSBitmapImageRep failed";
     return;
   }
   // Attempt to format the image representation as a PNG, and write it directly

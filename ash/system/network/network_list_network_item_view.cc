@@ -79,7 +79,7 @@ bool NetworkTypeIsConfigurable(NetworkType type) {
     case NetworkType::kWireless:
       return false;
   }
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return false;
 }
 
@@ -322,7 +322,7 @@ void NetworkListNetworkItemView::UpdateViewForNetwork(
     network_icon::NetworkIconAnimation::GetInstance()->RemoveObserver(this);
   }
 
-  SetAccessibleName(GenerateAccessibilityLabel(label));
+  GetViewAccessibility().SetName(GenerateAccessibilityLabel(label));
   GetViewAccessibility().SetDescription(GenerateAccessibilityDescription());
 }
 

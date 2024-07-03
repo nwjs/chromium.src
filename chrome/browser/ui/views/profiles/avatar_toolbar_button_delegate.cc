@@ -40,6 +40,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/dotted_icon.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/pref_names.h"
@@ -59,14 +60,18 @@
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/gfx/image/image_skia_operations.h"
+#include "ui/views/accessibility/view_accessibility.h"
 
 namespace {
+
+constexpr float kAvatarIconSigninPendingShrinkRatio = 0.75;
 
 static std::optional<base::TimeDelta> kTestingDuration;
 
 constexpr base::TimeDelta kShowNameDuration = base::Seconds(3);
 
-constexpr base::TimeDelta kShowSigninPausedTextDelay = base::Minutes(50);
+constexpr base::TimeDelta kShowSigninPendingTextDelay = base::Minutes(50);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 constexpr base::TimeDelta kEnterpriseTextTransientDuration = base::Seconds(30);
@@ -129,7 +134,7 @@ enum class ButtonState {
   // An error in sync-the-feature or sync-the-transport or SyncPaused (use
   // `IsErrorSyncPaused()` to differentiate).
   kSyncError,
-  kSigninPaused,
+  kSigninPending,
   // Includes Work and School.
   kManagement,
   kNormal
@@ -140,6 +145,7 @@ namespace {
 class StateProvider;
 class ExplicitStateProvider;
 class SyncErrorStateProvider;
+class SigninPendingStateProvider;
 
 // Allows getting data from the underlying implementation of a `StateProvider`.
 // `StateVisitor::visit()` overrides to be added based on the need.
@@ -147,6 +153,7 @@ class StateVisitor {
  public:
   virtual void visit(const ExplicitStateProvider* state_provider) = 0;
   virtual void visit(const SyncErrorStateProvider* state_provider) = 0;
+  virtual void visit(const SigninPendingStateProvider* state_provider) = 0;
 };
 
 class StateObserver {
@@ -223,15 +230,22 @@ class PrivateStateProvider : public StateProvider, public BrowserListObserver {
 
 class ExplicitStateProvider : public StateProvider {
  public:
-  explicit ExplicitStateProvider(StateObserver& state_observer,
-                                 const std::u16string& explicit_text)
-      : StateProvider(state_observer), explicit_text_(explicit_text) {}
+  explicit ExplicitStateProvider(
+      StateObserver& state_observer,
+      const std::u16string& explicit_text,
+      std::optional<std::u16string> accessibility_label)
+      : StateProvider(state_observer),
+        explicit_text_(explicit_text),
+        accessibility_label_(accessibility_label) {}
   ~ExplicitStateProvider() override = default;
 
   // StateProvider:
   bool IsActive() const override { return active_; }
 
-  std::u16string GetExplicitText() const { return explicit_text_; }
+  std::u16string GetText() const { return explicit_text_; }
+  std::optional<std::u16string> GetAccessibiltyLabel() const {
+    return accessibility_label_;
+  }
 
   // Used as the callback closure to the setter of the explicit state,
   // or when overriding the explicit state by another one.
@@ -251,6 +265,7 @@ class ExplicitStateProvider : public StateProvider {
   bool active_ = true;
 
   const std::u16string explicit_text_;
+  const std::optional<std::u16string> accessibility_label_;
 
   base::WeakPtrFactory<ExplicitStateProvider> weak_ptr_factory_{this};
 };
@@ -511,8 +526,8 @@ class SyncErrorStateProvider : public StateProvider,
       sync_service_observation_{this};
 };
 
-const void* const kSigninPausedTimestampStartKey =
-    &kSigninPausedTimestampStartKey;
+const void* const kSigninPendingTimestampStartKey =
+    &kSigninPendingTimestampStartKey;
 
 // Helper struct to store a `base::TimeTicks` as a Profile user data.
 struct TimeStampData : public base::SupportsUserData::Data {
@@ -520,10 +535,20 @@ struct TimeStampData : public base::SupportsUserData::Data {
   base::Time time_;
 };
 
-class SigninPausedStateProvider : public StateProvider,
-                                  public signin::IdentityManager::Observer {
+// This state has two modes when active; extended and collapsed. This states is
+// active when the Signed in account is in error. Based on the source of the
+// error, a mode is active:
+// - collapsed: error originates from a web signout action from the user, the
+// avatar button will not show a text.
+// - extended version: any other error or after 50 minutes past a web signout or
+// on Chrome restart, the button will extend to show a "Verify it's you" text.
+//
+// In both modes, the avatar icon is shrunk slightly and surrounded by a dotted
+// circle to show the pending state.
+class SigninPendingStateProvider : public StateProvider,
+                                   public signin::IdentityManager::Observer {
  public:
-  explicit SigninPausedStateProvider(
+  explicit SigninPendingStateProvider(
       StateObserver& state_observer,
       Profile& profile,
       const AvatarToolbarButton& avatar_toolbar_button)
@@ -533,26 +558,27 @@ class SigninPausedStateProvider : public StateProvider,
         avatar_toolbar_button_(avatar_toolbar_button) {
     identity_manager_observation_.Observe(&identity_manager_.get());
 
-    TimeStampData* signed_in_paused_delay_start = static_cast<TimeStampData*>(
-        profile.GetUserData(kSigninPausedTimestampStartKey));
-    // If a delay to show the activate the paused state was already started by
-    // another browser, start one with the remaining time.
-    if (signed_in_paused_delay_start) {
+    TimeStampData* signed_in_pending_delay_start = static_cast<TimeStampData*>(
+        profile.GetUserData(kSigninPendingTimestampStartKey));
+    // If a delay to show the pending state text was already started by another
+    // browser, start one with the remaining time.
+    if (signed_in_pending_delay_start) {
       base::TimeDelta elapsed_delay_time =
-          base::Time::Now() - signed_in_paused_delay_start->time_;
-      CHECK_GT(kTestingDuration.value_or(kShowSigninPausedTextDelay),
-               elapsed_delay_time);
-      StartTimerDelay(kTestingDuration.value_or(kShowSigninPausedTextDelay) -
-                      elapsed_delay_time);
+          base::Time::Now() - signed_in_pending_delay_start->time_;
+      const base::TimeDelta delay =
+          kTestingDuration.value_or(kShowSigninPendingTextDelay);
+      if (elapsed_delay_time < delay) {
+        StartTimerDelay(delay - elapsed_delay_time);
+      } else {
+        // This can happen if all browsers were closed when the delay expired,
+        // and the cleanup task could not be run. Remove the user data now.
+        profile_->RemoveUserData(kSigninPendingTimestampStartKey);
+      }
     }
   }
 
   // StateProvider:
   bool IsActive() const override {
-    if (display_delay_timer_.IsRunning()) {
-      return false;
-    }
-
     CoreAccountId primary_account_id =
         identity_manager_->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
     if (primary_account_id.empty()) {
@@ -563,7 +589,13 @@ class SigninPausedStateProvider : public StateProvider,
         primary_account_id);
   }
 
+  // Only show the text when the delay timer is not running.
+  bool ShouldShowText() const { return !display_text_delay_timer_.IsRunning(); }
+
  private:
+  // StateProvider:
+  void accept(StateVisitor& visitor) const override { visitor.visit(this); }
+
   // signin::IdentityManager::Observer:
   void OnErrorStateOfRefreshTokenUpdatedForAccount(
       const CoreAccountInfo& account_info,
@@ -575,10 +607,10 @@ class SigninPausedStateProvider : public StateProvider,
       return;
     }
 
-    if (!error.IsPersistentError() && display_delay_timer_.IsRunning()) {
+    if (!error.IsPersistentError() && display_text_delay_timer_.IsRunning()) {
       // Clear timer and make it reaches the end. Next update should make the
       // state inactive.
-      display_delay_timer_.Reset();
+      display_text_delay_timer_.Reset();
       OnTimerDelayReached();
       return;
     }
@@ -588,10 +620,9 @@ class SigninPausedStateProvider : public StateProvider,
         token_operation_source ==
             signin_metrics::SourceForRefreshTokenOperation::
                 kDiceResponseHandler_Signout) {
-      profile_->SetUserData(kSigninPausedTimestampStartKey,
+      profile_->SetUserData(kSigninPendingTimestampStartKey,
                             std::make_unique<TimeStampData>(base::Time::Now()));
-      StartTimerDelay(kTestingDuration.value_or(kShowSigninPausedTextDelay));
-      return;
+      StartTimerDelay(kTestingDuration.value_or(kShowSigninPendingTextDelay));
     }
 
     RequestUpdate();
@@ -607,16 +638,16 @@ class SigninPausedStateProvider : public StateProvider,
   }
 
   void StartTimerDelay(base::TimeDelta delay) {
-    display_delay_timer_.Start(
+    display_text_delay_timer_.Start(
         FROM_HERE, delay,
-        base::BindOnce(&SigninPausedStateProvider::OnTimerDelayReached,
+        base::BindOnce(&SigninPendingStateProvider::OnTimerDelayReached,
                        // Unretained is fine here since the object owns the
                        // timer which will not fire if destroyed.
                        base::Unretained(this)));
   }
 
   void OnTimerDelayReached() {
-    profile_->RemoveUserData(kSigninPausedTimestampStartKey);
+    profile_->RemoveUserData(kSigninPendingTimestampStartKey);
     RequestUpdate();
     avatar_toolbar_button_->NotifyShowSigninPausedDelayEnded();  // IN-TEST
   }
@@ -629,7 +660,7 @@ class SigninPausedStateProvider : public StateProvider,
                           signin::IdentityManager::Observer>
       identity_manager_observation_{this};
 
-  base::OneShotTimer display_delay_timer_;
+  base::OneShotTimer display_text_delay_timer_;
 };
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -758,6 +789,9 @@ class StateProviderGetter : public StateVisitor {
 
   const ExplicitStateProvider* AsExplicit() { return explicit_state_; }
   const SyncErrorStateProvider* AsSyncError() { return sync_error_state_; }
+  const SigninPendingStateProvider* AsSigninPending() {
+    return signin_pending_state_;
+  }
 
  private:
   void visit(const ExplicitStateProvider* state_provider) override {
@@ -768,8 +802,13 @@ class StateProviderGetter : public StateVisitor {
     sync_error_state_ = state_provider;
   }
 
+  void visit(const SigninPendingStateProvider* state_provider) override {
+    signin_pending_state_ = state_provider;
+  }
+
   raw_ptr<const ExplicitStateProvider> explicit_state_ = nullptr;
   raw_ptr<const SyncErrorStateProvider> sync_error_state_ = nullptr;
+  raw_ptr<const SigninPendingStateProvider> signin_pending_state_ = nullptr;
 };
 
 }  // namespace
@@ -877,8 +916,8 @@ class StateManager : public StateObserver,
       }
 
       if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled()) {
-        states_[ButtonState::kSigninPaused] =
-            std::make_unique<SigninPausedStateProvider>(
+        states_[ButtonState::kSigninPending] =
+            std::make_unique<SigninPendingStateProvider>(
                 /*state_observer=*/*this, *profile, *avatar_toolbar_button_);
       }
 #endif
@@ -918,9 +957,9 @@ class StateManager : public StateObserver,
         // Recompute the new button active state as we are clearing the
         // requesting state effects.
         ComputeButtonActiveState();
-        // Always update the text since we do not know exactly which state
+        // Always update the button since we do not know exactly which state
         // should now be active.
-        UpdateButtonText();
+        UpdateAvatarButton();
       }
       return;
     }
@@ -936,7 +975,7 @@ class StateManager : public StateObserver,
     if (current_active_state_pair_->second.get() != requesting_state) {
       return;
     }
-    UpdateButtonText();
+    UpdateAvatarButton();
   }
 
   // Computes the current active state with the highest priority.
@@ -951,7 +990,8 @@ class StateManager : public StateObserver,
       }
     }
 
-    NOTREACHED() << "There should at least be one active state in the map.";
+    NOTREACHED_IN_MIGRATION()
+        << "There should at least be one active state in the map.";
   }
 
   // `AvatarToolbarButton::UpdateIcon()` will notify observers, the
@@ -959,6 +999,14 @@ class StateManager : public StateObserver,
   void UpdateButtonIcon() { avatar_toolbar_button_->UpdateIcon(); }
 
   void UpdateButtonText() { avatar_toolbar_button_->UpdateText(); }
+
+  // This is mainly used `OnStateProviderUpdateRequest()` where currently only
+  // one state transition needs the icon update. Consider adding a filter if
+  // this impacting performance.
+  void UpdateAvatarButton() {
+    UpdateButtonText();
+    UpdateButtonIcon();
+  }
 
   // signin::IdentityManager::Observer:
   void OnIdentityManagerShutdown(signin::IdentityManager*) override {
@@ -1143,13 +1191,14 @@ void AvatarToolbarButtonDelegate::OnThemeChanged(
 }
 
 base::ScopedClosureRunner AvatarToolbarButtonDelegate::ShowExplicitText(
-    const std::u16string& new_text) {
+    const std::u16string& new_text,
+    std::optional<std::u16string> accessibility_label) {
   CHECK(!new_text.empty());
 
   // Create the new explicit state with the clear text callback.
   std::unique_ptr<ExplicitStateProvider> explicit_state_provider =
       std::make_unique<ExplicitStateProvider>(
-          /*state_observer=*/*state_manager_, new_text);
+          /*state_observer=*/*state_manager_, new_text, accessibility_label);
 
   ExplicitStateProvider* explicit_state_provider_ptr =
       explicit_state_provider.get();
@@ -1166,25 +1215,18 @@ base::ScopedClosureRunner AvatarToolbarButtonDelegate::ShowExplicitText(
 std::pair<std::u16string, std::optional<SkColor>>
 AvatarToolbarButtonDelegate::GetTextAndColor(
     const ui::ColorProvider* const color_provider) const {
-  std::optional<SkColor> color;
+  std::optional<SkColor> color =
+      color_provider->GetColor(kColorAvatarButtonHighlightDefault);
   std::u16string text;
-
-  if (features::IsChromeRefresh2023()) {
-    color = color_provider->GetColor(kColorAvatarButtonHighlightDefault);
-  }
   switch (state_manager_->GetButtonActiveState()) {
     case ButtonState::kIncognitoProfile: {
       const int incognito_window_count = GetWindowCount();
-      avatar_toolbar_button_->SetAccessibleName(
+      avatar_toolbar_button_->GetViewAccessibility().SetName(
           l10n_util::GetPluralStringFUTF16(
               IDS_INCOGNITO_BUBBLE_ACCESSIBLE_TITLE, incognito_window_count));
       text = l10n_util::GetPluralStringFUTF16(IDS_AVATAR_BUTTON_INCOGNITO,
                                               incognito_window_count);
-      // TODO(shibalik): Remove this condition to make it generic by refactoring
-      // `ToolbarButton::HighlightColorAnimation`.
-      if (features::IsChromeRefresh2023()) {
-        color = color_provider->GetColor(kColorAvatarButtonHighlightIncognito);
-      }
+      color = color_provider->GetColor(kColorAvatarButtonHighlightIncognito);
       break;
     }
     case ButtonState::kShowIdentityName:
@@ -1199,7 +1241,7 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
               *state_manager_->GetActiveStateProvider())
               .AsExplicit();
       CHECK(explicit_state);
-      text = explicit_state->GetExplicitText();
+      text = explicit_state->GetText();
       color = color_provider->GetColor(kColorAvatarButtonHighlightExplicitText);
       break;
     }
@@ -1218,10 +1260,18 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
       }
       break;
     }
-    case ButtonState::kSigninPaused:
-      color = color_provider->GetColor(kColorAvatarButtonHighlightSigninPaused);
-      text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PAUSED);
-      break;
+    case ButtonState::kSigninPending: {
+      const internal::SigninPendingStateProvider* signin_pending_state =
+          internal::StateProviderGetter(
+              *state_manager_->GetActiveStateProvider())
+              .AsSigninPending();
+      CHECK(signin_pending_state);
+      if (signin_pending_state->ShouldShowText()) {
+        color =
+            color_provider->GetColor(kColorAvatarButtonHighlightSigninPaused);
+        text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PAUSED);
+      }
+    } break;
     case ButtonState::kGuestSession: {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
       // On ChromeOS all windows are either Guest or not Guest and the Guest
@@ -1232,7 +1282,7 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
 #else
       const int guest_window_count = GetWindowCount();
 #endif
-      avatar_toolbar_button_->SetAccessibleName(
+      avatar_toolbar_button_->GetViewAccessibility().SetName(
           l10n_util::GetPluralStringFUTF16(IDS_GUEST_BUBBLE_ACCESSIBLE_TITLE,
                                            guest_window_count));
       text = l10n_util::GetPluralStringFUTF16(IDS_AVATAR_BUTTON_GUEST,
@@ -1272,6 +1322,48 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
   return {text, color};
 }
 
+std::optional<std::u16string>
+AvatarToolbarButtonDelegate::GetAccessibilityLabel() const {
+  std::optional<std::u16string> accessibility_label;
+
+  switch (state_manager_->GetButtonActiveState()) {
+    case ButtonState::kGuestSession:
+    case ButtonState::kShowIdentityName:
+    case ButtonState::kIncognitoProfile:
+    case ButtonState::kManagement:
+    case ButtonState::kSyncError:
+    case ButtonState::kNormal:
+      break;
+    case ButtonState::kSigninPending: {
+      const internal::SigninPendingStateProvider* signin_pending_state =
+          internal::StateProviderGetter(
+              *state_manager_->GetActiveStateProvider())
+              .AsSigninPending();
+      CHECK(signin_pending_state);
+      // Only set the accessibility label if the original text is not showing.
+      // We are setting the same string, this is done not to duplicate the
+      // message read by the screen reader.
+      if (!signin_pending_state->ShouldShowText()) {
+        // TODO(b/347011002): Final string to be added, condition will not hold
+        // if the text is different.
+        accessibility_label =
+            l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PAUSED);
+      }
+      break;
+    }
+    case ButtonState::kExplicitTextShowing:
+      const internal::ExplicitStateProvider* explicit_state =
+          internal::StateProviderGetter(
+              *state_manager_->GetActiveStateProvider())
+              .AsExplicit();
+      CHECK(explicit_state);
+      accessibility_label = explicit_state->GetAccessibiltyLabel();
+      break;
+  }
+
+  return accessibility_label;
+}
+
 SkColor AvatarToolbarButtonDelegate::GetHighlightTextColor(
     const ui::ColorProvider* const color_provider) const {
   switch (state_manager_->GetButtonActiveState()) {
@@ -1293,7 +1385,7 @@ SkColor AvatarToolbarButtonDelegate::GetHighlightTextColor(
       }
     }
     case ButtonState::kManagement:
-    case ButtonState::kSigninPaused:
+    case ButtonState::kSigninPending:
       return color_provider->GetColor(
           kColorAvatarButtonHighlightNormalForeground);
     case ButtonState::kExplicitTextShowing:
@@ -1329,7 +1421,7 @@ std::u16string AvatarToolbarButtonDelegate::GetAvatarTooltipText() const {
               IdentityManagerFactory::GetForProfile(profile_)
                   ->HasPrimaryAccount(signin::ConsentLevel::kSync)));
     }
-    case ButtonState::kSigninPaused:
+    case ButtonState::kSigninPending:
     case ButtonState::kExplicitTextShowing:
     case ButtonState::kManagement:
     case ButtonState::kNormal:
@@ -1339,8 +1431,6 @@ std::u16string AvatarToolbarButtonDelegate::GetAvatarTooltipText() const {
 
 std::pair<ChromeColorIds, ChromeColorIds>
 AvatarToolbarButtonDelegate::GetInkdropColors() const {
-  CHECK(features::IsChromeRefresh2023());
-
   ChromeColorIds hover_color_id = kColorToolbarInkDropHover;
   ChromeColorIds ripple_color_id = kColorToolbarInkDropRipple;
 
@@ -1365,7 +1455,7 @@ AvatarToolbarButtonDelegate::GetInkdropColors() const {
       case ButtonState::kShowIdentityName:
         break;
       case ButtonState::kManagement:
-      case ButtonState::kSigninPaused:
+      case ButtonState::kSigninPending:
         ripple_color_id = kColorAvatarButtonNormalRipple;
         break;
       case ButtonState::kNormal:
@@ -1382,9 +1472,7 @@ ui::ImageModel AvatarToolbarButtonDelegate::GetAvatarIcon(
     SkColor icon_color) const {
   switch (state_manager_->GetButtonActiveState()) {
     case ButtonState::kIncognitoProfile:
-      return ui::ImageModel::FromVectorIcon(features::IsChromeRefresh2023()
-                                                ? kIncognitoRefreshMenuIcon
-                                                : kIncognitoIcon,
+      return ui::ImageModel::FromVectorIcon(kIncognitoRefreshMenuIcon,
                                             icon_color, icon_size);
     case ButtonState::kGuestSession:
       return profiles::GetGuestAvatar(icon_size);
@@ -1394,11 +1482,25 @@ ui::ImageModel AvatarToolbarButtonDelegate::GetAvatarIcon(
     // should be different.
     case ButtonState::kSyncError:
     case ButtonState::kManagement:
-    case ButtonState::kSigninPaused:
     case ButtonState::kNormal:
       return ui::ImageModel::FromImage(profiles::GetSizedAvatarIcon(
           GetProfileAvatarImage(icon_size), icon_size, icon_size,
           profiles::SHAPE_CIRCLE));
+    case ButtonState::kSigninPending:
+      // First shrink the icon from it's regular size in order to accommodate
+      // for the dotted circle that is drawn around it in `PaintIcon()`.
+      int shrunk_icon_size = icon_size * kAvatarIconSigninPendingShrinkRatio;
+      gfx::Image shrunk_image = profiles::GetSizedAvatarIcon(
+          GetProfileAvatarImage(icon_size), shrunk_icon_size, shrunk_icon_size,
+          profiles::SHAPE_CIRCLE);
+      // Then add a transparent background to the image, with the original size.
+      // This way the whole image is the same as the regular one (so that it
+      // does not affect it's position or other elements such as the text next
+      // to it). The transparent background will have the dotted paint on top of
+      // it in `PaintIcon()`.
+      return ui::ImageModel::FromImageSkia(
+          gfx::ImageSkiaOperations::CreateImageWithCircleBackground(
+              icon_size / 2, SK_ColorTRANSPARENT, shrunk_image.AsImageSkia()));
   }
 }
 
@@ -1411,13 +1513,39 @@ bool AvatarToolbarButtonDelegate::ShouldPaintBorder() const {
     case ButtonState::kIncognitoProfile:
     case ButtonState::kExplicitTextShowing:
     case ButtonState::kManagement:
-    case ButtonState::kSigninPaused:
+    case ButtonState::kSigninPending:
     case ButtonState::kSyncError:
       return false;
   }
 }
 
-// signin::IdentityManager::Observer:
+void AvatarToolbarButtonDelegate::OnPrimaryAccountChanged(
+    const signin::PrimaryAccountChangeEvent& event_details) {
+  if (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin) ==
+          signin::PrimaryAccountChangeEvent::Type::kSet &&
+      event_details.GetAccessPoint() ==
+          signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED) {
+    AccountInfo account_info = identity_manager_->FindExtendedAccountInfo(
+        event_details.GetCurrentState().primary_account);
+    if (!account_info.given_name.empty()) {
+      avatar_toolbar_button_
+          ->MaybeShowExplicitBrowserSigninPreferenceRememberedIPH(account_info);
+    } else {
+      gaia_id_for_signin_choice_remembered_ = account_info.gaia;
+    }
+  }
+}
+
+void AvatarToolbarButtonDelegate::OnExtendedAccountInfoUpdated(
+    const AccountInfo& info) {
+  if (info.gaia == gaia_id_for_signin_choice_remembered_ &&
+      !info.given_name.empty()) {
+    gaia_id_for_signin_choice_remembered_.clear();
+    avatar_toolbar_button_
+        ->MaybeShowExplicitBrowserSigninPreferenceRememberedIPH(info);
+  }
+}
+
 void AvatarToolbarButtonDelegate::OnErrorStateOfRefreshTokenUpdatedForAccount(
     const CoreAccountInfo& account_info,
     const GoogleServiceAuthError& error,
@@ -1440,4 +1568,26 @@ void AvatarToolbarButtonDelegate::OnErrorStateOfRefreshTokenUpdatedForAccount(
 void AvatarToolbarButtonDelegate::SetTextDurationForTesting(
     base::TimeDelta duration) {
   kTestingDuration = duration;
+}
+
+void AvatarToolbarButtonDelegate::PaintIcon(
+    gfx::Canvas* canvas,
+    const gfx::Rect& icon_bounds) const {
+  switch (state_manager_->GetButtonActiveState()) {
+    case ButtonState::kGuestSession:
+    case ButtonState::kShowIdentityName:
+    case ButtonState::kNormal:
+    case ButtonState::kIncognitoProfile:
+    case ButtonState::kExplicitTextShowing:
+    case ButtonState::kManagement:
+    case ButtonState::kSyncError:
+      return;
+    case ButtonState::kSigninPending:
+      // Paints the dotted circle around the shrunk icon (from
+      // `GetAvatarIcon()`).
+      PaintRingDottedPath(canvas, icon_bounds,
+                          avatar_toolbar_button_->GetColorProvider()->GetColor(
+                              kColorTabDiscardRingFrameActive));
+      return;
+  }
 }

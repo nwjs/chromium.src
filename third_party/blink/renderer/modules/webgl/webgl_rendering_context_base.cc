@@ -251,30 +251,6 @@ WebGLRenderingContextBaseMap& ForciblyEvictedContexts() {
   return *forcibly_evicted_contexts_persistent;
 }
 
-WebGLVideoFrameUploadMetadata CreateVideoFrameUploadMetadata(
-    const media::VideoFrame* frame,
-    media::VideoFrame::ID already_uploaded_id) {
-  DCHECK(frame);
-  WebGLVideoFrameUploadMetadata metadata = {};
-  if (!RuntimeEnabledFeatures::ExtraWebGLVideoTextureMetadataEnabled()) {
-    return metadata;
-  }
-
-  metadata.frame_id = frame->unique_id();
-  metadata.visible_rect = frame->visible_rect();
-  metadata.timestamp = frame->timestamp();
-  if (frame->metadata().frame_duration.has_value()) {
-    metadata.expected_timestamp =
-        frame->timestamp() + *frame->metadata().frame_duration;
-  };
-
-  // Skip uploading frames which have already been uploaded.
-  if (already_uploaded_id == frame->unique_id()) {
-    metadata.skipped = true;
-  }
-  return metadata;
-}
-
 }  // namespace
 
 ScopedRGBEmulationColorMask::ScopedRGBEmulationColorMask(
@@ -879,7 +855,7 @@ ScriptPromise<IDLUndefined> WebGLRenderingContextBase::makeXRCompatible(
   if (isContextLost()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Context lost.");
-    return ScriptPromise<IDLUndefined>();
+    return EmptyPromise();
   }
 
   // Return a resolved promise if we're already xr compatible. Once we're
@@ -986,7 +962,7 @@ void WebGLRenderingContextBase::OnMakeXrCompatibleFinished(
         break;
       case device::mojom::blink::XrCompatibleResult::kCompatibleAfterRestart:
       case device::mojom::blink::XrCompatibleResult::kNotCompatibleAfterRestart:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
     CompleteXrCompatiblePromiseIfPending(exception_code);
   }
@@ -1296,7 +1272,7 @@ scoped_refptr<DrawingBuffer> WebGLRenderingContextBase::CreateDrawingBuffer(
   } else if (context_type_ == Platform::kWebGL2ContextType) {
     web_gl_version = DrawingBuffer::kWebGL2;
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 
   // On Mac OS, DrawingBuffer is using an IOSurface as its backing storage, this
@@ -1854,7 +1830,7 @@ bool WebGLRenderingContextBase::PaintRenderingResultsToCanvas(
             GetDrawingBuffer()->ExportLowLatencyCanvasResource(
                 resource_provider->CreateWeakPtr()))) {
       // This isn't expected to fail for single buffered resource provider.
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
     }
     return true;
@@ -2151,7 +2127,7 @@ bool WebGLRenderingContextBase::ValidateAndUpdateBufferBindTarget(
       bound_vertex_array_object_->SetElementArrayBuffer(buffer);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return false;
   }
 
@@ -4581,7 +4557,7 @@ ScriptValue WebGLRenderingContextBase::getVertexAttrib(
           return WebGLAny(script_state, DOMUint32Array::Create(uint_value, 4));
         }
         default:
-          NOTREACHED();
+          NOTREACHED_IN_MIGRATION();
           break;
       }
       return ScriptValue::CreateNull(script_state->GetIsolate());
@@ -5996,7 +5972,7 @@ void WebGLRenderingContextBase::TexImageViaGPU(
               params.unpack_premultiply_alpha, flip_y,
               gfx::Point(params.xoffset, params.yoffset), source_sub_rectangle,
               kBackBuffer)) {
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
       }
     }
   }
@@ -6082,7 +6058,7 @@ void WebGLRenderingContextBase::TexImageHelperCanvasRenderingContextHost(
   SourceImageStatus source_image_status = kInvalidSourceImageStatus;
   scoped_refptr<Image> image = context_host->GetSourceImageForCanvas(
       FlushReason::kWebGLTexImage, &source_image_status,
-      gfx::SizeF(*params.width, *params.height));
+      gfx::SizeF(*params.width, *params.height), kPremultiplyAlpha);
   if (source_image_status != kNormalSourceImageStatus)
     return;
 
@@ -6188,18 +6164,10 @@ void WebGLRenderingContextBase::TexImageHelperVideoFrame(
   // directly instead of making a copy through the VideoFrame.
   if (auto sk_img = local_handle->sk_image()) {
     DCHECK(!sk_img->isTextureBacked());
-    // For WebGL last-uploaded-frame-metadata API. https://crbug.com/639174
-    auto metadata = CreateVideoFrameUploadMetadata(
-        local_handle->frame().get(), texture->GetLastUploadedVideoFrameId());
-    if (metadata.skipped) {
-      texture->UpdateLastUploadedFrame(metadata);
-      return;
-    }
     auto image = UnacceleratedStaticBitmapImage::Create(std::move(sk_img));
     // Note: kHtmlDomVideo means alpha won't be unmultiplied.
     TexImageStaticBitmapImage(params, image.get(), /*image_has_flip_y=*/false,
                               /*allow_copy_via_gpu=*/false);
-    texture->UpdateLastUploadedFrame(metadata);
     return;
   }
 
@@ -6215,13 +6183,6 @@ void WebGLRenderingContextBase::TexImageHelperMediaVideoFrame(
   DCHECK(!isContextLost());
   DCHECK(texture);
   DCHECK(media_video_frame);
-
-  auto metadata = CreateVideoFrameUploadMetadata(
-      media_video_frame.get(), texture->GetLastUploadedVideoFrameId());
-  if (metadata.skipped) {
-    texture->UpdateLastUploadedFrame(metadata);
-    return;
-  }
 
   // Paths that use the PaintCanvasVideoRenderer assume the target is sRGB, and
   // produce incorrect results when the unpack color space is not sRGB.
@@ -6287,7 +6248,6 @@ void WebGLRenderingContextBase::TexImageHelperMediaVideoFrame(
             media_video_frame, params.target, texture->Object(),
             adjusted_internalformat, params.format, params.type, params.level,
             unpack_premultiply_alpha_, unpack_flip_y_)) {
-      texture->UpdateLastUploadedFrame(metadata);
       return;
     }
 
@@ -6304,7 +6264,6 @@ void WebGLRenderingContextBase::TexImageHelperMediaVideoFrame(
             media_video_frame, params.target, texture->Object(),
             adjusted_internalformat, params.format, params.type, params.level,
             unpack_premultiply_alpha_, unpack_flip_y_)) {
-      texture->UpdateLastUploadedFrame(metadata);
       return;
     }
   }
@@ -6325,14 +6284,12 @@ void WebGLRenderingContextBase::TexImageHelperMediaVideoFrame(
             params.target, texture->Object(), ContextGL(), caps,
             media_video_frame.get(), params.level, adjusted_internalformat,
             params.format, params.type, unpack_flip_y_, premultiply_alpha)) {
-      texture->UpdateLastUploadedFrame(metadata);
       return;
     } else if (params.function_id == kTexSubImage2D &&
                media::PaintCanvasVideoRenderer::TexSubImage2D(
                    params.target, ContextGL(), media_video_frame.get(),
                    params.level, params.format, params.type, params.xoffset,
                    params.yoffset, unpack_flip_y_, premultiply_alpha)) {
-      texture->UpdateLastUploadedFrame(metadata);
       return;
     }
   }
@@ -6405,8 +6362,6 @@ void WebGLRenderingContextBase::TexImageHelperMediaVideoFrame(
 
   TexImageStaticBitmapImage(params, image.get(), /*image_has_flip_y=*/false,
                             can_upload_via_gpu);
-
-  texture->UpdateLastUploadedFrame(metadata);
 }
 
 void WebGLRenderingContextBase::texImage2D(ScriptState* script_state,
@@ -8268,7 +8223,7 @@ bool WebGLRenderingContextBase::ValidateTexFuncData(
                         "ArrayBufferView is not NULL");
       return false;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   unsigned total_bytes_required, skip_bytes;

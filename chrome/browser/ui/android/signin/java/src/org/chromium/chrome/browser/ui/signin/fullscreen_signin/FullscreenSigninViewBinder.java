@@ -15,6 +15,7 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.widget.ImageViewCompat;
 
@@ -50,6 +51,7 @@ class FullscreenSigninViewBinder {
                             model.get(FullscreenSigninProperties.ON_SELECTED_ACCOUNT_CLICKED));
         } else if (propertyKey == FullscreenSigninProperties.SELECTED_ACCOUNT_DATA) {
             updateSelectedAccount(view, model);
+            updateVisibility(view, model);
         } else if (propertyKey == FullscreenSigninProperties.IS_SELECTED_ACCOUNT_SUPERVISED) {
             final boolean isSelectedAccountSupervised =
                     model.get(FullscreenSigninProperties.IS_SELECTED_ACCOUNT_SUPERVISED);
@@ -78,12 +80,14 @@ class FullscreenSigninViewBinder {
         } else if (propertyKey == FullscreenSigninProperties.SHOW_ENTERPRISE_MANAGEMENT_NOTICE) {
             updateBrowserManagedHeaderView(view, model);
         } else if (propertyKey == FullscreenSigninProperties.IS_SIGNIN_SUPPORTED) {
-            if (!model.get(FullscreenSigninProperties.IS_SIGNIN_SUPPORTED)) {
-                view.getContinueButtonView().setText(R.string.continue_button);
-                updateVisibility(view, model);
-            }
+            updateSelectedAccount(view, model);
+            updateVisibility(view, model);
         } else if (propertyKey == FullscreenSigninProperties.TITLE_STRING_ID) {
-            view.getTitle().setText(model.get(FullscreenSigninProperties.TITLE_STRING_ID));
+            @StringRes int textId = model.get(FullscreenSigninProperties.TITLE_STRING_ID);
+            view.getTitle().setText(textId);
+        } else if (propertyKey == FullscreenSigninProperties.SUBTITLE_STRING_ID) {
+            @StringRes int textId = model.get(FullscreenSigninProperties.SUBTITLE_STRING_ID);
+            view.getSubtitle().setText(textId);
         } else if (propertyKey == FullscreenSigninProperties.FOOTER_STRING) {
             final CharSequence footerText = model.get(FullscreenSigninProperties.FOOTER_STRING);
             if (footerText == null) {
@@ -125,6 +129,7 @@ class FullscreenSigninViewBinder {
 
     private static void updateSelectedAccount(FullscreenSigninView view, PropertyModel model) {
         if (!model.get(FullscreenSigninProperties.IS_SIGNIN_SUPPORTED)) {
+            view.getContinueButtonView().setText(R.string.continue_button);
             return;
         }
         final @Nullable DisplayableProfileData profileData =
@@ -137,7 +142,6 @@ class FullscreenSigninViewBinder {
             view.getContinueButtonView()
                     .setText(SigninUtils.getContinueAsButtonText(view.getContext(), profileData));
         }
-        updateVisibility(view, model);
     }
 
     private static void updateVisibility(FullscreenSigninView view, PropertyModel model) {
@@ -222,7 +226,7 @@ class FullscreenSigninViewBinder {
             Context context = accountPickerView.getContext();
             accountPickerView.setBackground(
                     AppCompatResources.getDrawable(
-                            context, R.drawable.existing_account_row_background));
+                            context, R.drawable.account_row_background_rounded_all));
 
             int padding = ViewUtils.dpToPx(context, 16);
             accountPickerView.setPadding(padding, padding, padding, padding);

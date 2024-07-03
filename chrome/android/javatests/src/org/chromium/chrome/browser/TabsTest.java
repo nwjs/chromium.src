@@ -237,8 +237,13 @@ public class TabsTest {
         LayoutTestUtils.waitForLayout(
                 sActivityTestRule.getActivity().getLayoutManager(), LayoutType.TAB_SWITCHER);
 
-        int newTabButtonId =
-                HubFieldTrial.isHubEnabled() ? R.id.toolbar_action_button : R.id.new_tab_view;
+        int newTabButtonId = R.id.new_tab_view;
+        if (HubFieldTrial.isHubEnabled()) {
+            newTabButtonId =
+                    HubFieldTrial.usesFloatActionButton()
+                            ? R.id.host_action_button
+                            : R.id.toolbar_action_button;
+        }
         onViewWaiting(withId(newTabButtonId)).check(matches(isDisplayed())).perform(click());
         LayoutTestUtils.waitForLayout(
                 sActivityTestRule.getActivity().getLayoutManager(), LayoutType.BROWSING);
@@ -480,6 +485,7 @@ public class TabsTest {
     @Test
     @MediumTest
     @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
+    @DisabledTest(message = "https://crbug.com/1347598")
     public void testQuickSwitchBetweenTabAndSwitcherMode() {
         final String[] urls = {
             getUrl("/chrome/test/data/android/navigate/one.html"),

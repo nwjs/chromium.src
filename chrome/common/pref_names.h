@@ -893,6 +893,16 @@ inline constexpr char kHatsBorealisGamesSurveyCycleEndTs[] =
 inline constexpr char kHatsBorealisGamesLastInteractionTimestamp[] =
     "hats_borealis_games_last_interaction_timestamp";
 
+// An int64 pref. This is the timestamp, microseconds after epoch, that
+// indicates the end of the OS Launcher Apps satisfaction survey cycle.
+inline constexpr char kHatsLauncherAppsSurveyCycleEndTs[] =
+    "hats_launcher_apps_cycle_end_timestamp";
+
+// A boolean pref. Indicates if the device is selected for the OS Launcher
+// Apps satisfaction survey.
+inline constexpr char kHatsLauncherAppsSurveyIsSelected[] =
+    "hats_launcher_apps_is_selected";
+
 // A boolean pref. Indicates if we've already shown a notification to inform the
 // current user about the quick unlock feature.
 inline constexpr char kPinUnlockFeatureNotificationShown[] =
@@ -1248,6 +1258,23 @@ inline constexpr char kFilesAppDefaultLocation[] =
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_CHROMEOS)
+// List pref containing blocked domains of cookies that will not be moved when a
+// user switches between ChromeOS devices, when the Floating SSO Service is
+// enabled.
+inline constexpr char kFloatingSsoDomainBlocklist[] =
+    "floating_sso_domain_blocklist";
+
+// List pref containing blocklist excepted domains of cookies to be moved when a
+// user switches between ChromeOS devices, when the Floating SSO Service is
+// enabled.
+inline constexpr char kFloatingSsoDomainBlocklistExceptions[] =
+    "floating_sso_domain_blocklist_exceptions";
+
+// Boolean pref specifying if the the Floating SSO Service is enabled. The
+// service restores the user's web service authentication state by moving
+// cookies from the previous device onto another, on ChromeOS.
+inline constexpr char kFloatingSsoEnabled[] = "floating_sso_enabled";
+
 // This boolean controls whether the first window shown on first run should be
 // unconditionally maximized, overriding the heuristic that normally chooses the
 // window size.
@@ -1417,10 +1444,9 @@ inline constexpr char kOverscrollHistoryNavigationEnabled[] =
     "settings.a11y.overscroll_history_navigation";
 #endif
 
-// Whether the PDF OCR feature is set to be always active. The PDF OCR feature
-// is exposed to only screen reader users.
-inline constexpr char kAccessibilityPdfOcrAlwaysActive[] =
-    "settings.a11y.pdf_ocr_always_active";
+// Whether main node annotations are enabled.
+inline constexpr char kAccessibilityMainNodeAnnotationsEnabled[] =
+    "settings.a11y.enable_main_node_annotations";
 
 // Pref indicating the page colors option the user wants. Page colors is an
 // accessibility feature that simulates forced colors mode at the browser level.
@@ -1932,17 +1958,6 @@ inline constexpr char kChromeDataRegionSetting[] = "chrome_data_region_setting";
 inline constexpr char kNetworkAnnotationBlocklist[] =
     "network_annotation_blocklist";
 
-// Booleans indicating whether the user had dismissed the dialog with "Dont ask
-// again". This value is assumed false, if true the dialog should not show.
-inline constexpr char kTabGroupsDeletionSkipDialogOnDelete[] =
-    "tab_groups.deletion.skip_dialog_on_delete";
-inline constexpr char kTabGroupsDeletionSkipDialogOnUngroup[] =
-    "tab_groups.deletion.skip_dialog_on_ungroup";
-inline constexpr char kTabGroupsDeletionSkipDialogOnRemoveTab[] =
-    "tab_groups.deletion.skip_dialog_on_remove_tab";
-inline constexpr char kTabGroupsDeletionSkipDialogOnCloseTab[] =
-    "tab_groups.deletion.skip_dialog_on_close_tab";
-
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
 
@@ -2174,6 +2189,10 @@ inline constexpr char kOfficeFileMovedToGoogleDrive[] =
 // Pref that contains the value of the LocalUserFilesAllowed policy.
 inline constexpr char kLocalUserFilesAllowed[] =
     "filebrowser.local_user_files_allowed";
+
+// Pref that contains the value of the LocalUserFilesMigrationEnabled policy.
+inline constexpr char kLocalUserFilesMigrationEnabled[] =
+    "filebrowser.local_user_files_migration_enabled";
 
 // Whether the user can remove OneDrive.
 inline constexpr char kAllowUserToRemoveODFS[] = "allow_user_to_remove_odfs";
@@ -3097,6 +3116,12 @@ inline constexpr char
     kRemoteAccessHostAllowEnterpriseRemoteSupportConnections[] =
         "enterprise_remote_support_connections_allowed";
 
+// A boolean pref which determines whether a remote admin can start a CRD
+// connection through the 'start crd session' remote command when no local user
+// is present at the device.
+inline constexpr char kDeviceAllowEnterpriseRemoteAccessConnections[] =
+    "device_allow_enterprise_remote_access_connections";
+
 // A dictionary containing weekly time intervals to automatically sleep and wake
 // up the device.
 inline constexpr char kDeviceWeeklyScheduledSuspend[] =
@@ -3528,6 +3553,10 @@ inline constexpr char kRendererAppContainerEnabled[] =
 // ProcessExtensionPointDisablePolicy enabled.
 inline constexpr char kBlockBrowserLegacyExtensionPoints[] =
     "block_browser_legacy_extension_points";
+
+// An integer enum that controls the policy-managed dynamic code settings. This
+// is linked via a PolicyToPreferenceMapEntry to the underlying policy.
+inline constexpr char kDynamicCodeSettings[] = "dynamic_code_settings";
 
 // A boolean that controls whether the Browser process has Application Bound
 // (App-Bound) Encryption enabled.
@@ -3991,6 +4020,15 @@ inline constexpr char kMemorySaverChipExpandedCount[] =
 inline constexpr char kLastMemorySaverChipExpandedTimestamp[] =
     "high_efficiency.last_chip_expanded_timestamp";
 
+inline constexpr char kPerformanceInterventionBackgroundCpuMessageCount[] =
+    "performance_intervention.background_cpu_message_count";
+
+inline constexpr char kPerformanceInterventionBackgroundCpuRateLimitedCount[] =
+    "performance_intervention.background_cpu_rate_limited_count";
+
+inline constexpr char kPerformanceInterventionDailySample[] =
+    "performance_intervention.last_daily_sample";
+
 // A boolean indicating whether the price track first user experience bubble
 // should show. This is set to false if the user has clicked the "Price track"
 // button in the FUE bubble once.
@@ -4159,9 +4197,11 @@ inline constexpr char kBreachedCredentialsCount[] =
     "profile.safety_hub_breached_credentials_count";
 #endif  // BUILDFLAG(IS_ANDROID)
 
-inline constexpr char kTabGroupSavesUIUpdateMigrated[] =
-    "tab_group_saves_ui_update_migrated";
-
+#if BUILDFLAG(IS_MAC)
+// The integer value of the ExtensibleEnterpriseSSOEnabled policy.
+inline constexpr char kExtensibleEnterpriseSSOEnabled[] =
+    "extensible_enterprise_sso.enabled";
+#endif  //  BUILDFLAG(IS_MAC)
 }  // namespace prefs
 
 #endif  // CHROME_COMMON_PREF_NAMES_H_

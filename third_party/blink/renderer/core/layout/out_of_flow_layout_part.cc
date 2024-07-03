@@ -10,6 +10,7 @@
 
 #include "base/memory/values_equivalent.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
+#include "third_party/blink/renderer/core/css/out_of_flow_data.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
@@ -173,21 +174,77 @@ class OOFCandidateStyleIterator {
     return false;
   }
 
-  void MoveToStyleWithoutOptions() {
+  void MoveToLastSuccessfulOrStyleWithoutOptions() {
     CHECK(element_);
-    style_ = UpdateStyle(/* try_set */ nullptr, kNoTryTactics);
+    const CSSPropertyValueSet* try_set = nullptr;
+    TryTacticList try_tactics = kNoTryTactics;
+    if (OutOfFlowData* out_of_flow_data = element_->GetOutOfFlowData()) {
+      // No successful options for this pass. Clear out the new successful
+      // option candidate.
+      out_of_flow_data->ClearPendingSuccessfulPositionOption();
+      if (out_of_flow_data->HasLastSuccessfulPositionOption()) {
+        try_set = out_of_flow_data->GetLastSuccessfulTrySet();
+        try_tactics = out_of_flow_data->GetLastSuccessfulTryTactics();
+      }
+    }
+    style_ = UpdateStyle(try_set, try_tactics);
   }
 
-  void MoveToTryOptionIndex(std::optional<wtf_size_t> index) {
+  std::optional<const CSSPropertyValueSet*> TrySetFromOption(
+      const PositionTryOption& option) {
+    if (!option.GetInsetArea().IsNone()) {
+      // This option is an inset-area(). Create a declaration block
+      // with an equivalent inset-area declaration.
+      CSSPropertyValue declaration(
+          CSSPropertyName(CSSPropertyID::kInsetArea),
+          *ComputedStyleUtils::ValueForInsetArea(option.GetInsetArea()));
+      return ImmutableCSSPropertyValueSet::Create(&declaration, /* length */ 1u,
+                                                  kHTMLStandardMode);
+    } else if (const ScopedCSSName* name = option.GetPositionTryName()) {
+      if (const StyleRulePositionTry* rule = GetPositionTryRule(*name)) {
+        return &rule->Properties();
+      }
+      return std::nullopt;
+    }
+    return nullptr;
+  }
+
+  void MoveToChosenTryOptionIndex(std::optional<wtf_size_t> index) {
+    CHECK(element_);
+    const CSSPropertyValueSet* try_set = nullptr;
+    TryTacticList try_tactics = kNoTryTactics;
+    bool may_invalidate_last_successful = false;
+    if (index.has_value()) {
+      CHECK(position_try_options_);
+      CHECK_LE(index.value(), position_try_options_->GetOptions().size());
+      const PositionTryOption& option =
+          position_try_options_->GetOptions()[*index];
+      try_tactics = option.GetTryTactic();
+      std::optional<const CSSPropertyValueSet*> opt_try_set =
+          TrySetFromOption(option);
+      CHECK(opt_try_set.has_value());
+      try_set = opt_try_set.value();
+      if (RuntimeEnabledFeatures::LastSuccessfulPositionOptionEnabled()) {
+        may_invalidate_last_successful =
+            element_->EnsureOutOfFlowData().SetPendingSuccessfulPositionOption(
+                position_try_options_, try_set, try_tactics);
+      }
+    } else if (OutOfFlowData* out_of_flow_data = element_->GetOutOfFlowData()) {
+      may_invalidate_last_successful =
+          out_of_flow_data->SetPendingSuccessfulPositionOption(
+              position_try_options_,
+              /* try_set */ nullptr, kNoTryTactics);
+    }
+    if (may_invalidate_last_successful) {
+      element_->GetDocument()
+          .GetStyleEngine()
+          .MarkLastSuccessfulPositionOptionDirtyForElement(*element_);
+    }
     if (index == try_option_index_) {
       // We're already at this position.
       return;
     }
-    if (!index.has_value()) {
-      MoveToStyleWithoutOptions();
-    } else {
-      style_ = UpdateStyle(index.value());
-    }
+    style_ = UpdateStyle(try_set, try_tactics);
   }
 
  private:
@@ -195,16 +252,36 @@ class OOFCandidateStyleIterator {
     if (element_) {
       position_try_options_ = style_->GetPositionTryOptions();
       position_try_order_ = style_->PositionTryOrder();
-      // We may have previously resolved a style using some try set,
-      // and may have speculated that the same try set still applied.
-      // Calling UpdateStyle with an explicit nullptr clears the set,
-      // and re-resolves the ComputedStyle.
+
+      // If the base styles contain anchor*() queries, or depend on other
+      // information produced by the AnchorEvaluator, then the ComputedStyle
+      // produced by the main style recalc pass (which has no AnchorEvaluator)
+      // is incorrect. For example, all anchor() queries would have evaluated
+      // to their fallback value. Now that we have an AnchorEvaluator, we can
+      // fix this by updating the style.
       //
-      // Note that UpdateStyle returns early without any update
-      // if the incoming try_set matches the set on OutOfFlowData
-      // (including the case where both are nullptr).
-      style_ = UpdateStyle(/* try_set */ nullptr, kNoTryTactics);
+      // Note that it's important to avoid the expensive call to UpdateStyle
+      // here if we *don't* depend on anchor*(), since every out-of-flow will
+      // reach this function, regardless of whether or not anchor positioning
+      // is actually used.
+      if (ElementStyleDependsOnAnchor(*element_, *style_)) {
+        style_ = UpdateStyle(/* try_set */ nullptr, kNoTryTactics);
+      }
     }
+  }
+
+  bool ElementStyleDependsOnAnchor(const Element& element,
+                                   const ComputedStyle& style) {
+    if (style.PositionAnchor() || element.ImplicitAnchorElement()) {
+      // anchor-center offsets may need to be updated since the layout of the
+      // anchor may have changed. anchor-center offsets are computed when a
+      // default anchor is present.
+      return true;
+    }
+    if (style.HasAnchorFunctions()) {
+      return true;
+    }
+    return false;
   }
 
   const StyleRulePositionTry* GetPositionTryRule(
@@ -222,24 +299,13 @@ class OOFCandidateStyleIterator {
     CHECK_LE(try_option_index, position_try_options_->GetOptions().size());
     const PositionTryOption& option =
         position_try_options_->GetOptions()[try_option_index];
-    const CSSPropertyValueSet* properties = nullptr;
-    if (!option.GetInsetArea().IsNone()) {
-      // This option is an inset-area(). Create a declaration block
-      // with an equivalent inset-area declaration.
-      CSSPropertyValue declaration(
-          CSSPropertyName(CSSPropertyID::kInsetArea),
-          *ComputedStyleUtils::ValueForInsetArea(option.GetInsetArea()));
-      properties = ImmutableCSSPropertyValueSet::Create(
-          &declaration, /* length */ 1u, kHTMLStandardMode);
-    } else if (const ScopedCSSName* name = option.GetPositionTryName()) {
-      const StyleRulePositionTry* rule = GetPositionTryRule(*name);
-      if (!rule) {
-        // @position-try option does not exist.
-        return nullptr;
-      }
-      properties = &rule->Properties();
+    std::optional<const CSSPropertyValueSet*> try_set =
+        TrySetFromOption(option);
+    if (!try_set.has_value()) {
+      // @position-try option does not exist.
+      return nullptr;
     }
-    return UpdateStyle(properties, option.GetTryTactic());
+    return UpdateStyle(try_set.value(), option.GetTryTactic());
   }
 
   const ComputedStyle* UpdateStyle(const CSSPropertyValueSet* try_set,
@@ -277,10 +343,14 @@ class OOFCandidateStyleIterator {
 
 const Element* GetPositionAnchorElement(
     const BlockNode& node,
-    const LogicalAnchorQuery& anchor_query) {
-  if (const ScopedCSSName* specifier = node.Style().PositionAnchor()) {
+    const ComputedStyle& style,
+    const LogicalAnchorQuery* anchor_query) {
+  if (!anchor_query) {
+    return nullptr;
+  }
+  if (const ScopedCSSName* specifier = style.PositionAnchor()) {
     if (const LogicalAnchorReference* reference =
-            anchor_query.AnchorReference(*node.GetLayoutBox(), specifier);
+            anchor_query->AnchorReference(*node.GetLayoutBox(), specifier);
         reference && reference->layout_object) {
       return DynamicTo<Element>(reference->layout_object->GetNode());
     }
@@ -290,6 +360,30 @@ const Element* GetPositionAnchorElement(
     return element->ImplicitAnchorElement();
   }
   return nullptr;
+}
+
+const LayoutObject* GetPositionAnchorObject(
+    const BlockNode& node,
+    const ComputedStyle& style,
+    const LogicalAnchorQuery* anchor_query) {
+  if (const Element* element =
+          GetPositionAnchorElement(node, style, anchor_query)) {
+    return element->GetLayoutObject();
+  }
+  return nullptr;
+}
+
+gfx::Vector2dF GetAnchorOffset(const BlockNode& node,
+                               const ComputedStyle& style,
+                               const LogicalAnchorQuery* anchor_query) {
+  if (const LayoutObject* anchor_object =
+          GetPositionAnchorObject(node, style, anchor_query)) {
+    if (const AnchorPositionScrollData* data =
+            To<Element>(node.GetDOMNode())->GetAnchorPositionScrollData()) {
+      return data->TotalOffset(*anchor_object);
+    }
+  }
+  return gfx::Vector2dF();
 }
 
 // Updates `node`'s associated `PaintLayer` for `position-visibility`. See:
@@ -328,11 +422,11 @@ void UpdatePositionVisibilityAfterLayout(
   bool has_anchors_visible_visibility =
       node.Style().HasPositionVisibility(PositionVisibility::kAnchorsVisible);
   Element* anchored = DynamicTo<Element>(node.GetDOMNode());
-  // TODO(https://github.com/w3c/csswg-drafts/issues/7758#issuecomment-2026137829):
-  // The spec is still in-flux about whether we should use multiple anchors
-  // (from `anchor()` and `anchor-size()`), or just the default anchor.
+  // https://drafts.csswg.org/css-anchor-position-1/#valdef-position-visibility-anchors-visible
+  // We only need to track the default anchor for anchors-visible.
   const Element* anchor =
-      anchored ? GetPositionAnchorElement(node, *anchor_query) : nullptr;
+      anchored ? GetPositionAnchorElement(node, node.Style(), anchor_query)
+               : nullptr;
   if (is_anchor_positioned && has_anchors_visible_visibility && anchor) {
     anchored->EnsureAnchorPositionScrollData()
         .EnsureAnchorPositionVisibilityObserver()
@@ -1815,7 +1909,7 @@ void SortNonOverflowingCandidates(
           case EPositionTryOrder::kMostWidth:
           case EPositionTryOrder::kMostHeight:
             // We should have already converted to logical.
-            NOTREACHED();
+            NOTREACHED_IN_MIGRATION();
             return false;
         }
       });
@@ -1826,16 +1920,8 @@ void SortNonOverflowingCandidates(
 OutOfFlowLayoutPart::OffsetInfo OutOfFlowLayoutPart::CalculateOffset(
     const NodeInfo& node_info,
     const LogicalAnchorQueryMap* anchor_queries) {
-  gfx::Vector2dF anchor_offset;
-  if (Element* element = DynamicTo<Element>(node_info.node.GetDOMNode())) {
-    if (const AnchorPositionScrollData* data =
-            element->GetAnchorPositionScrollData()) {
-      anchor_offset = data->TotalOffset();
-    }
-  }
-
   // See non_overflowing_scroll_range.h for documentation.
-  Vector<NonOverflowingScrollRange> non_overflowing_scroll_ranges;
+  HeapVector<NonOverflowingScrollRange> non_overflowing_scroll_ranges;
 
   // Note: This assumes @position-try rounds can't affect
   // writing-mode/position-anchor.
@@ -1869,7 +1955,7 @@ OutOfFlowLayoutPart::OffsetInfo OutOfFlowLayoutPart::CalculateOffset(
     // However, without @position-try, the style is the current style.
     CHECK(has_try_options || &style == &iter.GetStyle());
     std::optional<OffsetInfo> offset_info =
-        TryCalculateOffset(node_info, style, &anchor_evaluator,
+        TryCalculateOffset(node_info, style, anchor_evaluator,
                            try_fit_available_space, &non_overflowing_range);
 
     // Also check if it fits the containing block after applying scroll offset
@@ -1877,7 +1963,8 @@ OutOfFlowLayoutPart::OffsetInfo OutOfFlowLayoutPart::CalculateOffset(
     if (offset_info) {
       if (try_fit_available_space) {
         non_overflowing_scroll_ranges.push_back(non_overflowing_range);
-        if (!non_overflowing_range.Contains(anchor_offset)) {
+        if (!non_overflowing_range.Contains(GetAnchorOffset(
+                node_info.node, style, anchor_evaluator.AnchorQuery()))) {
           continue;
         }
       }
@@ -1903,18 +1990,18 @@ OutOfFlowLayoutPart::OffsetInfo OutOfFlowLayoutPart::CalculateOffset(
     if (non_overflowing_candidates.empty()) {
       // None of the options worked out.
       // Fall back to style without any options applied.
-      iter.MoveToStyleWithoutOptions();
+      iter.MoveToLastSuccessfulOrStyleWithoutOptions();
       overflows_containing_block = true;
     } else {
       // Move the iterator to the chosen candidate.
-      iter.MoveToTryOptionIndex(
+      iter.MoveToChosenTryOptionIndex(
           non_overflowing_candidates.front().try_option_index);
     }
     // Once the position-try-options placement has been decided, calculate the
     // offset again, using the non-base style.
     const ComputedStyle& style = iter.ActivateStyleForChosenOption();
     NonOverflowingScrollRange non_overflowing_range_unused;
-    offset_info = TryCalculateOffset(node_info, style, &anchor_evaluator,
+    offset_info = TryCalculateOffset(node_info, style, anchor_evaluator,
                                      /* try_fit_available_space */ false,
                                      &non_overflowing_range_unused);
     offset_info->overflows_containing_block = overflows_containing_block;
@@ -1935,7 +2022,7 @@ std::optional<OutOfFlowLayoutPart::OffsetInfo>
 OutOfFlowLayoutPart::TryCalculateOffset(
     const NodeInfo& node_info,
     const ComputedStyle& candidate_style,
-    AnchorEvaluatorImpl* anchor_evaluator,
+    AnchorEvaluatorImpl& anchor_evaluator,
     bool try_fit_available_space,
     NonOverflowingScrollRange* out_non_overflowing_range) {
   // TryCalculateOffset may be called multiple times if we have multiple @try
@@ -2202,6 +2289,8 @@ OutOfFlowLayoutPart::TryCalculateOffset(
         LogicalScrollRange{inline_scroll_min, inline_scroll_max,
                            block_scroll_min, block_scroll_max}
             .ToPhysical(candidate_writing_direction);
+    out_non_overflowing_range->anchor_object = GetPositionAnchorObject(
+        node_info.node, candidate_style, anchor_evaluator.AnchorQuery());
   }
 
   bool anchor_center_x = anchor_center_position.inline_offset.has_value();
@@ -2210,9 +2299,9 @@ OutOfFlowLayoutPart::TryCalculateOffset(
     std::swap(anchor_center_x, anchor_center_y);
   }
   offset_info.needs_scroll_adjustment_in_x =
-      anchor_center_x || anchor_evaluator->NeedsScrollAdjustmentInX();
+      anchor_center_x || anchor_evaluator.NeedsScrollAdjustmentInX();
   offset_info.needs_scroll_adjustment_in_y =
-      anchor_center_y || anchor_evaluator->NeedsScrollAdjustmentInY();
+      anchor_center_y || anchor_evaluator.NeedsScrollAdjustmentInY();
 
   return offset_info;
 }
@@ -2809,6 +2898,7 @@ void OutOfFlowLayoutPart::NodeInfo::Trace(Visitor* visitor) const {
 
 void OutOfFlowLayoutPart::OffsetInfo::Trace(Visitor* visitor) const {
   visitor->Trace(initial_layout_result);
+  visitor->Trace(non_overflowing_scroll_ranges);
 }
 
 void OutOfFlowLayoutPart::NodeToLayout::Trace(Visitor* visitor) const {

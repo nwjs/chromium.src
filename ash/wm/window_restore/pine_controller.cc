@@ -26,8 +26,8 @@
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_session.h"
+#include "ash/wm/window_restore/informed_restore_contents_data.h"
 #include "ash/wm/window_restore/pine_constants.h"
-#include "ash/wm/window_restore/pine_contents_data.h"
 #include "ash/wm/window_restore/window_restore_metrics.h"
 #include "ash/wm/window_restore/window_restore_util.h"
 #include "ash/wm/window_util.h"
@@ -82,11 +82,11 @@ PrefService* GetActivePrefService() {
   return Shell::Get()->session_controller()->GetActivePrefService();
 }
 
-// Returns true if this is the first time login and we should show the pine
-// onboarding message.
-bool ShouldShowPineOnboarding() {
+// Returns true if this is the first time login and we should show the informed
+// restore onboarding message.
+bool ShouldStartInformedRestoreOnboarding() {
   PrefService* prefs = GetActivePrefService();
-  return prefs && prefs->GetBoolean(prefs::kShouldShowPineOnboarding);
+  return prefs && prefs->GetBoolean(prefs::kShowInformedRestoreOnboarding);
 }
 
 }  // namespace
@@ -101,27 +101,27 @@ PineController::~PineController() {
   Shell::Get()->overview_controller()->RemoveObserver(this);
 }
 
-void PineController::MaybeShowPineOnboardingMessage(bool restore_on) {
-  if (onboarding_widget_) {
+void PineController::MaybeShowInformedRestoreOnboarding(bool restore_on) {
+  if (onboarding_widget_ || !ShouldStartInformedRestoreOnboarding()) {
     return;
   }
-
-  if (!ShouldShowPineOnboarding()) {
-    return;
-  }
-  GetActivePrefService()->SetBoolean(prefs::kShouldShowPineOnboarding, false);
+  GetActivePrefService()->SetBoolean(prefs::kShowInformedRestoreOnboarding,
+                                     false);
 
   auto dialog =
       views::Builder<SystemDialogDelegateView>()
           .SetTitleText(l10n_util::GetStringUTF16(
-              restore_on ? IDS_ASH_PINE_ONBOARDING_RESTORE_ON_TITLE
-                         : IDS_ASH_PINE_ONBOARDING_RESTORE_OFF_TITLE))
+              restore_on
+                  ? IDS_ASH_INFORMED_RESTORE_ONBOARDING_RESTORE_ON_TITLE
+                  : IDS_ASH_INFORMED_RESTORE_ONBOARDING_RESTORE_OFF_TITLE))
           .SetDescription(l10n_util::GetStringUTF16(
-              restore_on ? IDS_ASH_PINE_ONBOARDING_RESTORE_ON_DESCRIPTION
-                         : IDS_ASH_PINE_ONBOARDING_RESTORE_OFF_DESCRIPTION))
+              restore_on
+                  ? IDS_ASH_INFORMED_RESTORE_ONBOARDING_RESTORE_ON_DESCRIPTION
+                  : IDS_ASH_INFORMED_RESTORE_ONBOARDING_RESTORE_OFF_DESCRIPTION))
           .SetAcceptButtonText(l10n_util::GetStringUTF16(
-              restore_on ? IDS_ASH_PINE_ONBOARDING_RESTORE_ON_ACCEPT
-                         : IDS_ASH_PINE_ONBOARDING_RESTORE_OFF_ACCEPT))
+              restore_on
+                  ? IDS_ASH_INFORMED_RESTORE_ONBOARDING_RESTORE_ON_ACCEPT
+                  : IDS_ASH_INFORMED_RESTORE_ONBOARDING_RESTORE_OFF_ACCEPT))
           .SetAcceptCallback(
               base::BindOnce(&PineController::OnOnboardingAcceptPressed,
                              base::Unretained(this), restore_on))
@@ -139,7 +139,7 @@ void PineController::MaybeShowPineOnboardingMessage(bool restore_on) {
       views::Builder<views::ImageView>()
           .SetImage(
               ui::ResourceBundle::GetSharedInstance().GetThemedLottieImageNamed(
-                  IDR_PINE_ONBOARDING_IMAGE))
+                  IDR_INFORMED_RESTORE_ONBOARDING_IMAGE))
           .Build());
   dialog->SetProperty(
       views::kFlexBehaviorKey,
@@ -150,16 +150,16 @@ void PineController::MaybeShowPineOnboardingMessage(bool restore_on) {
     // Cancel button.
     dialog->SetCancelButtonVisible(false);
   } else {
-    dialog->SetCancelButtonText(
-        l10n_util::GetStringUTF16(IDS_ASH_PINE_ONBOARDING_RESTORE_OFF_CANCEL));
+    dialog->SetCancelButtonText(l10n_util::GetStringUTF16(
+        IDS_ASH_INFORMED_RESTORE_ONBOARDING_RESTORE_OFF_CANCEL));
     // `this` is guaranteed to outlive the dialog.
     dialog->SetCancelCallback(base::BindOnce(
         &PineController::OnOnboardingCancelPressed, base::Unretained(this)));
   }
 
   views::Widget::InitParams params(
+      views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.name = "PineOnboardingWidget";
   params.delegate = dialog.release();
 
@@ -168,7 +168,7 @@ void PineController::MaybeShowPineOnboardingMessage(bool restore_on) {
 }
 
 void PineController::MaybeStartPineOverviewSessionDevAccelerator() {
-  auto data = std::make_unique<PineContentsData>();
+  auto data = std::make_unique<InformedRestoreContentsData>();
   data->last_session_crashed = false;
   std::pair<base::OnceClosure, base::OnceClosure> split =
       base::SplitOnceCallback(
@@ -213,7 +213,7 @@ void PineController::MaybeStartPineOverviewSessionDevAccelerator() {
 }
 
 void PineController::MaybeStartPineOverviewSession(
-    std::unique_ptr<PineContentsData> pine_contents_data) {
+    std::unique_ptr<InformedRestoreContentsData> contents_data) {
   CHECK(IsForestFeatureEnabled());
 
   if (OverviewController::Get()->InOverviewSession()) {
@@ -221,24 +221,25 @@ void PineController::MaybeStartPineOverviewSession(
   }
 
   // TODO(hewer|sammiequon): This function should only be called once in
-  // production code when `pine_contents_data_` is null. It can be called
-  // multiple times currently via dev accelerator. Remove this block when
+  // production code when `contents_data_` is null. It can be called multiple
+  // times currently via dev accelerator. Remove this block when
   // `MaybeStartPineOverviewSessionDevAccelerator()` is removed.
-  if (pine_contents_data_) {
+  if (contents_data_) {
     StartPineOverviewSession();
     return;
   }
 
-  pine_contents_data_ = std::move(pine_contents_data);
+  contents_data_ = std::move(contents_data);
 
-  // If this is the first time starting pine, show the onboarding dialog
-  // instead. Pine session will be started if the user hits 'Accept'.
-  if (ShouldShowPineOnboarding()) {
-    MaybeShowPineOnboardingMessage(/*restore_on=*/true);
+  // If this is the first time starting informed restore, show the onboarding
+  // dialog instead. Informed restore session will be started if the user hits
+  // 'Accept'.
+  if (ShouldStartInformedRestoreOnboarding()) {
+    MaybeShowInformedRestoreOnboarding(/*restore_on=*/true);
     return;
   }
 
-  if (!pine_contents_data_) {
+  if (!contents_data_) {
     return;
   }
 
@@ -250,16 +251,16 @@ void PineController::MaybeStartPineOverviewSession(
 }
 
 void PineController::MaybeEndPineOverviewSession() {
-  pine_contents_data_.reset();
+  contents_data_.reset();
   OverviewController::Get()->EndOverview(OverviewEndAction::kAccelerator,
                                          OverviewEnterExitType::kNormal);
 }
 
 void PineController::OnOverviewModeEnding(OverviewSession* overview_session) {
-  in_pine_ = false;
+  in_informed_restore_ = false;
   for (const auto& grid : overview_session->grid_list()) {
     if (grid->pine_widget()) {
-      in_pine_ = true;
+      in_informed_restore_ = true;
       break;
     }
   }
@@ -267,12 +268,13 @@ void PineController::OnOverviewModeEnding(OverviewSession* overview_session) {
 
 void PineController::OnOverviewModeEndingAnimationComplete(bool canceled) {
   // If `canceled` is true, overview was reentered before the exit animations
-  // were finished. `in_pine_` will be reset the next time overview ends.
-  if (canceled || !in_pine_) {
+  // were finished. `in_informed_restore_` will be reset the next time overview
+  // ends.
+  if (canceled || !in_informed_restore_) {
     return;
   }
 
-  in_pine_ = false;
+  in_informed_restore_ = false;
 
   // In multi-user scenario, forest may have been available for the user that
   // started overview, but not for the current user. (Switching users ends
@@ -287,31 +289,33 @@ void PineController::OnOverviewModeEndingAnimationComplete(bool canceled) {
   }
 
   // Nudge has already been shown three times. No need to educate anymore.
-  const int shown_count = prefs->GetInteger(prefs::kPineNudgeShownCount);
+  const int shown_count =
+      prefs->GetInteger(prefs::kInformedRestoreNudgeShownCount);
   if (shown_count >= kNudgeMaxShownCount) {
     return;
   }
 
   // Nudge has been shown within the last 24 hours already.
   base::Time now = base::Time::Now();
-  if (now - prefs->GetTime(prefs::kPineNudgeLastShown) <
+  if (now - prefs->GetTime(prefs::kInformedRestoreNudgeLastShown) <
       kNudgeTimeBetweenShown) {
     return;
   }
 
   AnchoredNudgeData nudge_data(
-      pine::kSuggestionsNudgeId, NudgeCatalogName::kPineEducationNudge,
-      l10n_util::GetStringUTF16(IDS_ASH_PINE_EDUCATION_NUDGE));
+      pine::kSuggestionsNudgeId,
+      NudgeCatalogName::kInformedRestoreEducationNudge,
+      l10n_util::GetStringUTF16(IDS_ASH_INFORMED_RESTORE_EDUCATION_NUDGE));
   nudge_data.image_model =
       ui::ResourceBundle::GetSharedInstance().GetThemedLottieImageNamed(
           DarkLightModeControllerImpl::Get()->IsDarkModeEnabled()
-              ? IDR_PINE_NUDGE_IMAGE_DM
-              : IDR_PINE_NUDGE_IMAGE_LM);
+              ? IDR_INFORMED_RESTORE_NUDGE_IMAGE_DM
+              : IDR_INFORMED_RESTORE_NUDGE_IMAGE_LM);
   nudge_data.fill_image_size = true;
   AnchoredNudgeManager::Get()->Show(nudge_data);
 
-  prefs->SetInteger(prefs::kPineNudgeShownCount, shown_count + 1);
-  prefs->SetTime(prefs::kPineNudgeLastShown, now);
+  prefs->SetInteger(prefs::kInformedRestoreNudgeShownCount, shown_count + 1);
+  prefs->SetTime(prefs::kInformedRestoreNudgeLastShown, now);
 }
 
 void PineController::OnWindowActivated(ActivationReason reason,
@@ -320,17 +324,17 @@ void PineController::OnWindowActivated(ActivationReason reason,
   if (gained_active && window_util::IsWindowUserPositionable(gained_active) &&
       gained_active->GetProperty(chromeos::kAppTypeKey) !=
           chromeos::AppType::NON_APP) {
-    pine_contents_data_.reset();
+    contents_data_.reset();
   }
 }
 
 void PineController::OnPineImageDecoded(base::TimeTicks start_time,
                                         const gfx::ImageSkia& pine_image) {
-  CHECK(pine_contents_data_);
+  CHECK(contents_data_);
   RecordScreenshotDecodeDuration(base::TimeTicks::Now() - start_time);
 
   if (ShouldShowPineImage(pine_image)) {
-    pine_contents_data_->image = pine_image;
+    contents_data_->image = pine_image;
   } else {
     RecordScreenshotOnShutdownStatus(
         ScreenshotOnShutdownStatus::kFailedOnDifferentOrientations);
@@ -375,8 +379,8 @@ void PineController::OnOnboardingAcceptPressed(bool restore_on) {
   // Wait until the onboarding widget is destroyed before starting overview,
   // since we disallow entering overview while system modal windows are open.
   // Use a weak ptr since `this` can be deleted before we close all windows.
-  // Only do this if we have pine contents data.
-  if (pine_contents_data_) {
+  // Only do this if we have contents data.
+  if (contents_data_) {
     onboarding_widget_->widget_delegate()->RegisterDeleteDelegateCallback(
         base::BindOnce(
             [](const base::WeakPtr<PineController>& weak_this) {
@@ -397,11 +401,11 @@ void PineController::OnOnboardingAcceptPressed(bool restore_on) {
       prefs::kRestoreAppsAndPagesPrefName,
       static_cast<int>(full_restore::RestoreOption::kAskEveryTime));
 
-  // Show toast letting users know the pref change will effect them next
+  // Show toast letting users know the pref change will affect them next
   // session.
-  Shell::Get()->toast_manager()->Show(
-      ToastData(pine::kOnboardingToastId, ToastCatalogName::kPineOnboarding,
-                l10n_util::GetStringUTF16(IDS_ASH_PINE_ONBOARDING_TOAST)));
+  Shell::Get()->toast_manager()->Show(ToastData(
+      pine::kOnboardingToastId, ToastCatalogName::kInformedRestoreOnboarding,
+      l10n_util::GetStringUTF16(IDS_ASH_INFORMED_RESTORE_ONBOARDING_TOAST)));
 
   // We only record the action taken if the user had Restore off.
   RecordOnboardingAction(/*restore=*/true);

@@ -179,7 +179,7 @@ void ParseConfigurationArguments(const base::Value::List& args,
   if ((*callback_id = &args[0]) && !json.empty()) {
     CHECK(GetConfiguration(json, config));
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -199,7 +199,7 @@ std::string GetSyncErrorAction(SyncStatusActionType action_type) {
       return "noAction";
   }
 
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
   return std::string();
 }
 
@@ -241,39 +241,8 @@ bool IsChangePrimaryAccountAllowed(Profile* profile, const std::string& email) {
       email,
       identity_manager->GetPrimaryAccountInfo(ConsentLevel::kSignin).email);
 }
-
-bool IsSigninPaused(signin::IdentityManager* identity_manager) {
-  return !identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync) &&
-         identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin) &&
-         identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
-             identity_manager->GetPrimaryAccountId(
-                 signin::ConsentLevel::kSignin));
-}
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
-settings::SignedInState GetSignedInState(
-    signin::IdentityManager* identity_manager) {
-  if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync)) {
-    return settings::SignedInState::Syncing;
-  }
-
-  if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
-    if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
-            identity_manager->GetPrimaryAccountId(
-                signin::ConsentLevel::kSignin))) {
-      return settings::SignedInState::SignedInPaused;
-    }
-
-    return settings::SignedInState::SignedIn;
-  }
-
-  // Not signed, but at least one account is signed in on the web.
-  if (!identity_manager->GetAccountsWithRefreshTokens().empty()) {
-    return settings::SignedInState::WebOnlySignedIn;
-  }
-
-  return settings::SignedInState::SignedOut;
-}
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 ChromeSigninSettingModification ChromeSigninUserChoiceToModification(
     ChromeSigninUserChoice choice) {
@@ -478,7 +447,7 @@ void PeopleHandler::DisplayGaiaLoginInNewTabOrWindow(
   // re-auth scenario, and we need to ensure that the user signs in with the
   // same email address.
   if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync) ||
-      IsSigninPaused(identity_manager)) {
+      signin_util::IsSigninPending(identity_manager)) {
     SigninErrorController* error_controller =
         SigninErrorControllerFactory::GetForProfile(profile_);
     DCHECK(error_controller->HasError());
@@ -745,11 +714,11 @@ void PeopleHandler::HandleAttemptUserExit(const base::Value::List& args) {
 }
 
 void PeopleHandler::HandleTurnOnSync(const base::Value::List& args) {
-  NOTREACHED() << "It is not possible to toggle Sync on Ash";
+  NOTREACHED_IN_MIGRATION() << "It is not possible to toggle Sync on Ash";
 }
 
 void PeopleHandler::HandleTurnOffSync(const base::Value::List& args) {
-  NOTREACHED() << "It is not possible to toggle Sync on Ash";
+  NOTREACHED_IN_MIGRATION() << "It is not possible to toggle Sync on Ash";
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -796,7 +765,7 @@ void PeopleHandler::HandleSignout(const base::Value::List& args) {
   if (!is_clear_primary_account_allowed) {
     // 'Signout' should not be offered in the UI if clear primary account is
     // not allowed.
-    NOTREACHED()
+    NOTREACHED_IN_MIGRATION()
         << "Signout should not be offered if clear primary account is not "
            "allowed.";
     return;
@@ -1144,8 +1113,18 @@ base::Value::Dict PeopleHandler::GetSyncStatusDictionary() const {
   // (sync part) fields, update it to use the right field, comments around and
   // conditions here. Perhaps removal of one of these to fields is possible.
   sync_status.Set("disabled", !service || disallowed_by_policy);
+  // `kSyncPaused` and `kSyncing` are currently equivalent to only `kSyncing` in
+  // settings. `kSyncPaused` state is identified with having
+  // `syncStatus.hasError: true` as well.
+  // TODO(b/336510160): Look into integrating kSyncPaused value, potentially by
+  // merging it with the `hasError` message.
+  signin_util::SignedInState signed_in_state =
+      signin_util::GetSignedInState(identity_manager);
   sync_status.Set("signedInState",
-                  static_cast<int>(GetSignedInState(identity_manager)));
+                  static_cast<int>(
+                      signed_in_state == signin_util::SignedInState::kSyncPaused
+                          ? signin_util::SignedInState::kSyncing
+                          : signed_in_state));
   sync_status.Set("signedInUsername",
                   signin_ui_util::GetAuthenticatedUsername(profile_));
   sync_status.Set("hasUnrecoverableError",
@@ -1367,6 +1346,12 @@ void PeopleHandler::HandleSetChromeSigninUserChoice(
   }
 
   signin_prefs.SetChromeSigninInterceptionUserChoice(account.gaia, user_choice);
+  // If the user explicitly set the `kDoNotSignin` choice from the settings,
+  // suppress any bubble interaction time that could lead to re-prompts.
+  if (user_choice == ChromeSigninUserChoice::kDoNotSignin) {
+    signin_prefs.ClearChromeSigninInterceptionFirstDeclinedChoiceTime(
+        account.gaia);
+  }
 
   // Set for metrics purposes.
   chrome_signin_user_choice_modified_ = true;

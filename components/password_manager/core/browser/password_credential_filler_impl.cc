@@ -5,6 +5,7 @@
 #include "components/password_manager/core/browser/password_credential_filler_impl.h"
 
 #include <string>
+
 #include "base/check.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
@@ -84,7 +85,12 @@ SubmissionReadinessState CalculateSubmissionReadiness(
   }
 
   for (size_t i = password_index + 1; i < number_of_elements; ++i) {
-    if (!ShouldIgnoreField(form_data.fields[i])) {
+    // Skip the checkboxes following after the password field as it's most
+    // probably a "remember me" checkmark. But CAPTCHAs often look like
+    // non-focusable text area fields and they should not be skipped (this is
+    // the reason why `ShouldIgnoreField` is not used here).
+    if (form_data.fields[i].form_control_type() !=
+        autofill::FormControlType::kInputCheckbox) {
       return SubmissionReadinessState::kFieldAfterPasswordField;
     }
   }
