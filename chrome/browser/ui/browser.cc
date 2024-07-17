@@ -2307,6 +2307,7 @@ void Browser::DraggableRegionsChanged(
   if (app_controller_) {
     app_controller_->DraggableRegionsChanged(regions, contents);
   }
+  window()->UpdateDraggableRegions(regions);
 }
 
 void Browser::DidFinishNavigation(
