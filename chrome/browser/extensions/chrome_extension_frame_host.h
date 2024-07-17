@@ -11,6 +11,8 @@
 #include "extensions/common/mojom/injection_type.mojom-shared.h"
 #include "extensions/common/mojom/run_location.mojom-shared.h"
 
+#include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
+
 namespace content {
 class WebContents;
 }
