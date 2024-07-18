@@ -13,6 +13,8 @@ BASE_DECLARE_FEATURE(kTabGroupSyncAndroid);
 
 BASE_DECLARE_FEATURE(kTabGroupPaneAndroid);
 
+BASE_DECLARE_FEATURE(kTabGroupSyncDisableNetworkLayer);
+
 BASE_DECLARE_FEATURE(kTabGroupSyncForceOff);
 
 BASE_DECLARE_FEATURE(kAndroidTabGroupStableIds);
@@ -31,6 +33,10 @@ BASE_DECLARE_FEATURE(kTabGroupSyncAutoOpenKillSwitch);
 
 BASE_DECLARE_FEATURE(kRestrictDownloadOnSyncedTabs);
 
+BASE_DECLARE_FEATURE(kDeferMediaLoadInBackgroundTab);
+
+BASE_DECLARE_FEATURE(kSavedTabGroupNotifyOnInteractionTimeChanged);
+
 extern bool IsTabGroupsSaveV2Enabled();
 
 extern bool IsTabGroupsSaveUIUpdateEnabled();
@@ -40,6 +46,8 @@ extern bool IsMigrationFromJavaSharedPrefsEnabled();
 extern bool AlwaysAcceptServerDataInModel();
 
 extern bool RestrictDownloadOnSyncedTabs();
+
+extern bool DeferMediaLoadInBackgroundTab();
 }  // namespace tab_groups
 
 #endif  // COMPONENTS_SAVED_TAB_GROUPS_FEATURES_H_

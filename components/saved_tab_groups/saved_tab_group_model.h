@@ -55,6 +55,13 @@ class SavedTabGroupModel {
   const SavedTabGroup* Get(const LocalTabGroupID local_group_id) const;
   const SavedTabGroup* Get(const base::Uuid& id) const;
 
+  // Non-const getters to get a SavedTabGroup. This is safe since
+  // SavedTabGroupModel is internal only to //components/saved_tab_group. The
+  // external callers will go through TabGroupSyncService which will never
+  // expose a non-const SavedTabGroup.
+  SavedTabGroup* Get(const LocalTabGroupID local_group_id);
+  SavedTabGroup* Get(const base::Uuid& id);
+
   // Methods for checking if a group is in the SavedTabGroupModel.
   bool Contains(const LocalTabGroupID& local_group_id) const {
     return GetIndexOf(local_group_id).has_value();
@@ -152,6 +159,10 @@ class SavedTabGroupModel {
   std::pair<std::set<base::Uuid>, std::set<base::Uuid>> UpdateLocalCacheGuid(
       std::optional<std::string> old_cache_guid,
       std::optional<std::string> new_cache_guid);
+
+  // Update the last interaction time with the group.
+  void UpdateLastUserInteractionTimeLocally(
+      const LocalTabGroupID& local_group_id);
 
   // Update the last updater cache guid for a give group and optionally a tab.
   void UpdateLastUpdaterCacheGuidForGroup(

@@ -238,7 +238,6 @@ BASE_FEATURE(kSpotlightOpenTabsSource,
 BASE_FEATURE(kSpotlightReadingListSource,
              "SpotlightReadingListSource",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSpotlightDonateNewIntents,
              "SpotlightDonateNewIntents",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -366,7 +365,7 @@ BASE_FEATURE(kContentPushNotifications,
 
 BASE_FEATURE(kContentNotificationExperiment,
              "ContentNotificationExperiment",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsContentNotificationExperimentEnabled() {
   return base::FeatureList::IsEnabled(kContentNotificationExperiment);
@@ -380,6 +379,12 @@ bool IsContentNotificationProvisionalIgnoreConditions() {
   return base::FeatureList::IsEnabled(
       kContentNotificationProvisionalIgnoreConditions);
 }
+
+BASE_FEATURE(kContentNotificationDeliveredNAU,
+             "ContentNotificationDeliveredNAU",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const char kDeliveredNAUMaxPerSession[] = "DeliveredNAUMaxPerSession";
 
 BASE_FEATURE(kIOSLargeFakebox,
              "IOSLargeFakebox",
@@ -830,4 +835,8 @@ bool IsPrefetchingSystemCapabilitiesOnFirstRun() {
 
 BASE_FEATURE(kSegmentationPlatformIosModuleRankerCaching,
              "SegmentationPlatformIosModuleRankerCaching",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSpotlightNeverRetainIndex,
+             "SpotlightNeverRetainIndex",
              base::FEATURE_DISABLED_BY_DEFAULT);

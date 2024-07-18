@@ -12,12 +12,15 @@ import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.m
 import type {DomRepeat} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
+import type {BrowserProxy} from './browser_proxy.js';
 import {type CursorTooltipData, CursorTooltipType} from './cursor_tooltip.js';
 import {findWordsInRegion} from './find_words_in_region.js';
 import {CenterRotatedBox_CoordinateType} from './geometry.mojom-webui.js';
 import type {CenterRotatedBox} from './geometry.mojom-webui.js';
 import {bestHit} from './hit.js';
-import {recordLensOverlayInteraction, UserAction} from './metrics_utils.js';
+import {UserAction} from './lens.mojom-webui.js';
+import {INVOCATION_SOURCE} from './lens_overlay_app.js';
+import {recordLensOverlayInteraction} from './metrics_utils.js';
 import type {CursorData, DetectedTextContextMenuData, SelectedTextContextMenuData} from './selection_overlay.js';
 import {CursorType} from './selection_utils.js';
 import type {GestureEvent} from './selection_utils.js';
@@ -56,6 +59,12 @@ function getTextSeparator(word: Word): string {
   return (word.textSeparator !== null && word.textSeparator !== undefined) ?
       word.textSeparator :
       ' ';
+}
+
+// Returns true if index is in the range [start, end]. End index may be lesser
+// than start index.
+function isInRange(index: number, start: number, end: number): boolean {
+  return (index >= start && index <= end) || (index >= end && index <= start);
 }
 
 export interface TextLayerElement {
@@ -148,6 +157,7 @@ export class TextLayerElement extends PolymerElement {
   // IoU threshold for finding words in region.
   private selectTextTriggerThreshold: number =
       loadTimeData.getValue('selectTextTriggerThreshold');
+  private browserProxy: BrowserProxy = BrowserProxyImpl.getInstance();
 
   override connectedCallback() {
     super.connectedCallback();
@@ -160,17 +170,14 @@ export class TextLayerElement extends PolymerElement {
 
     // Set up listener to listen to events from C++.
     this.listenerIds = [
-      BrowserProxyImpl.getInstance().callbackRouter.textReceived.addListener(
+      this.browserProxy.callbackRouter.textReceived.addListener(
           this.onTextReceived.bind(this)),
-      BrowserProxyImpl.getInstance()
-          .callbackRouter.clearTextSelection.addListener(
-              this.unselectWords.bind(this)),
-      BrowserProxyImpl.getInstance()
-          .callbackRouter.clearAllSelections.addListener(
-              this.unselectWords.bind(this)),
-      BrowserProxyImpl.getInstance()
-          .callbackRouter.setTextSelection.addListener(
-              this.selectWords.bind(this)),
+      this.browserProxy.callbackRouter.clearTextSelection.addListener(
+          this.unselectWords.bind(this)),
+      this.browserProxy.callbackRouter.clearAllSelections.addListener(
+          this.unselectWords.bind(this)),
+      this.browserProxy.callbackRouter.setTextSelection.addListener(
+          this.selectWords.bind(this)),
     ];
   }
 
@@ -178,8 +185,7 @@ export class TextLayerElement extends PolymerElement {
     super.disconnectedCallback();
 
     this.listenerIds.forEach(
-        id => assert(
-            BrowserProxyImpl.getInstance().callbackRouter.removeListener(id)));
+        id => assert(this.browserProxy.callbackRouter.removeListener(id)));
     this.listenerIds = [];
   }
 
@@ -249,6 +255,20 @@ export class TextLayerElement extends PolymerElement {
     return true;
   }
 
+  handleRightClick(event: PointerEvent) {
+    // If the user right-clicks a highlighted word, restore the selected text
+    // context menu.
+    const wordIndex = this.wordIndexFromPoint(event.clientX, event.clientY);
+    if (wordIndex !== null &&
+        isInRange(
+            wordIndex, this.selectionStartIndex, this.selectionEndIndex)) {
+      this.dispatchEvent(new CustomEvent('restore-selected-text-context-menu', {
+        bubbles: true,
+        composed: true,
+      }));
+    }
+  }
+
   handleDragGesture(event: GestureEvent) {
     const imageBounds = this.getBoundingClientRect();
     const normalizedX = (event.clientX - imageBounds.left) / imageBounds.width;
@@ -289,9 +309,9 @@ export class TextLayerElement extends PolymerElement {
         }));
 
     // On selection complete, send the selected text to C++.
-    BrowserProxyImpl.getInstance().handler.issueTextSelectionRequest(
+    this.browserProxy.handler.issueTextSelectionRequest(
         highlightedText, this.selectionStartIndex, this.selectionEndIndex);
-    recordLensOverlayInteraction(UserAction.TEXT_SELECTION);
+    recordLensOverlayInteraction(INVOCATION_SOURCE, UserAction.kTextSelection);
   }
 
   selectAndSendWords(selectionStartIndex: number, selectionEndIndex: number) {

@@ -5064,12 +5064,16 @@
                     "name": "Enabled",
                     "params": {
                         "endpoint-url": "https://lensfrontend-pa.googleapis.com/v1/crupload",
+                        "omnibox-entry-point": "false",
                         "select-text-over-region-trigger-threshold": "0.1",
                         "text-vertical-margin": "12",
                         "use-oauth-for-requests": "true"
                     },
                     "enable_features": [
                         "LensOverlay"
+                    ],
+                    "disable_features": [
+                        "ContextMenuSearchForVideoFrame"
                     ]
                 }
             ]
@@ -6573,6 +6577,26 @@
             ]
         }
     ],
+    "CrabbyAvif": [
+        {
+            "platforms": [
+                "android",
+                "android_webview",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled_CrabbyAvif",
+                    "enable_features": [
+                        "CrabbyAvif"
+                    ]
+                }
+            ]
+        }
+    ],
     "CreateSpareRendererOnBrowserContextCreation": [
         {
             "platforms": [
@@ -7475,7 +7499,9 @@
             "platforms": [
                 "linux",
                 "mac",
-                "windows"
+                "windows",
+                "chromeos",
+                "chromeos_lacros"
             ],
             "experiments": [
                 {
@@ -11003,62 +11029,56 @@
             ],
             "experiments": [
                 {
-                    "name": "Enabled_Promo_20240522",
+                    "name": "Enabled_Promo",
                     "params": {
                         "ContentPushNotificationsExperimentType": "1"
                     },
                     "enable_features": [
-                        "ContentNotificationExperiment",
                         "ContentPushNotifications"
                     ]
                 },
                 {
-                    "name": "Registered_Promo_20240522",
+                    "name": "Registered_Promo",
                     "params": {
                         "ContentPushNotificationsExperimentType": "5"
                     },
                     "enable_features": [
-                        "ContentNotificationExperiment",
                         "ContentPushNotifications"
                     ]
                 },
                 {
-                    "name": "Enabled_Provisional_20240522",
+                    "name": "Enabled_Provisional",
                     "params": {
                         "ContentPushNotificationsExperimentType": "3"
                     },
                     "enable_features": [
-                        "ContentNotificationExperiment",
                         "ContentPushNotifications"
                     ]
                 },
                 {
-                    "name": "Registered_Provisional_20240522",
+                    "name": "Registered_Provisional",
                     "params": {
                         "ContentPushNotificationsExperimentType": "6"
                     },
                     "enable_features": [
-                        "ContentNotificationExperiment",
                         "ContentPushNotifications"
                     ]
                 },
                 {
-                    "name": "Enabled_Setuplist_20240522",
+                    "name": "Enabled_Setuplist",
                     "params": {
                         "ContentPushNotificationsExperimentType": "2"
                     },
                     "enable_features": [
-                        "ContentNotificationExperiment",
                         "ContentPushNotifications"
                     ]
                 },
                 {
-                    "name": "Registered_Setuplist_20240522",
+                    "name": "Registered_Setuplist",
                     "params": {
                         "ContentPushNotificationsExperimentType": "7"
                     },
                     "enable_features": [
-                        "ContentNotificationExperiment",
                         "ContentPushNotifications"
                     ]
                 }
@@ -13017,25 +13037,6 @@
                     },
                     "enable_features": [
                         "MaxNumDelayableRequestsPerHostPerClientFeature"
-                    ]
-                }
-            ]
-        }
-    ],
-    "MediaContextMenuSearchForVideoFrame": [
-        {
-            "platforms": [
-                "chromeos",
-                "chromeos_lacros",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "ContextMenuSearchForVideoFrame"
                     ]
                 }
             ]

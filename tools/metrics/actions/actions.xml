@@ -21379,7 +21379,24 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileCrossDeviceTabJourney">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>fredmello@chromium.org</owner>
+  <description>
+    Recorded when a user intentionally opens a tab from another device, sends a
+    tab to another device, or selects an automatically opened tab from another
+    device (once per-tab per-activity instance). Android only.
+
+    This includes: recent tabs page, restore tabs promo, send tab to self, tab
+    group sync, and cross device tab resumption.
+  </description>
+</action>
+
 <action name="MobileCrossDeviceTabOpenedOrSent">
+  <obsolete>
+    Deprecated June 2024 replaced by the more inclusive
+    MobileCrossDeviceTabJourney.
+  </obsolete>
   <owner>ckitagawa@chromium.org</owner>
   <owner>fredmello@chromium.org</owner>
   <description>
@@ -25311,6 +25328,14 @@ should be able to be added at any place in this file.
   <owner>pavely@chromium.org</owner>
   <owner>clank-app-team@google.com</owner>
   <description>User tapped on IdentityDisc button on toolbar.</description>
+</action>
+
+<action name="MobileToolbarModelSelected">
+  <owner>clank-large-form-factors@google.com</owner>
+  <owner>skavuluru@chromium.org</owner>
+  <description>
+    User clicked model selector button in tablet tab strip. Android only.
+  </description>
 </action>
 
 <action name="MobileToolbarNewTab">
@@ -39399,13 +39424,11 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="SupervisedUsers_Extensions_ExtensionInstallDialog_AskedParent">
-  <owner>tobyhuang@chromium.org</owner>
-  <owner>agawronska@chromium.org</owner>
-  <owner>danan@chromium.org</owner>
-  <owner>cros-families@google.com</owner>
+<action name="SupervisedUsers_Extensions_ExtensionInstallDialog_ChildAccepted">
+  <owner>anthie@google.com</owner>
+  <owner>chrome-kids-eng@google.com</owner>
   <description>
-    Emitted when a supervised user clicks &quot;Ask a parent&quot; on the
+    Emitted when a supervised user clicks &quot;Add Extension&quot; on the
     Extension Install Dialog.
   </description>
 </action>
@@ -40078,6 +40101,22 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="TabGroup.RenameDialog.ColorChanged">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>
+    Tab group color was changed using the tab group rename dialog on Android.
+  </description>
+</action>
+
+<action name="TabGroup.RenameDialog.TitleChanged">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>
+    Tab group title was changed using the tab group rename dialog on Android.
+  </description>
+</action>
+
 <action name="TabGroupConfirmation.DeleteGroup.Abort">
   <owner>ckitagawa@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
@@ -40217,6 +40256,45 @@ should be able to be added at any place in this file.
     Recorded when a user clicks the ungroup option on a tab group item in the
     tab switcher.
   </description>
+</action>
+
+<action name="TabGroups.Sync.CreatedNewTab">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>Tab was created for tab group sync.</description>
+</action>
+
+<action name="TabGroups.Sync.LocalDeleted">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>Local version of a synced tab group was deleted.</description>
+</action>
+
+<action name="TabGroups.Sync.LocalHidden">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>Local version of a synced tab group was hidden.</description>
+</action>
+
+<action name="TabGroups.Sync.SelectedRemotelyUpdatedTabInSession">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>
+    Records when a tab is selected if that tab was last accessed remotely up to
+    once per-tab per-activity instance.
+  </description>
+</action>
+
+<action name="TabGroups.Sync.SelectedTabInLocallyCreatedGroup">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>Tab was selected in a locally created tab group.</description>
+</action>
+
+<action name="TabGroups.Sync.SelectedTabInRemotelyCreatedGroup">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>Tab was selected in a remotely created tab group.</description>
 </action>
 
 <action name="TabGroups_CannotCollapse">
@@ -44067,6 +44145,9 @@ should be able to be added at any place in this file.
       label="Users ungrouped tabs by clicking the ungroup option in the top
              toolbar menu in tab grid dialog and selecting tabs they want to
              ungroup."/>
+  <suffix name="ResetTabGroupName"
+      label="User reset the tab group name by using an empty or default
+             title."/>
   <suffix name="SharedGroupAsTextList"
       label="Users shared a tab group as a text list of links by clicking the
              share option in the top toolbar menu in tab grid dialog."/>

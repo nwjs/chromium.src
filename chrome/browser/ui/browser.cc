@@ -159,7 +159,6 @@
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/unload_controller.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
@@ -641,6 +640,8 @@ Browser::Browser(const CreateParams& params)
       overscroll_pref_manager_(std::make_unique<OverscrollPrefManager>(this))
 #endif
 {
+  browser_actions_->InitializeBrowserActions();
+
   content::g_support_transparency = !base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableTransparency);
   if (content::g_support_transparency) {
     content::g_force_cpu_draw = base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kForceCpuDraw);
@@ -721,10 +722,20 @@ Browser::Browser(const CreateParams& params)
         ->ListenToFullScreenChanges();
   }
 
+  // Initialize the browser features that rely on the browser window now that it
+  // is initialized.
+  features_->InitPostWindowConstruction(this);
+
   BrowserList::AddBrowser(this);
 }
 
 Browser::~Browser() {
+  // Tear down `BrowserWindowFeatures` and `BrowserUserData`s now to avoid
+  // exposing them to Browser in a partially-destroyed state. Eventually,
+  // all BrowserUserData should be converted to features. Until then,
+  // destroy `features_` because that's what breaks things the least :)
+  features_.reset();
+
   saved_tab_group_observation_.Reset();
 
   // Stop observing notifications and destroy the tab monitor before continuing
@@ -1221,12 +1232,25 @@ const SessionID& Browser::GetSessionID() {
   return session_id_;
 }
 
+bool Browser::IsTabStripVisible() {
+  return window_->IsToolbarShowing();
+}
+
+views::View* Browser::TopContainer() {
+  return window_->GetTopContainer();
+}
+
 tabs::TabInterface* Browser::GetActiveTabInterface() {
   return tab_strip_model_->GetActiveTab();
 }
 
 BrowserWindowFeatures& Browser::GetFeatures() {
   return *features_.get();
+}
+
+web_modal::WebContentsModalDialogHost*
+Browser::GetWebContentsModalDialogHostForWindow() {
+  return window_->GetWebContentsModalDialogHost();
 }
 
 void Browser::OnWindowClosing() {

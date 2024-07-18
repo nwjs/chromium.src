@@ -24,6 +24,7 @@ import {I18nMixin} from '//resources/cr_elements/i18n_mixin.js';
 import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
+import {isMac} from '//resources/js/platform.js';
 import {Debouncer, microTask, PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {ComposeAppAnimator} from './animations/app_animator.js';
@@ -65,6 +66,7 @@ export interface ComposeAppElement {
     acceptButton: CrButtonElement,
     loading: HTMLElement,
     undoButton: CrButtonElement,
+    undoButtonRefined: CrButtonElement,
     redoButton: CrButtonElement,
     refreshButton: HTMLElement,
     resultContainer: HTMLElement,
@@ -93,7 +95,9 @@ enum TriggerElement {
   TONE,
   LENGTH,
   MODIFIER,
-  REFRESH
+  REFRESH,
+  UNDO,
+  REDO,
 }
 
 export class ComposeAppElement extends ComposeAppElementBase {
@@ -624,6 +628,23 @@ export class ComposeAppElement extends ComposeAppElementBase {
     this.$.modifierMenu.selectedIndex = 0;
   }
 
+  private openModifierMenuOnKeyDown_(e: KeyboardEvent) {
+    // On Windows and Linux, ArrowDown and ArrowUp key events directly change
+    // the menu selection, which fires the `select` on-change event without
+    // showing what selection was made.
+    // MacOS keyboard controls opens the dropdown menu on ArrowUp/Down and thus
+    // does not need to override behaviour.
+    if (isMac) {
+      return;
+    }
+
+    // Override keyboard controls for ArrowUp/Down to open the `select` menu.
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this.$.modifierMenu.showPicker();
+    }
+  }
+
   private onFooterClick_(e: Event) {
     if ((e.target as HTMLElement).tagName !== 'A') {
       // Do nothing if a link is not clicked.
@@ -732,6 +753,16 @@ export class ComposeAppElement extends ComposeAppElementBase {
         break;
       case TriggerElement.MODIFIER:
         this.$.modifierMenu.focus({ preventScroll: true });
+        break;
+      case TriggerElement.UNDO:
+        if (this.enableUiRefinements) {
+          this.$.undoButtonRefined.focus();
+        } else {
+          this.$.undoButton.focus();
+        }
+        break;
+      case TriggerElement.REDO:
+        this.$.redoButton.focus();
         break;
     }
   }
@@ -915,7 +946,14 @@ export class ComposeAppElement extends ComposeAppElementBase {
       }
 
       this.updateWithNewState_(state);
-      this.$.undoButton.focus();
+      // If UI Refinements is enabled, then focus is moved from the undo button
+      // to the redo button if undo is disabled in the new state. Otherwise, the
+      // undo button always keeps focus.
+      if (this.undoEnabled_ || !this.enableUiRefinements) {
+        this.lastTriggerElement_ = TriggerElement.UNDO;
+      } else {
+        this.lastTriggerElement_ = TriggerElement.REDO;
+      }
     } catch (error) {
       // Error (e.g., disconnected mojo pipe) from a rejected Promise. Allow the
       // user to try again as there should be a valid state to restore.
@@ -951,7 +989,12 @@ export class ComposeAppElement extends ComposeAppElementBase {
       }
 
       this.updateWithNewState_(state);
-      this.$.redoButton.focus();
+      // If redo is disabled, then give focus to the undo button by default.
+      if (this.redoEnabled_) {
+        this.lastTriggerElement_ = TriggerElement.REDO;
+      } else {
+        this.lastTriggerElement_ = TriggerElement.UNDO;
+      }
     } catch (error) {
       // Error (e.g., disconnected mojo pipe) from a rejected Promise. Allow the
       // user to try again as there should be a valid state to restore.

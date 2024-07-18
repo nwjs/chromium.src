@@ -7,13 +7,13 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_invocation_source.h"
-#include "chrome/browser/ui/lens/lens_overlay_permission_utils.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "components/lens/lens_features.h"
+#include "components/lens/lens_overlay_permission_utils.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test.h"
@@ -81,12 +81,8 @@ class LensOverlayTest : public LensWebUIBrowserTest {
         [&]() { return controller->state() == State::kOverlay; }));
 
     // Get the overlay webview and wait for WebUI to finish loading.
-    raw_ptr<views::WebView> overlay_web_view =
-        views::AsViewClass<views::WebView>(
-            controller->GetOverlayWidgetForTesting()
-                ->GetContentsView()
-                ->children()[0]);
-    auto* web_contents = overlay_web_view->GetWebContents();
+    auto* web_contents =
+        controller->GetOverlayWebViewForTesting()->GetWebContents();
     content::WaitForLoadStop(web_contents);
     ASSERT_TRUE(RunTestOnWebContents(web_contents, file, trigger, true));
 
@@ -117,10 +113,6 @@ IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayBackgroundScrim) {
 
 IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayCloseButton) {
   RunOverlayTest("lens/overlay/overlay_close_button_test.js", "mocha.run()");
-}
-
-IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayEscapeKey) {
-  RunOverlayTest("lens/overlay/overlay_escape_key_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayMoreOptionsButton) {
@@ -174,8 +166,7 @@ IN_PROC_BROWSER_TEST_F(LensSidePanelTest, SearchboxBackButton) {
                  "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(LensSidePanelTest, SidePanelEscapeKey) {
-  RunOverlayTest("lens/side_panel/side_panel_escape_key_test.js",
-                 "mocha.run()");
+IN_PROC_BROWSER_TEST_F(LensSidePanelTest, ErrorPage) {
+  RunOverlayTest("lens/side_panel/error_page_test.js", "mocha.run()");
 }
 }  // namespace

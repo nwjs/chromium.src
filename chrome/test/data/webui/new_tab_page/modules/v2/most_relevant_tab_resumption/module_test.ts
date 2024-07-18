@@ -6,7 +6,7 @@ import type {Tab} from 'chrome://new-tab-page/history_types.mojom-webui.js';
 import {DeviceType} from 'chrome://new-tab-page/history_types.mojom-webui.js';
 import type {DismissModuleElementEvent, DismissModuleInstanceEvent, MostRelevantTabResumptionModuleElement} from 'chrome://new-tab-page/lazy_load.js';
 import {mostRelevantTabResumptionDescriptor, MostRelevantTabResumptionProxyImpl} from 'chrome://new-tab-page/lazy_load.js';
-import {PageHandlerRemote} from 'chrome://new-tab-page/most_relevant_tab_resumption.mojom-webui.js';
+import {PageHandlerRemote, ScoredURLUserAction} from 'chrome://new-tab-page/most_relevant_tab_resumption.mojom-webui.js';
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -35,6 +35,7 @@ function createSampleTab(
         urlKey: '',
         title: 'Test Tab Title',
         timestamp: Date.now(),
+        trainingRequestId: 0,
         relativeTime: {microseconds: BigInt(0)},
         relativeTimeText: '0 seconds ago',
       },
@@ -176,6 +177,11 @@ suite('NewTabPageModulesMostRelevantTabResumptionModuleTest', () => {
       tabElement!.removeAttribute('href');
       tabElement!.click();
       assertEquals(1, metrics.count(`NewTabPage.TabResumption.ClickIndex`));
+      assertEquals(
+          ScoredURLUserAction.kSeen, handler.getArgs('recordAction')[0][0]);
+      assertEquals(
+          ScoredURLUserAction.kActivated,
+          handler.getArgs('recordAction')[1][0]);
 
       await waitForUsageEvent;
     });

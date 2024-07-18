@@ -15,6 +15,7 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 import type {Tab} from '../../../history_types.mojom-webui.js';
 import {DeviceType} from '../../../history_types.mojom-webui.js';
 import {I18nMixin, loadTimeData} from '../../../i18n_setup.js';
+import {ScoredURLUserAction} from '../../../most_relevant_tab_resumption.mojom-webui.js';
 import type {InfoDialogElement} from '../../info_dialog.js';
 import {ModuleDescriptor} from '../../module_descriptor.js';
 import type {MenuItem, ModuleHeaderElementV2} from '../module_header.js';
@@ -53,13 +54,6 @@ export class MostRelevantTabResumptionModuleElement extends I18nMixin
       /** The cluster displayed by this element. */
       tabs: {
         type: Object,
-      },
-
-      /** To determine if the hover layer should have all rounded corners. */
-      isSingleTab_: {
-        type: Boolean,
-        reflectToAttribute: true,
-        computed: `computeIsSingleTab_(tabs)`,
       },
 
       /**
@@ -185,6 +179,10 @@ private shouldShowDeviceIcon_:
           buckets: 50,
         },
         Number(e.model.item.relativeTime.microseconds / 1000n));
+
+    const tab = this.tabs[e.model.index];
+    MostRelevantTabResumptionProxyImpl.getInstance().handler.recordAction(
+        ScoredURLUserAction.kActivated, tab.urlKey, tab.trainingRequestId);
   }
 
   private computeDomain_(tab: Tab): string {
@@ -210,10 +208,6 @@ private shouldShowDeviceIcon_:
     return loadTimeData.getBoolean('modulesRedesignedEnabled') ?
         tab.sessionName :
         this.i18n('modulesTabResumptionDevicePrefix') + ` ${tab.sessionName}`;
-  }
-
-  private computeIsSingleTab_(): boolean {
-    return this.tabs && this.tabs.length === 1;
   }
 
   private computeFaviconSize_(): number {
@@ -243,6 +237,11 @@ async function createElement():
 
   const element = new MostRelevantTabResumptionModuleElement();
   element.tabs = tabs;
+
+  tabs.slice(0, MAX_TABS).forEach((tab) => {
+    MostRelevantTabResumptionProxyImpl.getInstance().handler.recordAction(
+        ScoredURLUserAction.kSeen, tab.urlKey, tab.trainingRequestId);
+  });
 
   return element;
 }

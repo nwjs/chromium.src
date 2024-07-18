@@ -12,16 +12,17 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
-import org.chromium.base.cached_flags.StringCachedFieldTrialParameter;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.page_insights.PageInsightsCoordinator;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Coordinator for GoogleBottomBar module. Provides the view, and initializes various components.
@@ -29,11 +30,6 @@ import java.util.List;
 public class GoogleBottomBarCoordinator {
 
     private static final String TAG = "GBBCoordinator";
-    private static final String BUTTON_LIST_PARAM = "google_bottom_bar_button_list";
-
-    public static final StringCachedFieldTrialParameter GOOGLE_BOTTOM_BAR_PARAM_BUTTON_LIST =
-            ChromeFeatureList.newStringCachedFieldTrialParameter(
-                    ChromeFeatureList.CCT_GOOGLE_BOTTOM_BAR, BUTTON_LIST_PARAM, "");
 
     /** Returns true if GoogleBottomBar is enabled in the feature flag. */
     public static boolean isFeatureEnabled() {
@@ -77,8 +73,25 @@ public class GoogleBottomBarCoordinator {
                         tabProvider,
                         shareDelegateSupplier,
                         this::getPageInsightsCoordinator,
-                        getButtonConfig(
+                        getBottomBarConfig(
                                 googleBottomBarIntentParams, customButtonsOnGoogleBottomBar));
+    }
+
+    /**
+     * Determines which buttons to display in the Google Bottom Bar based on
+     * GoogleBottomBarIntentParams.
+     *
+     * @param intentParams that optionally contains:
+     *     <p>Integer list with the following representation [5,1,2,3,4,5], where the first item
+     *     represents the spotlight button and the rest of the list the order of the buttons in the
+     *     bottom bar.
+     *     <p>Variant layout type that specifies variation of the layout that should be used
+     * @return A set of integers representing the customButtonParamIds of the buttons that should be
+     *     displayed in the Google Bottom Bar.
+     */
+    public static Set<Integer> getSupportedCustomButtonParamIds(
+            GoogleBottomBarIntentParams intentParams) {
+        return BottomBarConfigCreator.getSupportedCustomButtonParamIds(intentParams);
     }
 
     /**
@@ -98,8 +111,8 @@ public class GoogleBottomBarCoordinator {
     }
 
     /** Returns the height of the Google Bottom bar in pixels. */
-    public static int getBottomBarHeightInPx(Context context) {
-        return context.getResources().getDimensionPixelSize(R.dimen.google_bottom_bar_height);
+    public int getBottomBarHeightInPx() {
+        return mGoogleBottomBarViewCreator.getBottomBarHeightInPx();
     }
 
     /**
@@ -115,25 +128,25 @@ public class GoogleBottomBarCoordinator {
         }
     }
 
+    /**
+     * Stores default search engine information.
+     *
+     * @param originalProfile The profile to check for default search engine information.
+     */
+    public void initDefaultSearchEngine(Profile originalProfile) {
+        BottomBarConfigCreator.initDefaultSearchEngine(originalProfile);
+    }
+
     @VisibleForTesting
     GoogleBottomBarViewCreator getGoogleBottomBarViewCreatorForTesting() {
         return mGoogleBottomBarViewCreator;
     }
 
-    private BottomBarConfig getButtonConfig(
+    private BottomBarConfig getBottomBarConfig(
             GoogleBottomBarIntentParams intentParams,
             List<CustomButtonParams> customButtonsOnGoogleBottomBar) {
         BottomBarConfigCreator configCreator = new BottomBarConfigCreator(mContext);
-
-        // Encoded button list provided in intent from embedder
-        if (intentParams.getEncodedButtonCount() != 0) {
-            return configCreator.create(
-                    intentParams.getEncodedButtonList(), customButtonsOnGoogleBottomBar);
-        }
-
-        // Fall back on encoded string provided in Finch param
-        return configCreator.create(
-                GOOGLE_BOTTOM_BAR_PARAM_BUTTON_LIST.getValue(), customButtonsOnGoogleBottomBar);
+        return configCreator.create(intentParams, customButtonsOnGoogleBottomBar);
     }
 
     private @Nullable PageInsightsCoordinator getPageInsightsCoordinator() {

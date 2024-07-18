@@ -12,6 +12,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -21,6 +22,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -30,6 +32,7 @@ import android.content.Intent;
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -44,6 +47,7 @@ import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
+import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationState;
 import org.chromium.base.Promise;
 import org.chromium.base.supplier.ObservableSupplierImpl;
@@ -117,7 +121,10 @@ import java.util.List;
     ChromeFeatureList.READALOUD_PLAYBACK,
     ChromeFeatureList.READALOUD_TAP_TO_SEEK
 })
-@DisableFeatures({ChromeFeatureList.READALOUD_IN_MULTI_WINDOW})
+@DisableFeatures({
+    ChromeFeatureList.READALOUD_IN_MULTI_WINDOW,
+    ChromeFeatureList.READALOUD_BACKGROUND_PLAYBACK
+})
 public class ReadAloudControllerUnitTest {
     private static final GURL sTestGURL = JUnitTestGURLs.EXAMPLE_URL;
     private static final GURL sTestRedirectGURL = JUnitTestGURLs.URL_1_WITH_PATH;
@@ -125,6 +132,7 @@ public class ReadAloudControllerUnitTest {
 
     private MockTab mTab;
     private ReadAloudController mController;
+    private ReadAloudController mController2;
     private Activity mActivity;
 
     @Rule public JniMocker mJniMocker = new JniMocker();
@@ -234,7 +242,7 @@ public class ReadAloudControllerUnitTest {
         when(mHooksImpl.isEnabled()).thenReturn(true);
         when(mHooksImpl.getCompatibleLanguages())
                 .thenReturn(new HashSet<String>(Arrays.asList("en", "es", "fr", "ja")));
-        when(mPlaybackHooks.createPlayer(any())).thenReturn(mPlayerCoordinator);
+        initPlaybackHooks();
         ReadAloudController.setReadabilityHooks(mHooksImpl);
         ReadAloudController.setPlaybackHooks(mPlaybackHooks);
 
@@ -260,7 +268,38 @@ public class ReadAloudControllerUnitTest {
         mTab.setGurlOverrideForTesting(sTestGURL);
         mTab.setWebContentsOverrideForTesting(mWebContents);
 
-        mController =
+        mController = createController();
+
+        when(mMetadata.languageCode()).thenReturn("en");
+        when(mPlayback.getMetadata()).thenReturn(mMetadata);
+        when(mWebContents.getMainFrame()).thenReturn(mRenderFrameHost);
+        when(mRenderFrameHost.getGlobalRenderFrameHostId()).thenReturn(mGlobalRenderFrameHostId);
+        mController.setHighlighterForTests(mHighlighter);
+        mUserActionTester = new UserActionTester();
+        mExtractorPromise = new Promise<Long>();
+        when(mExtractor.getDateModified(any())).thenReturn(mExtractorPromise);
+        mExtractorPromise.fulfill(1234567123456L);
+    }
+
+    void initPlaybackHooks() {
+        when(mPlaybackHooks.createPlayer(any())).thenReturn(mPlayerCoordinator);
+        when(mPlaybackHooks.createExtractor()).thenReturn(mExtractor);
+        doReturn(false).when(mPlaybackHooks).voicesInitialized();
+        doReturn(List.of(new PlaybackVoice("en", "voiceA", "")))
+                .when(mPlaybackHooks)
+                .getVoicesFor(anyString());
+    }
+
+    private void resetPlaybackMocks() {
+        reset(mPlayback);
+        when(mPlayback.getMetadata()).thenReturn(mMetadata);
+        reset(mPlaybackHooks);
+        reset(mPlayerCoordinator);
+        initPlaybackHooks();
+    }
+
+    private ReadAloudController createController() {
+        var controller =
                 new ReadAloudController(
                         mActivity,
                         mProfileSupplier,
@@ -272,28 +311,17 @@ public class ReadAloudControllerUnitTest {
                         mActivityWindowAndroid,
                         mActivityLifecycleDispatcher);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
-
-        when(mMetadata.languageCode()).thenReturn("en");
-        when(mPlayback.getMetadata()).thenReturn(mMetadata);
-        when(mWebContents.getMainFrame()).thenReturn(mRenderFrameHost);
-        when(mRenderFrameHost.getGlobalRenderFrameHostId()).thenReturn(mGlobalRenderFrameHostId);
-        mController.setHighlighterForTests(mHighlighter);
-        when(mPlaybackHooks.createExtractor()).thenReturn(mExtractor);
-
-        doReturn(false).when(mPlaybackHooks).voicesInitialized();
-        doReturn(List.of(new PlaybackVoice("en", "voiceA", "")))
-                .when(mPlaybackHooks)
-                .getVoicesFor(anyString());
-        mUserActionTester = new UserActionTester();
-        mExtractorPromise = new Promise<Long>();
-        when(mExtractor.getDateModified(any())).thenReturn(mExtractorPromise);
-        mExtractorPromise.fulfill(1234567123456L);
+        return controller;
     }
 
     @After
     public void tearDown() {
         mUserActionTester.tearDown();
         ReadAloudFeatures.shutdown();
+
+        mController.destroy();
+        if (mController2 != null) mController2.destroy();
+        ReadAloudController.resetReadabilityCacheForTesting();
     }
 
     @Test
@@ -691,6 +719,34 @@ public class ReadAloudControllerUnitTest {
     }
 
     @Test
+    public void isReadable_cacheSharedBetweenInstances() {
+        // Check readability
+        mController.maybeCheckReadability(sTestGURL);
+
+        verify(mHooksImpl, times(1))
+                .isPageReadable(eq(sTestGURL.getSpec()), mCallbackCaptor.capture());
+        assertFalse(mController.isReadable(mTab));
+
+        // The page is readable, result should be cached.
+        mCallbackCaptor.getValue().onSuccess(sTestGURL.getSpec(), true, false);
+        assertTrue(mController.isReadable(mTab));
+        assertFalse(mController.timepointsSupported(mTab));
+
+        // A second newly created controller should know that the page is readable.
+        mController2 = createController();
+        assertTrue(mController2.isReadable(mTab));
+        assertFalse(mController2.timepointsSupported(mTab));
+
+        // The second controller should not send requests to check the same URL's readability.
+        mController2.maybeCheckReadability(sTestGURL);
+        // Still only one call.
+        verify(mHooksImpl, times(1))
+                .isPageReadable(
+                        Mockito.anyString(),
+                        Mockito.any(ReadAloudReadabilityHooks.ReadabilityCallback.class));
+    }
+
+    @Test
     public void isReadable_languageSupported() {
         mController.maybeCheckReadability(sTestGURL);
 
@@ -1064,13 +1120,8 @@ public class ReadAloudControllerUnitTest {
         mController.maybeStopPlayback(mTab);
         verify(mPlayback).release();
 
-        reset(mPlayerCoordinator);
-        reset(mPlayback);
-        reset(mPlaybackHooks);
+        resetPlaybackMocks();
 
-        doReturn(List.of(new PlaybackVoice("en", "voiceA", "")))
-                .when(mPlaybackHooks)
-                .getVoicesFor(anyString());
         // Subsequent playTab() should play without trying to release anything.
         mController.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
         resolvePromises();
@@ -1241,8 +1292,8 @@ public class ReadAloudControllerUnitTest {
         // Play tab.
         requestAndStartPlayback();
         verify(mPlayback).addListener(mPlaybackListenerCaptor.capture());
-        reset(mPlaybackHooks);
-        reset(mPlayback);
+
+        resetPlaybackMocks();
 
         // Pause at paragraph 99.
         var data = Mockito.mock(PlaybackListener.PlaybackData.class);
@@ -1263,7 +1314,6 @@ public class ReadAloudControllerUnitTest {
         assertEquals(1, voices.size());
         assertEquals("NEW VOICE ID", voices.get(0).getVoiceId());
 
-        doReturn(mMetadata).when(mPlayback).getMetadata();
         onPlaybackSuccess(mPlayback);
         verify(mPlayback, never()).play();
         verify(mPlayback).seekToParagraph(eq(99), eq(0L));
@@ -1380,10 +1430,7 @@ public class ReadAloudControllerUnitTest {
         // Set up playback and restorable state.
         requestAndStartPlayback();
         verify(mPlayback).play();
-        reset(mPlaybackHooks);
-        doReturn(List.of(new PlaybackVoice("en", "voiceA", "")))
-                .when(mPlaybackHooks)
-                .getVoicesFor(anyString());
+        resetPlaybackMocks();
 
         var data = Mockito.mock(PlaybackListener.PlaybackData.class);
         doReturn(PlaybackListener.State.STOPPED).when(data).state();
@@ -1398,10 +1445,7 @@ public class ReadAloudControllerUnitTest {
         verify(mPlaybackHooks).createPlayback(any(), mPlaybackCallbackCaptor.capture());
         Playback previewPlayback = Mockito.mock(Playback.class);
         onPlaybackSuccess(previewPlayback);
-        reset(mPlaybackHooks);
-        doReturn(List.of(new PlaybackVoice("en", "voiceA", "")))
-                .when(mPlaybackHooks)
-                .getVoicesFor(anyString());
+        resetPlaybackMocks();
 
         // Closing the voice menu should stop the preview.
         mController.onVoiceMenuClosed();
@@ -1413,7 +1457,7 @@ public class ReadAloudControllerUnitTest {
         assertEquals(1234567123456L, mPlaybackArgsCaptor.getValue().getDateModifiedMsSinceEpoch());
         onPlaybackSuccess(mPlayback);
         // Don't play, because original state was STOPPED.
-        verify(mPlayback, times(1)).play();
+        verify(mPlayback, never()).play();
         verify(mPlayback).seekToParagraph(eq(99), eq(0L));
     }
 
@@ -1423,10 +1467,7 @@ public class ReadAloudControllerUnitTest {
         mController.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
         resolvePromises();
         verify(mPlaybackHooks).createPlayback(any(), mPlaybackCallbackCaptor.capture());
-        reset(mPlaybackHooks);
-        doReturn(List.of(new PlaybackVoice("en", "voiceA", "")))
-                .when(mPlaybackHooks)
-                .getVoicesFor(anyString());
+        resetPlaybackMocks();
 
         // User changes voices before the first playback is ready.
         mController.setVoiceOverrideAndApplyToPlayback(new PlaybackVoice("en", "1234", ""));
@@ -1443,26 +1484,20 @@ public class ReadAloudControllerUnitTest {
 
         // Set up playback and restorable state.
         requestAndStartPlayback();
-        reset(mPlaybackHooks);
-        doReturn(List.of(new PlaybackVoice("en", "voiceA", "")))
-                .when(mPlaybackHooks)
-                .getVoicesFor(anyString());
+        verify(mPlayback).play();
+
+        resetPlaybackMocks();
         var data = Mockito.mock(PlaybackListener.PlaybackData.class);
         doReturn(PlaybackListener.State.PLAYING).when(data).state();
         doReturn(99).when(data).paragraphIndex();
         mController.onPlaybackDataChanged(data);
-
-        verify(mPlayback).play();
 
         // Preview voice.
         var voice = new PlaybackVoice("en", "asdf", "");
         doReturn(List.of(voice)).when(mPlaybackHooks).getPlaybackVoiceList(any());
         mController.previewVoice(voice);
         verify(mPlaybackHooks).createPlayback(any(), mPlaybackCallbackCaptor.capture());
-        reset(mPlaybackHooks);
-        doReturn(List.of(new PlaybackVoice("en", "voiceA", "")))
-                .when(mPlaybackHooks)
-                .getVoicesFor(anyString());
+        resetPlaybackMocks();
         Playback previewPlayback = Mockito.mock(Playback.class);
         onPlaybackSuccess(previewPlayback);
 
@@ -1474,7 +1509,7 @@ public class ReadAloudControllerUnitTest {
         mController.onVoiceMenuClosed();
         verify(mPlaybackHooks).createPlayback(any(), mPlaybackCallbackCaptor.capture());
         onPlaybackSuccess(mPlayback);
-        verify(mPlayback, times(2)).play();
+        verify(mPlayback).play();
         verify(mPlayback).seekToParagraph(eq(99), eq(0L));
     }
 
@@ -1849,6 +1884,45 @@ public class ReadAloudControllerUnitTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.READALOUD_BACKGROUND_PLAYBACK)
+    public void testBackgroundPlaybackContinuesWhenActivityPaused() {
+        // Play tab.
+        requestAndStartPlayback();
+        // set progress
+        var data = Mockito.mock(PlaybackData.class);
+
+        doReturn(2).when(data).paragraphIndex();
+        doReturn(1000000L).when(data).positionInParagraphNanos();
+        mController.onPlaybackDataChanged(data);
+
+        // App is backgrounded with the screen on. Playback should continue if the flag is on.
+        setIsScreenOnAndUnlocked(true);
+        mController.onApplicationStateChange(ApplicationState.HAS_PAUSED_ACTIVITIES);
+        verify(mPlayback, never()).release();
+        // also the screen is still on, don;t notify about screen state change
+        verify(mPlayerCoordinator, never()).onScreenStatusChanged(anyBoolean());
+
+        // now turn the screen off.
+        setIsScreenOnAndUnlocked(false);
+        mController.onApplicationStateChange(ApplicationState.HAS_STOPPED_ACTIVITIES);
+        verify(mPlayback, never()).release();
+        // also the screen is still on, don;t notify about screen state change
+        verify(mPlayerCoordinator).onScreenStatusChanged(true);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.READALOUD_BACKGROUND_PLAYBACK)
+    public void testBackgroundPlayback_doesntCrashWhenNoPlayer() {
+        try {
+            // App is backgrounded with the screen of. Playback should continue if the flag is on.
+            setIsScreenOnAndUnlocked(false);
+            mController.onApplicationStateChange(ApplicationState.HAS_STOPPED_ACTIVITIES);
+        } catch (NullPointerException ex) {
+            Assert.fail();
+        }
+    }
+
+    @Test
     public void testPlaybackStopsAndStateSavedWhenAppBackgrounded_screenOn() {
         // Play tab.
         requestAndStartPlayback();
@@ -1859,15 +1933,15 @@ public class ReadAloudControllerUnitTest {
         doReturn(1000000L).when(data).positionInParagraphNanos();
         mController.onPlaybackDataChanged(data);
 
-        // App is backgrounded. Make sure playback stops.
+        // App is backgrounded with the screen on. Make sure playback stops.
         setIsScreenOnAndUnlocked(true);
         mController.onApplicationStateChange(ApplicationState.HAS_STOPPED_ACTIVITIES);
         verify(mPlayback).release();
         reset(mPlayback);
         when(mPlayback.getMetadata()).thenReturn(mMetadata);
 
-        // App goes back in foreground. Restore progress.
-        mController.onApplicationStateChange(ApplicationState.HAS_RUNNING_ACTIVITIES);
+        // Activity goes back in foreground. Restore progress.
+        mController.onActivityStateChange(mActivity, ActivityState.RESUMED);
         verify(mPlaybackHooks, times(2)).createPlayback(any(), mPlaybackCallbackCaptor.capture());
         onPlaybackSuccess(mPlayback);
         verify(mPlayback).seekToParagraph(2, 1000000L);
@@ -1875,14 +1949,12 @@ public class ReadAloudControllerUnitTest {
 
         // once saved state is restored, it's cleared and no further interactions with playback
         // should happen.
-        reset(mPlayback);
-        reset(mPlaybackHooks);
-        when(mPlayback.getMetadata()).thenReturn(mMetadata);
+        resetPlaybackMocks();
 
         mController.onApplicationStateChange(ApplicationState.HAS_PAUSED_ACTIVITIES);
         mController.onApplicationStateChange(ApplicationState.HAS_RUNNING_ACTIVITIES);
-        verify(mPlaybackHooks, never()).createPlayback(any(), mPlaybackCallbackCaptor.capture());
-        verify(mPlayback, never()).release();
+        verifyNoInteractions(mPlaybackHooks);
+        verifyNoInteractions(mPlayback);
     }
 
     @Test
@@ -1919,12 +1991,11 @@ public class ReadAloudControllerUnitTest {
         mController.onApplicationStateChange(ApplicationState.HAS_STOPPED_ACTIVITIES);
 
         verify(mPlayback).release();
-        reset(mPlayback);
-        when(mPlayback.getMetadata()).thenReturn(mMetadata);
+        resetPlaybackMocks();
 
         // App goes back in foreground. Restore progress.
-        mController.onApplicationStateChange(ApplicationState.HAS_RUNNING_ACTIVITIES);
-        verify(mPlaybackHooks, times(2)).createPlayback(any(), mPlaybackCallbackCaptor.capture());
+        mController.onActivityStateChange(mActivity, ActivityState.RESUMED);
+        verify(mPlaybackHooks).createPlayback(any(), mPlaybackCallbackCaptor.capture());
         onPlaybackSuccess(mPlayback);
         verify(mPlayback).seekToParagraph(2, 1000000L);
         verify(mPlayback, never()).play();
@@ -1940,6 +2011,59 @@ public class ReadAloudControllerUnitTest {
                         /* activeNetworkMetered= */ false,
                         isScreenOnAndUnlocked);
         ShadowDeviceConditions.setCurrentConditions(deviceConditions);
+    }
+
+    @Test
+    public void testPlaybackResumesWhenActivityResumes() {
+        // Play tab.
+        requestAndStartPlayback();
+        // set progress
+        var data = Mockito.mock(PlaybackData.class);
+
+        doReturn(2).when(data).paragraphIndex();
+        doReturn(1000000L).when(data).positionInParagraphNanos();
+        mController.onPlaybackDataChanged(data);
+
+        // App is backgrounded with the screen on. Make sure playback stops.
+        setIsScreenOnAndUnlocked(true);
+        mController.onApplicationStateChange(ApplicationState.HAS_STOPPED_ACTIVITIES);
+        verify(mPlayback).release();
+        resetPlaybackMocks();
+
+        // App returns to foreground, but activity hasn't resumed yet.
+        mController.onApplicationStateChange(ApplicationState.HAS_RUNNING_ACTIVITIES);
+        verify(mPlaybackHooks, never()).createPlayback(any(), any());
+
+        // Activity goes back in foreground. Restore progress.
+        mController.onActivityStateChange(mActivity, ActivityState.RESUMED);
+        verify(mPlaybackHooks).createPlayback(any(), mPlaybackCallbackCaptor.capture());
+        onPlaybackSuccess(mPlayback);
+        verify(mPlayback).seekToParagraph(2, 1000000L);
+        verify(mPlayback, never()).play();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.READALOUD_BACKGROUND_PLAYBACK)
+    public void testPlaybackResumesWhenActivityResumes_backgroundPlaybackEnabled() {
+        // Play tab.
+        requestAndStartPlayback();
+        // set progress
+        var data = Mockito.mock(PlaybackData.class);
+
+        doReturn(2).when(data).paragraphIndex();
+        doReturn(1000000L).when(data).positionInParagraphNanos();
+        mController.onPlaybackDataChanged(data);
+
+        // App is backgrounded with the screen on. Playback should not stop.
+        setIsScreenOnAndUnlocked(true);
+        mController.onApplicationStateChange(ApplicationState.HAS_STOPPED_ACTIVITIES);
+        resetPlaybackMocks();
+
+        // Activity goes back in foreground. Nothing should be restored; playback was never stopped
+        // in the first place.
+        mController.onActivityStateChange(mActivity, ActivityState.RESUMED);
+        verifyNoInteractions(mPlayback);
+        verifyNoInteractions(mPlaybackHooks);
     }
 
     @Test
@@ -2262,22 +2386,159 @@ public class ReadAloudControllerUnitTest {
         verify(mPlayerCoordinator).restorePlayers();
     }
 
+    @Test
+    @EnableFeatures(ChromeFeatureList.READALOUD_BACKGROUND_PLAYBACK)
+    public void testCrossActivityPlayback_stopBackgroundPlayback() {
+        // Play in Chrome, then play in CCT. Chrome playback should stop only when CCT plays.
+
+        // Create a second instance of ReadAloudController to simulate other app's CCT.
+        mController2 = createController();
+
+        // Play in Chrome. requestAndStartPlayback() verifies playback started.
+        requestAndStartPlayback();
+
+        resetPlaybackMocks();
+
+        // Simulate backgrounding the activity, and the entire app. Playback should not stop.
+        mController.onActivityStateChange(mActivity, ActivityState.STOPPED);
+        mController.onApplicationStateChange(ApplicationState.HAS_STOPPED_ACTIVITIES);
+        verifyNoInteractions(mPlayback);
+
+        // Play in CCT.
+        mController2.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
+        resolvePromises();
+
+        // Chrome playback should stop.
+        verify(mPlayback).release();
+
+        // CCT playback should start.
+        verify(mPlaybackHooks, times(1))
+                .createPlayback(Mockito.any(), mPlaybackCallbackCaptor.capture());
+        onPlaybackSuccess(mPlayback);
+        verify(mPlayerCoordinator, times(1))
+                .playbackReady(eq(mPlayback), eq(PlaybackListener.State.PLAYING));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.READALOUD_BACKGROUND_PLAYBACK)
+    public void testCrossActivityPlayback_canRestoreIfSameTab() {
+        // Play in Chrome, play in CCT, then request playback for original tab in Chrome. Playback
+        // should be restored.
+
+        // Create a second instance of ReadAloudController to simulate other app's CCT.
+        mController2 = createController();
+
+        // Play in Chrome. requestAndStartPlayback() verifies playback started.
+        requestAndStartPlayback();
+
+        // Simulate some progress.
+        var data = Mockito.mock(PlaybackData.class);
+        doReturn(2).when(data).paragraphIndex();
+        doReturn(1000000L).when(data).positionInParagraphNanos();
+        mController.onPlaybackDataChanged(data);
+
+        resetPlaybackMocks();
+
+        // Play in CCT.
+        mController2.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
+        resolvePromises();
+
+        // Chrome playback should stop.
+        verify(mPlayback).release();
+
+        // CCT playback should start.
+        verify(mPlaybackHooks, times(1))
+                .createPlayback(Mockito.any(), mPlaybackCallbackCaptor.capture());
+        onPlaybackSuccess(mPlayback);
+        verify(mPlayerCoordinator, times(1))
+                .playbackReady(eq(mPlayback), eq(PlaybackListener.State.PLAYING));
+
+        resetPlaybackMocks();
+
+        // Return to Chrome. CCT playback should not stop.
+        mController.onActivityStateChange(mActivity, ActivityState.RESUMED);
+        verifyNoInteractions(mPlayback);
+
+        // Tap an entrypoint on the same tab in Chrome. CCT should stop playing and playback should
+        // be restored (paused).
+        mController.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
+        // Release CCT playback
+        verify(mPlayback).release();
+        // Simulate successful playback creation.
+        verify(mPlaybackHooks).createPlayback(any(), mPlaybackCallbackCaptor.capture());
+        onPlaybackSuccess(mPlayback);
+        // Progress should be restored and play should not have been called.
+        verify(mPlayback).seekToParagraph(2, 1000000L);
+        verify(mPlayback, never()).play();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.READALOUD_BACKGROUND_PLAYBACK)
+    public void testCrossActivityPlayback_doNotRestoreIfDifferentTab() {
+        // Play in Chrome, play in CCT, then request playback for a different tab in Chrome. A new
+        // playback should start and the old one should not be restored.
+
+        // Create a second instance of ReadAloudController to simulate other app's CCT.
+        mController2 = createController();
+
+        // Play in Chrome. requestAndStartPlayback() verifies playback started.
+        requestAndStartPlayback();
+
+        // Simulate some progress.
+        var data = Mockito.mock(PlaybackData.class);
+        doReturn(2).when(data).paragraphIndex();
+        doReturn(1000000L).when(data).positionInParagraphNanos();
+        mController.onPlaybackDataChanged(data);
+
+        resetPlaybackMocks();
+
+        // Play in CCT.
+        mController2.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
+        resolvePromises();
+
+        // Chrome playback should stop.
+        verify(mPlayback).release();
+
+        // CCT playback should start.
+        verify(mPlaybackHooks, times(1))
+                .createPlayback(Mockito.any(), mPlaybackCallbackCaptor.capture());
+        onPlaybackSuccess(mPlayback);
+        verify(mPlayerCoordinator, times(1))
+                .playbackReady(eq(mPlayback), eq(PlaybackListener.State.PLAYING));
+
+        resetPlaybackMocks();
+
+        // Return to Chrome. CCT playback should not stop.
+        mController.onActivityStateChange(mActivity, ActivityState.RESUMED);
+        verifyNoInteractions(mPlayback);
+
+        // Tap an entrypoint on a different tab in Chrome.
+        MockTab tab = mTabModelSelector.addMockTab();
+        tab.setGurlOverrideForTesting(sTestGURL);
+        tab.setWebContentsOverrideForTesting(mWebContents);
+        mController.playTab(tab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
+        resolvePromises();
+        // CCT playback was released
+        verify(mPlayback).release();
+        // Simulate successful playback creation and make sure playback starts.
+        verify(mPlaybackHooks).createPlayback(any(), mPlaybackCallbackCaptor.capture());
+        onPlaybackSuccess(mPlayback);
+        verify(mPlayback).play();
+
+        // Make sure saved state was not restored and was instead cleared.
+        verify(mPlayback, never()).seekToParagraph(eq(2), eq(1000000L));
+        resetPlaybackMocks();
+        mController.onActivityStateChange(mActivity, ActivityState.RESUMED);
+        verifyNoInteractions(mPlaybackHooks);
+        verifyNoInteractions(mPlayback);
+    }
+
     // TODO(b/322052505): This test won't be necessary if we keep track of profile changes.
     @Test
     public void testNoRequestsIfProfileDestroyed() {
         reset(mHooksImpl);
         doReturn(false).when(mMockProfile).isNativeInitialized();
-        mController =
-                new ReadAloudController(
-                        mActivity,
-                        mProfileSupplier,
-                        mTabModelSelector.getModel(false),
-                        mTabModelSelector.getModel(true),
-                        mBottomSheetController,
-                        mBottomControlsStacker,
-                        mLayoutManagerSupplier,
-                        mActivityWindowAndroid,
-                        mActivityLifecycleDispatcher);
+        mController = createController();
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
         // Check readability.

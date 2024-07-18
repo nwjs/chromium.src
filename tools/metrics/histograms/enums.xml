@@ -1291,6 +1291,13 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="58230" label="MediaWebContentsObserver::OnMediaPlaying"/>
 </enum>
 
+<enum name="BackgroundColorChangeOrigin">
+  <int value="0" label="Web content background changed"/>
+  <int value="1" label="Custom view set"/>
+  <int value="2" label="Native page shown"/>
+  <int value="3" label="Web background color update after hiding native page"/>
+</enum>
+
 <enum name="BackgroundSyncFiredEvents">
   <int value="0" label="No events fired"/>
   <int value="1" label="Some events fired"/>
@@ -2203,6 +2210,15 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="2" label="User is off the record"/>
   <int value="3" label="Frame is below minimal width and/or height"/>
   <int value="4" label="Zoom level is above maximum value"/>
+</enum>
+
+<enum name="CanMakePaymentPreferenceSetter">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="User Setting"/>
+  <int value="2" label="Standalone Browser (ChromeOS-only)"/>
+  <int value="3" label="Extension"/>
+  <int value="4" label="Custodian"/>
+  <int value="5" label="Admin Policy"/>
 </enum>
 
 <enum name="CanvasRenderingAPI">
@@ -14433,6 +14449,20 @@ Called by update_permissions_policy_enum.py.-->
   <int value="19" label="Disabled: user is in Incognito mode"/>
 </enum>
 
+<!-- LINT.IfChange(LensOverlayInvocationSource) -->
+
+<enum name="LensOverlayInvocationSource">
+  <summary>The UI source of a Lens Overlay invocation.</summary>
+  <int value="0" label="App menu"/>
+  <int value="1" label="Content area page context menu"/>
+  <int value="2" label="Content area image context menu"/>
+  <int value="3" label="Toolbar button"/>
+  <int value="4" label="Find in page dialog button"/>
+  <int value="5" label="Omnibox button"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/lens/lens_overlay_invocation_source.h:LensOverlayInvocationSource) -->
+
 <enum name="LensRegionSearchAspectRatio">
   <summary>
     Enum describing the aspect ratio of the captured region. The aspect ratios
@@ -15401,6 +15431,7 @@ from previous Chrome versions.
   <int value="-2143681040" label="ViewsCastDialog:enabled"/>
   <int value="-2143328006"
       label="enable-fill-on-account-select-no-highlighting"/>
+  <int value="-2143163156" label="TabSearchPositionSetting:disabled"/>
   <int value="-2143113994" label="enable-ephemeral-apps-in-webstore"/>
   <int value="-2142729205"
       label="PriceTrackingSubscriptionServiceLocaleKey:disabled"/>
@@ -16283,6 +16314,7 @@ from previous Chrome versions.
   <int value="-1789077219"
       label="DownloadNotificationServiceUnifiedAPI:enabled"/>
   <int value="-1788763369" label="PrintingPpdChannel:disabled"/>
+  <int value="-1788662002" label="MainNodeAnnotations:enabled"/>
   <int value="-1787333474" label="FedCmError:disabled"/>
   <int value="-1786020274" label="AppSpecificHistory:enabled"/>
   <int value="-1784831690" label="Bento:disabled"/>
@@ -17181,6 +17213,7 @@ from previous Chrome versions.
       label="AutofillShowManualFallbackInContextMenu:enabled"/>
   <int value="-1399419572" label="enable-app-list"/>
   <int value="-1398085246" label="FedCmExemptIdpWithThirdPartyCookies:enabled"/>
+  <int value="-1398026794" label="TabSearchPositionSetting:enabled"/>
   <int value="-1397387245" label="CompactBubbleLauncher:disabled"/>
   <int value="-1396974542" label="UserMediaScreenCapturing:enabled"/>
   <int value="-1396906019" label="EarlyExitOnNoopClassOrStyleChange:disabled"/>
@@ -18292,6 +18325,7 @@ from previous Chrome versions.
   <int value="-918618075" label="enable-service-worker"/>
   <int value="-917218910" label="FirstPartyVietnameseInput:enabled"/>
   <int value="-916780902" label="ExternalPciDevicesAllowed:enabled"/>
+  <int value="-916419217" label="LensOverlay:disabled"/>
   <int value="-916325423"
       label="WebAuthenticationAndroidCredManAndGmsCore:enabled"/>
   <int value="-915687759" label="CrOSLateBootAudioOffloadCrasDSPToSOF:enabled"/>
@@ -18327,6 +18361,7 @@ from previous Chrome versions.
   <int value="-902125579" label="ImmersiveUiMode:disabled"/>
   <int value="-901418755" label="TrafficCountersForWiFiTesting:enabled"/>
   <int value="-900871741" label="DesktopPWAsNotificationIconAndTitle:disabled"/>
+  <int value="-899969457" label="ReadAloudBackgroundPlayback:disabled"/>
   <int value="-899915066" label="ImprovedKeyboardShortcuts:disabled"/>
   <int value="-899799867" label="AllowWgcScreenCapturer:disabled"/>
   <int value="-899393472" label="enable-new-app-menu-icon"/>
@@ -18722,6 +18757,8 @@ from previous Chrome versions.
   <int value="-731133967" label="AutofillSettingsCardTypeSplit:disabled"/>
   <int value="-731125936"
       label="ShowRelatedWebsiteSetsPermissionGrants:enabled"/>
+  <int value="-730917842"
+      label="NtpMostRelevantTabResumptionModuleLocal:enabled"/>
   <int value="-729269661" label="PPAPISharedImagesSwapChain:enabled"/>
   <int value="-728461030" label="AutofillPruneSuggestions:disabled"/>
   <int value="-728187009" label="NtpRealboxSuggestionAnswers:enabled"/>
@@ -19124,6 +19161,8 @@ from previous Chrome versions.
   <int value="-555341956" label="AutofillSaveAndFillVPA:enabled"/>
   <int value="-554140610" label="NtpRealboxCr23All:disabled"/>
   <int value="-553732400" label="ShoppingPageTypes:enabled"/>
+  <int value="-553134643"
+      label="NtpMostRelevantTabResumptionModuleLocal:disabled"/>
   <int value="-552937174"
       label="AccessibilityCaretBlinkIntervalSetting:disabled"/>
   <int value="-552565840" label="SplitKeyboardRefactor:enabled"/>
@@ -20262,6 +20301,7 @@ from previous Chrome versions.
   <int value="-63207112" label="NtpSingleRowShortcuts:disabled"/>
   <int value="-60692320" label="PrefBasedDataCollectionConsentHelper:disabled"/>
   <int value="-60219461" label="BluetoothFlossTelephony:enabled"/>
+  <int value="-60106539" label="ReadAloudBackgroundPlayback:enabled"/>
   <int value="-59530055" label="ChromeVoxArcSupport:enabled"/>
   <int value="-59491374" label="LockedMode:enabled"/>
   <int value="-59401847" label="ContentSuggestionsLargeThumbnail:disabled"/>
@@ -20666,6 +20706,7 @@ from previous Chrome versions.
       label="ignore-litepage-redirect-optimization-blacklist"/>
   <int value="116643273"
       label="WebAuthenticationNewDiscoverableCredentialsUi:enabled"/>
+  <int value="116666324" label="MainNodeAnnotations:disabled"/>
   <int value="116697601" label="OmniboxSuggestionButtonRow:disabled"/>
   <int value="116712802" label="AudioSelectionImprovement:enabled"/>
   <int value="117076190" label="DriveFsBidirectionalNativeMessaging:disabled"/>
@@ -20930,6 +20971,7 @@ from previous Chrome versions.
   <int value="233721248" label="DownloadRename:disabled"/>
   <int value="236412875" label="PreinstalledWebAppWindowExperiment:disabled"/>
   <int value="236498704" label="ArcFixupWindowFeature:disabled"/>
+  <int value="236637420" label="TabGroupSyncDisableNetworkLayer:disabled"/>
   <int value="237066116" label="PageInfoV2:disabled"/>
   <int value="237088339" label="CrOSLateBootAudioA2DPAdvancedCodecs:disabled"/>
   <int value="237570976" label="CommandLineOnNonRooted:disabled"/>
@@ -21106,10 +21148,12 @@ from previous Chrome versions.
   <int value="304901781" label="NewUsbBackend:enabled"/>
   <int value="305356014" label="WebViewMeasureScreenCoverage:disabled"/>
   <int value="305786802" label="PasswordDomainCapabilitiesFetching:enabled"/>
+  <int value="306239302" label="CCTGoogleBottomBarVariantLayouts:enabled"/>
   <int value="306565540" label="UseOfHashAffiliationFetcher:enabled"/>
   <int value="306641800" label="AndroidSiteSettingsUIRefresh:disabled"/>
   <int value="306662699" label="AutofillVirtualViewStructureAndroid:disabled"/>
   <int value="306834044" label="webui-tab-strip"/>
+  <int value="307167930" label="LensOverlay:enabled"/>
   <int value="307543404" label="disable-team-drives"/>
   <int value="307670929"
       label="enable-ambient-authentication-in-guest-session"/>
@@ -22180,6 +22224,7 @@ from previous Chrome versions.
   <int value="765306424" label="ModuleScriptsDynamicImport:disabled"/>
   <int value="765650925" label="LauncherItemSuggest:disabled"/>
   <int value="765803208" label="AutofillShowTypePredictions:enabled"/>
+  <int value="766047877" label="TabGroupSyncDisableNetworkLayer:enabled"/>
   <int value="766617185" label="RemoveStalePolicyPinnedAppsFromShelf:enabled"/>
   <int value="766898398" label="sampling-heap-profiler"/>
   <int value="767165483" label="PageInfoHideSiteSettings:enabled"/>
@@ -24931,6 +24976,7 @@ from previous Chrome versions.
       label="MagnifierContinuousMouseFollowingModeSetting:disabled"/>
   <int value="1946358032" label="SwapClankShareHubRows:disabled"/>
   <int value="1947350992" label="drop-sync-credential:disabled"/>
+  <int value="1947522706" label="CCTGoogleBottomBarVariantLayouts:disabled"/>
   <int value="1947757329" label="UseDMSAAForTilesAndroidGL:enabled"/>
   <int value="1948509466" label="PasswordChangeAccountStoreUsers:disabled"/>
   <int value="1948753119" label="OmniboxExpandedStateHeight:disabled"/>
@@ -26674,6 +26720,7 @@ Called by update_use_counter_css.py.-->
   <int value="6" label="Profile button"/>
   <int value="7" label="Logo with doodle"/>
   <int value="8" label="Menu button"/>
+  <int value="9" label="Magic stack"/>
 </enum>
 
 <enum name="Month">
@@ -30752,6 +30799,8 @@ Called by update_net_error_codes.py.-->
       label="Choice Screen dialog skipped as app stared by external intent"/>
 </enum>
 
+<!-- LINT.IfChange(SearchEngineChoiceScreenEvents) -->
+
 <enum name="SearchEngineChoiceScreenEvents">
   <int value="0" label="Unknown"/>
   <int value="1" label="[Dialog] Choice Screen Was Displayed"/>
@@ -30766,7 +30815,22 @@ Called by update_net_error_codes.py.-->
   <int value="9"
       label="[Profile Creation] Learn More Screen Was Displayed (Desktop
              only)"/>
+  <int value="10" label="[Dialog] More button was clicked"/>
+  <int value="11" label="[FRE] More button was clicked"/>
+  <int value="12" label="[Profile Creation] More button was clicked"/>
 </enum>
+
+<!-- LINT.ThenChange(/components/search_engines/search_engine_choice/search_engine_choice_utils.h:SearchEngineChoiceScreenEvents) -->
+
+<!-- LINT.IfChange(SearchEngineChoiceScrollState) -->
+
+<enum name="SearchEngineChoiceScrollState">
+  <int value="0" label="Scrolled to the bottom"/>
+  <int value="1" label="Scrolled to the bottom with error margin"/>
+  <int value="2" label="Failed scrolling to the bottom"/>
+</enum>
+
+<!-- LINT.ThenChange(/chrome/browser/ui/webui/search_engine_choice/search_engine_choice.mojom:ScrollState) -->
 
 <enum name="SearchEngineChoiceWipeReason">
   <int value="0" label="Profile wipe"/>

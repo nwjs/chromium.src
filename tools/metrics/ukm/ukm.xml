@@ -14235,6 +14235,153 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Lens.Overlay.Overlay.UserAction">
+  <owner>jdonnelly@google.com</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Recorded each time the user interactions with the Lens Overlay, enumerated
+    by those actions.
+  </summary>
+  <metric name="UserAction" enum="LensOverlayUserAction">
+    <summary>
+      The user interaction with the Lens Overlay.
+    </summary>
+  </metric>
+</event>
+
+<event name="Lens.Overlay.SessionEnd">
+  <owner>jdonnelly@google.com</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Recorded once when the Lens Overlay feature is dismissed. Measures the
+    invocation source of the session, the duration, and whether a search
+    performed in the session.
+  </summary>
+  <metric name="InvocationResultedInSearch" enum="Boolean">
+    <summary>
+      Indicates whether or not a search was performed at any point since the
+      overlay was invoked.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="InvocationSource" enum="LensOverlayInvocationSource">
+    <summary>
+      The UI entry point used to invoke the Lens Overlay feature.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="SessionDuration">
+    <summary>
+      Measures the elapsed time between when the overlay was invoked and when it
+      was dismissed.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="Lens.Overlay.TimeToFirstInteraction">
+  <owner>jdonnelly@google.com</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Recorded once when the user first interacts with the overlay. Measures the
+    elapsed time (ms) between when the overlay was invoked and when the user
+    first interacts with the overlay. Nothing is logged when the user enters
+    through the image context menu.
+  </summary>
+  <metric name="AllEntryPoints">
+    <summary>
+      Time to first interaction for all entry points.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="AppMenu">
+    <summary>
+      Time to first interaction when overlay invoked through the app menu.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="ContentAreaContextMenuPage">
+    <summary>
+      Time to first interaction when overlay invoked through the page content
+      area context menu.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="FindInPage">
+    <summary>
+      Time to first interaction when overlay invoked through the find in page
+      button.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Omnibox">
+    <summary>
+      Time to first interaction when overlay invoked through the omnibox.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Toolbar">
+    <summary>
+      Time to first interaction when overlay invoked through the toolbar.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
 <event name="LiteVideo">
   <obsolete>
     Obsoleted December 2021.

@@ -21,6 +21,12 @@ BASE_FEATURE(kTabGroupPaneAndroid,
              "TabGroupPaneAndroid",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Feature flag used to determine whether the network layer is disabled for
+// tab group sync.
+BASE_FEATURE(kTabGroupSyncDisableNetworkLayer,
+             "TabGroupSyncDisableNetworkLayer",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kTabGroupSyncForceOff,
              "TabGroupSyncForceOff",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -65,12 +71,23 @@ BASE_FEATURE(kAlwaysAcceptServerDataInModel,
 // honored. This feature flag should be used only in case of an emergency.
 BASE_FEATURE(kTabGroupSyncAutoOpenKillSwitch,
              "TabGroupSyncAutoOpenKillSwitch",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature flag to restrict download on synced tabs if the navigation is
 // triggered without attention..
 BASE_FEATURE(kRestrictDownloadOnSyncedTabs,
              "RestrictDownloadOnSyncedTabs",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Feature flag to defer media load on background tab.
+BASE_FEATURE(kDeferMediaLoadInBackgroundTab,
+             "DeferMediaLoadInBackgroundTab",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Kill switch to stop notifying observers when user interaction time is
+// updated and storing it to the storage.
+BASE_FEATURE(kSavedTabGroupNotifyOnInteractionTimeChanged,
+             "SavedTabGroupNotifyOnInteractionTimeChanged",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsTabGroupsSaveV2Enabled() {
@@ -91,6 +108,10 @@ bool AlwaysAcceptServerDataInModel() {
 
 bool RestrictDownloadOnSyncedTabs() {
   return base::FeatureList::IsEnabled(kRestrictDownloadOnSyncedTabs);
+}
+
+bool DeferMediaLoadInBackgroundTab() {
+  return base::FeatureList::IsEnabled(kDeferMediaLoadInBackgroundTab);
 }
 
 }  // namespace tab_groups

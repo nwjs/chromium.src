@@ -14,6 +14,7 @@
 #include "base/supports_user_data.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/saved_tab_groups/saved_tab_group.h"
+#include "components/saved_tab_groups/types.h"
 #include "components/sync/model/model_type_sync_bridge.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -25,17 +26,6 @@
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace tab_groups {
-
-// Whether the update was originated by a change in the local or remote
-// client.
-// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.tab_group_sync
-enum class TriggerSource {
-  // The source is a remote chrome client.
-  REMOTE = 0,
-
-  // The source is the local chrome client.
-  LOCAL = 1,
-};
 
 // The core service class for handling tab group sync across devices. Provides
 // mutation methods to propagate local changes to remote and observer interface
@@ -113,6 +103,9 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
   virtual void MoveTab(const LocalTabGroupID& group_id,
                        const LocalTabID& tab_id,
                        int new_group_index) = 0;
+  // For metrics only.
+  virtual void OnTabSelected(const LocalTabGroupID& group_id,
+                             const LocalTabID& tab_id) = 0;
 
   // Accessor methods.
   virtual std::vector<SavedTabGroup> GetAllGroups() = 0;
@@ -127,6 +120,21 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
   virtual void UpdateLocalTabId(const LocalTabGroupID& local_group_id,
                                 const base::Uuid& sync_tab_id,
                                 const LocalTabID& local_tab_id) = 0;
+
+  // Attribution related methods.
+  // Helper method to determine whether a given cache guid corresponds to a
+  // remote device. Empty value or string is considered local device.
+  virtual bool IsRemoteDevice(
+      const std::optional<std::string>& cache_guid) const = 0;
+
+  // Helper method to record metrics for certain tab group events.
+  // While metrics are implicitly recorded in the native for most of the tab
+  // group events, there are certain events that don't have a clean way of
+  // passing additional information from the event source call site. That's
+  // where this method comes in handy that can be directly invoked from the
+  // event source call site i.e. UI layer. Currently required to record open and
+  // close tab group events only, but see implementation for more details.
+  virtual void RecordTabGroupEvent(const EventDetails& event_details) = 0;
 
   // For connecting to sync engine.
   virtual base::WeakPtr<syncer::ModelTypeControllerDelegate>

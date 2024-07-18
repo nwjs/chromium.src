@@ -20,7 +20,8 @@
 VideoStreamCoordinator::VideoStreamCoordinator(
     views::View& parent_view,
     media_preview_metrics::Context metrics_context)
-    : metrics_context_(metrics_context) {
+    : metrics_context_(metrics_context),
+      video_stream_construction_time_(base::TimeTicks::Now()) {
   auto* container = parent_view.AddChildView(std::make_unique<views::View>());
   container->SetLayoutManager(std::make_unique<views::FillLayout>());
 
@@ -42,6 +43,19 @@ VideoStreamCoordinator::VideoStreamCoordinator(
 
 VideoStreamCoordinator::~VideoStreamCoordinator() {
   Stop();
+
+  if (has_requested_any_video_feed_) {
+    media_preview_metrics::RecordTotalVisiblePreviewDuration(
+        metrics_context_, total_visible_preview_duration_);
+
+    if (video_stream_total_frames_ == 0) {
+      // Only records it if never received any frames during dialog life time.
+      media_preview_metrics::RecordTimeToActionWithoutPreview(
+          metrics_context_,
+          time_to_action_without_preview_.value_or(
+              base::TimeTicks::Now() - video_stream_construction_time_));
+    }
+  }
 }
 
 void VideoStreamCoordinator::ConnectToDevice(
@@ -70,6 +84,9 @@ void VideoStreamCoordinator::ConnectToDevice(
             device_info.descriptor.device_id);
 
     video_frame_handler_->StartHandlingFrames(/*delegate=*/this);
+
+    has_requested_any_video_feed_ = true;
+    video_stream_request_time_ = base::TimeTicks::Now();
   }
 }
 
@@ -88,6 +105,13 @@ void VideoStreamCoordinator::OnCameraVideoFrame(
   if (!video_stream_start_time_) {
     video_stream_start_time_ = base::TimeTicks::Now();
     video_stream_total_frames_ = 0;
+
+    CHECK(video_stream_request_time_);
+    const auto preview_delay_time =
+        *video_stream_start_time_ - *video_stream_request_time_;
+    media_preview_metrics::RecordPreviewDelayTime(metrics_context_,
+                                                  preview_delay_time);
+    video_stream_request_time_.reset();
   }
   video_stream_total_frames_++;
 }
@@ -141,9 +165,9 @@ void VideoStreamCoordinator::StopInternal(
           metrics_context_, actual_params->requested_format.frame_rate);
     }
     if (video_stream_start_time_) {
-      int actual_fps =
-          video_stream_total_frames_ /
-          (base::TimeTicks::Now() - *video_stream_start_time_).InSecondsF();
+      const auto duration = base::TimeTicks::Now() - *video_stream_start_time_;
+      total_visible_preview_duration_ += duration;
+      int actual_fps = video_stream_total_frames_ / duration.InSecondsF();
       media_preview_metrics::RecordPreviewVideoActualFPS(metrics_context_,
                                                          actual_fps);
       video_stream_start_time_.reset();
@@ -184,4 +208,13 @@ void VideoStreamCoordinator::OnViewBoundsChanged(views::View* observed_view) {
 
 void VideoStreamCoordinator::OnPermissionChange(bool has_permission) {
   has_permission_ = has_permission;
+}
+
+void VideoStreamCoordinator::OnClosing() {
+  // Stop the video feed once a decision is made, as to record the correct
+  // duration of the feed. If we wait till destruction instead, the duration
+  // will not be accurate due to some async calls.
+  Stop();
+  time_to_action_without_preview_ =
+      base::TimeTicks::Now() - video_stream_construction_time_;
 }

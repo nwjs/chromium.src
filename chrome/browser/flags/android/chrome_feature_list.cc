@@ -183,6 +183,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &kBackToHomeAnimation,
     &kBackgroundThreadPool,
     &kBlockIntentsWhileLocked,
+    &kBottomBrowserControlsRefactor,
     &kBrowserControlsEarlyResize,
     &kCacheActivityTaskID,
     &kCastDeviceFilter,
@@ -202,6 +203,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &kCCTPageInsightsHubPeek,
     &kCCTPageInsightsHubBetterScroll,
     &kCCTGoogleBottomBar,
+    &kCCTGoogleBottomBarVariantLayouts,
     &kCCTPrewarmTab,
     &kCCTReportParallelRequestStatus,
     &kCCTResizableForThirdParties,
@@ -258,6 +260,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &kReadAloud,
     &kReadAloudInOverflowMenuInCCT,
     &kReadAloudInMultiWindow,
+    &kReadAloudBackgroundPlayback,
     &kReadAloudPlayback,
     &kReadAloudTapToSeek,
     &kReadAloudIPHMenuButtonHighlightCCT,
@@ -496,6 +499,10 @@ BASE_FEATURE(kBlockIntentsWhileLocked,
              "BlockIntentsWhileLocked",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kBottomBrowserControlsRefactor,
+             "BottomBrowserControlsRefactor",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kBrowserControlsEarlyResize,
              "BrowserControlsEarlyResize",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -567,6 +574,10 @@ BASE_FEATURE(kCCTPageInsightsHubBetterScroll,
 
 BASE_FEATURE(kCCTGoogleBottomBar,
              "CCTGoogleBottomBar",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCCTGoogleBottomBarVariantLayouts,
+             "CCTGoogleBottomBarVariantLayouts",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCCTPrewarmTab,
@@ -804,6 +815,10 @@ BASE_FEATURE(kReadAloudInOverflowMenuInCCT,
 BASE_FEATURE(kReadAloudInMultiWindow,
              "ReadAloudInMultiWindow",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kReadAloudBackgroundPlayback,
+             "ReadAloudBackgroundPlayback",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kReadAloudPlayback,
              "ReadAloudPlayback",

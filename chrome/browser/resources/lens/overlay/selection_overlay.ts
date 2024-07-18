@@ -12,7 +12,6 @@ import './strings.m.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_toast/cr_toast.js';
 
-import type {CrToastElement} from '//resources/cr_elements/cr_toast/cr_toast.js';
 import {I18nMixin} from '//resources/cr_elements/i18n_mixin.js';
 import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
@@ -20,16 +19,20 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
+import type {BrowserProxy} from './browser_proxy.js';
 import {getFallbackTheme} from './color_utils.js';
 import {type CursorTooltipData, CursorTooltipType} from './cursor_tooltip.js';
-import {recordLensOverlayInteraction, UserAction} from './metrics_utils.js';
+import {UserAction} from './lens.mojom-webui.js';
+import {INVOCATION_SOURCE} from './lens_overlay_app.js';
+import {recordLensOverlayInteraction} from './metrics_utils.js';
 import type {ObjectLayerElement} from './object_layer.js';
 import type {OverlayShimmerElement} from './overlay_shimmer.js';
 import type {OverlayShimmerCanvasElement} from './overlay_shimmer_canvas.js';
 import type {PostSelectionRendererElement} from './post_selection_renderer.js';
 import type {RegionSelectionElement} from './region_selection.js';
 import {getTemplate} from './selection_overlay.html.js';
-import {CursorType, DRAG_THRESHOLD, DragFeature, emptyGestureEvent, focusShimmerOnRegion, type GestureEvent, GestureState, ShimmerControlRequester, unfocusShimmer} from './selection_utils.js';
+import {CursorType, DRAG_THRESHOLD, DragFeature, emptyGestureEvent, focusShimmerOnRegion, GestureState, ShimmerControlRequester, unfocusShimmer} from './selection_utils.js';
+import type {GestureEvent, OverlayShimmerFocusedRegion} from './selection_utils.js';
 import type {TextLayerElement} from './text_layer.js';
 import {toPercent} from './values_converter.js';
 
@@ -82,7 +85,6 @@ export interface DetectedTextContextMenuData {
 export interface SelectionOverlayElement {
   $: {
     backgroundImage: HTMLImageElement,
-    copyToast: CrToastElement,
     cursor: HTMLElement,
     detectedTextContextMenu: HTMLElement,
     initialFlashScrim: HTMLDivElement,
@@ -135,8 +137,10 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
         value: false,
         reflectToAttribute: true,
       },
-      contextMenuX: Number,
-      contextMenuY: Number,
+      selectedTextContextMenuX: Number,
+      selectedTextContextMenuY: Number,
+      detectedTextContextMenuX: Number,
+      detectedTextContextMenuY: Number,
       screenshotDataUri: String,
       isPointerInside: Boolean,
       currentGesture: emptyGestureEvent(),
@@ -151,6 +155,14 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
         value: loadTimeData.getBoolean('useShimmerCanvas'),
       },
       isClosing: {
+        type: Boolean,
+        reflectToAttribute: true,
+      },
+      shimmerOnSegmentation: {
+        type: Boolean,
+        reflectToAttribute: true,
+      },
+      shimmerFadeOutComplete: {
         type: Boolean,
         reflectToAttribute: true,
       },
@@ -171,8 +183,10 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
   private showSelectedTextContextMenu: boolean;
   private showDetectedTextContextMenu: boolean;
   // Location at which to show the context menus.
-  private contextMenuX: number;
-  private contextMenuY: number;
+  private selectedTextContextMenuX: number;
+  private selectedTextContextMenuY: number;
+  private detectedTextContextMenuX: number;
+  private detectedTextContextMenuY: number;
   private highlightedText: string = '';
   private contentLanguage: string = '';
   private textSelectionStartIndex: number = -1;
@@ -192,6 +206,9 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
   private isClosing: boolean = false;
   // Whether the default background scrim is currently being darkened.
   private darkenExtraScrim: boolean = false;
+  // Whether the shimmer is currently focused on a segmentation mask.
+  private shimmerOnSegmentation: boolean = false;
+  private shimmerFadeOutComplete: boolean = true;
 
   private eventTracker_: EventTracker = new EventTracker();
   // Listener ids for events from the browser side.
@@ -209,22 +226,33 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
       new ResizeObserver(() => {
         this.handleSelectionElementsResize();
       });
+  // Used to listen for changes in the window.devicePixelRatio. Stored as a
+  // variable so we can easily add and remove the listener.
+  private matchMedia?: MediaQueryList;
   private initialWidth: number = 0;
   private initialHeight: number = 0;
   private cursorOffsetX: number = 3;
   private cursorOffsetY: number = 6;
   private hasInitialFlashAnimationEnded = false;
+  private browserProxy: BrowserProxy = BrowserProxyImpl.getInstance();
 
   override connectedCallback() {
     super.connectedCallback();
     this.resizeObserver.observe(this);
     this.selectionElementsResizeObserver.observe(this.$.selectionOverlay);
     this.listenerIds = [
-      BrowserProxyImpl.getInstance()
-          .callbackRouter.notifyOverlayClosing.addListener(() => {
-            this.isClosing = true;
-          }),
+      this.browserProxy.callbackRouter.notifyOverlayClosing.addListener(() => {
+        this.isClosing = true;
+        this.removeDragListeners();
+      }),
+      this.browserProxy.callbackRouter.triggerCopyText.addListener(() => {
+        this.handleCopy();
+      }),
     ];
+    this.eventTracker_.add(
+        document, 'shimmer-fade-out-complete', (e: CustomEvent<boolean>) => {
+          this.shimmerFadeOutComplete = e.detail;
+        });
     this.eventTracker_.add(
         document, 'set-cursor', (e: CustomEvent<CursorData>) => {
           if (e.detail.cursor === CursorType.POINTER) {
@@ -241,18 +269,24 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
         document, 'show-selected-text-context-menu',
         (e: CustomEvent<SelectedTextContextMenuData>) => {
           this.showSelectedTextContextMenu = true;
-          this.contextMenuX = e.detail.left;
-          this.contextMenuY = e.detail.bottom;
+          this.selectedTextContextMenuX = e.detail.left;
+          this.selectedTextContextMenuY = e.detail.bottom;
           this.highlightedText = e.detail.text;
           this.contentLanguage = e.detail.contentLanguage;
           this.textSelectionStartIndex = e.detail.selectionStartIndex;
           this.textSelectionEndIndex = e.detail.selectionEndIndex;
         });
     this.eventTracker_.add(
+        document, 'restore-selected-text-context-menu', () => {
+          // show-selected-text-context-menu must be triggered first so that
+          // instance variables are set.
+          this.showSelectedTextContextMenu = true;
+        });
+    this.eventTracker_.add(
         document, 'show-detected-text-context-menu', (e: CustomEvent) => {
           this.showDetectedTextContextMenu = true;
-          this.contextMenuX = e.detail.left;
-          this.contextMenuY = e.detail.bottom;
+          this.detectedTextContextMenuX = e.detail.left;
+          this.detectedTextContextMenuY = e.detail.bottom;
           this.detectedTextStartIndex = e.detail.selectionStartIndex;
           this.detectedTextEndIndex = e.detail.selectionEndIndex;
         });
@@ -281,6 +315,18 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
 
           this.onInitialFlashAnimationEnd();
         });
+    this.eventTracker_.add(
+        document, 'focus-region',
+        (e: CustomEvent<OverlayShimmerFocusedRegion>) => {
+          if (e.detail.requester === ShimmerControlRequester.SEGMENTATION) {
+            this.shimmerOnSegmentation = true;
+          }
+        });
+    this.eventTracker_.add(document, 'unfocus-region', () => {
+      this.shimmerOnSegmentation = false;
+    });
+
+    this.updateDevicePixelRatioListener();
   }
 
   override disconnectedCallback() {
@@ -289,9 +335,12 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
     this.selectionElementsResizeObserver.unobserve(this.$.selectionOverlay);
     this.eventTracker_.removeAll();
     this.listenerIds.forEach(
-        id => assert(
-            BrowserProxyImpl.getInstance().callbackRouter.removeListener(id)));
+        id => assert(this.browserProxy.callbackRouter.removeListener(id)));
     this.listenerIds = [];
+
+    assert(this.matchMedia);
+    this.matchMedia.removeEventListener(
+        'change', this.onDevicePixelRatioChanged.bind(this));
   }
 
   override ready() {
@@ -310,6 +359,27 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
     this.removeEventListener('pointerup', this.onPointerUp);
     this.removeEventListener('pointermove', this.onPointerMove);
     this.removeEventListener('pointercancel', this.onPointerCancel);
+  }
+
+  private updateDevicePixelRatioListener() {
+    // Remove the previous listener since we are now listening for a different
+    // pixel ratio change.
+    if (this.matchMedia) {
+      this.eventTracker_.remove(this.matchMedia, 'change');
+    }
+
+    // Listen to changes to the current device pixel ratio.
+    const queryString = `(resolution: ${window.devicePixelRatio}dppx)`;
+    this.matchMedia = matchMedia(queryString);
+    this.eventTracker_.add(
+        this.matchMedia, 'change', this.onDevicePixelRatioChanged.bind(this));
+  }
+
+  private onDevicePixelRatioChanged() {
+    // Update the listener to the new pixel ratio.
+    this.updateDevicePixelRatioListener();
+    // Handle UI updates.
+    this.handleSelectionElementsResize();
   }
 
   private updateCursorPosition(event: PointerEvent) {
@@ -451,7 +521,7 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
 
     // Tell the browser to blur the background on next animation frame.
     requestAnimationFrame(() => {
-      BrowserProxyImpl.getInstance().handler.addBackgroundBlur();
+      this.browserProxy.handler.addBackgroundBlur();
     });
   }
 
@@ -460,10 +530,16 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
       return;
     }
 
+    if (event.button === 2 /* right button */) {
+      this.$.textSelectionLayer.handleRightClick(event);
+      return;
+    }
+
     this.dispatchEvent(new CustomEvent(
         'selection-overlay-clicked', {bubbles: true, composed: true}));
     this.addDragListeners();
-    BrowserProxyImpl.getInstance().handler.closeSearchBubble();
+    this.browserProxy.handler.closeSearchBubble();
+    this.browserProxy.handler.closePreselectionBubble();
 
     this.currentGesture = {
       state: GestureState.STARTING,
@@ -481,8 +557,6 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
                    this.currentGesture)) {
       this.draggingRespondent = DragFeature.POST_SELECTION;
     }
-
-    this.$.objectSelectionLayer.clearSelectedObject();
   }
 
   private onPointerUp(event: PointerEvent) {
@@ -614,16 +688,18 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
 
   // Returns if the given PointerEvent should be ignored.
   private shouldIgnoreEvent(event: PointerEvent) {
+    if (this.isClosing) {
+      return true;
+    }
     const elementsAtPoint =
         this.shadowRoot!.elementsFromPoint(event.clientX, event.clientY);
     // Do not intercept events that should go to the following elements.
     if (elementsAtPoint.includes(this.$.selectedTextContextMenu) ||
-        elementsAtPoint.includes(this.$.detectedTextContextMenu) ||
-        elementsAtPoint.includes(this.$.copyToast)) {
+        elementsAtPoint.includes(this.$.detectedTextContextMenu)) {
       return true;
     }
-    // Ignore multi touch events and none left click events.
-    return !event.isPrimary || event.button !== 0;
+    // Ignore multi touch events and non-left/right click events.
+    return !event.isPrimary || (event.button !== 0 && event.button !== 2);
   }
 
   // Returns whether the current gesture event is a drag.
@@ -649,35 +725,31 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
   }
 
   private async handleCopy() {
-    navigator.clipboard.writeText(this.highlightedText);
-    recordLensOverlayInteraction(UserAction.COPY_TEXT);
-    if (this.$.copyToast.open) {
-      // If toast already open, wait after hiding so that animation is
-      // smoother.
-      await this.$.copyToast.hide();
-      setTimeout(() => {
-        this.$.copyToast.show();
-      }, 100);
-    } else {
-      this.$.copyToast.show();
+    if (this.textSelectionStartIndex < 0 || this.textSelectionEndIndex < 0) {
+      return;
     }
-  }
-
-  private onHideToastClick() {
-    this.$.copyToast.hide();
+    this.browserProxy.handler.copyText(this.highlightedText);
+    recordLensOverlayInteraction(INVOCATION_SOURCE, UserAction.kCopyText);
+    this.dispatchEvent(new CustomEvent('text-copied', {
+      bubbles: true,
+      composed: true,
+    }));
+    this.showSelectedTextContextMenu = false;
   }
 
   private handleSelectText() {
     this.$.textSelectionLayer.selectAndSendWords(
         this.detectedTextStartIndex, this.detectedTextEndIndex);
     this.$.postSelectionRenderer.clearSelection();
+    unfocusShimmer(this, ShimmerControlRequester.CURSOR);
   }
 
   private handleTranslate() {
     BrowserProxyImpl.getInstance().handler.issueTranslateSelectionRequest(
         this.highlightedText, this.contentLanguage,
         this.textSelectionStartIndex, this.textSelectionEndIndex);
-    recordLensOverlayInteraction(UserAction.TRANSLATE_TEXT);
+    this.showSelectedTextContextMenu = false;
+    recordLensOverlayInteraction(INVOCATION_SOURCE, UserAction.kTranslateText);
   }
 
   // Make the cursor disappear over the context menu, as if leaving the overlay.
@@ -714,7 +786,7 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
     // finished.
     if (!this.disableShimmer) {
       if (this.useShimmerCanvas) {
-        this.$.overlayShimmerCanvas.startInvocationAnimation();
+        this.$.overlayShimmerCanvas.startAnimation();
       } else {
         this.$.overlayShimmer.startAnimation();
       }
@@ -725,8 +797,16 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
     return this.showDetectedTextContextMenu;
   }
 
+  getShowSelectedTextContextMenuForTesting() {
+    return this.showSelectedTextContextMenu;
+  }
+
   handleSelectTextForTesting() {
     this.handleSelectText();
+  }
+
+  handleTranslateForTesting() {
+    this.handleTranslate();
   }
 }
 

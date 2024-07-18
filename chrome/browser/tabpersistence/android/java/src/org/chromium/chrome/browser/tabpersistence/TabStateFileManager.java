@@ -540,6 +540,9 @@ public class TabStateFileManager {
                     }
                     WritableByteChannel channel = Channels.newChannel(dataOutputStream);
                     channel.write(data);
+                    RecordHistogram.recordTimesHistogram(
+                            "Tabs.TabState.SaveTime.FlatBuffer",
+                            SystemClock.elapsedRealtime() - startTime);
                 } catch (Throwable e) {
                     // Catch all in case of an issue saving the FlatBuffer file. Avoid crashing
                     // the app and simply log what went wrong.
@@ -570,8 +573,9 @@ public class TabStateFileManager {
             }
             dataOutputStream.writeLong(tokenHigh);
             dataOutputStream.writeLong(tokenLow);
-            RecordHistogram.recordTimesHistogram(
-                    "Tabs.TabState.SaveTime", SystemClock.elapsedRealtime() - startTime);
+            long saveTime = SystemClock.elapsedRealtime() - startTime;
+            RecordHistogram.recordTimesHistogram("Tabs.TabState.SaveTime", saveTime);
+            RecordHistogram.recordTimesHistogram("Tabs.TabState.SaveTime.Legacy", saveTime);
         } catch (FileNotFoundException e) {
             Log.w(TAG, "FileNotFoundException while attempting to save TabState.");
         } catch (IOException e) {

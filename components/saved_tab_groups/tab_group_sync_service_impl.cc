@@ -148,7 +148,9 @@ void TabGroupSyncServiceImpl::UpdateVisualData(
   VLOG(2) << __func__;
   model_->UpdateVisualData(local_group_id, visual_data);
   UpdateAttributions(local_group_id);
-  LogEvent(TabGroupEvent::kTabGroupRemoved, local_group_id, std::nullopt);
+  LogEvent(TabGroupEvent::kTabGroupVisualsChanged, local_group_id,
+           std::nullopt);
+  stats::RecordTabGroupVisualsMetrics(visual_data);
 }
 
 void TabGroupSyncServiceImpl::AddTab(const LocalTabGroupID& group_id,
@@ -159,13 +161,13 @@ void TabGroupSyncServiceImpl::AddTab(const LocalTabGroupID& group_id,
   VLOG(2) << __func__;
   auto* group = model_->Get(group_id);
   if (!group) {
-    VLOG(2) << __func__ << " Called for a group that doesn't exist";
+    LOG(WARNING) << __func__ << " Called for a group that doesn't exist";
     return;
   }
 
   const auto* tab = group->GetTab(tab_id);
   if (tab) {
-    VLOG(2) << __func__ << " Called for a tab that already exists";
+    LOG(WARNING) << __func__ << " Called for a tab that already exists";
     return;
   }
 
@@ -174,6 +176,7 @@ void TabGroupSyncServiceImpl::AddTab(const LocalTabGroupID& group_id,
   new_tab.SetCreatorCacheGuid(saved_bridge_.GetLocalCacheGuid());
 
   UpdateAttributions(group_id);
+  group->SetLastUserInteractionTime(base::Time::Now());
   model_->AddTabToGroupLocally(group->saved_guid(), std::move(new_tab));
   LogEvent(TabGroupEvent::kTabAdded, group_id, std::nullopt);
 }
@@ -186,16 +189,20 @@ void TabGroupSyncServiceImpl::UpdateTab(const LocalTabGroupID& group_id,
   VLOG(2) << __func__;
   auto* group = model_->Get(group_id);
   if (!group) {
-    VLOG(2) << __func__ << " Called for a group that doesn't exist";
+    LOG(WARNING) << __func__ << " Called for a group that doesn't exist";
     return;
   }
 
   const auto* tab = group->GetTab(tab_id);
   if (!tab) {
-    VLOG(2) << __func__ << " Called for a tab that doesn't exist";
+    LOG(WARNING) << __func__ << " Called for a tab that doesn't exist";
     return;
   }
 
+  // Update attributions for the tab first.
+  UpdateAttributions(group_id, tab_id);
+
+  // Update URL and title for the tab.
   SavedTabGroupTab updated_tab(*tab);
   updated_tab.SetLocalTabID(tab_id);
   updated_tab.SetTitle(title);
@@ -204,7 +211,7 @@ void TabGroupSyncServiceImpl::UpdateTab(const LocalTabGroupID& group_id,
     updated_tab.SetPosition(position.value());
   }
 
-  UpdateAttributions(group_id, tab_id);
+  group->SetLastUserInteractionTime(base::Time::Now());
   model_->UpdateTabInGroup(group->saved_guid(), std::move(updated_tab));
   LogEvent(TabGroupEvent::kTabNavigated, group_id, tab_id);
 }
@@ -214,17 +221,20 @@ void TabGroupSyncServiceImpl::RemoveTab(const LocalTabGroupID& group_id,
   VLOG(2) << __func__;
   auto* group = model_->Get(group_id);
   if (!group) {
+    LOG(WARNING) << __func__ << " Called for a group that doesn't exist";
     return;
   }
 
   auto* tab = group->GetTab(tab_id);
   if (!tab) {
+    LOG(WARNING) << __func__ << " Called for a tab that doesn't exist";
     return;
   }
 
   base::Uuid sync_id = group->saved_guid();
   UpdateAttributions(group_id);
   LogEvent(TabGroupEvent::kTabRemoved, group_id, tab_id);
+  group->SetLastUserInteractionTime(base::Time::Now());
   model_->RemoveTabFromGroupLocally(sync_id, tab->saved_tab_guid());
 
   // The group might have deleted if this was the last tab, hence we should
@@ -238,13 +248,16 @@ void TabGroupSyncServiceImpl::RemoveTab(const LocalTabGroupID& group_id,
 void TabGroupSyncServiceImpl::MoveTab(const LocalTabGroupID& group_id,
                                       const LocalTabID& tab_id,
                                       int new_group_index) {
+  VLOG(2) << __func__;
   auto* group = model_->Get(group_id);
   if (!group) {
+    LOG(WARNING) << __func__ << " Called for a group that doesn't exist";
     return;
   }
 
   auto* tab = group->GetTab(tab_id);
   if (!tab) {
+    LOG(WARNING) << __func__ << " Called for a tab that doesn't exist";
     return;
   }
 
@@ -252,6 +265,26 @@ void TabGroupSyncServiceImpl::MoveTab(const LocalTabGroupID& group_id,
   model_->MoveTabInGroupTo(group->saved_guid(), tab->saved_tab_guid(),
                            new_group_index);
   LogEvent(TabGroupEvent::kTabGroupTabsReordered, group_id, std::nullopt);
+}
+
+void TabGroupSyncServiceImpl::OnTabSelected(const LocalTabGroupID& group_id,
+                                            const LocalTabID& tab_id) {
+  VLOG(2) << __func__;
+  auto* group = model_->Get(group_id);
+  if (!group) {
+    LOG(WARNING) << __func__ << " Called for a group that doesn't exist";
+    return;
+  }
+
+  const auto* tab = group->GetTab(tab_id);
+  if (!tab) {
+    LOG(WARNING) << __func__ << " Called for a tab that doesn't exist";
+    return;
+  }
+
+  UpdateAttributions(group_id);
+  model_->UpdateLastUserInteractionTimeLocally(group_id);
+  LogEvent(TabGroupEvent::kTabSelected, group_id, tab_id);
 }
 
 std::vector<SavedTabGroup> TabGroupSyncServiceImpl::GetAllGroups() {
@@ -288,6 +321,7 @@ std::vector<LocalTabGroupID> TabGroupSyncServiceImpl::GetDeletedGroupIds() {
     return GetDeletedGroupIdsFromPref();
   }
 
+  LOG(ERROR) << __func__ << " TabGroupStore is already deprecated";
   std::vector<LocalTabGroupID> deleted_ids;
 
   // Deleted groups are groups that have been deleted from sync, but we haven't
@@ -345,6 +379,38 @@ void TabGroupSyncServiceImpl::UpdateLocalTabId(
   CHECK(tab);
 
   model_->UpdateLocalTabId(group->saved_guid(), *tab, local_tab_id);
+}
+
+bool TabGroupSyncServiceImpl::IsRemoteDevice(
+    const std::optional<std::string>& cache_guid) const {
+  std::optional<std::string> local_cache_guid =
+      saved_bridge_.GetLocalCacheGuid();
+  if (!local_cache_guid || !cache_guid) {
+    return false;
+  }
+
+  return local_cache_guid.value() != cache_guid.value();
+}
+
+void TabGroupSyncServiceImpl::RecordTabGroupEvent(
+    const EventDetails& event_details) {
+  // Find the group from the passed sync or local ID.
+  const SavedTabGroup* group = nullptr;
+  if (event_details.local_tab_group_id) {
+    group = model_->Get(event_details.local_tab_group_id.value());
+  }
+
+  if (!group) {
+    LOG(WARNING) << __func__ << " Called for a group that doesn't exist";
+    return;
+  }
+
+  const SavedTabGroupTab* tab = nullptr;
+  if (event_details.local_tab_id) {
+    tab = group->GetTab(event_details.local_tab_id.value());
+  }
+
+  metrics_logger_->LogEvent(event_details, group, tab);
 }
 
 void TabGroupSyncServiceImpl::SavedTabGroupAddedFromSync(
@@ -549,7 +615,14 @@ void TabGroupSyncServiceImpl::UpdateAttributions(
 }
 
 void TabGroupSyncServiceImpl::RecordMetrics() {
-  stats::RecordSyncedTabGroupMetrics(model_.get());
+  auto saved_tab_groups = model_->saved_tab_groups();
+  std::vector<bool> is_remote(saved_tab_groups.size());
+
+  for (size_t i = 0; i < saved_tab_groups.size(); ++i) {
+    is_remote[i] = IsRemoteDevice(saved_tab_groups[i].creator_cache_guid());
+  }
+
+  metrics_logger_->RecordMetricsOnStartup(saved_tab_groups, is_remote);
 }
 
 void TabGroupSyncServiceImpl::LogEvent(
@@ -557,20 +630,23 @@ void TabGroupSyncServiceImpl::LogEvent(
     LocalTabGroupID group_id,
     const std::optional<LocalTabID>& tab_id) {
   if (!metrics_logger_) {
+    LOG(WARNING) << __func__ << " Metrics logger doesn't exist";
     return;
   }
 
   const auto* group = model_->Get(group_id);
   if (!group) {
+    LOG(WARNING) << __func__ << " Called for a group that doesn't exist";
     return;
   }
 
   const auto* tab =
       tab_id.has_value() ? group->GetTab(tab_id.value()) : nullptr;
 
-  auto group_create_origin = group->creator_cache_guid();
-  auto tab_create_origin = tab ? tab->creator_cache_guid() : std::nullopt;
-  metrics_logger_->LogEvent(event, group_create_origin, tab_create_origin);
+  EventDetails event_details(event);
+  event_details.local_tab_group_id = group_id;
+  event_details.local_tab_id = tab_id;
+  metrics_logger_->LogEvent(event_details, group, tab);
 }
 
 }  // namespace tab_groups

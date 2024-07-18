@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/location_bar/lens_overlay_page_action_icon_view.h"
 
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -16,10 +17,12 @@
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "components/lens/lens_features.h"
+#include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/view_class_properties.h"
 
 namespace {
@@ -61,17 +64,24 @@ LensOverlayPageActionIconView::LensOverlayPageActionIconView(
 
   SetProperty(views::kElementIdentifierKey,
               kLensOverlayPageActionIconElementId);
-  SetLabel(l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_LENS_OVERLAY));
-  // TODO(crbug.com/345521958): Remove these and return to requesting default
-  // expanded tonal colors once page action icon colors have been fixed.
-  SetCustomBackgroundColorId(kColorPageInfoLensOverlayBackground);
-  SetCustomForegroundColorId(kColorPageInfoLensOverlayForeground);
-  SetPaintLabelOverSolidBackground(true);
+  GetViewAccessibility().SetName(
+      l10n_util::GetStringUTF16(IDS_CONTENT_LENS_OVERLAY_ENTRYPOINT_LABEL),
+      ax::mojom::NameFrom::kAttribute);
+
+  if (!lens::features::IsOmniboxEntrypointAlwaysVisible()) {
+    SetLabel(
+        l10n_util::GetStringUTF16(IDS_CONTENT_LENS_OVERLAY_ENTRYPOINT_LABEL));
+    SetUseTonalColorsWhenExpanded(true);
+    SetPaintLabelOverSolidBackground(true);
+  }
 }
 
 LensOverlayPageActionIconView::~LensOverlayPageActionIconView() = default;
 
 void LensOverlayPageActionIconView::UpdateImpl() {
+  bool enabled = browser_->profile()->GetPrefs()->GetBoolean(
+      omnibox::kShowGoogleLensShortcut);
+
   bool location_bar_has_focus = false;
   if (BrowserView* const browser_view =
           BrowserView::GetBrowserViewForBrowser(browser_);
@@ -90,7 +100,12 @@ void LensOverlayPageActionIconView::UpdateImpl() {
       web_Contents &&
       LensOverlayController::GetController(web_Contents) != nullptr &&
       !IsNewTabPage(web_Contents);
-  SetVisible(location_bar_has_focus && lens_overlay_available);
+
+  const bool should_show_lens_overlay =
+      enabled && lens_overlay_available &&
+      (lens::features::IsOmniboxEntrypointAlwaysVisible() ||
+       location_bar_has_focus);
+  SetVisible(should_show_lens_overlay);
   ResetSlideAnimation(true);
 
   // TODO(pbos): Investigate why this call seems to be required to pick up that
@@ -129,14 +144,38 @@ const gfx::VectorIcon& LensOverlayPageActionIconView::GetVectorIcon() const {
 
 gfx::Size LensOverlayPageActionIconView::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
-  // TODO: tluk - Currently all page action icons are treated as non-resizable
-  // by LocationBarLayout. Page actions should be updated to be resizable by
-  // the LocationBarLayout, until then control the icon's preferred size
-  // based on the available space.
+  // TODO(tluk): Update GetSizeForLabelWidth() to correctly calculate padding
+  // for empty label widths and replace the calculation below.
   const gfx::Size full_size =
       PageActionIconView::CalculatePreferredSize(available_size);
-  const gfx::Size reduced_size = GetSizeForLabelWidth(0);
-  return available_size.width() < full_size.width() ? reduced_size : full_size;
+  const gfx::Insets view_insets = GetInsets();
+  const gfx::Size reduced_size =
+      image_container_view()->GetPreferredSize() +
+      gfx::Size(view_insets.left() * 2, view_insets.height());
+
+  // Size icon to its full width if there are no size constraints.
+  if (!available_size.width().is_bounded()) {
+    return full_size;
+  }
+
+  // Handle minimum size requests.
+  int available_width = available_size.width().value();
+  if (available_width == 0) {
+    return reduced_size;
+  }
+
+  // Adjust the available width by the minimum size of the parent's other
+  // children. This is necessary as the PageActionIconContainer's BoxLayout
+  // passes in the total size available to each of its child views, and the
+  // combined preferred size calculations of the children may not correctly
+  // respect the available size.
+  available_width -= parent()->GetMinimumSize().width() - reduced_size.width();
+
+  // TODO(crbug.com/350541615): Currently all page action icons are treated as
+  // non-resizable by LocationBarLayout. Page actions should be updated to be
+  // resizable by the LocationBarLayout, until then control the icon's preferred
+  // size based on the available space.
+  return available_width < full_size.width() ? reduced_size : full_size;
 }
 
 BEGIN_METADATA(LensOverlayPageActionIconView)

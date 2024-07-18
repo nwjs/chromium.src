@@ -9,6 +9,7 @@
 
 #include "chrome/browser/new_tab_page/modules/v2/most_relevant_tab_resumption/most_relevant_tab_resumption.mojom.h"
 #include "components/history/core/browser/history_types.h"
+#include "components/visited_url_ranking/public/fetch_options.h"
 #include "components/visited_url_ranking/public/url_visit.h"
 #include "components/visited_url_ranking/public/visited_url_ranking_service.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -52,8 +53,18 @@ class MostRelevantTabResumptionPageHandler
   void DismissTab(const history::mojom::TabPtr tab) override;
   void RestoreModule(const std::vector<history::mojom::TabPtr> tabs) override;
   void RestoreTab(history::mojom::TabPtr tab) override;
+  void RecordAction(
+      ntp::most_relevant_tab_resumption::mojom::ScoredURLUserAction action,
+      const std::string& url_key,
+      int64_t visit_request_id) override;
 
   // Invoked when the URL visit aggregates have been fetched.
+  void OnURLVisitAggregatesFetched(
+      GetTabsCallback callback,
+      visited_url_ranking::ResultStatus status,
+      std::vector<visited_url_ranking::URLVisitAggregate> url_visit_aggregates);
+
+  // Invoked when the URL visit aggregates have been ranked.
   void OnGotRankedURLVisitAggregates(
       GetTabsCallback callback,
       visited_url_ranking::ResultStatus status,
@@ -71,6 +82,9 @@ class MostRelevantTabResumptionPageHandler
 
   raw_ptr<Profile> profile_;
   raw_ptr<content::WebContents> web_contents_;
+
+  // The result types to request for when fetching URL visit aggregate data.
+  visited_url_ranking::FetchOptions::URLTypeSet result_url_types_;
 
   mojo::Receiver<ntp::most_relevant_tab_resumption::mojom::PageHandler>
       page_handler_;

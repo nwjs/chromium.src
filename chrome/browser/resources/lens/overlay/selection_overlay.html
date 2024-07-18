@@ -54,6 +54,13 @@
     display: none;
   }
 
+  :host([shimmer-on-segmentation]) #objectSelectionLayer,
+  :host([shimmer-on-segmentation]) #overlayShimmer,
+  :host([shimmer-on-segmentation][shimmer-fade-out-complete])
+      #overlayShimmerCanvas  {
+    z-index: 4;  /* Position above words but below selection corners. */
+  }
+
   #backgroundImage {
     max-width: 100vw;
     max-height: 100vh;
@@ -107,7 +114,7 @@
   #cursor {
     align-items: center;
     background: var(--color-selection-element);
-    border-radius: 2px 100px 100px 100px;
+    border-radius: 16px 100px 100px 100px;
     box-shadow: 0px 4px 12px 0px rgba(27, 28, 20, 0.24);
     display: flex;
     height: 32px;
@@ -119,7 +126,7 @@
     /* Prevents displaying the icon until the cursor location is determined. */
     transform: scale(0);
     width: 32px;
-    z-index: 2;
+    z-index: 6;
   }
 
   #cursorImg {
@@ -144,31 +151,32 @@
 
   .context-menu {
     align-items: flex-start;
+    animation: scale-out 150ms cubic-bezier(0.2, 0.0, 0, 1.0);
     background: var(--color-selection-element);
     border-radius: 8px;
     box-shadow: 0px 2px 6px 0px rgba(60, 64, 67, 0.16);
     cursor: default;
-    display: none;
+    display: flex;
     flex-direction: column;
     justify-content: center;
+    opacity: 0;
     padding: 8px 0px;
     pointer-events: auto;
     position: absolute;
-    z-index: 1;
+    visibility: hidden;
+    transition: opacity 150ms, visibility 150ms;
+    z-index: 6;
   }
 
   #copyToast {
     justify-content: space-between;
   }
 
-  :host([show-selected-text-context-menu]) #selectedTextContextMenu {
-    /* TODO: b/338642962 - Add animation */
-    display: flex;
-  }
-
+  :host([show-selected-text-context-menu]) #selectedTextContextMenu,
   :host([show-detected-text-context-menu]) #detectedTextContextMenu {
-    /* TODO: b/338642962 - Add animation */
-    display: flex;
+    animation: scale-in 250ms cubic-bezier(0.2, 0.0, 0, 1.0);
+    opacity: 1;
+    visibility: visible;
   }
 
   .context-menu-item {
@@ -259,6 +267,25 @@
       scale: 100%;
     }
   }
+
+  @keyframes scale-in {
+    from {
+      transform: scale(0);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes scale-out {
+    from {
+      transform: scale(1);
+    }
+
+    to {
+      transform: scale(0.8);
+    }
+  }
 </style>
 <div id="selectionOverlay" on-pointerenter="handlePointerEnter"
     on-pointerleave="handlePointerLeave">
@@ -286,7 +313,8 @@
   <div id="initialFlashScrim"></div>
   <div id="contextMenuOverlay">
     <div id="selectedTextContextMenu" class="context-menu" role="menu"
-        style$="[[getContextMenuStyle(contextMenuX, contextMenuY)]]"
+        style$="[[getContextMenuStyle(selectedTextContextMenuX,
+                                      selectedTextContextMenuY)]]"
         on-pointerenter="handlePointerEnterContextMenu"
         on-pointerleave="handlePointerLeaveContextMenu">
       <div class="context-menu-item" role="menuitem" on-pointerup="handleCopy">
@@ -300,7 +328,8 @@
       </div>
     </div>
     <div id="detectedTextContextMenu" class="context-menu" role="menu"
-        style$="[[getContextMenuStyle(contextMenuX, contextMenuY)]]"
+        style$="[[getContextMenuStyle(detectedTextContextMenuX,
+                                      detectedTextContextMenuY)]]"
         on-pointerenter="handlePointerEnterContextMenu"
         on-pointerleave="handlePointerLeaveContextMenu">
       <div class="context-menu-item" role="menuitem"
@@ -311,12 +340,6 @@
     </div>
   </div>
 </div>
-<cr-toast id="copyToast" duration="4000">
-  <div>$i18n{copyToastMessage}</div>
-  <cr-button on-click="onHideToastClick">
-    $i18n{dismiss}
-  </cr-button>
-</cr-toast>
 <div id="cursor"
     class$="[[getHiddenCursorClass(isPointerInside, currentGesture.state)]]">
   <div id="cursorImg"></div>

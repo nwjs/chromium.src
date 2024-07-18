@@ -384,7 +384,7 @@
 <translation id="1273937721055267968">封鎖 <ph name="DOMAIN" /></translation>
 <translation id="1274997165432133392">Cookie 和其他網站資料</translation>
 <translation id="1275718070701477396">已選取</translation>
-<translation id="1275936815032730048">啟動器按鈕 + 向右鍵</translation>
+<translation id="1275936815032730048">啟動鍵 + 向右鍵</translation>
 <translation id="1276994519141842946">無法解除安裝「<ph name="APP_NAME" />」</translation>
 <translation id="1277020343994096713">新設定的 PIN 碼不能與目前的 PIN 碼相同</translation>
 <translation id="1277597051786235230">開啟新分頁並使用「<ph name="SEARCH_ENGINE" />」搜尋「<ph name="SEARCH_TERMS" />」(&amp;S)</translation>
@@ -843,7 +843,6 @@
 <translation id="1607139524282324606">清除項目</translation>
 <translation id="1607499585984539560">使用者並未與網域建立關聯</translation>
 <translation id="1608668830839595724">更多可對所選項目執行的動作</translation>
-<translation id="1608698493373028805">系統可能會在近期內停止支援這項擴充功能</translation>
 <translation id="1610272688494140697">應用程式設定</translation>
 <translation id="161042844686301425">青色</translation>
 <translation id="1611432201750675208">你的裝置已遭到鎖定</translation>
@@ -986,7 +985,7 @@
 <translation id="1704970325597567340">已於 <ph name="DATE" />執行安全檢查</translation>
 <translation id="1706586824377653884">由管理員新增</translation>
 <translation id="170658918174941828">除了你選擇提交的以上資訊外，你的 Chrome 版本、作業系統版本、Cast 設定、鏡像成效統計資料和通訊頻道診斷記錄也會一併提交。我們會使用你提交的意見回饋來診斷問題並協助改善功能。其中無論是你明確提交還是不慎提交的個人資訊，一律會依隱私權政策規定受到妥善保護。提交意見回饋即表示你同意 Google 將你提供的意見回饋用於改善任何 Google 產品或服務。</translation>
-<translation id="17081583771848899">啟動器按鈕 + Alt + <ph name="TOP_ROW_KEY" /> 鍵</translation>
+<translation id="17081583771848899">啟動鍵 + Alt + <ph name="TOP_ROW_KEY" /> 鍵</translation>
 <translation id="1708291623166985230">已停用無線基地台</translation>
 <translation id="1708338024780164500">(無法使用)</translation>
 <translation id="1708563369218024896">未選取任何資料收集器。請至少選取一個資料收集器。</translation>
@@ -1761,6 +1760,7 @@
 <translation id="2273119997271134996">座架的視訊連接埠發生問題</translation>
 <translation id="2274840746523584236">請為 Chromebook 充電</translation>
 <translation id="2275193525496879616">已允許。請將攝影機連接到裝置。</translation>
+<translation id="2275352532065325930">分頁搜尋功能的位置</translation>
 <translation id="2276503375879033601">新增更多應用程式</translation>
 <translation id="2278193750452754829">允許在這個網站執行擴充功能。選取即可開啟選單</translation>
 <translation id="2278562042389100163">開啟瀏覽器視窗</translation>
@@ -1916,6 +1916,7 @@
 <translation id="2376056713414548745">朗讀內容</translation>
 <translation id="2377667304966270281">硬性錯誤數</translation>
 <translation id="237828693408258535">要翻譯這個網頁嗎？</translation>
+<translation id="2378602615417849384">{NUM_EXTENSIONS,plural, =1{系統可能會在近期內停止支援這項擴充功能}other{系統可能會在近期內停止支援這些擴充功能}}</translation>
 <translation id="2378982052244864789">選取擴充功能目錄。</translation>
 <translation id="2379281330731083556">使用系統對話方塊進行列印... <ph name="SHORTCUT_KEY" /></translation>
 <translation id="2381461748765773292">這可能會導致你的行動網路中斷幾分鐘</translation>
@@ -3688,7 +3689,7 @@
 <translation id="369489984217678710">密碼和其他登入資料</translation>
 <translation id="369522892592566391">{NUM_FILES,plural, =0{已完成安全性檢查。系統將上傳你的資料。}=1{已完成安全性檢查。系統將上傳你的檔案。}other{已完成安全性檢查。系統將上傳你的檔案。}}</translation>
 <translation id="3695339288331169103">來自「<ph name="BEGIN_LINK" /><ph name="DISPLAY_REFERRER_URL" /><ph name="END_LINK" />」</translation>
-<translation id="369736917241079046">啟動器按鈕 + 向左鍵</translation>
+<translation id="369736917241079046">啟動鍵 + 向左鍵</translation>
 <translation id="3697716475445175867">上次開啟時間</translation>
 <translation id="3697732362672163692">{NUM_SITES,plural, =1{你可以禁止這個網站日後傳送通知。}other{你可以禁止這些網站日後傳送通知。}}</translation>
 <translation id="3697952514309507634">其他 Chrome 設定檔</translation>
@@ -4112,6 +4113,7 @@
 <translation id="3978325380690188371">ChromeVox 開啟時無法使用相黏鍵</translation>
 <translation id="3979395879372752341">已新增以下擴充功能：<ph name="EXTENSION_NAME" /></translation>
 <translation id="3979748722126423326">啟用 <ph name="NETWORKDEVICE" /></translation>
+<translation id="398095528354975981">隱藏這些分頁</translation>
 <translation id="3981058120448670012">以「<ph name="DEVICE_NAME" />」的名稱向附近的裝置顯示 <ph name="REMAINING_TIME" />...</translation>
 <translation id="3981760180856053153">輸入的儲存類型無效。</translation>
 <translation id="3982375475032951137">只要簡單幾個步驟就能完成瀏覽器設定</translation>
@@ -4176,7 +4178,7 @@
 <translation id="402707738228916911">已收到<ph name="AUTHORIZE_INSTRUCTION_NAME" />的操作說明</translation>
 <translation id="4027569221211770437">「<ph name="FOLDER_TITLE" />」資料夾</translation>
 <translation id="4028467762035011525">新增輸入法</translation>
-<translation id="4029024445166427442">啟動器按鈕 + Shift 鍵 + Backspace 鍵</translation>
+<translation id="4029024445166427442">啟動鍵 + Shift 鍵 + Backspace 鍵</translation>
 <translation id="4029556917477724407">從「<ph name="PAGE_TITLE" />」頁面返回</translation>
 <translation id="4031179711345676612">可使用麥克風</translation>
 <translation id="4031527940632463547">禁止使用感應器</translation>
@@ -4233,6 +4235,7 @@
 <translation id="406213378265872299">自訂設定</translation>
 <translation id="4062561150282203854">同步處理 <ph name="DEVICE_TYPE" /> 的應用程式和設定等資料</translation>
 <translation id="4065876735068446555">目前使用的網路 (<ph name="NETWORK_ID" />) 可能會要求您造訪登入網頁。</translation>
+<translation id="4065931125325392744">系統可能會在近期內停止支援這項擴充功能</translation>
 <translation id="4066207411788646768">如要查看網路中的可用印表機，請檢查你的連線狀態</translation>
 <translation id="4067839975993712852">將目前的分頁標示為已讀取</translation>
 <translation id="4068776064906523561">已儲存的指紋</translation>
@@ -5297,6 +5300,7 @@
 <translation id="4883436287898674711">所有 <ph name="WEBSITE_1" /> 網站</translation>
 <translation id="48838266408104654">工作管理員(&amp;T)</translation>
 <translation id="4884987973312178454">6 倍</translation>
+<translation id="4885446229353981848">一律顯示 Google 智慧鏡頭捷徑</translation>
 <translation id="4885692421645694729">這個擴充功能沒有其他網站存取權</translation>
 <translation id="4887424188275796356">使用 System Viewer 開啟</translation>
 <translation id="488785315393301722">顯示詳細資料</translation>
@@ -5355,6 +5359,7 @@
 <translation id="4927753642311223124">這裡沒有任何通知訊息，以後再來看看吧！</translation>
 <translation id="4928629450964837566">使用更安全的密碼</translation>
 <translation id="4929386379796360314">列印目的地</translation>
+<translation id="4930406318748549391">側邊面板位置</translation>
 <translation id="4930447554870711875">開發人員</translation>
 <translation id="4930714375720679147">開啟</translation>
 <translation id="4931347390544064118">使用網路預設值時，有時可能無法使用安全連線。建議你選取其他供應商，確保隨時都能使用安全連線。</translation>
@@ -5377,7 +5382,7 @@
 <translation id="4943927218331934807">需要密碼</translation>
 <translation id="4944310289250773232">這是由 <ph name="SAML_DOMAIN" /> 代管的驗證服務</translation>
 <translation id="4945439665401275950">如要設定指紋，請讓孩子輕觸電源按鈕。孩子的指紋資料會安全儲存在這部 <ph name="DEVICE_TYPE" /> 上，絕不會外洩。</translation>
-<translation id="4946998421534856407">啟動器按鈕 + 向上鍵</translation>
+<translation id="4946998421534856407">啟動鍵 + 向上鍵</translation>
 <translation id="4947376546135294974">來自你所造訪網站的資料</translation>
 <translation id="4950100687509657457">建立設定檔</translation>
 <translation id="4950993567860689081">工作階段是由貴機構管理。管理員可以刪除設定檔並監控網路流量。</translation>
@@ -6694,7 +6699,7 @@
 <translation id="5948476936444935795">取消匯入</translation>
 <translation id="5948536763493709626">請連接鍵盤或滑鼠，或使用觸控螢幕繼續設定。如果使用藍牙裝置，請確認該裝置處於可進行配對的狀態。</translation>
 <translation id="5949544233750246342">無法剖析檔案</translation>
-<translation id="594993197557058302">請按下 1 到 4 個輔助鍵 (Ctrl、Alt、Shift、搜尋鍵或啟動器按鈕) 和另外 1 個按鍵，也可以選取單一鍵。</translation>
+<translation id="594993197557058302">請按下 1 到 4 個輔助鍵 (Ctrl、Alt、Shift、搜尋鍵或啟動鍵) 和另外 1 個按鍵，也可以選取單一鍵。</translation>
 <translation id="5950762317146173294">這個檔案可能是病毒或惡意軟體</translation>
 <translation id="5951303645598168883"><ph name="ORIGIN" /> 要求使用本機字型</translation>
 <translation id="5951624318208955736">螢幕</translation>
@@ -6902,7 +6907,7 @@
 <translation id="6112727384379533756">新增票證</translation>
 <translation id="6112931163620622315">請查看你的手機</translation>
 <translation id="6113434369102685411">設定 Chrome 瀏覽器和 <ph name="DEVICE_TYPE" /> 啟動器的預設搜尋引擎</translation>
-<translation id="6113832060210023016">啟動器按鈕 + 滑鼠左鍵</translation>
+<translation id="6113832060210023016">啟動鍵 + 滑鼠左鍵</translation>
 <translation id="6113942107547980621">如要使用 Smart Lock，請在手機上切換到主要使用者設定檔</translation>
 <translation id="6116921718742659598">變更語言和輸入設定</translation>
 <translation id="6119008366402292080">沒有可用的印表機</translation>
@@ -7486,6 +7491,7 @@
 <translation id="6557290421156335491">我的捷徑</translation>
 <translation id="6560061709899140565">顯示其他投放工作階段</translation>
 <translation id="6560151649238390891">已插入建議項目</translation>
+<translation id="656065428026159829">顯示更多</translation>
 <translation id="6561726789132298588">Enter 鍵</translation>
 <translation id="6562117348069327379">將系統記錄儲存至「下載」目錄。</translation>
 <translation id="656293578423618167">檔案路徑或檔案名稱過長。請縮短檔案名稱或選擇其他儲存位置。</translation>
@@ -7535,6 +7541,7 @@
 <translation id="6597324406048772521">不允許在這個網站執行擴充功能</translation>
 <translation id="6597331566371766302">系統管理員已封鎖下列擴充功能：</translation>
 <translation id="659894938503552850">由新到舊</translation>
+<translation id="6600016381025017075">搜尋本頁內容</translation>
 <translation id="6601262427770154296">管理使用者字典</translation>
 <translation id="6602173570135186741">自動填入和密碼</translation>
 <translation id="6602336931411102724">在書籤列中顯示分頁群組</translation>
@@ -8059,6 +8066,7 @@
 <translation id="6988572888918530647">管理你的 Google 帳戶</translation>
 <translation id="6989274756151920076">繼續使用</translation>
 <translation id="6991665348624301627">選取印表機</translation>
+<translation id="6991926986715044139">一律顯示 Google 智慧鏡頭捷徑</translation>
 <translation id="6992554835374084304">開啟進階拼字檢查功能</translation>
 <translation id="6993000214273684335">已將分頁從包含「<ph name="GROUP_CONTENTS" />」的未命名群組中移除</translation>
 <translation id="6993050154661569036">正在更新 Chrome 瀏覽器</translation>
@@ -8264,7 +8272,7 @@
 <translation id="7149893636342594995">過去 24 小時</translation>
 <translation id="7152478047064750137">這個擴充功能不需要特殊權限</translation>
 <translation id="7153101072880472645">開啟/關閉高對比模式</translation>
-<translation id="715396040729904728">啟動器按鈕 + Shift + <ph name="TOP_ROW_KEY" /> 鍵</translation>
+<translation id="715396040729904728">啟動鍵 + Shift + <ph name="TOP_ROW_KEY" /> 鍵</translation>
 <translation id="7154020516215182599">分享意見回饋或說明你的問題。可以的話，請提供重現問題的步驟。</translation>
 <translation id="7154130902455071009">將你的起始網頁變更為：<ph name="START_PAGE" /></translation>
 <translation id="7155161204362351654">取得畫質更高的影片，並降低耗電量。只能透過支援 Cast 的螢幕播放影片。</translation>
@@ -9453,6 +9461,7 @@
 <translation id="8022466874160067884">輸入 Google 帳戶和密碼</translation>
 <translation id="8023133589013344428">在 ChromeOS Flex 設定中管理語言</translation>
 <translation id="8023801379949507775">立即更新擴充功能</translation>
+<translation id="8024161440284949905">繼續使用這些分頁</translation>
 <translation id="8025151549289123443">螢幕鎖定和登入</translation>
 <translation id="8025291188699172126">關於更新</translation>
 <translation id="8026471514777758216">你的所有裝置</translation>
@@ -9705,7 +9714,7 @@
 <translation id="8203732864715032075">傳送通知給你，並預設記住這部電腦，以便在收到簡訊時傳送通知。<ph name="LINK_BEGIN" />瞭解詳情<ph name="LINK_END" /></translation>
 <translation id="8203795194971602413">按右鍵</translation>
 <translation id="8205432712228803050">螢幕和周邊裝置可能會快速重設，請先拔除周邊裝置的插頭再重新插回，這項變更才會生效。</translation>
-<translation id="8205478243727418828">啟動器按鈕 + 向下鍵</translation>
+<translation id="8205478243727418828">啟動鍵 + 向下鍵</translation>
 <translation id="820568752112382238">最常造訪的網站</translation>
 <translation id="8206267832882844324">編輯附註</translation>
 <translation id="8206745257863499010">藍調</translation>
@@ -10278,7 +10287,6 @@
 <translation id="8636500887554457830">禁止網站傳送彈出式視窗或使用重新導向</translation>
 <translation id="8636514272606969031">已固定側邊面板</translation>
 <translation id="8637688295594795546">可安裝系統更新，正在準備下載…</translation>
-<translation id="8638603762333060790">{NUM_EXTENSIONS,plural, =1{系統可能會在近期內停止支援這項擴充功能}other{系統可能會在近期內停止支援這些擴充功能}}</translation>
 <translation id="8638719155236856752">ChromeOS 網路健康狀態</translation>
 <translation id="8639635302972078117">傳送使用狀況與診斷資料。這部裝置目前會自動將診斷資料、裝置和應用程式的使用資料傳送給 Google。這些資料將有助於改善系統和應用程式的穩定性與其他功能，並不會用於識別貴子女的身分。此外，部分匯總資料還能協助 Google 應用程式和合作夥伴 (例如 Android 開發人員) 改善自己的產品和服務。如果貴子女的「其他網路和應用程式活動」設定為開啟，這些資料可能會儲存在他們的 Google 帳戶中。</translation>
 <translation id="8640575194957831802">上次開啟時間</translation>
@@ -10379,7 +10387,7 @@
 <translation id="8699188901396699995">「<ph name="PRINTER_NAME" />」的 PPD</translation>
 <translation id="8700066369485012242">請說明你允許在這個網站上使用第三方 Cookie 的原因</translation>
 <translation id="8700087567921985940">使用位置資訊。允許具有位置存取權的應用程式和服務使用裝置的位置資訊。Google 可能會定期蒐集位置資料，並以匿名方式使用，改進定位精確度和適地性服務品質。<ph name="BEGIN_LINK1" />進一步瞭解位置資訊<ph name="BEGIN_LINK1_END" />瞭解詳情<ph name="END_LINK1" /></translation>
-<translation id="8700416429250425628">啟動器按鈕 + Backspace 鍵</translation>
+<translation id="8700416429250425628">啟動鍵 + Backspace 鍵</translation>
 <translation id="8702278591052316269">選單中內含隱藏的已儲存分頁群組</translation>
 <translation id="8702825062053163569">系統已鎖定你的 <ph name="DEVICE_TYPE" />。</translation>
 <translation id="8703346390800944767">略過廣告</translation>

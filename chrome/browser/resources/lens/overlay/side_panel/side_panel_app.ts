@@ -23,18 +23,11 @@ import type {SidePanelGhostLoaderElement} from './side_panel_ghost_loader.js';
 const VIEWPORT_HEIGHT_KEY = 'bih';
 const VIEWPORT_WIDTH_KEY = 'biw';
 
-// Closes overlay if the escape key is pressed.
-function maybeCloseOverlay(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    SidePanelBrowserProxyImpl.getInstance()
-        .handler.closeRequestedBySidePanelEscapeKeyPress();
-  }
-}
-
 export interface LensSidePanelAppElement {
   $: {
     results: HTMLIFrameElement,
     ghostLoader: SidePanelGhostLoaderElement,
+    networkErrorPage: HTMLDivElement,
   };
 }
 
@@ -50,6 +43,11 @@ export class LensSidePanelAppElement extends PolymerElement {
   static get properties() {
     return {
       isBackArrowVisible: {
+        type: Boolean,
+        value: false,
+        reflectToAttribute: true,
+      },
+      isErrorPageVisible: {
         type: Boolean,
         value: false,
         reflectToAttribute: true,
@@ -79,6 +77,7 @@ export class LensSidePanelAppElement extends PolymerElement {
 
   // Public for use in browser tests.
   isBackArrowVisible: boolean;
+  private isErrorPageVisible: boolean;
   // Whether the results iframe is currently loading. This needs to be done via
   // browser because the iframe is cross-origin. Default true since the side
   // panel can open before a navigation has started.
@@ -119,8 +118,9 @@ export class LensSidePanelAppElement extends PolymerElement {
           this.setIsLoadingResults.bind(this)),
       this.browserProxy.callbackRouter.setBackArrowVisible.addListener(
           this.setBackArrowVisible.bind(this)),
+      this.browserProxy.callbackRouter.setShowErrorPage.addListener(
+          this.setShowErrorPage.bind(this)),
     ];
-    window.addEventListener('keyup', maybeCloseOverlay);
   }
 
   override disconnectedCallback() {
@@ -129,7 +129,6 @@ export class LensSidePanelAppElement extends PolymerElement {
     this.listenerIds.forEach(
         id => assert(this.browserProxy.callbackRouter.removeListener(id)));
     this.listenerIds = [];
-    window.removeEventListener('keyup', maybeCloseOverlay);
   }
 
   private onBackArrowClick() {
@@ -165,6 +164,11 @@ export class LensSidePanelAppElement extends PolymerElement {
   private setBackArrowVisible(visible: boolean) {
     this.isBackArrowVisible = visible;
     this.wasBackArrowAvailable = visible;
+  }
+
+  private setShowErrorPage(shouldShowErrorPage: boolean) {
+    this.isErrorPageVisible =
+        shouldShowErrorPage && loadTimeData.getBoolean('enableErrorPage');
   }
 
   private onSearchboxFocusIn_() {

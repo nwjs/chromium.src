@@ -86,6 +86,17 @@ bool IsUserTriggeredMainFrameNavigation(
   return true;
 }
 
+// Returns whether URL is in a redirect chain.
+bool IsURLInRedirectChain(const GURL& url,
+                          const std::vector<GURL>& redirect_chain) {
+  for (const auto& redirect_url : redirect_chain) {
+    if (redirect_url.GetWithoutRef().spec() == url.GetWithoutRef().spec()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace
 
 SavedTabGroupWebContentsListener::SavedTabGroupWebContentsListener(
@@ -124,12 +135,17 @@ SavedTabGroupWebContentsListener::~SavedTabGroupWebContentsListener() {
   if (favicon_driver_) {
     favicon_driver_->RemoveObserver(this);
   }
-  ResetTabState();
+  TabGroupSyncTabState::Reset(web_contents());
 }
 
 void SavedTabGroupWebContentsListener::NavigateToUrl(const GURL& url) {
-  if (web_contents_->GetURL().GetWithoutRef().spec() ==
-      url.GetWithoutRef().spec()) {
+  if (!url.is_valid()) {
+    return;
+  }
+
+  // If the URL is inside current tab URL's redirect chain, there is no need to
+  // navigate as the navigation will end up with the current tab URL.
+  if (IsURLInRedirectChain(url, tab_redirect_chain_)) {
     return;
   }
 
@@ -148,18 +164,20 @@ void SavedTabGroupWebContentsListener::NavigateToUrl(const GURL& url) {
 
 void SavedTabGroupWebContentsListener::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
+  UpdateTabRedirectChain(navigation_handle);
+
   // If the navigation was the result of a sync update we don't want to update
   // the SavedTabGroupModel.
   if (navigation_handle == handle_from_sync_update_) {
     handle_from_sync_update_ = nullptr;
     // Create a tab state to indicate that the tab is restricted.
-    SetTabState();
+    TabGroupSyncTabState::Create(web_contents());
     return;
   }
 
   if (IsUserTriggeredMainFrameNavigation(navigation_handle)) {
     // Once the tab state is remove, restrictions will be removed from it.
-    ResetTabState();
+    TabGroupSyncTabState::Reset(web_contents());
   }
 
   if (!IsSaveableNavigation(navigation_handle)) {
@@ -176,11 +194,12 @@ void SavedTabGroupWebContentsListener::DidFinishNavigation(
   tab->SetURL(web_contents_->GetURL());
   tab->SetFavicon(favicon::TabFaviconFromWebContents(web_contents_));
   service_->model()->UpdateTabInGroup(group->saved_guid(), *tab);
+  service_->OnTabNavigatedLocally(group->saved_guid(), tab->saved_tab_guid());
 }
 
 void SavedTabGroupWebContentsListener::DidGetUserInteraction(
     const blink::WebInputEvent& event) {
-  ResetTabState();
+  TabGroupSyncTabState::Reset(web_contents());
 }
 
 void SavedTabGroupWebContentsListener::TitleWasSet(
@@ -218,16 +237,16 @@ void SavedTabGroupWebContentsListener::OnFaviconUpdated(
   service_->model()->UpdateTabInGroup(group->saved_guid(), *tab);
 }
 
-void SavedTabGroupWebContentsListener::SetTabState() {
-  TabGroupSyncTabState* state =
-      TabGroupSyncTabState::FromWebContents(web_contents());
-  if (!state) {
-    TabGroupSyncTabState::CreateForWebContents(web_contents());
+void SavedTabGroupWebContentsListener::UpdateTabRedirectChain(
+    content::NavigationHandle* navigation_handle) {
+  if (!ui::PageTransitionIsMainFrame(navigation_handle->GetPageTransition())) {
+    return;
   }
-}
 
-void SavedTabGroupWebContentsListener::ResetTabState() {
-  TabGroupSyncTabState::RemoveTabState(web_contents());
+  tab_redirect_chain_.clear();
+  for (const auto& url : navigation_handle->GetRedirectChain()) {
+    tab_redirect_chain_.emplace_back(url);
+  }
 }
 
 }  // namespace tab_groups

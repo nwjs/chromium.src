@@ -3576,17 +3576,17 @@ void LocalFrame::MediaPlayerActionAtViewportPoint(
   }
 }
 
-void LocalFrame::RequestVideoFrameAt(
+void LocalFrame::RequestVideoFrameAtWithBoundsDiagnostics(
     const gfx::Point& viewport_position,
     const gfx::Size& max_size,
     int max_area,
-    base::OnceCallback<void(const gfx::ImageSkia&)> callback) {
+    base::OnceCallback<void(const SkBitmap&, const gfx::Rect&)> callback) {
   HitTestResult result = HitTestResultForVisualViewportPos(viewport_position);
   Node* node = result.InnerNode();
   auto* video = DynamicTo<HTMLVideoElement>(node);
 
   if (!video) {
-    std::move(callback).Run(gfx::ImageSkia());
+    std::move(callback).Run(SkBitmap(), gfx::Rect());
     return;
   }
 
@@ -3608,7 +3608,7 @@ void LocalFrame::RequestVideoFrameAt(
   auto image =
       video->CreateStaticBitmapImage(/*allow_accelerated_images=*/true, size);
   if (!image) {
-    std::move(callback).Run(gfx::ImageSkia());
+    std::move(callback).Run(SkBitmap(), gfx::Rect());
     return;
   }
 
@@ -3627,8 +3627,12 @@ void LocalFrame::RequestVideoFrameAt(
     }
   }
 
-  std::move(callback).Run(gfx::ImageSkia::CreateFromBitmap(converted_bitmap,
-                                                           /*scale=*/1));
+  // Get the bounds of the video element.
+  WebNode web_node(node);
+  WebElement web_element = web_node.To<WebElement>();
+  auto bounds = web_element.BoundsInWidget();
+
+  std::move(callback).Run(converted_bitmap, bounds);
 }
 
 void LocalFrame::DownloadURL(

@@ -136,6 +136,17 @@ TEST_F(MostRelevantTabResumptionPageHandlerTest, GetTabs) {
                                     std::move(url_visit_aggregates));
           }));
 
+  EXPECT_CALL(*mock_visited_url_ranking_service,
+              RankURLVisitAggregates(_, _, _))
+      .Times(1)
+      .WillOnce(testing::Invoke(
+          [](const visited_url_ranking::Config& config,
+             std::vector<URLVisitAggregate> visits,
+             VisitedURLRankingService::RankURLVisitAggregatesCallback
+                 callback) {
+            std::move(callback).Run(ResultStatus::kSuccess, std::move(visits));
+          }));
+
   auto tabs_mojom = RunGetTabs();
   ASSERT_EQ(2u, tabs_mojom.size());
   for (const auto& tab_mojom : tabs_mojom) {
@@ -145,7 +156,7 @@ TEST_F(MostRelevantTabResumptionPageHandlerTest, GetTabs) {
   }
 }
 
-TEST_F(MostRelevantTabResumptionPageHandlerTest, DismissTab) {
+TEST_F(MostRelevantTabResumptionPageHandlerTest, DismissAndRestoreTab) {
   visited_url_ranking::MockVisitedURLRankingService*
       mock_visited_url_ranking_service =
           static_cast<visited_url_ranking::MockVisitedURLRankingService*>(
@@ -172,17 +183,42 @@ TEST_F(MostRelevantTabResumptionPageHandlerTest, DismissTab) {
                                     std::move(url_visit_aggregates));
           }));
 
+  EXPECT_CALL(*mock_visited_url_ranking_service,
+              RankURLVisitAggregates(_, _, _))
+      .Times(3)
+      .WillRepeatedly(testing::Invoke(
+          [](const visited_url_ranking::Config& config,
+             std::vector<URLVisitAggregate> visits,
+             VisitedURLRankingService::RankURLVisitAggregatesCallback
+                 callback) {
+            std::move(callback).Run(ResultStatus::kSuccess, std::move(visits));
+          }));
+
+  visited_url_ranking::ScoredURLUserAction expected_action;
+  EXPECT_CALL(*mock_visited_url_ranking_service, RecordAction(_, _, _))
+      .Times(2)
+      .WillRepeatedly(testing::Invoke(
+          [&expected_action](
+              visited_url_ranking::ScoredURLUserAction action,
+              const std::string& visit_id,
+              segmentation_platform::TrainingRequestId visit_request_id) {
+            expected_action = action;
+          }));
+
   auto tabs_mojom = RunGetTabs();
   ASSERT_EQ(2u, tabs_mojom.size());
   Handler()->DismissTab(mojo::Clone(tabs_mojom[0]));
+  ASSERT_EQ(visited_url_ranking::ScoredURLUserAction::kDismissed,
+            expected_action);
   auto dismissed_tabs_mojom = RunGetTabs();
   ASSERT_EQ(1u, dismissed_tabs_mojom.size());
   Handler()->RestoreTab(mojo::Clone(tabs_mojom[0]));
+  ASSERT_EQ(visited_url_ranking::ScoredURLUserAction::kSeen, expected_action);
   auto restored_tabs_mojom = RunGetTabs();
   ASSERT_EQ(2u, restored_tabs_mojom.size());
 }
 
-TEST_F(MostRelevantTabResumptionPageHandlerTest, DismissAll) {
+TEST_F(MostRelevantTabResumptionPageHandlerTest, DismissAndRestoreAll) {
   visited_url_ranking::MockVisitedURLRankingService*
       mock_visited_url_ranking_service =
           static_cast<visited_url_ranking::MockVisitedURLRankingService*>(
@@ -211,12 +247,42 @@ TEST_F(MostRelevantTabResumptionPageHandlerTest, DismissAll) {
                                     std::move(url_visit_aggregates));
           }));
 
+  EXPECT_CALL(*mock_visited_url_ranking_service,
+              RankURLVisitAggregates(_, _, _))
+      .Times(3)
+      .WillRepeatedly(testing::Invoke(
+          [](const visited_url_ranking::Config& config,
+             std::vector<URLVisitAggregate> visits,
+             VisitedURLRankingService::RankURLVisitAggregatesCallback
+                 callback) {
+            std::move(callback).Run(ResultStatus::kSuccess, std::move(visits));
+          }));
+
+  std::vector<visited_url_ranking::ScoredURLUserAction> expected_actions;
+  EXPECT_CALL(*mock_visited_url_ranking_service, RecordAction(_, _, _))
+      .Times(4)
+      .WillRepeatedly(testing::Invoke(
+          [&expected_actions](
+              visited_url_ranking::ScoredURLUserAction action,
+              const std::string& visit_id,
+              segmentation_platform::TrainingRequestId visit_request_id) {
+            expected_actions.push_back(action);
+          }));
+
   auto tabs_mojom = RunGetTabs();
   ASSERT_EQ(2u, tabs_mojom.size());
   Handler()->DismissModule(mojo::Clone(tabs_mojom));
+  ASSERT_EQ(visited_url_ranking::ScoredURLUserAction::kDismissed,
+            expected_actions[0]);
+  ASSERT_EQ(visited_url_ranking::ScoredURLUserAction::kDismissed,
+            expected_actions[1]);
   auto dismissed_tabs_mojom = RunGetTabs();
   ASSERT_EQ(0u, dismissed_tabs_mojom.size());
   Handler()->RestoreModule(mojo::Clone(tabs_mojom));
+  ASSERT_EQ(visited_url_ranking::ScoredURLUserAction::kSeen,
+            expected_actions[2]);
+  ASSERT_EQ(visited_url_ranking::ScoredURLUserAction::kSeen,
+            expected_actions[3]);
   auto restored_tabs_mojom = RunGetTabs();
   ASSERT_EQ(2u, restored_tabs_mojom.size());
 }

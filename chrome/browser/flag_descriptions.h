@@ -1280,6 +1280,9 @@ extern const char kLegacyTechReportTopLevelUrlDescription[];
 extern const char kLensRegionSearchStaticPageName[];
 extern const char kLensRegionSearchStaticPageDescription[];
 
+extern const char kLensOverlayName[];
+extern const char kLensOverlayDescription[];
+
 extern const char kLensImageFormatOptimizationsName[];
 extern const char kLensImageFormatOptimizationsDescription[];
 
@@ -2012,6 +2015,12 @@ extern const char kTabHoverCardImagesDescription[];
 extern const char kTabSearchFuzzySearchName[];
 extern const char kTabSearchFuzzySearchDescription[];
 
+#if !BUILDFLAG(IS_ANDROID)
+extern const char kTabSearchPositionSettingId[];
+extern const char kTabSearchPositionSettingName[];
+extern const char kTabSearchPositionSettingDescription[];
+#endif
+
 extern const char kTearOffWebAppAppTabOpensWebAppWindowName[];
 extern const char kTearOffWebAppAppTabOpensWebAppWindowDescription[];
 
@@ -2427,6 +2436,9 @@ extern const char kCCTPageInsightsHubBetterScrollDescription[];
 extern const char kCCTGoogleBottomBarName[];
 extern const char kCCTGoogleBottomBarDescription[];
 
+extern const char kCCTGoogleBottomBarVariantLayoutsName[];
+extern const char kCCTGoogleBottomBarVariantLayoutsDescription[];
+
 extern const char kCCTResizableForThirdPartiesName[];
 extern const char kCCTResizableForThirdPartiesDescription[];
 
@@ -2657,6 +2669,9 @@ extern const char kQueryTilesSwapTrendingDescription[];
 
 extern const char kReadAloudName[];
 extern const char kReadAloudDescription[];
+extern const char kReadAloudBackgroundPlaybackName[];
+extern const char kReadAloudBackgroundPlaybackDescription[];
+
 extern const char kReadAloudInCCTName[];
 extern const char kReadAloudInCCTDescription[];
 
@@ -2737,6 +2752,9 @@ extern const char kTabGroupsForTabletsDescription[];
 
 extern const char kTabGroupSyncAndroidName[];
 extern const char kTabGroupSyncAndroidDescription[];
+
+extern const char kTabGroupSyncDisableNetworkLayerName[];
+extern const char kTabGroupSyncDisableNetworkLayerDescription[];
 
 extern const char kTabGroupSyncForceOffName[];
 extern const char kTabGroupSyncForceOffDescription[];
@@ -3065,6 +3083,9 @@ extern const char kHatsWebUIDescription[];
 
 extern const char kLayoutExtractionName[];
 extern const char kLayoutExtractionDescription[];
+
+extern const char kMainNodeAnnotationsName[];
+extern const char kMainNodeAnnotationsDescription[];
 
 extern const char kOmniboxDriveSuggestionsName[];
 extern const char kOmniboxDriveSuggestionsDescription[];

@@ -3,12 +3,13 @@
 // found in the LICENSE file.
 
 import './cursor_tooltip.js';
-import './initial_toast.js';
+import './initial_gradient.js';
 import './selection_overlay.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/icons.html.js';
 
 import type {CrIconButtonElement} from '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
+import type {CrToastElement} from '//resources/cr_elements/cr_toast/cr_toast.js';
 import {assert} from '//resources/js/assert.js';
 import {skColorToHexColor} from '//resources/js/color_utils.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
@@ -21,25 +22,21 @@ import {BrowserProxyImpl} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
 import {getFallbackTheme} from './color_utils.js';
 import type {CursorTooltipData, CursorTooltipElement} from './cursor_tooltip.js';
-import type {InitialToastElement} from './initial_toast.js';
+import type {InitialGradientElement} from './initial_gradient.js';
 import type {OverlayTheme} from './lens.mojom-webui.js';
+import {UserAction} from './lens.mojom-webui.js';
 import {getTemplate} from './lens_overlay_app.html.js';
-import {recordLensOverlayInteraction, UserAction} from './metrics_utils.js';
+import {recordLensOverlayInteraction} from './metrics_utils.js';
 
-// Closes overlay if escape button is pressed.
-function maybeCloseOverlay(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    BrowserProxyImpl.getInstance()
-        .handler.closeRequestedByOverlayEscapeKeyPress();
-  }
-}
+export let INVOCATION_SOURCE: string = 'Unknown';
 
 export interface LensOverlayAppElement {
   $: {
     backgroundScrim: HTMLElement,
     closeButton: CrIconButtonElement,
+    copyToast: CrToastElement,
     moreOptionsButton: CrIconButtonElement,
-    initialToast: InitialToastElement,
+    initialGradient: InitialGradientElement,
     cursorTooltip: CursorTooltipElement,
   };
 }
@@ -100,6 +97,15 @@ export class LensOverlayAppElement extends PolymerElement {
   private browserProxy: BrowserProxy = BrowserProxyImpl.getInstance();
   private listenerIds: number[];
 
+  constructor() {
+    super();
+
+    this.browserProxy.handler.getOverlayInvocationSource().then(
+        ({invocationSource}) => {
+          INVOCATION_SOURCE = invocationSource;
+        });
+  }
+
   override connectedCallback() {
     super.connectedCallback();
 
@@ -114,7 +120,6 @@ export class LensOverlayAppElement extends PolymerElement {
         this.isClosing = true;
       }),
     ];
-    window.addEventListener('keyup', maybeCloseOverlay);
     this.eventTracker_.add(
         document, 'set-cursor-tooltip', (e: CustomEvent<CursorTooltipData>) => {
           this.$.cursorTooltip.setTooltip(e.detail.tooltipType);
@@ -126,7 +131,6 @@ export class LensOverlayAppElement extends PolymerElement {
     this.listenerIds.forEach(
         id => assert(this.browserProxy.callbackRouter.removeListener(id)));
     this.listenerIds = [];
-    window.removeEventListener('keyup', maybeCloseOverlay);
     this.eventTracker_.removeAll();
   }
 
@@ -162,7 +166,7 @@ export class LensOverlayAppElement extends PolymerElement {
   private onFeedbackClick() {
     this.browserProxy.handler.feedbackRequestedByOverlay();
     this.moreOptionsMenuVisible = false;
-    recordLensOverlayInteraction(UserAction.SEND_FEEDBACK);
+    recordLensOverlayInteraction(INVOCATION_SOURCE, UserAction.kSendFeedback);
   }
 
   private onLearnMoreClick(event: MouseEvent|KeyboardEvent) {
@@ -174,7 +178,7 @@ export class LensOverlayAppElement extends PolymerElement {
       shiftKey: event.shiftKey,
     });
     this.moreOptionsMenuVisible = false;
-    recordLensOverlayInteraction(UserAction.LEARN_MORE);
+    recordLensOverlayInteraction(INVOCATION_SOURCE, UserAction.kLearnMore);
   }
 
   private onMoreOptionsButtonClick() {
@@ -190,7 +194,7 @@ export class LensOverlayAppElement extends PolymerElement {
       shiftKey: event.shiftKey,
     });
     this.moreOptionsMenuVisible = false;
-    recordLensOverlayInteraction(UserAction.MY_ACTIVITY);
+    recordLensOverlayInteraction(INVOCATION_SOURCE, UserAction.kMyActivity);
   }
 
   private onNotifyResultsPanelOpened() {
@@ -227,12 +231,11 @@ export class LensOverlayAppElement extends PolymerElement {
   }
 
   private handleSelectionOverlayClicked() {
-    this.$.initialToast.triggerHideMessageAnimation();
     this.$.cursorTooltip.setPauseTooltipChanges(true);
   }
 
   private handlePointerReleased() {
-    this.$.initialToast.triggerHideScrimAnimation();
+    this.$.initialGradient.triggerHideScrimAnimation();
     this.$.cursorTooltip.setPauseTooltipChanges(false);
   }
 
@@ -242,7 +245,24 @@ export class LensOverlayAppElement extends PolymerElement {
 
   private onInitialFlashAnimationEnd() {
     this.initialFlashAnimationHasEnded = true;
-    this.$.initialToast.setMessageAndScrimVisible();
+    this.$.initialGradient.setScrimVisible();
+  }
+
+  private async showTextCopiedToast() {
+    if (this.$.copyToast.open) {
+      // If toast already open, wait after hiding so that animation is
+      // smoother.
+      await this.$.copyToast.hide();
+      setTimeout(() => {
+        this.$.copyToast.show();
+      }, 100);
+    } else {
+      this.$.copyToast.show();
+    }
+  }
+
+  private onHideToastClick() {
+    this.$.copyToast.hide();
   }
 
   private getSelectionOverlayClass(screenshotDataUri: string): string {

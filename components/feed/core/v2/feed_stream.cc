@@ -67,6 +67,7 @@
 #include "components/offline_pages/task/closure_task.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "ui/base/l10n/l10n_util.h"
 
 namespace feed {
 namespace {
@@ -631,8 +632,10 @@ bool FeedStream::IsFeedEnabledByDse() {
 }
 
 bool FeedStream::IsWebFeedEnabled() {
-  return feed::IsWebFeedEnabledForLocale(delegate_->GetCountry()) &&
-         !delegate_->IsSupervisedAccount();
+  return l10n_util::GetLanguage(delegate_->GetLanguageTag()) == "en" &&
+         feed::IsWebFeedEnabledForLocale(delegate_->GetCountry()) &&
+         !delegate_->IsSupervisedAccount() &&
+         !base::FeatureList::IsEnabled(kWebFeedKillSwitch);
 }
 
 void FeedStream::EnabledPreferencesChanged() {

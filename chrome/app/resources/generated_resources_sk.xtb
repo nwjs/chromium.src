@@ -845,7 +845,6 @@ Povolenia, ktoré ste už udelili aplikáciám, sa môžu vzťahovať na tento �
 <translation id="1607139524282324606">Vymazať záznam</translation>
 <translation id="1607499585984539560">Používateľ nie je spojený s doménou</translation>
 <translation id="1608668830839595724">Ďalšie akcie pre vybrané položky</translation>
-<translation id="1608698493373028805">Toto rozšírenie už čoskoro nemusí byť podporované</translation>
 <translation id="1610272688494140697">Nastavenia aplikácie</translation>
 <translation id="161042844686301425">Azúrová</translation>
 <translation id="1611432201750675208">Vaše zariadenie je uzamknuté</translation>
@@ -1763,6 +1762,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="2273119997271134996">Problém doku s portom pre video</translation>
 <translation id="2274840746523584236">Dobite Chromebook</translation>
 <translation id="2275193525496879616">Povolený. Pripojte k zariadeniu kameru.</translation>
+<translation id="2275352532065325930">Pozícia Vyhľadávania kariet</translation>
 <translation id="2276503375879033601">Pridať ďalšie aplikácie</translation>
 <translation id="2278193750452754829">Rozšírenia sú na tomto webe povolené. Výberom otvorte ponuku.</translation>
 <translation id="2278562042389100163">Otvoriť okno prehliadača</translation>
@@ -1918,6 +1918,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="2376056713414548745">Čítať nahlas</translation>
 <translation id="2377667304966270281">Závažné chyby</translation>
 <translation id="237828693408258535">Preložiť túto stránku?</translation>
+<translation id="2378602615417849384">{NUM_EXTENSIONS,plural, =1{Toto rozšírenie už čoskoro nemusí byť podporované}few{Tieto rozšírenia už čoskoro nemusia byť podporované}many{These extensions may soon no longer be supported}other{Tieto rozšírenia už čoskoro nemusia byť podporované}}</translation>
 <translation id="2378982052244864789">Vybrať adresár rozšírenia.</translation>
 <translation id="2379281330731083556">Tlačiť pomocou dialógového okna systému... <ph name="SHORTCUT_KEY" /></translation>
 <translation id="2381461748765773292">Môže to spôsobiť odpojenie vašej mobilnej siete na niekoľko minút.</translation>
@@ -4118,6 +4119,7 @@ Môže to zahŕňať informácie o nainštalovanom softvéri, súboroch, prehli
 <translation id="3978325380690188371">Režim uzamknutia klávesa nie je k dispozícii, keď je čítačka ChromeVox zapnutá</translation>
 <translation id="3979395879372752341">Bolo pridané nové rozšírenie (<ph name="EXTENSION_NAME" />)</translation>
 <translation id="3979748722126423326">Povoliť <ph name="NETWORKDEVICE" /></translation>
+<translation id="398095528354975981">Skryť tieto karty</translation>
 <translation id="3981058120448670012">Zariadeniam v okolí sa na <ph name="REMAINING_TIME" /> zobrazuje ako <ph name="DEVICE_NAME" />...</translation>
 <translation id="3981760180856053153">Zadali ste neplatný typ uloženia.</translation>
 <translation id="3982375475032951137">Nastavte si prehliadač niekoľkými jednoduchými krokmi</translation>
@@ -4239,6 +4241,7 @@ Môže to zahŕňať informácie o nainštalovanom softvéri, súboroch, prehli
 <translation id="406213378265872299">Prispôsobené správanie</translation>
 <translation id="4062561150282203854">Synchronizujte <ph name="DEVICE_TYPE" /> aplikácie, nastavenia a ďalší obsah</translation>
 <translation id="4065876735068446555">Sieť, ktorú používate (<ph name="NETWORK_ID" />), môže vyžadovať, aby ste navštívili jej prihlasovaciu stránku.</translation>
+<translation id="4065931125325392744">Toto rozšírenie už čoskoro nemusí byť podporované</translation>
 <translation id="4066207411788646768">Ak si chcete zobraziť dostupné tlačiarne v sieti, skontrolujte pripojenie</translation>
 <translation id="4067839975993712852">Označiť aktuálnu kartu ako prečítanú</translation>
 <translation id="4068776064906523561">Uložené odtlačky prstov</translation>
@@ -5303,6 +5306,7 @@ Ak chcete zobrazenie oddialiť, stlačte Ctrl + Alt + zníženie jasu.</translat
 <translation id="4883436287898674711">Všetky weby <ph name="WEBSITE_1" /></translation>
 <translation id="48838266408104654">&amp;Správca úloh</translation>
 <translation id="4884987973312178454">6x</translation>
+<translation id="4885446229353981848">Vždy zobrazovať odkaz na Google Lens</translation>
 <translation id="4885692421645694729">Toto rozšírenie nemá žiadny ďalší prístup k webu</translation>
 <translation id="4887424188275796356">Otvorenie pomocou systémového zobrazovača</translation>
 <translation id="488785315393301722">Zobraziť podrobnosti</translation>
@@ -5361,6 +5365,7 @@ Ak chcete zobrazenie oddialiť, stlačte Ctrl + Alt + zníženie jasu.</translat
 <translation id="4927753642311223124">Tu sa nič nenachádza, pokračujte ďalej.</translation>
 <translation id="4928629450964837566">Používajte bezpečnejšie heslo</translation>
 <translation id="4929386379796360314">Tlač destinácií</translation>
+<translation id="4930406318748549391">Umiestnenie bočného panela</translation>
 <translation id="4930447554870711875">Vývojári</translation>
 <translation id="4930714375720679147">Zapnúť</translation>
 <translation id="4931347390544064118">Pri používaní predvolených nastavení siete nemusia byť zabezpečené pripojenia vždy k dispozícii. Ak chcete mať istotu, že sa vždy bude používať zabezpečené pripojenie, zvážte výber iného poskytovateľa.</translation>
@@ -6095,7 +6100,7 @@ Na tento účet sa môžu vzťahovať povolenia, ktoré ste už udelili webom a�
 <translation id="5490798133083738649">Povoliť systému Linux prístup k mikrofónu</translation>
 <translation id="549211519852037402">Béžová a biela</translation>
 <translation id="5492637351392383067">Šifrovanie v zariadení</translation>
-<translation id="5493455553805432330">Odstrániť</translation>
+<translation id="5493455553805432330">Zabudnúť</translation>
 <translation id="5493792505296048976">obrazovka je zapnutá</translation>
 <translation id="5494016731375030300">Nedávno zavreté karty</translation>
 <translation id="5494362494988149300">Po &amp;stiahnutí otvoriť</translation>
@@ -7496,6 +7501,7 @@ Na tento účet sa môžu vzťahovať povolenia, ktoré ste už udelili webom a�
 <translation id="6557290421156335491">Moje skratky</translation>
 <translation id="6560061709899140565">Zobraziť ďalšie relácie prenosu</translation>
 <translation id="6560151649238390891">Návrh bol vložený</translation>
+<translation id="656065428026159829">Zobraziť viac</translation>
 <translation id="6561726789132298588">enter</translation>
 <translation id="6562117348069327379">Ukladajte denníky systému do priečinka Stiahnuté.</translation>
 <translation id="656293578423618167">Názov súboru alebo cesta má veľa znakov. Uložte súbor pod kratším názvom alebo inde.</translation>
@@ -7549,6 +7555,7 @@ Máte ešte # ďalších. Správca hesiel Google odporúča okamžite dané hes
 <translation id="6597324406048772521">Rozšírenia nie sú na tomto webe povolené</translation>
 <translation id="6597331566371766302">Váš správca zablokoval nasledujúce rozšírenia:</translation>
 <translation id="659894938503552850">najnovšie</translation>
+<translation id="6600016381025017075">Vyhľadať ľubovoľný obsah tejto stránky</translation>
 <translation id="6601262427770154296">Spravovať používateľské slovníky</translation>
 <translation id="6602173570135186741">Automatické dopĺňanie a heslá</translation>
 <translation id="6602336931411102724">Zobrazovať skupiny kariet na paneli so záložkami</translation>
@@ -8073,6 +8080,7 @@ Máte ešte # ďalších. Správca hesiel Google odporúča okamžite dané hes
 <translation id="6988572888918530647">Spravovať účet Google</translation>
 <translation id="6989274756151920076">Zostať tu</translation>
 <translation id="6991665348624301627">Vybrať cieľ</translation>
+<translation id="6991926986715044139">Vždy zobrazovať odkaz na Google Lens</translation>
 <translation id="6992554835374084304">Zapnutie rozšírenej kontroly pravopisu</translation>
 <translation id="6993000214273684335">Karta bola odstránená zo skupiny bez názvu – <ph name="GROUP_CONTENTS" /></translation>
 <translation id="6993050154661569036">Prehliadač Chrome sa aktualizuje</translation>
@@ -9466,6 +9474,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="8022466874160067884">Zadajte svoj účet Google a heslo</translation>
 <translation id="8023133589013344428">Správa jazykov v nastaveniach systému Chrome OS Flex</translation>
 <translation id="8023801379949507775">Aktualizovať rozšírenia</translation>
+<translation id="8024161440284949905">Pokračovať s týmito kartami</translation>
 <translation id="8025151549289123443">Uzamknutá obrazovka a prihlásenie</translation>
 <translation id="8025291188699172126">Aktualizácie</translation>
 <translation id="8026471514777758216">Všetky vaše zariadenia</translation>
@@ -10291,7 +10300,6 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="8636500887554457830">Nepovoliť webom odosielať vyskakovacie okná alebo používať presmerovania</translation>
 <translation id="8636514272606969031">Bočný panel bol pripnutý</translation>
 <translation id="8637688295594795546">K dispozícii je systémová aktualizácia. Pripravuje sa stiahnutie...</translation>
-<translation id="8638603762333060790">{NUM_EXTENSIONS,plural, =1{Toto rozšírenie už čoskoro nemusí byť podporované}few{Tieto rozšírenia už čoskoro nemusia byť podporované}many{These extensions may soon no longer be supported}other{Tieto rozšírenia už čoskoro nemusia byť podporované}}</translation>
 <translation id="8638719155236856752">Stav siete v systéme ChromeOS</translation>
 <translation id="8639635302972078117">Odosielanie údajov o využití a diagnostiky. Toto zariadenie momentálne automaticky odosiela Googlu diagnostiky a údaje o používaní zariadenia a aplikácií. Nebudú slúžiť na zistenie totožnosti vášho dieťaťa. Pomôžu zvýšiť stabilitu systému a aplikácií a poskytovať ďalšie zlepšenia. Niektoré súhrnné údaje tiež pomôžu aplikáciám Google a partnerom, ako napríklad vývojárom pre Android. Ak pre dieťa zapnete nastavenie ďalšej aktivity na internete a v aplikáciách, tieto údaje sa môžu uložiť do jeho účtu Google.</translation>
 <translation id="8640575194957831802">naposledy otvorené</translation>

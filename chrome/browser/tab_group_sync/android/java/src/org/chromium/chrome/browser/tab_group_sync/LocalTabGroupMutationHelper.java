@@ -4,12 +4,15 @@
 
 package org.chromium.chrome.browser.tab_group_sync;
 
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncController.TabCreationDelegate;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.components.tab_group_sync.ClosingSource;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
+import org.chromium.components.tab_group_sync.OpeningSource;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.SavedTabGroupTab;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
@@ -52,7 +55,7 @@ public class LocalTabGroupMutationHelper {
      * create the group locally, update its visuals, add new tabs with desired URLs, update the
      * mapping in the service.
      */
-    public void createNewTabGroup(SavedTabGroup tabGroup) {
+    public void createNewTabGroup(SavedTabGroup tabGroup, @OpeningSource int openingSource) {
         LogUtils.log(TAG, "createNewTabGroup " + tabGroup);
         // We ensure in native that the observers are notified only after the group has received at
         // least one tab.
@@ -71,6 +74,7 @@ public class LocalTabGroupMutationHelper {
                             savedTab.url, savedTab.title, /* parent= */ null, position++);
             tabs.add(newTab);
             tabIdMappings.put(savedTab.syncId, newTab.getId());
+            RecordUserAction.record("TabGroups.Sync.CreatedNewTab");
         }
 
         // Create a new tab group and add the tabs just created. Group ID is the ID of the first new
@@ -95,6 +99,9 @@ public class LocalTabGroupMutationHelper {
             mTabGroupSyncService.updateLocalTabId(
                     localTabGroupId, syncTabId, tabIdMappings.get(syncTabId));
         }
+
+        TabGroupSyncUtils.recordTabGroupOpenCloseMetrics(
+                mTabGroupSyncService, /* open= */ true, openingSource, localTabGroupId);
     }
 
     /**
@@ -201,6 +208,7 @@ public class LocalTabGroupMutationHelper {
         Tab newTab =
                 mTabCreationDelegate.createBackgroundTab(
                         url, title, parentTab, desiredTabModelIndex);
+        RecordUserAction.record("TabGroups.Sync.CreatedNewTab");
 
         List<Tab> tabsToMerge = new ArrayList<>();
         tabsToMerge.add(newTab);
@@ -217,7 +225,7 @@ public class LocalTabGroupMutationHelper {
      *
      * @param tabGroupId The local ID of the tab group.
      */
-    public void closeTabGroup(LocalTabGroupId tabGroupId) {
+    public void closeTabGroup(LocalTabGroupId tabGroupId, @ClosingSource int closingSource) {
         LogUtils.log(TAG, "closeTabGroup " + tabGroupId);
         int rootId = TabGroupSyncUtils.getRootId(mTabGroupModelFilter, tabGroupId);
         assert rootId != Tab.INVALID_TAB_ID;
@@ -226,7 +234,9 @@ public class LocalTabGroupMutationHelper {
         List<Tab> tabs = mTabGroupModelFilter.getRelatedTabListForRootId(rootId);
         getTabModel().closeMultipleTabs(tabs, /* canUndo= */ false);
 
-        // Remove mapping from service.
+        // Remove mapping from service. Collect metrics before that.
+        TabGroupSyncUtils.recordTabGroupOpenCloseMetrics(
+                mTabGroupSyncService, /* open= */ false, closingSource, tabGroupId);
         mTabGroupSyncService.removeLocalTabGroupMapping(tabGroupId);
     }
 

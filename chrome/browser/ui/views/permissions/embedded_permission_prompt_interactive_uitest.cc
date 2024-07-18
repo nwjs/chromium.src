@@ -363,7 +363,10 @@ class EmbeddedPermissionPromptInteractiveTest : public InteractiveBrowserTest {
             type, accepted_once_count),
         CheckHistogram(tester,
                        permissions::PermissionUmaUtil::kPermissionsPromptDenied,
-                       type, 0));
+                       type, 0),
+        CheckHistogram(
+            tester, permissions::PermissionUmaUtil::kPermissionsPromptDismissed,
+            type, 0));
   }
 
  protected:
@@ -758,7 +761,10 @@ class EmbeddedPermissionPromptPositioningInteractiveTest
 IN_PROC_BROWSER_TEST_F(EmbeddedPermissionPromptPositioningInteractiveTest,
                        MAYBE_TestPermissionElementDialogPositioning) {
   RunTestSequence(InstrumentTab(kWebContentsElementId),
-                  NavigateWebContents(kWebContentsElementId, GetURL()));
+                  NavigateWebContents(kWebContentsElementId, GetURL()),
+                  // Set the font size to 'small' to ensure all elements have
+                  // enough room in a line as this test depends on it.
+                  ExecuteJs(kWebContentsElementId, "setFontSizeSmall"));
 
   // Click on multiple elements in order from left to right, and ensure that
   // dialog moves with each click

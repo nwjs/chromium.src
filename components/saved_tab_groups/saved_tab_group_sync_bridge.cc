@@ -23,6 +23,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/saved_tab_groups/features.h"
 #include "components/saved_tab_groups/pref_names.h"
+#include "components/saved_tab_groups/proto/saved_tab_group_data.pb.h"
 #include "components/saved_tab_groups/saved_tab_group.h"
 #include "components/saved_tab_groups/saved_tab_group_model.h"
 #include "components/saved_tab_groups/saved_tab_group_proto_conversions.h"
@@ -129,11 +130,6 @@ SavedTabGroupSyncBridge::~SavedTabGroupSyncBridge() = default;
 
 void SavedTabGroupSyncBridge::OnSyncStarting(
     const syncer::DataTypeActivationRequest& request) {
-  for (SavedTabGroup& group : model_->saved_tab_groups()) {
-    if (IsRemoteGroup(group)) {
-      group.SetIsRemoteGroup(true);
-    }
-  }
 }
 
 std::unique_ptr<syncer::MetadataChangeList>
@@ -436,6 +432,12 @@ void SavedTabGroupSyncBridge::SavedTabGroupUpdatedLocally(
           SavedTabGroupTabToData(group->saved_tabs()[tab_index]),
           write_batch.get());
     }
+
+    // There might be an updated user interaction time for the group. Hence
+    // write the group to DB.
+    auto group_data = SavedTabGroupToData(*group);
+    write_batch->WriteData(group_data.specifics().guid(),
+                           group_data.SerializeAsString());
   } else {
     UpsertEntitySpecific(SavedTabGroupToData(*group), write_batch.get());
   }
@@ -480,6 +482,21 @@ void SavedTabGroupSyncBridge::SavedTabGroupLocalIdChanged(
   auto data = SavedTabGroupToData(*group);
   write_batch->WriteData(data.specifics().guid(), data.SerializeAsString());
   store_->CommitWriteBatch(std::move(write_batch), base::DoNothing());
+}
+
+void SavedTabGroupSyncBridge::SavedTabGroupLastUserInteractionTimeUpdated(
+    const base::Uuid& group_guid) {
+  const SavedTabGroup* const group = model_->Get(group_guid);
+  CHECK(group);
+
+  std::unique_ptr<syncer::ModelTypeStore::WriteBatch> write_batch =
+      store_->CreateWriteBatch();
+  proto::SavedTabGroupData data = SavedTabGroupToData(*group);
+  write_batch->WriteData(data.specifics().guid(), data.SerializeAsString());
+  store_->CommitWriteBatch(
+      std::move(write_batch),
+      base::BindOnce(&SavedTabGroupSyncBridge::OnDatabaseSave,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void SavedTabGroupSyncBridge::SavedTabGroupReorderedLocally() {
@@ -618,9 +635,6 @@ void SavedTabGroupSyncBridge::AddDataToLocalStorage(
     } else {
       // We do not have this group. Add the group from sync into local storage.
       SavedTabGroup new_group = DataToSavedTabGroup(data);
-      if (IsRemoteGroup(new_group)) {
-        new_group.SetIsRemoteGroup(true);
-      }
       write_batch->WriteData(guid, data.SerializeAsString());
       model_->AddedFromSync(std::move(new_group));
     }

@@ -60,7 +60,13 @@ enum class LensOverlayDismissalSource {
   // The tab was closed.
   kTabClosed = 13,
 
-  kMaxValue = kTabClosed
+  // Renderer closed unexpected (ex. renderer crashed).
+  kRendererClosed = 14,
+
+  // The user started finding text on the page underneath.
+  kFindInPageInvoked = 15,
+
+  kMaxValue = kFindInPageInvoked
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/lens/enums.xml:LensOverlayDismissalSource)
 

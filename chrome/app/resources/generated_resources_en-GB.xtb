@@ -844,7 +844,6 @@ Permissions that you've already given to apps may apply to this account. You can
 <translation id="1607139524282324606">Clear entry</translation>
 <translation id="1607499585984539560">User is not affiliated with domain</translation>
 <translation id="1608668830839595724">More actions for selected items</translation>
-<translation id="1608698493373028805">This extension may soon no longer be supported</translation>
 <translation id="1610272688494140697">App settings</translation>
 <translation id="161042844686301425">Cyan</translation>
 <translation id="1611432201750675208">Your device is locked</translation>
@@ -1774,6 +1773,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2273119997271134996">Dock video-port issue</translation>
 <translation id="2274840746523584236">Charge your Chromebook</translation>
 <translation id="2275193525496879616">Allowed. Connect a camera to your device.</translation>
+<translation id="2275352532065325930">Tab search position</translation>
 <translation id="2276503375879033601">Add more apps</translation>
 <translation id="2278193750452754829">Extensions are allowed on this site. Select to open menu</translation>
 <translation id="2278562042389100163">Open browser window</translation>
@@ -1929,6 +1929,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2376056713414548745">Read aloud</translation>
 <translation id="2377667304966270281">Hard Faults</translation>
 <translation id="237828693408258535">Translate this page?</translation>
+<translation id="2378602615417849384">{NUM_EXTENSIONS,plural, =1{This extension may soon no longer be supported}other{These extensions may soon no longer be supported}}</translation>
 <translation id="2378982052244864789">Select the extension directory.</translation>
 <translation id="2379281330731083556">Print using system dialogue... <ph name="SHORTCUT_KEY" /></translation>
 <translation id="2381461748765773292">This may cause your mobile network to disconnect for a few minutes</translation>
@@ -4129,6 +4130,7 @@ This can include information about installed software, files, your browser and t
 <translation id="3978325380690188371">Sticky keys is not available when ChromeVox is on</translation>
 <translation id="3979395879372752341">New extension added (<ph name="EXTENSION_NAME" />)</translation>
 <translation id="3979748722126423326">Enable <ph name="NETWORKDEVICE" /></translation>
+<translation id="398095528354975981">Hide these tabs</translation>
 <translation id="3981058120448670012">Visible to nearby devices as <ph name="DEVICE_NAME" /> for <ph name="REMAINING_TIME" />…</translation>
 <translation id="3981760180856053153">Invalid save type entered.</translation>
 <translation id="3982375475032951137">Set up your browser in a few simple steps</translation>
@@ -4250,6 +4252,7 @@ This can include information about installed software, files, your browser and t
 <translation id="406213378265872299">Customised behaviours</translation>
 <translation id="4062561150282203854">Sync your <ph name="DEVICE_TYPE" /> apps, settings and more</translation>
 <translation id="4065876735068446555">The network you are using (<ph name="NETWORK_ID" />) may require you to visit its login page.</translation>
+<translation id="4065931125325392744">This extension may soon no longer be supported</translation>
 <translation id="4066207411788646768">Please check your connection to see available printers in your network</translation>
 <translation id="4067839975993712852">Mark current tab as read</translation>
 <translation id="4068776064906523561">Saved fingerprints</translation>
@@ -5314,6 +5317,7 @@ Use Ctrl + Alt + Brightness down to zoom out.</translation>
 <translation id="4883436287898674711">All <ph name="WEBSITE_1" /> sites</translation>
 <translation id="48838266408104654">&amp;Task Manager</translation>
 <translation id="4884987973312178454">6x</translation>
+<translation id="4885446229353981848">Always show Google Lens shortcut</translation>
 <translation id="4885692421645694729">This extension has no additional site access</translation>
 <translation id="4887424188275796356">Open With System Viewer</translation>
 <translation id="488785315393301722">Show details</translation>
@@ -5372,6 +5376,7 @@ Use Ctrl + Alt + Brightness down to zoom out.</translation>
 <translation id="4927753642311223124">Nothing to see here, move along.</translation>
 <translation id="4928629450964837566">Use a safer password</translation>
 <translation id="4929386379796360314">Print destinations</translation>
+<translation id="4930406318748549391">Side panel position</translation>
 <translation id="4930447554870711875">Developers</translation>
 <translation id="4930714375720679147">Turn On</translation>
 <translation id="4931347390544064118">Secure connections might not always be available when using the network default. Consider selecting a different provider to ensure that you're always using a secure connection.</translation>
@@ -6970,7 +6975,7 @@ Permissions that you've already given to websites and apps may apply to this acc
 <translation id="6148576794665275391">Open now</translation>
 <translation id="614890671148262506">Always allow notifications from this site</translation>
 <translation id="6149015141270619212">Can't connect to the Internet</translation>
-<translation id="6149061208933997199">Use Password</translation>
+<translation id="6149061208933997199">Use password</translation>
 <translation id="6149791593592044995">Use modern tone mark placement</translation>
 <translation id="6150116777338468525">Audio quality</translation>
 <translation id="6150278227694566734">Some contacts</translation>
@@ -7508,6 +7513,7 @@ Permissions that you've already given to websites and apps may apply to this acc
 <translation id="6557290421156335491">My shortcuts</translation>
 <translation id="6560061709899140565">Show other cast sessions</translation>
 <translation id="6560151649238390891">Suggestion inserted</translation>
+<translation id="656065428026159829">See more</translation>
 <translation id="6561726789132298588">enter</translation>
 <translation id="6562117348069327379">Store system logs to the downloads directory.</translation>
 <translation id="656293578423618167">The file path or name is too long.  Please save with a shorter name or to another location.</translation>
@@ -7557,6 +7563,7 @@ You have # more compromised passwords. Google Password Manager recommends checki
 <translation id="6597324406048772521">Extensions not allowed on this site</translation>
 <translation id="6597331566371766302">The following extensions were blocked by your administrator:</translation>
 <translation id="659894938503552850">newest</translation>
+<translation id="6600016381025017075">Search anything on this page</translation>
 <translation id="6601262427770154296">Manage user dictionaries</translation>
 <translation id="6602173570135186741">Autofill and passwords</translation>
 <translation id="6602336931411102724">Show tab groups in bookmarks bar</translation>
@@ -8081,6 +8088,7 @@ You have # more compromised passwords. Google Password Manager recommends checki
 <translation id="6988572888918530647">Manage your Google Account</translation>
 <translation id="6989274756151920076">Stay here</translation>
 <translation id="6991665348624301627">Select a destination</translation>
+<translation id="6991926986715044139">Always show Google Lens shortcut</translation>
 <translation id="6992554835374084304">Turn on enhanced spell check</translation>
 <translation id="6993000214273684335">Tab removed from unnamed group – <ph name="GROUP_CONTENTS" /></translation>
 <translation id="6993050154661569036">Updating Chrome Browser</translation>
@@ -9475,6 +9483,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8022466874160067884">Enter your Google Account and password</translation>
 <translation id="8023133589013344428">Manage languages in Chrome OS Flex settings</translation>
 <translation id="8023801379949507775">Update extensions now</translation>
+<translation id="8024161440284949905">Continue with these tabs</translation>
 <translation id="8025151549289123443">Lock screen and sign-in</translation>
 <translation id="8025291188699172126">About Updates</translation>
 <translation id="8026471514777758216">All your devices</translation>
@@ -10300,7 +10309,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8636500887554457830">Don't allow sites to send pop-ups or use redirects</translation>
 <translation id="8636514272606969031">Side panel pinned</translation>
 <translation id="8637688295594795546">System update available. Preparing to download…</translation>
-<translation id="8638603762333060790">{NUM_EXTENSIONS,plural, =1{This extension may soon no longer be supported}other{These extensions may soon no longer be supported}}</translation>
 <translation id="8638719155236856752">ChromeOS Network Health</translation>
 <translation id="8639635302972078117">Send usage and diagnostic data. This device is currently automatically sending diagnostic, device and app usage data to Google. This won't be used to identify your child, and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If additional Web &amp; App Activity setting is turned on for your child, this data may be saved to their Google Account.</translation>
 <translation id="8640575194957831802">Last opened</translation>

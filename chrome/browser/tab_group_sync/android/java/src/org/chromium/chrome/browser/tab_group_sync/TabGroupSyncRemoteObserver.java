@@ -11,7 +11,9 @@ import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.components.prefs.PrefService;
+import org.chromium.components.tab_group_sync.ClosingSource;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
+import org.chromium.components.tab_group_sync.OpeningSource;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_group_sync.TriggerSource;
@@ -75,13 +77,14 @@ public final class TabGroupSyncRemoteObserver implements TabGroupSyncService.Obs
 
         LogUtils.log(TAG, "onTabGroupAdded, tabGroup = " + tabGroup);
         assert tabGroup.localId == null;
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_GROUP_SYNC_AUTO_OPEN_KILL_SWITCH)
-                || !mPrefService.getBoolean(Pref.AUTO_OPEN_SYNCED_TAB_GROUPS)) {
-            return;
-        }
+        boolean isAutoOpenEnabled =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_GROUP_SYNC_AUTO_OPEN_KILL_SWITCH)
+                        && mPrefService.getBoolean(Pref.AUTO_OPEN_SYNCED_TAB_GROUPS);
+        if (!isAutoOpenEnabled) return;
 
         mEnableLocalObserverCallback.onResult(false);
-        mLocalTabGroupMutationHelper.createNewTabGroup(tabGroup);
+        mLocalTabGroupMutationHelper.createNewTabGroup(
+                tabGroup, OpeningSource.AUTO_OPENED_FROM_SYNC);
         mEnableLocalObserverCallback.onResult(true);
     }
 
@@ -117,7 +120,7 @@ public final class TabGroupSyncRemoteObserver implements TabGroupSyncService.Obs
         if (!TabGroupSyncUtils.isInCurrentWindow(mTabGroupModelFilter, localId)) return;
 
         mEnableLocalObserverCallback.onResult(false);
-        mLocalTabGroupMutationHelper.closeTabGroup(localId);
+        mLocalTabGroupMutationHelper.closeTabGroup(localId, ClosingSource.DELETED_FROM_SYNC);
         mEnableLocalObserverCallback.onResult(true);
     }
 

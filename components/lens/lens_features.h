@@ -234,6 +234,10 @@ extern int GetLensOverlayScreenshotRenderQuality();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool LensOverlayUseTieredDownscaling();
 
+// Returns whether or not to send a gen204 latency ping.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool GetLensOverlaySendLatencyGen204();
+
 // Returns the finch configured max image height for the Lens overlay feature
 // when tiered downscaling approach is disabled.
 COMPONENT_EXPORT(LENS_FEATURES)
@@ -342,11 +346,6 @@ extern int GetLensOverlayHorizontalTextMargin();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOverlaySearchBubbleEnabled();
 
-// Returns whether to use segmentation mask polygons for object highlighting on
-// the Lens overlay.
-COMPONENT_EXPORT(LENS_FEATURES)
-extern bool IsLensOverlayPreciseHighlightEnabled();
-
 // Returns whether to render the Lens overlay shimmer.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOverlayShimmerEnabled();
@@ -354,10 +353,6 @@ extern bool IsLensOverlayShimmerEnabled();
 // Returns whether to render the sparkling effect on the Lens overlay shimmer.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOverlayShimmerSparklesEnabled();
-
-// Returns whether to allow dragging the Lens overlay selection box.
-COMPONENT_EXPORT(LENS_FEATURES)
-extern bool IsLensOverlaySelectionDraggingEnabled();
 
 // Returns whether to require that Google is the user's DSE (default search
 // engine) for the Lens overlay feature to be enabled.
@@ -381,10 +376,15 @@ extern int GetLensOverlayTapRegionHeight();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern int GetLensOverlayTapRegionWidth();
 
-// Returns whether to enable the image context menu extrypoint for Lens
+// Returns whether to enable the image context menu entry point for Lens
 // Overlay.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool UseLensOverlayForImageSearch();
+
+// Returns whether to enable the video context menu entry point for Lens
+// Overlay.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool UseLensOverlayForVideoFrameSearch();
 
 // Returns whether to enable the find-in-page entry point.
 COMPONENT_EXPORT(LENS_FEATURES)
@@ -393,6 +393,11 @@ extern bool IsFindInPageEntryPointEnabled();
 // Returns whether to enable the omnibox entry point.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsOmniboxEntryPointEnabled();
+
+// True if the overlay entrypoint should suppress its label and be always
+// visible in the omnibox.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsOmniboxEntrypointAlwaysVisible();
 
 // Returns whether or not to read the browser dark mode setting
 // for Lens Overlay. If false, it will fall back to light mode.
@@ -437,6 +442,36 @@ extern int GetLensOverlaySignificantRegionMinArea();
 // negative, no maximum will be imposed.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern int GetLensOverlayMaxSignificantRegions();
+
+// Threshold for comparing equality of object bounding box and previously
+// selected bounding box. Unit is proportion of the image dimensions.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern double GetLensOverlayPostSelectionComparisonThreshold();
+
+// The radius of the live page / underlying tab contents blur in pixels.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern int GetLensOverlayLivePageBlurRadiusPixels();
+
+// The timeout set for every request from the browser to the server in
+// milliseconds.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern int GetLensOverlayServerRequestTimeout();
+
+// Whether the error page is enabled on the lens overlay. This error page is
+// visible when the full image request times out or when the user is offline. It
+// prevents the user from interacting with the side panel results and searchbox.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool GetLensOverlayEnableErrorPage();
+
+// The value of the search companion query parameter `gsc` used in search URLs
+// that are loaded in the side panel.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern std::string GetLensOverlayGscQueryParamValue();
+
+// Whether to allow the Lens Overlay in fullscreen without top Chrome. When this
+// is disabled, Lens Overlay is only enabled if top chrome is enabled.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool GetLensOverlayEnableInFullscreen();
 
 }  // namespace lens::features
 

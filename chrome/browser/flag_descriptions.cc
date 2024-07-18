@@ -2257,6 +2257,10 @@ const char kLensRegionSearchStaticPageDescription[] =
     "Enables use of a static page in a new tab when using the Lens region "
     "search feature.";
 
+const char kLensOverlayName[] = "Lens overlay";
+const char kLensOverlayDescription[] =
+    "Enables Lens search via an overlay on any page.";
+
 const char kLensImageTranslateName[] =
     "Translate text in images with Google Lens";
 const char kLensImageTranslateDescription[] =
@@ -3441,6 +3445,13 @@ const char kTabHoverCardImagesName[] = "Tab Hover Card Images";
 const char kTabHoverCardImagesDescription[] =
     "Shows a preview image in tab hover cards, if tab hover cards are enabled.";
 
+#if !BUILDFLAG(IS_ANDROID)
+const char kTabSearchPositionSettingId[] = "tab-search-position-setting";
+const char kTabSearchPositionSettingName[] = "Tab Search Position Setting";
+const char kTabSearchPositionSettingDescription[] =
+    "Whether to show the tab search position options in the settings page.";
+#endif
+
 const char kTearOffWebAppAppTabOpensWebAppWindowName[] = "Tear Off Web App Tab";
 const char kTearOffWebAppAppTabOpensWebAppWindowDescription[] =
     "Open Web App window when tearing off a tab that's displaying a url "
@@ -4131,6 +4142,11 @@ const char kCCTGoogleBottomBarName[] = "Google Bottom Bar";
 const char kCCTGoogleBottomBarDescription[] =
     "Show bottom bar on Custom Tabs opened by the Android Google App.";
 
+const char kCCTGoogleBottomBarVariantLayoutsName[] =
+    "Google Bottom Bar Variant Layouts";
+const char kCCTGoogleBottomBarVariantLayoutsDescription[] =
+    "Show different layouts on Google Bottom Bar.";
+
 const char kCCTResizableForThirdPartiesName[] =
     "Bottom sheet Custom Tabs (third party)";
 const char kCCTResizableForThirdPartiesDescription[] =
@@ -4485,6 +4501,11 @@ const char kQueryTilesSwapTrendingDescription[] =
 const char kReadAloudName[] = "Read Aloud";
 const char kReadAloudDescription[] = "Controls the Read Aloud feature";
 
+const char kReadAloudBackgroundPlaybackName[] =
+    "Read Aloud Background Playback";
+const char kReadAloudBackgroundPlaybackDescription[] =
+    "Controls background playback for the Read Aloud feature";
+
 const char kReadAloudInCCTName[] = "Read Aloud entrypoint in CCT";
 const char kReadAloudInCCTDescription[] =
     "Controls the Read Aloud entrypoint in the overflow menu for CCT";
@@ -4628,6 +4649,11 @@ const char kTabGroupParityAndroidDescription[] =
 const char kTabGroupSyncAndroidName[] = "Tab Group Sync on Android";
 const char kTabGroupSyncAndroidDescription[] =
     "Enables syncing of tab groups on Android with other devices.";
+
+const char kTabGroupSyncDisableNetworkLayerName[] =
+    "Tab Group Sync Disable Network Layer";
+const char kTabGroupSyncDisableNetworkLayerDescription[] =
+    "Disables network layer of tab group sync.";
 
 const char kTabGroupSyncForceOffName[] = "Tab Group Sync Force Off";
 const char kTabGroupSyncForceOffDescription[] =
@@ -5255,6 +5281,11 @@ const char kLayoutExtractionName[] = "Layout Extraction";
 const char kLayoutExtractionDescription[] =
     "Enables Layout Extraction local machine intelligence library to use "
     "screen snapshots to add metadata for accessibility tools.";
+
+const char kMainNodeAnnotationsName[] = "Main Node Annotations";
+const char kMainNodeAnnotationsDescription[] =
+    "Uses Screen2x main content extractor to annotate the accessibility tree "
+    "with the main landmark on the node identified as main.";
 
 const char kOmniboxDriveSuggestionsName[] =
     "Omnibox Google Drive Document suggestions";
