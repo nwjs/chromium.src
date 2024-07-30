@@ -2237,9 +2237,11 @@ void BrowserView::FullscreenStateChanged() {
 
   browser_->WindowFullscreenStateChanged();
 
+  if (GetExclusiveAccessManager() && GetExclusiveAccessManager()->fullscreen_controller()) {
   GetExclusiveAccessManager()
       ->fullscreen_controller()
       ->FullscreenTransitionCompleted();
+  }
 }
 
 void BrowserView::SetToolbarButtonProvider(ToolbarButtonProvider* provider) {
